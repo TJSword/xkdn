@@ -10,32 +10,36 @@ import { createWebHashHistory, createRouter } from 'vue-router'
 
 // 路由表
 export const constantRoutes = [
-    {
-        path: '/',
-        redirect: '/test'
-    },
+  {
+    path: '/',
+    redirect: '/login'
+  },
 
-    {
-        path: '/test',
-        component: () => import('@/views/test/test.vue')
-    },
+  {
+    path: '/login',
+    component: () => import('@/views/login.vue')
+  },
+  {
+    path: '/home',
+    component: () => import('@/views/home.vue')
+  },
 
-    // 404页面
-    {
-        path: '/:pathMatch(.*)*',
-        component: () => import('@/views/error/404.vue')
-    }
+  // 404页面
+  {
+    path: '/:pathMatch(.*)*',
+    component: () => import('@/views/error/404.vue')
+  }
 ]
 
 const router = createRouter({
-    history: createWebHashHistory(),
-    routes: constantRoutes
+  history: createWebHashHistory(),
+  routes: constantRoutes
 })
 
 router.beforeEach((to, from, next) => {
-    if (to.query.xxl_sso_sessionid) {
-        localStorage.setItem('xxl_sso_sessionid', to.query.xxl_sso_sessionid as any)
-    }
-    next()
+  if (to.query.xxl_sso_sessionid) {
+    localStorage.setItem('xxl_sso_sessionid', to.query.xxl_sso_sessionid as any)
+  }
+  next()
 })
 export default router
