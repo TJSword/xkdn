@@ -1,0 +1,15 @@
+@use 'sass:math';
+
+// px to viewport
+$designWidth: 1920;
+$designHeight: 1080;
+
+//px转为vw的函数
+@function vw($px) {
+	@return math.div($px, $designWidth) * 100vw;
+}
+
+//px转为vh的函数
+@function vh($px) {
+	@return math.div($px, $designHeight) * 100vh;
+}

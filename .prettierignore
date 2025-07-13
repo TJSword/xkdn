@@ -1,0 +1,13 @@
+/dist/*
+.local
+/node_modules/**
+**/*.svg
+**/*.sh
+/public/*
+*.md
+*.woff
+*.ttf
+.vscode
+.idea
+.husky
+/packages/*

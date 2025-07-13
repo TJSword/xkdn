@@ -1,0 +1,37 @@
+{
+    "compilerOptions": {
+        "target": "ESNext", // 编译后的代码版本
+        "useDefineForClassFields": true, // 编译class 从 [[Set]] 变更到 [[Define]]
+        "module": "ESNext", // 指定模块代码生成格式
+        "moduleResolution": "Node", // 指定模块解析策略
+        "strict": true, // 启用所有严格的类型检查选项
+        "jsx": "preserve", // 指定JSX代码生成类型
+        "sourceMap": true, // 生成对应的.map文件
+        "resolveJsonModule": true, // 导入json模块
+        "isolatedModules": true, // 将每个文件转换为单独模块
+        "esModuleInterop": true, // 通过为所有导入创建的命名空间对象
+        "lib": ["ESNext", "DOM"], // 指定要包含在编译中的库文件
+        "types": ["vite/client"], // 提供资源导入、import.meta.env、import.meta.hot类型定义
+        "skipLibCheck": true, // 跳过声明文件的类型检查【跳过第三方库检查，解决打包失败】
+        "baseUrl": "./", // 解析非相对模块名的基准目录
+        "paths": {
+            // 模块名到基于 baseUrl 的路径映射的列表。
+            "@": ["src"],
+            "@/*": ["src/*"]
+        }
+    },
+    // 指定需要编译的文件【如果新增了*.ts声明文件, 这里必须加入对应的目录进行编译】
+    "include": [
+        "src/**/*.ts",
+        "src/**/*.d.ts",
+        "src/**/*.tsx",
+        "src/**/*.vue",
+        "build/**/*.ts",
+        "build/**/*.d.ts",
+        "types/**/*.ts",
+        "types/**/*.d.ts",
+        "vite.config.ts"
+    ],
+    // 指定编译排除的文件
+    "exclude": ["node_modules", "dist", "**/*.js"]
+}
