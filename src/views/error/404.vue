@@ -1,244 +1,142 @@
 <template>
-    <div class="wscn-http404-container">
-        <div class="wscn-http404">
-            <div class="pic-404">
-                <img class="pic-404__parent" src="@/assets/images/404.png" alt="404" />
-                <img class="pic-404__child left" src="@/assets/images/404_cloud.png" alt="404" />
-                <img class="pic-404__child mid" src="@/assets/images/404_cloud.png" alt="404" />
-                <img class="pic-404__child right" src="@/assets/images/404_cloud.png" alt="404" />
-            </div>
-            <div class="bullshit">
-                <div class="bullshit__oops">404错误!</div>
-                <div class="bullshit__headline">
-                    {{ message }}
-                </div>
-                <div class="bullshit__info">
-                    对不起，您正在寻找的页面不存在。尝试检查URL的错误，然后按浏览器上的刷新按钮或尝试在我们的应用程序中找到其他内容。
-                </div>
-                <router-link to="/" class="bullshit__return-home"> 返回首页 </router-link>
-            </div>
-        </div>
+  <div class="page-wrapper">
+    <div class="main-container">
+
+      <!-- 404 内容卡片 -->
+      <div class="error-card">
+
+        <!-- 错误码 -->
+        <h1 class="error-code">404</h1>
+
+        <!-- 错误标题 -->
+        <h2 class="error-title">路径未找到</h2>
+
+        <!-- 错误描述 -->
+        <p class="error-description">
+          您似乎偏离了预设的财富增长轨迹。<br>
+          所访问的页面可能已被移动、删除，或从未存在过。
+        </p>
+
+        <!-- 返回主页按钮 -->
+        <a href="/" class="home-button">
+          返回主页，重回正轨
+        </a>
+      </div>
+
     </div>
+  </div>
 </template>
 
-<script setup>
-let message = computed(() => {
-    return '找不到网页！'
-})
+<script setup lang="ts">
+  // 这个页面不需要特定的逻辑，所以 script 部分为空
 </script>
 
-<style lang="scss" scoped>
-.wscn-http404-container {
-    transform: translate(-50%, -50%);
-    position: absolute;
-    top: 40%;
-    left: 50%;
-}
+<style scoped>
+  /* 继承通用页面样式 */
+  .page-wrapper {
+      font-family: 'Noto Sans SC', sans-serif;
+      background-color: #121212;
+      color: #ffffff;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      padding: 2rem 1rem;
+      overflow: hidden;
+      background: radial-gradient(circle at 20% 80%, #1a2a4a, transparent 40%),
+          radial-gradient(circle at 80% 25%, #4a1a2a, transparent 40%), #121212;
+  }
 
-.wscn-http404 {
-    display: flex;
-    justify-content: space-between;
-    overflow: hidden;
+  .main-container {
+      max-width: 900px;
+      width: 100%;
+      margin: 0 auto;
+      text-align: center;
+  }
 
-    .pic-404 {
-        position: relative;
-        float: left;
-        overflow: hidden;
-        width: vw(600);
+  /* 错误内容卡片样式 */
+  .error-card {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 15px;
+      padding: 3rem 2rem;
+      backdrop-filter: blur(10px);
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+      transition: border-color 0.3s ease;
+  }
 
-        &__parent {
-            width: 100%;
-        }
+  .error-card:hover {
+      border-color: rgba(0, 170, 255, 0.5);
+  }
 
-        &__child {
-            position: absolute;
+  /* 巨大醒目的 "404" */
+  .error-code {
+      font-size: 8rem;
+      font-weight: 900;
+      margin: 0;
+      color: #00aaff;
+      text-shadow: 0 0 10px rgba(0, 170, 255, 0.5), 0 0 25px rgba(0, 170, 255, 0.3);
+      line-height: 1;
+  }
 
-            &.left {
-                top: vh(17);
-                left: vw(220);
-                width: vw(80);
-                opacity: 0;
-                animation-name: cloud-left;
-                animation-duration: 2s;
-                animation-timing-function: linear;
-                animation-fill-mode: forwards;
-                animation-delay: 1s;
-            }
+  /* "路径未找到" 标题 */
+  .error-title {
+      font-size: 2rem;
+      font-weight: 700;
+      margin-top: 0.5rem;
+      margin-bottom: 1rem;
+      color: #ffffff;
+  }
 
-            &.mid {
-                top: vh(10);
-                left: vw(420);
-                width: vw(46);
-                opacity: 0;
-                animation-name: cloud-mid;
-                animation-duration: 2s;
-                animation-timing-function: linear;
-                animation-fill-mode: forwards;
-                animation-delay: 1.2s;
-            }
+  /* 详细描述文字 */
+  .error-description {
+      font-size: 1rem;
+      color: #b0c4de;
+      line-height: 1.7;
+      margin-bottom: 2.5rem;
+      max-width: 450px;
+      margin-left: auto;
+      margin-right: auto;
+  }
 
-            &.right {
-                top: vh(100);
-                left: vw(500);
-                width: vw(62);
-                opacity: 0;
-                animation-name: cloud-right;
-                animation-duration: 2s;
-                animation-timing-function: linear;
-                animation-fill-mode: forwards;
-                animation-delay: 1s;
-            }
-            @keyframes cloud-left {
-                0% {
-                    top: vh(17);
-                    left: vw(220);
-                    opacity: 0;
-                }
+  /* 返回主页按钮 */
+  .home-button {
+      display: inline-block;
+      background-color: #00aaff;
+      color: #ffffff;
+      border: none;
+      border-radius: 8px;
+      padding: 0.8rem 2.5rem;
+      font-size: 1.1rem;
+      font-weight: bold;
+      cursor: pointer;
+      text-decoration: none;
+      transition: all 0.3s ease;
+      box-shadow: 0 0 15px rgba(0, 170, 255, 0.3);
+  }
 
-                20% {
-                    top: vh(33);
-                    left: vw(188);
-                    opacity: 1;
-                }
+  .home-button:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 4px 20px rgba(0, 170, 255, 0.5);
+  }
 
-                80% {
-                    top: vh(81);
-                    left: vw(92);
-                    opacity: 1;
-                }
-
-                100% {
-                    top: vh(97);
-                    left: vw(60);
-                    opacity: 0;
-                }
-            }
-            @keyframes cloud-mid {
-                0% {
-                    top: vh(10);
-                    left: vw(420);
-                    opacity: 0;
-                }
-
-                20% {
-                    top: vh(40);
-                    left: vw(360);
-                    opacity: 1;
-                }
-
-                70% {
-                    top: vh(130);
-                    left: vw(180);
-                    opacity: 1;
-                }
-
-                100% {
-                    top: vh(160);
-                    left: vw(120);
-                    opacity: 0;
-                }
-            }
-            @keyframes cloud-right {
-                0% {
-                    top: vh(100);
-                    left: vw(500);
-                    opacity: 0;
-                }
-
-                20% {
-                    top: vh(120);
-                    left: vw(460);
-                    opacity: 1;
-                }
-
-                80% {
-                    top: vh(180);
-                    left: vw(340);
-                    opacity: 1;
-                }
-
-                100% {
-                    top: vh(200);
-                    left: vw(300);
-                    opacity: 0;
-                }
-            }
-        }
-    }
-
-    .bullshit {
-        position: relative;
-        float: left;
-        overflow: hidden;
-        padding: vh(30) 0;
-        width: vw(300);
-
-        &__oops {
-            margin-bottom: vh(20);
-            font-size: vh(32);
-            color: #1482f0;
-            opacity: 0;
-            font-weight: bold;
-            line-height: vh(40);
-            animation-name: slide-up;
-            animation-duration: 0.5s;
-            animation-fill-mode: forwards;
-        }
-
-        &__headline {
-            margin-bottom: vh(10);
-            font-size: vh(20);
-            color: #222;
-            opacity: 0;
-            line-height: vh(24);
-            font-weight: bold;
-            animation-name: slide-up;
-            animation-duration: 0.5s;
-            animation-delay: 0.1s;
-            animation-fill-mode: forwards;
-        }
-
-        &__info {
-            margin-bottom: vh(30);
-            font-size: vh(13);
-            color: grey;
-            opacity: 0;
-            line-height: vh(21);
-            animation-name: slide-up;
-            animation-duration: 0.5s;
-            animation-delay: 0.2s;
-            animation-fill-mode: forwards;
-        }
-
-        &__return-home {
-            display: block;
-            float: left;
-            width: vw(110);
-            height: vh(36);
-            font-size: vh(14);
-            text-align: center;
-            color: #fff;
-            background: #1482f0;
-            border-radius: vh(100);
-            opacity: 0;
-            line-height: vh(36);
-            cursor: pointer;
-            animation-name: slide-up;
-            animation-duration: 0.5s;
-            animation-delay: 0.3s;
-            animation-fill-mode: forwards;
-        }
-        @keyframes slide-up {
-            0% {
-                transform: translateY(vh(60));
-                opacity: 0;
-            }
-
-            100% {
-                transform: translateY(0);
-                opacity: 1;
-            }
-        }
-    }
-}
+  /* 响应式调整 */
+  @media (max-width: 576px) {
+      .error-card {
+          padding: 2rem 1.5rem;
+      }
+      .error-code {
+          font-size: 6rem;
+      }
+      .error-title {
+          font-size: 1.5rem;
+      }
+      .error-description {
+          font-size: 0.9rem;
+      }
+      .home-button {
+          width: 100%;
+          padding: 1rem;
+      }
+  }
 </style>

@@ -12,7 +12,7 @@ import { createWebHashHistory, createRouter } from 'vue-router'
 export const constantRoutes = [
   {
     path: '/',
-    redirect: '/login'
+    redirect: '/home'
   },
 
   {
@@ -23,7 +23,21 @@ export const constantRoutes = [
     path: '/home',
     component: () => import('@/views/home.vue')
   },
-
+  {
+    path: '/all-weather',
+    component: () => import('@/views/all-weather.vue')
+  }, {
+    path: '/long-term',
+    component: () => import('@/views/long-term.vue')
+  },
+  {
+    path: '/tools',
+    component: () => import('@/views/tools.vue')
+  },
+  {
+    path: '/ledger',
+    component: () => import('@/views/ledger.vue')
+  },
   // 404页面
   {
     path: '/:pathMatch(.*)*',

@@ -14,6 +14,8 @@
 
 <script lang="ts" setup>
   import zhCn from 'element-plus/es/locale/lang/zh-cn'
+  import { provide } from 'vue'
+
   let locale = zhCn
 
   //初始化SDK实例
@@ -21,18 +23,21 @@
   const app = cloudbase.init({
       env: 'xkdn-9g0lbgfyc7310777'
   })
-  const auth = app.auth()
+  // const auth = app.auth()
   // await auth.signInAnonymously()
-  app.callFunction({
-      // 云函数名称
-      name: 'login',
-      // 传给云函数的参数
-      data: {
-          a: 1
-      }
-  })
-      .then((res: any) => {
-          console.log(res)
-      })
-      .catch(console.error)
+
+  provide('tcb', app)
+
+  // app.callFunction({
+  //     // 云函数名称
+  //     name: 'login',
+  //     // 传给云函数的参数
+  //     data: {
+  //         a: 1
+  //     }
+  // })
+  //     .then((res: any) => {
+  //         console.log(res)
+  //     })
+  //     .catch(console.error)
 </script>
