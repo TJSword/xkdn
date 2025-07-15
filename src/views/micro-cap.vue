@@ -6,132 +6,78 @@
       <div class="page-header">
         <a href="#" class="back-button">← 返回主页</a>
         <h1 class="main-title">
-          <span class="title-icon">⌛</span>
-          长钱策略
+          <span class="title-icon">💎</span>
+          微盘股策略
         </h1>
         <p class="subtitle">
-          以十年为单位，拥抱波动，静待花开。
+          在市场的角落，挖掘未来的巨人。
         </p>
       </div>
 
       <!-- 2. 内容卡片区域 -->
       <div class="content-grid">
 
-        <!-- 风险告知 (无变化) -->
+        <!-- 风险告知 -->
         <div class="content-card risk-warning-card">
-          <h2 class="card-title">重要风险告知</h2>
+          <h2 class="card-title">极端风险警告</h2>
           <p class="card-description">
-            长钱策略本质上是一种高风险、高潜在回报的投资方法，它要求投资者具有极强的耐心和长远的眼光。您投入的应是未来5-10年内确定不会使用的资金。此策略在熊市中可能会面临大幅回撤，请在投资前务必确认自己能够承受相应的本金波动风险。
+            微盘股策略是所有策略中风险等级最高的。这类公司规模小，业务不确定性强，股价波动极为剧烈，可能在短期内出现超过50%甚至更多的跌幅。同时，部分微盘股流动性较差，可能面临买卖困难的风险。<strong>此策略只适合风险承受能力极强的投资者，且投入资金必须是完全可以承受损失的闲钱。</strong>
           </p>
         </div>
 
-        <!-- 组合思想 (无变化) -->
+        <!-- 组合思想 -->
         <div class="content-card">
-          <h2 class="card-title">组合思想：低估播种，静待花开</h2>
+          <h2 class="card-title">组合思想：寻找“小而美”</h2>
           <p class="card-description">
-            该策略的核心是逆向投资和价值投资。我们不在乎市场的短期情绪，只关心资产的内在价值。
+            该策略基于“规模溢价”理论，即从历史数据看，小市值公司的长期回报率倾向于超越大市值公司。核心在于投资那些尚未被市场充分关注、但具备高成长潜力的小型企业。
           </p>
           <ul class="idea-list">
-            <li><b>低估买入：</b> 在市场恐慌、指数估值处于历史低位时分批买入，如同在冬天播下种子。</li>
-            <li><b>合理持有：</b> 在估值回归合理区间的过程中，耐心持有，忽略中途的波动，让利润奔跑。</li>
-            <li><b>高估卖出：</b> 当市场狂热、指数估值达到历史高位时分批卖出，收获果实。</li>
-            <li><b>分散市场：</b> 为降低单一市场的系统性风险，组合会配置于A股、美股等不同区域的指数，实现风险的有效对冲。</li>
+            <li><b>高风险，高回报：</b> 接受巨大的波动性，以换取捕捉到下一支“明星股”的机会，从而获得超额收益。</li>
+            <li><b>分散化是关键：</b> 由于单个微盘股失败风险极高，因此绝不应重仓单一个股。通过投资一篮子微盘股的指数基金来分散个股风险，是普通投资者参与的唯一理性方式。</li>
+            <li><b>作为“卫星”配置：</b> 微盘股策略通常不作为投资组合的核心，而是作为提升整体潜在回报的“卫星”部分，仓位不宜过高（例如，不超过总资产的10%）。</li>
           </ul>
         </div>
 
-        <!-- 指数估值列表 (无变化) -->
+        <!-- 推荐投资组合 -->
         <div class="content-card">
-          <h2 class="card-title">核心指数估值列表</h2>
-          <p class="card-description">以下列表展示了部分核心指数的当前估值状态，是执行“低买高卖”策略的重要参考。</p>
+          <h2 class="card-title">示例投资组合</h2>
+          <p class="card-description">直接通过指数基金来捕获整个微盘股市场的平均回报是首选。以下是一些代表性的微盘股指数。</p>
           <table class="data-table">
             <thead>
               <tr>
                 <th>指数名称</th>
                 <th>基金代码</th>
                 <th>基金名称</th>
-                <th>当前估值</th>
+                <th>特点</th>
               </tr>
             </thead>
             <tbody>
               <tr>
-                <td>沪深300</td>
-                <td>000300</td>
-                <td>沪深300ETF</td>
-                <td><span class="valuation-badge low">低估区域</span></td>
+                <td>中证2000</td>
+                <td>--</td>
+                <td>中证2000ETF</td>
+                <td>代表A股市场中市值最小的一批公司</td>
               </tr>
               <tr>
-                <td>中证500</td>
-                <td>000905</td>
-                <td>中证500ETF</td>
-                <td><span class="valuation-badge low">低估区域</span></td>
+                <td>国证2000</td>
+                <td>--</td>
+                <td>国证2000ETF</td>
+                <td>同样覆盖A股小微盘，范围更广</td>
               </tr>
               <tr>
-                <td>恒生指数</td>
-                <td>HSI</td>
-                <td>恒生指数ETF</td>
-                <td><span class="valuation-badge low">低估区域</span></td>
-              </tr>
-              <tr>
-                <td>标普500</td>
-                <td>SPX</td>
-                <td>标普500ETF</td>
-                <td><span class="valuation-badge reasonable">合理区域</span></td>
-              </tr>
-              <tr>
-                <td>纳斯达克100</td>
-                <td>NDX</td>
-                <td>纳斯达克100ETF</td>
-                <td><span class="valuation-badge high">高估区域</span></td>
+                <td>罗素2000 (美股)</td>
+                <td>--</td>
+                <td>罗素2000相关QDII基金</td>
+                <td>代表美国市场的小型公司</td>
               </tr>
             </tbody>
           </table>
         </div>
 
-        <!-- 推荐投资组合 (无变化) -->
-        <div class="content-card">
-          <h2 class="card-title">示例投资组合 (基于当前估值)</h2>
-          <p class="card-description">此组合优先选择当前处于“低估区域”的指数进行配置，当其进入合理或高估区域后，则会考虑其他低估品种。</p>
-          <table class="data-table">
-            <thead>
-              <tr>
-                <th>指数风格</th>
-                <th>指数名称</th>
-                <th>基金代码</th>
-                <th>基金名称</th>
-                <th>建议份数</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td>A股大盘价值</td>
-                <td>沪深300</td>
-                <td>000300</td>
-                <td>沪深300ETF</td>
-                <td>3份</td>
-              </tr>
-              <tr>
-                <td>A股中小盘成长</td>
-                <td>中证500</td>
-                <td>000905</td>
-                <td>中证500ETF</td>
-                <td>2份</td>
-              </tr>
-              <tr>
-                <td>港股市场核心</td>
-                <td>恒生指数</td>
-                <td>HSI</td>
-                <td>恒生指数ETF</td>
-                <td>2份</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-
-        <!-- ==================== 新增：历史业绩与收益曲线卡片 ==================== -->
+        <!-- 历史业绩与收益曲线卡片 -->
         <div class="content-card">
           <div class="card-header-with-toggle">
             <h2 class="card-title no-border">历史业绩</h2>
-            <!-- 视图切换按钮 -->
             <div class="view-toggle-container">
               <button :class="['toggle-button', { active: performanceViewMode === 'rate' }]" @click="performanceViewMode = 'rate'">
                 累计收益率
@@ -142,14 +88,12 @@
             </div>
           </div>
           <p class="card-description">
-            下图展示了长钱策略的模拟累计收益曲线。请注意，数据为模拟回测，不代表真实收益，旨在说明策略的高波动、高潜在回报特性。
+            下图展示了微盘股策略的模拟累计收益曲线。其高波动、高弹性特征非常明显。数据为模拟，不代表真实收益。
           </p>
-          <!-- ECharts 图表容器 -->
           <div ref="performanceChartContainer" class="echart-container"></div>
         </div>
-        <!-- ===================================================================== -->
 
-        <!-- FAQ (无变化) -->
+        <!-- FAQ -->
         <div class="content-card">
           <h2 class="card-title">常见问题 (FAQ)</h2>
           <div class="faq-container">
@@ -174,56 +118,57 @@
   import { ref, onMounted, watch } from 'vue'
   import * as echarts from 'echarts'
 
-  // --- 控制FAQ展开 (无变化) ---
+  // --- 控制FAQ展开 ---
   const openFaqIndex = ref<number | null>(0)
   const toggleFaq = (index: number) => {
       openFaqIndex.value = openFaqIndex.value === index ? null : index
   }
+
   const faqList = ref([
       {
-          question: '“长钱”具体指什么钱？',
-          answer: '长钱指的是您在相当长的一段时间内（通常建议至少5-10年）确定不会动用或依赖的闲置资金。它不应是您的应急备用金、生活费或短期内有明确用途（如买房、买车）的钱。'
+          question: '微盘股和小盘股有什么区别？',
+          answer: '通常，微盘股的市值比小盘股还要小一个量级。例如，如果说小盘股是指市场上市值排名后20%的公司，那么微盘股可能指排名后5%的公司。它们的规模更小，不确定性更高，因此风险和潜在回报也更大。'
       },
       {
-          question: '如果我买入的指数一直跌怎么办？',
-          answer: '这正是考验投资者耐心和纪律性的时刻。策略的核心是“低估买入”，下跌意味着可以用更便宜的价格买到更多份额。只要标的指数的基本面没有被破坏，持续下跌反而是积累廉价筹码的好机会。建议采用分批买入或定投的方式来平滑成本。'
+          question: '为什么不推荐自己挑选微盘股？',
+          answer: '个人投资者很难对数量庞大的微盘股进行深入研究，信息获取也处于劣势。许多微盘股公司最终会经营失败，押注单一个股的风险极高。通过指数基金，您可以以低成本持有数百甚至上千家微盘股，有效分散了个股的“爆雷”风险。'
       },
       {
-          question: '我应该在什么时候卖出？',
-          answer: '卖出的决策同样基于估值。当您持有的指数从低估或合理区域进入明显的“高估区域”时，就可以考虑分批卖出，锁定利润。切忌因为市场情绪狂热而追高，应严格遵守“高估卖出”的纪律。'
+          question: '我应该在投资组合中配置多少比例的微盘股策略？',
+          answer: '这完全取决于您的个人风险承受能力。作为一个高风险的“卫星”策略，大多数财务顾问会建议将其比例控制在总投资组合的5%到10%以内。对于保守的投资者，这个比例应该更低，甚至为零。'
       },
       {
-          question: '这个策略和全天候策略有什么不同？',
-          answer: '主要区别在于风险和资产构成。全天候策略通过配置多种不相关的资产（股票、债券、商品）来追求全天候的稳健，波动性较低。而长钱策略主要集中于权益类资产（股票指数），目标是在承担更高波动性的前提下，获取更高的长期回报。'
+          question: '这个策略需要择时吗？',
+          answer: '虽然微盘股在市场牛市后期可能表现疯狂，但精确择时非常困难。一种更稳妥的方法是，在整体市场处于相对低位时开始定投，长期坚持。避免在市场极度狂热时追高买入是重要的风控手段。'
       }
   ])
 
-  // ==================== 新增：ECharts 图表逻辑 (与之前页面一致) ====================
+  // --- ECharts 图表逻辑 ---
   const performanceViewMode = ref<'rate' | 'amount'>('rate')
   const initialPrincipal = 10000
   const performanceChartContainer = ref<HTMLElement | null>(null)
   let performanceChart: echarts.ECharts | null = null
 
-  // 模拟的历史业绩数据 (为长钱策略调整了波动性)
+  // 模拟的历史业绩数据 (为微盘股策略调整了更高的波动性)
   const performanceData = ref([
       { date: '2022-01-01', strategy: 1.0 },
-      { date: '2022-02-01', strategy: 1.05 },
-      { date: '2022-03-01', strategy: 0.92 },
-      { date: '2022-04-01', strategy: 1.08 },
-      { date: '2022-05-01', strategy: 1.05 },
-      { date: '2022-06-01', strategy: 1.15 },
-      { date: '2022-07-01', strategy: 1.12 },
-      { date: '2022-08-01', strategy: 1.18 },
-      { date: '2022-09-01', strategy: 1.09 },
-      { date: '2022-10-01', strategy: 1.22 },
-      { date: '2022-11-01', strategy: 1.3 },
-      { date: '2022-12-01', strategy: 1.25 },
-      { date: '2023-01-01', strategy: 1.4 },
-      { date: '2023-02-01', strategy: 1.35 },
-      { date: '2023-03-01', strategy: 1.45 },
-      { date: '2023-04-01', strategy: 1.55 },
-      { date: '2023-05-01', strategy: 1.48 },
-      { date: '2023-06-01', strategy: 1.6 }
+      { date: '2022-02-01', strategy: 1.1 },
+      { date: '2022-03-01', strategy: 0.85 },
+      { date: '2022-04-01', strategy: 1.15 },
+      { date: '2022-05-01', strategy: 1.0 },
+      { date: '2022-06-01', strategy: 1.25 },
+      { date: '2022-07-01', strategy: 1.18 },
+      { date: '2022-08-01', strategy: 1.35 },
+      { date: '2022-09-01', strategy: 1.15 },
+      { date: '2022-10-01', strategy: 1.4 },
+      { date: '2022-11-01', strategy: 1.6 },
+      { date: '2022-12-01', strategy: 1.5 },
+      { date: '2023-01-01', strategy: 1.8 },
+      { date: '2023-02-01', strategy: 1.7 },
+      { date: '2023-03-01', strategy: 1.9 },
+      { date: '2023-04-01', strategy: 1.75 },
+      { date: '2023-05-01', strategy: 2.0 },
+      { date: '2023-06-01', strategy: 1.85 }
   ])
 
   const updatePerformanceChart = () => {
@@ -278,17 +223,17 @@
                   smooth: true,
                   showSymbol: false,
                   data: seriesData,
-                  itemStyle: { color: '#ff4081' }, // 使用长钱策略主题色
+                  itemStyle: { color: '#f0e68c' }, // 主题色
                   lineStyle: { width: 3 },
                   areaStyle: {
                       color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
                           {
                               offset: 0,
-                              color: 'rgba(255, 64, 129, 0.3)' // 使用主题色渐变
+                              color: 'rgba(240, 230, 140, 0.3)' // 主题色渐变
                           },
                           {
                               offset: 1,
-                              color: 'rgba(255, 64, 129, 0)'
+                              color: 'rgba(240, 230, 140, 0)'
                           }
                       ])
                   }
@@ -309,11 +254,7 @@
 </script>
 
 <style scoped>
-  /* 主题色变量 */
-  :root {
-      --theme-color: #ff4081;
-  }
-
+  /* 继承并主题化页面样式 */
   .page-wrapper {
       font-family: 'Noto Sans SC', sans-serif;
       background-color: #121212;
@@ -321,8 +262,8 @@
       min-height: 100vh;
       padding: 3rem 1rem;
       /* 背景渐变使用主题色相关色调 */
-      background: radial-gradient(circle at 15% 50%, #2a1a4a, transparent 40%),
-          radial-gradient(circle at 85% 50%, #4a1a2a, transparent 40%), #121212;
+      background: radial-gradient(circle at 15% 50%, #4a4a2a, transparent 40%),
+          radial-gradient(circle at 85% 50%, #4a4a2a, transparent 40%), #121212;
   }
 
   .main-container {
@@ -330,6 +271,7 @@
       margin: 0 auto;
   }
 
+  /* 页面头部 */
   .page-header {
       text-align: center;
       margin-bottom: 3rem;
@@ -344,7 +286,7 @@
       margin-bottom: 1rem;
   }
   .back-button:hover {
-      color: #ff4081; /* 主题色 */
+      color: #f0e68c; /* 主题色 */
   }
 
   .main-title {
@@ -358,14 +300,15 @@
   }
   .title-icon {
       font-size: 2.8rem;
-      color: #ff4081; /* 主题色 */
-      text-shadow: 0 0 15px #ff4081; /* 主题色 */
+      color: #f0e68c; /* 主题色 */
+      text-shadow: 0 0 15px #f0e68c; /* 主题色 */
   }
   .subtitle {
       font-size: 1.1rem;
       color: #b0c4de;
   }
 
+  /* 内容网格和卡片 */
   .content-grid {
       display: grid;
       gap: 1.5rem;
@@ -379,7 +322,7 @@
       transition: border-color 0.3s ease;
   }
   .content-card:hover {
-      border-color: rgba(255, 64, 129, 0.5); /* 主题色 */
+      border-color: rgba(240, 230, 140, 0.5); /* 主题色 */
   }
 
   .card-title {
@@ -387,20 +330,23 @@
       font-weight: bold;
       margin-top: 0;
       margin-bottom: 1rem;
-      border-left: 4px solid #ff4081; /* 主题色 */
+      border-left: 4px solid #f0e68c; /* 主题色 */
       padding-left: 1rem;
   }
 
   /* 风险卡片特殊样式 */
   .risk-warning-card {
-      border-left-color: #ff4081; /* 主题色 */
+      border-left-color: #dc3545; /* 使用更强的红色作为警告 */
+  }
+  .risk-warning-card .card-title {
+      border-left-color: #dc3545; /* 标题也用红色 */
   }
   .risk-warning-card .card-title::before {
       content: '⚠️';
       margin-right: 0.75rem;
   }
 
-  /* ==================== 新增：与图表切换相关的样式 ==================== */
+  /* 图表卡片样式 */
   .card-header-with-toggle {
       display: flex;
       justify-content: space-between;
@@ -429,17 +375,16 @@
       transition: all 0.3s ease;
   }
   .toggle-button.active {
-      background-color: #ff4081; /* 主题色 */
-      color: #ffffff;
+      background-color: #f0e68c; /* 主题色 */
+      color: #121212; /* 使用深色文字以保证对比度 */
       font-weight: bold;
-      box-shadow: 0 0 10px rgba(255, 64, 129, 0.5); /* 主题色 */
+      box-shadow: 0 0 10px rgba(240, 230, 140, 0.5); /* 主题色 */
   }
   .echart-container {
       width: 100%;
       height: 350px;
       margin-top: 1rem;
   }
-  /* =================================================================== */
 
   .card-description {
       font-size: 0.95rem;
@@ -461,7 +406,7 @@
       content: '✔';
       position: absolute;
       left: 0;
-      color: #ff4081; /* 主题色 */
+      color: #f0e68c; /* 主题色 */
   }
 
   .data-table {
@@ -492,24 +437,6 @@
       color: #fff;
   }
 
-  .valuation-badge {
-      display: inline-block;
-      padding: 0.25rem 0.75rem;
-      border-radius: 12px;
-      font-size: 0.8rem;
-      font-weight: bold;
-      color: #fff;
-  }
-  .valuation-badge.low {
-      background-color: rgba(40, 167, 69, 0.5);
-  }
-  .valuation-badge.reasonable {
-      background-color: rgba(0, 123, 255, 0.5);
-  }
-  .valuation-badge.high {
-      background-color: rgba(220, 53, 69, 0.5);
-  }
-
   .faq-container {
       display: flex;
       flex-direction: column;
@@ -538,7 +465,7 @@
       font-size: 1.5rem;
       font-weight: bold;
       transition: transform 0.3s ease;
-      color: #ff4081; /* 主题色 */
+      color: #f0e68c; /* 主题色 */
   }
   .faq-icon.is-open {
       transform: rotate(45deg);
@@ -552,6 +479,11 @@
   @media (max-width: 768px) {
       .content-card {
           padding: 1.5rem;
+      }
+      .card-header-with-toggle {
+          flex-direction: column;
+          align-items: flex-start;
+          gap: 1rem;
       }
   }
 </style>

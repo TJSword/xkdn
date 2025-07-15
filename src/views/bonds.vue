@@ -6,132 +6,83 @@
       <div class="page-header">
         <a href="#" class="back-button">← 返回主页</a>
         <h1 class="main-title">
-          <span class="title-icon">⌛</span>
-          长钱策略
+          <span class="title-icon">🔄</span>
+          可转债策略
         </h1>
         <p class="subtitle">
-          以十年为单位，拥抱波动，静待花开。
+          攻守兼备，穿越牛熊的投资艺术。
         </p>
       </div>
 
       <!-- 2. 内容卡片区域 -->
       <div class="content-grid">
 
-        <!-- 风险告知 (无变化) -->
-        <div class="content-card risk-warning-card">
-          <h2 class="card-title">重要风险告知</h2>
+        <!-- 策略简介 -->
+        <div class="content-card">
+          <h2 class="card-title">策略简介</h2>
           <p class="card-description">
-            长钱策略本质上是一种高风险、高潜在回报的投资方法，它要求投资者具有极强的耐心和长远的眼光。您投入的应是未来5-10年内确定不会使用的资金。此策略在熊市中可能会面临大幅回撤，请在投资前务必确认自己能够承受相应的本金波动风险。
+            可转换公司债券（Convertible
+            Bond）是一种特殊的债券，它允许持有者在特定时间内，按特定价格将其转换为发行公司的普通股。这赋予了它独特的“债股双性”：当公司股价上涨时，它可以像股票一样享受高增长；当股价下跌时，它仍能像债券一样提供固定的票息和到期本金，形成“下有保底，上不封顶”的独特优势。
           </p>
         </div>
 
-        <!-- 组合思想 (无变化) -->
+        <!-- 组合思想 -->
         <div class="content-card">
-          <h2 class="card-title">组合思想：低估播种，静待花开</h2>
+          <h2 class="card-title">组合思想：低价买入，静待花开</h2>
           <p class="card-description">
-            该策略的核心是逆向投资和价值投资。我们不在乎市场的短期情绪，只关心资产的内在价值。
+            本策略的核心是在保证足够安全边际的前提下，捕捉正股上涨带来的超额收益。
           </p>
           <ul class="idea-list">
-            <li><b>低估买入：</b> 在市场恐慌、指数估值处于历史低位时分批买入，如同在冬天播下种子。</li>
-            <li><b>合理持有：</b> 在估值回归合理区间的过程中，耐心持有，忽略中途的波动，让利润奔跑。</li>
-            <li><b>高估卖出：</b> 当市场狂热、指数估值达到历史高位时分批卖出，收获果实。</li>
-            <li><b>分散市场：</b> 为降低单一市场的系统性风险，组合会配置于A股、美股等不同区域的指数，实现风险的有效对冲。</li>
+            <li><b>价格保底：</b> 优先选择价格较低（如110元以下）的可转债，使其更接近纯债价值，提供强大的下跌保护。</li>
+            <li><b>低溢价：</b> 寻找转股溢价率较低的品种，这意味着转债价格与正股价格的偏离度小，正股上涨时转债的跟涨能力更强。</li>
+            <li><b>分散投资：</b> 由于单只转债可能面临正股退市或公司信用风险，因此必须通过构建一个包含10-20只不同转债的组合来分散风险。</li>
+            <li><b>博弈下修和强赎：</b> 在熊市中博弈发行人“下修转股价”带来的脉冲机会；在牛市中享受正股上涨和“强赎”预期带来的双重驱动。</li>
           </ul>
         </div>
 
-        <!-- 指数估值列表 (无变化) -->
+        <!-- 核心指标解读 -->
         <div class="content-card">
-          <h2 class="card-title">核心指数估值列表</h2>
-          <p class="card-description">以下列表展示了部分核心指数的当前估值状态，是执行“低买高卖”策略的重要参考。</p>
+          <h2 class="card-title">核心指标解读</h2>
+          <p class="card-description">投资可转债需要关注几个核心指标，它们共同决定了一只转债的投资价值。</p>
           <table class="data-table">
             <thead>
               <tr>
-                <th>指数名称</th>
-                <th>基金代码</th>
-                <th>基金名称</th>
-                <th>当前估值</th>
+                <th>指标名称</th>
+                <th>解读</th>
+                <th>我们的偏好</th>
               </tr>
             </thead>
             <tbody>
               <tr>
-                <td>沪深300</td>
-                <td>000300</td>
-                <td>沪深300ETF</td>
-                <td><span class="valuation-badge low">低估区域</span></td>
+                <td>转债价格</td>
+                <td>当前市场交易价格。价格越低，安全垫越厚。</td>
+                <td><span class="valuation-badge low">越低越好 </span>
+                </td>
               </tr>
               <tr>
-                <td>中证500</td>
-                <td>000905</td>
-                <td>中证500ETF</td>
-                <td><span class="valuation-badge low">低估区域</span></td>
+                <td>转股溢价率</td>
+                <td>转债价格相比其转换后股票价值高出的百分比。</td>
+                <td><span class="valuation-badge low">越低越好 </span>
+                </td>
               </tr>
               <tr>
-                <td>恒生指数</td>
-                <td>HSI</td>
-                <td>恒生指数ETF</td>
-                <td><span class="valuation-badge low">低估区域</span></td>
+                <td>到期收益率 (YTM)</td>
+                <td>持有至到期能获得的年化收益率，是最终的兜底保障。</td>
+                <td><span class="valuation-badge reasonable">越高越好 (正数)</span></td>
               </tr>
               <tr>
-                <td>标普500</td>
-                <td>SPX</td>
-                <td>标普500ETF</td>
-                <td><span class="valuation-badge reasonable">合理区域</span></td>
-              </tr>
-              <tr>
-                <td>纳斯达克100</td>
-                <td>NDX</td>
-                <td>纳斯达克100ETF</td>
-                <td><span class="valuation-badge high">高估区域</span></td>
+                <td>债券余额</td>
+                <td>尚未转股的债券规模。规模太小可能流动性差。</td>
+                <td><span class="valuation-badge reasonable">> 1亿</span></td>
               </tr>
             </tbody>
           </table>
         </div>
 
-        <!-- 推荐投资组合 (无变化) -->
-        <div class="content-card">
-          <h2 class="card-title">示例投资组合 (基于当前估值)</h2>
-          <p class="card-description">此组合优先选择当前处于“低估区域”的指数进行配置，当其进入合理或高估区域后，则会考虑其他低估品种。</p>
-          <table class="data-table">
-            <thead>
-              <tr>
-                <th>指数风格</th>
-                <th>指数名称</th>
-                <th>基金代码</th>
-                <th>基金名称</th>
-                <th>建议份数</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td>A股大盘价值</td>
-                <td>沪深300</td>
-                <td>000300</td>
-                <td>沪深300ETF</td>
-                <td>3份</td>
-              </tr>
-              <tr>
-                <td>A股中小盘成长</td>
-                <td>中证500</td>
-                <td>000905</td>
-                <td>中证500ETF</td>
-                <td>2份</td>
-              </tr>
-              <tr>
-                <td>港股市场核心</td>
-                <td>恒生指数</td>
-                <td>HSI</td>
-                <td>恒生指数ETF</td>
-                <td>2份</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-
-        <!-- ==================== 新增：历史业绩与收益曲线卡片 ==================== -->
+        <!-- 历史业绩与收益曲线卡片 -->
         <div class="content-card">
           <div class="card-header-with-toggle">
             <h2 class="card-title no-border">历史业绩</h2>
-            <!-- 视图切换按钮 -->
             <div class="view-toggle-container">
               <button :class="['toggle-button', { active: performanceViewMode === 'rate' }]" @click="performanceViewMode = 'rate'">
                 累计收益率
@@ -142,14 +93,12 @@
             </div>
           </div>
           <p class="card-description">
-            下图展示了长钱策略的模拟累计收益曲线。请注意，数据为模拟回测，不代表真实收益，旨在说明策略的高波动、高潜在回报特性。
+            下图展示了可转债策略的模拟累计收益曲线。可见其波动小于纯股策略，但长期回报优于纯债策略。数据为模拟，不代表真实收益。
           </p>
-          <!-- ECharts 图表容器 -->
           <div ref="performanceChartContainer" class="echart-container"></div>
         </div>
-        <!-- ===================================================================== -->
 
-        <!-- FAQ (无变化) -->
+        <!-- FAQ -->
         <div class="content-card">
           <h2 class="card-title">常见问题 (FAQ)</h2>
           <div class="faq-container">
@@ -174,56 +123,57 @@
   import { ref, onMounted, watch } from 'vue'
   import * as echarts from 'echarts'
 
-  // --- 控制FAQ展开 (无变化) ---
+  // --- 控制FAQ展开 ---
   const openFaqIndex = ref<number | null>(0)
   const toggleFaq = (index: number) => {
       openFaqIndex.value = openFaqIndex.value === index ? null : index
   }
+
   const faqList = ref([
       {
-          question: '“长钱”具体指什么钱？',
-          answer: '长钱指的是您在相当长的一段时间内（通常建议至少5-10年）确定不会动用或依赖的闲置资金。它不应是您的应急备用金、生活费或短期内有明确用途（如买房、买车）的钱。'
+          question: '什么是“强制赎回”（强赎）？',
+          answer: '当发行公司的股价在一段时间内持续高于转股价的一定比例（通常是130%）时，公司有权以一个较低的价格（如103元）提前赎回全部未转股的债券。这会“逼迫”投资者要么卖出转债，要么转换为股票来避免损失，是牛市中转债价格上涨的重要催化剂。'
       },
       {
-          question: '如果我买入的指数一直跌怎么办？',
-          answer: '这正是考验投资者耐心和纪律性的时刻。策略的核心是“低估买入”，下跌意味着可以用更便宜的价格买到更多份额。只要标的指数的基本面没有被破坏，持续下跌反而是积累廉价筹码的好机会。建议采用分批买入或定投的方式来平滑成本。'
+          question: '什么是“回售”？',
+          answer: '与强赎相反，回售是保护投资者的条款。当公司股价在一段时间内持续低于转股价的一定比例（如70%）时，投资者有权以一个约定的价格（如100元+当期利息）将转债卖回给公司。这是熊市中重要的兜底条款之一。'
       },
       {
-          question: '我应该在什么时候卖出？',
-          answer: '卖出的决策同样基于估值。当您持有的指数从低估或合理区域进入明显的“高估区域”时，就可以考虑分批卖出，锁定利润。切忌因为市场情绪狂热而追高，应严格遵守“高估卖出”的纪律。'
+          question: '投资可转债最大的风险是什么？',
+          answer: '最大的风险主要有两个：一是正股价格长期低迷，导致转债的“股性”无法体现，最终只能获得微薄的债券利息；二是公司信用风险，即发行方违约无法偿还本息，虽然罕见但存在可能。因此，分散投资和选择基本面稳健的公司至关重要。'
       },
       {
-          question: '这个策略和全天候策略有什么不同？',
-          answer: '主要区别在于风险和资产构成。全天候策略通过配置多种不相关的资产（股票、债券、商品）来追求全天候的稳健，波动性较低。而长钱策略主要集中于权益类资产（股票指数），目标是在承担更高波动性的前提下，获取更高的长期回报。'
+          question: '我应该如何交易可转债？',
+          answer: '可转债在中国市场上市，可以通过任何一个标准的股票账户进行交易，操作与买卖股票完全相同。'
       }
   ])
 
-  // ==================== 新增：ECharts 图表逻辑 (与之前页面一致) ====================
+  // --- ECharts 图表逻辑 ---
   const performanceViewMode = ref<'rate' | 'amount'>('rate')
   const initialPrincipal = 10000
   const performanceChartContainer = ref<HTMLElement | null>(null)
   let performanceChart: echarts.ECharts | null = null
 
-  // 模拟的历史业绩数据 (为长钱策略调整了波动性)
+  // 模拟的历史业绩数据 (为可转债策略调整了适中的波动性)
   const performanceData = ref([
       { date: '2022-01-01', strategy: 1.0 },
-      { date: '2022-02-01', strategy: 1.05 },
-      { date: '2022-03-01', strategy: 0.92 },
-      { date: '2022-04-01', strategy: 1.08 },
-      { date: '2022-05-01', strategy: 1.05 },
-      { date: '2022-06-01', strategy: 1.15 },
-      { date: '2022-07-01', strategy: 1.12 },
-      { date: '2022-08-01', strategy: 1.18 },
-      { date: '2022-09-01', strategy: 1.09 },
-      { date: '2022-10-01', strategy: 1.22 },
-      { date: '2022-11-01', strategy: 1.3 },
-      { date: '2022-12-01', strategy: 1.25 },
-      { date: '2023-01-01', strategy: 1.4 },
-      { date: '2023-02-01', strategy: 1.35 },
-      { date: '2023-03-01', strategy: 1.45 },
-      { date: '2023-04-01', strategy: 1.55 },
-      { date: '2023-05-01', strategy: 1.48 },
-      { date: '2023-06-01', strategy: 1.6 }
+      { date: '2022-02-01', strategy: 1.02 },
+      { date: '2022-03-01', strategy: 0.98 },
+      { date: '2022-04-01', strategy: 1.04 },
+      { date: '2022-05-01', strategy: 1.03 },
+      { date: '2022-06-01', strategy: 1.08 },
+      { date: '2022-07-01', strategy: 1.07 },
+      { date: '2022-08-01', strategy: 1.1 },
+      { date: '2022-09-01', strategy: 1.08 },
+      { date: '2022-10-01', strategy: 1.12 },
+      { date: '2022-11-01', strategy: 1.15 },
+      { date: '2022-12-01', strategy: 1.14 },
+      { date: '2023-01-01', strategy: 1.18 },
+      { date: '2023-02-01', strategy: 1.17 },
+      { date: '2023-03-01', strategy: 1.22 },
+      { date: '2023-04-01', strategy: 1.25 },
+      { date: '2023-05-01', strategy: 1.23 },
+      { date: '2023-06-01', strategy: 1.28 }
   ])
 
   const updatePerformanceChart = () => {
@@ -278,17 +228,17 @@
                   smooth: true,
                   showSymbol: false,
                   data: seriesData,
-                  itemStyle: { color: '#ff4081' }, // 使用长钱策略主题色
+                  itemStyle: { color: '#add8e6' }, // 主题色
                   lineStyle: { width: 3 },
                   areaStyle: {
                       color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
                           {
                               offset: 0,
-                              color: 'rgba(255, 64, 129, 0.3)' // 使用主题色渐变
+                              color: 'rgba(173, 216, 230, 0.3)' // 主题色渐变
                           },
                           {
                               offset: 1,
-                              color: 'rgba(255, 64, 129, 0)'
+                              color: 'rgba(173, 216, 230, 0)'
                           }
                       ])
                   }
@@ -309,11 +259,7 @@
 </script>
 
 <style scoped>
-  /* 主题色变量 */
-  :root {
-      --theme-color: #ff4081;
-  }
-
+  /* 继承并主题化页面样式 */
   .page-wrapper {
       font-family: 'Noto Sans SC', sans-serif;
       background-color: #121212;
@@ -321,8 +267,8 @@
       min-height: 100vh;
       padding: 3rem 1rem;
       /* 背景渐变使用主题色相关色调 */
-      background: radial-gradient(circle at 15% 50%, #2a1a4a, transparent 40%),
-          radial-gradient(circle at 85% 50%, #4a1a2a, transparent 40%), #121212;
+      background: radial-gradient(circle at 15% 50%, #1a2a4a, transparent 40%),
+          radial-gradient(circle at 85% 50%, #2a3a4a, transparent 40%), #121212;
   }
 
   .main-container {
@@ -330,6 +276,7 @@
       margin: 0 auto;
   }
 
+  /* 页面头部 */
   .page-header {
       text-align: center;
       margin-bottom: 3rem;
@@ -344,7 +291,7 @@
       margin-bottom: 1rem;
   }
   .back-button:hover {
-      color: #ff4081; /* 主题色 */
+      color: #add8e6; /* 主题色 */
   }
 
   .main-title {
@@ -358,14 +305,15 @@
   }
   .title-icon {
       font-size: 2.8rem;
-      color: #ff4081; /* 主题色 */
-      text-shadow: 0 0 15px #ff4081; /* 主题色 */
+      color: #add8e6; /* 主题色 */
+      text-shadow: 0 0 15px #add8e6; /* 主题色 */
   }
   .subtitle {
       font-size: 1.1rem;
       color: #b0c4de;
   }
 
+  /* 内容网格和卡片 */
   .content-grid {
       display: grid;
       gap: 1.5rem;
@@ -379,7 +327,7 @@
       transition: border-color 0.3s ease;
   }
   .content-card:hover {
-      border-color: rgba(255, 64, 129, 0.5); /* 主题色 */
+      border-color: rgba(173, 216, 230, 0.5); /* 主题色 */
   }
 
   .card-title {
@@ -387,20 +335,11 @@
       font-weight: bold;
       margin-top: 0;
       margin-bottom: 1rem;
-      border-left: 4px solid #ff4081; /* 主题色 */
+      border-left: 4px solid #add8e6; /* 主题色 */
       padding-left: 1rem;
   }
 
-  /* 风险卡片特殊样式 */
-  .risk-warning-card {
-      border-left-color: #ff4081; /* 主题色 */
-  }
-  .risk-warning-card .card-title::before {
-      content: '⚠️';
-      margin-right: 0.75rem;
-  }
-
-  /* ==================== 新增：与图表切换相关的样式 ==================== */
+  /* 图表卡片样式 */
   .card-header-with-toggle {
       display: flex;
       justify-content: space-between;
@@ -429,17 +368,16 @@
       transition: all 0.3s ease;
   }
   .toggle-button.active {
-      background-color: #ff4081; /* 主题色 */
-      color: #ffffff;
+      background-color: #add8e6; /* 主题色 */
+      color: #121212; /* 使用深色文字以保证对比度 */
       font-weight: bold;
-      box-shadow: 0 0 10px rgba(255, 64, 129, 0.5); /* 主题色 */
+      box-shadow: 0 0 10px rgba(173, 216, 230, 0.5); /* 主题色 */
   }
   .echart-container {
       width: 100%;
       height: 350px;
       margin-top: 1rem;
   }
-  /* =================================================================== */
 
   .card-description {
       font-size: 0.95rem;
@@ -461,7 +399,7 @@
       content: '✔';
       position: absolute;
       left: 0;
-      color: #ff4081; /* 主题色 */
+      color: #add8e6; /* 主题色 */
   }
 
   .data-table {
@@ -486,12 +424,8 @@
   .data-table tr:last-child td {
       border-bottom: none;
   }
-  .data-table td:nth-child(2),
-  .data-table td:last-child {
-      font-weight: bold;
-      color: #fff;
-  }
 
+  /* 估值标签样式 (复用) */
   .valuation-badge {
       display: inline-block;
       padding: 0.25rem 0.75rem;
@@ -538,7 +472,7 @@
       font-size: 1.5rem;
       font-weight: bold;
       transition: transform 0.3s ease;
-      color: #ff4081; /* 主题色 */
+      color: #add8e6; /* 主题色 */
   }
   .faq-icon.is-open {
       transform: rotate(45deg);
@@ -552,6 +486,11 @@
   @media (max-width: 768px) {
       .content-card {
           padding: 1.5rem;
+      }
+      .card-header-with-toggle {
+          flex-direction: column;
+          align-items: flex-start;
+          gap: 1rem;
       }
   }
 </style>

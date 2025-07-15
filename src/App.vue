@@ -23,8 +23,8 @@
   const app = cloudbase.init({
       env: 'xkdn-9g0lbgfyc7310777'
   })
-  // const auth = app.auth()
-  // await auth.signInAnonymously()
+  const auth = app.auth()
+  auth.signInAnonymously()
 
   provide('tcb', app)
 

@@ -17,7 +17,7 @@
       <!-- 2. 内容卡片区域 -->
       <div class="content-grid">
 
-        <!-- 策略简介 -->
+        <!-- 策略简介 (无变化) -->
         <div class="content-card">
           <h2 class="card-title">策略简介</h2>
           <p class="card-description">
@@ -26,7 +26,7 @@
           </p>
         </div>
 
-        <!-- 组合思路 -->
+        <!-- 组合思路 (无变化) -->
         <div class="content-card">
           <h2 class="card-title">组合思路</h2>
           <p class="card-description">
@@ -41,7 +41,7 @@
           <p class="card-description">通过将资产分散到这四种情景中，无论未来发生什么，投资组合的波动性都将被有效降低。</p>
         </div>
 
-        <!-- 投资组合配置 -->
+        <!-- 投资组合配置 (无变化) -->
         <div class="content-card">
           <h2 class="card-title">投资组合配置</h2>
           <div class="tabs-container">
@@ -53,7 +53,7 @@
             </button>
           </div>
 
-          <!-- 场内配置内容 -->
+          <!-- Tabs 内容... (无变化) -->
           <div v-if="activeTab === 'on-exchange'" class="tab-content">
             <p class="card-description">适合有证券账户、偏好低费率和灵活交易的投资者。</p>
             <table class="portfolio-table">
@@ -88,8 +88,6 @@
               </tbody>
             </table>
           </div>
-
-          <!-- 场外配置内容 -->
           <div v-if="activeTab === 'off-exchange'" class="tab-content">
             <p class="card-description">适合希望定投、没有证券账户的投资者，申赎便利。</p>
             <table class="portfolio-table">
@@ -126,8 +124,30 @@
           </div>
         </div>
 
-        <!-- 动态再平衡 -->
-        <div class="content-card rebalance-card">
+        <!-- ==================== 已修改的卡片：历史业绩与收益曲线 ==================== -->
+        <div class="content-card">
+          <div class="card-header-with-toggle">
+            <h2 class="card-title no-border">历史业绩</h2>
+            <!-- 新增的视图切换按钮 -->
+            <div class="view-toggle-container">
+              <button :class="['toggle-button', { active: performanceViewMode === 'rate' }]" @click="performanceViewMode = 'rate'">
+                累计收益率
+              </button>
+              <button :class="['toggle-button', { active: performanceViewMode === 'amount' }]" @click="performanceViewMode = 'amount'">
+                累计收益金额
+              </button>
+            </div>
+          </div>
+          <p class="card-description">
+            下图展示了全天候策略的模拟累计收益曲线。请注意，数据为模拟回测，仅用于说明策略特性，不代表真实收益。
+          </p>
+          <!-- ECharts 图表容器 -->
+          <div ref="performanceChartContainer" class="echart-container"></div>
+        </div>
+        <!-- ===================================================================== -->
+
+        <!-- 动态再平衡 (无变化) -->
+        <div class="content-card">
           <h2 class="card-title">动态再平衡 (Rebalancing)</h2>
           <p class="card-description">
             由于市场波动，各类资产的比例会偏离初始目标。再平衡是指定期（如每半年或一年）或按比例（如偏离5%）将投资组合恢复到目标配置的操作。这是确保策略长期有效的核心纪律。
@@ -137,7 +157,7 @@
           </button>
         </div>
 
-        <!-- FAQ -->
+        <!-- FAQ (无变化) -->
         <div class="content-card">
           <h2 class="card-title">常见问题 (FAQ)</h2>
           <div class="faq-container">
@@ -159,22 +179,15 @@
 </template>
 
 <script setup lang="ts">
-  import { ref } from 'vue'
+  import { ref, onMounted, watch } from 'vue'
+  import * as echarts from 'echarts'
 
-  // --- 控制Tabs切换 ---
+  // --- 控制Tabs和FAQ (无变化) ---
   const activeTab = ref<'on-exchange' | 'off-exchange'>('on-exchange')
-
-  // --- 控制FAQ展开 ---
-  const openFaqIndex = ref<number | null>(0) // 默认展开第一个
-
+  const openFaqIndex = ref<number | null>(0)
   const toggleFaq = (index: number) => {
-      if (openFaqIndex.value === index) {
-          openFaqIndex.value = null // 如果点击的已打开，则关闭
-      } else {
-          openFaqIndex.value = index // 否则打开点击的
-      }
+      openFaqIndex.value = openFaqIndex.value === index ? null : index
   }
-
   const faqList = ref([
       {
           question: '我应该多久进行一次再平衡？',
@@ -193,6 +206,132 @@
           answer: '这里的配置仅为示例，用于阐述策略原理。实际投资前，您应根据自身的风险承受能力、投资目标以及可投资的品种进行调整。务必进行独立研究，或咨询专业的财务顾问。'
       }
   ])
+
+  // ==================== 修改后：ECharts 图表逻辑 ====================
+
+  // 1. 新增：控制图表视图的响应式变量，默认为 'rate' (收益率)
+  const performanceViewMode = ref<'rate' | 'amount'>('rate')
+
+  // 2. 新增：假设的初始本金，用于计算收益金额
+  const initialPrincipal = 10000
+
+  // 3. 图表容器引用和实例
+  const performanceChartContainer = ref<HTMLElement | null>(null)
+  let performanceChart: echarts.ECharts | null = null
+
+  // 4. 模拟的历史业绩数据 (日期, 策略累计净值)
+  const performanceData = ref([
+      { date: '2022-01-01', strategy: 1.0 },
+      { date: '2022-02-01', strategy: 1.01 },
+      { date: '2022-03-01', strategy: 0.99 },
+      { date: '2022-04-01', strategy: 1.02 },
+      { date: '2022-05-01', strategy: 1.03 },
+      { date: '2022-06-01', strategy: 1.05 },
+      { date: '2022-07-01', strategy: 1.04 },
+      { date: '2022-08-01', strategy: 1.06 },
+      { date: '2022-09-01', strategy: 1.05 },
+      { date: '2022-10-01', strategy: 1.07 },
+      { date: '2022-11-01', strategy: 1.09 },
+      { date: '2022-12-01', strategy: 1.1 },
+      { date: '2023-01-01', strategy: 1.12 },
+      { date: '2023-02-01', strategy: 1.11 },
+      { date: '2023-03-01', strategy: 1.13 },
+      { date: '2023-04-01', strategy: 1.15 },
+      { date: '2023-05-01', strategy: 1.14 },
+      { date: '2023-06-01', strategy: 1.16 }
+  ])
+
+  /**
+   * 更新或初始化业绩图表的核心函数
+   */
+  const updatePerformanceChart = () => {
+      if (!performanceChartContainer.value) return
+
+      // 如果图表实例不存在，则初始化
+      if (!performanceChart) {
+          performanceChart = echarts.init(performanceChartContainer.value, 'dark')
+      }
+
+      let seriesData: number[]
+      let yAxisFormatter: string
+      let tooltipFormatter: (params: any) => string
+      let seriesName: string
+
+      // 根据当前视图模式，准备不同的数据和格式化配置
+      if (performanceViewMode.value === 'rate') {
+          seriesName = '累计收益率'
+          seriesData = performanceData.value.map(item => (item.strategy - 1) * 100)
+          yAxisFormatter = '{value}%'
+          tooltipFormatter = (params: any) =>
+              `<strong>${params[0].name}</strong><br/>${params[0].marker} ${
+                  params[0].seriesName
+              }: <strong>${params[0].value.toFixed(2)}%</strong>`
+      } else {
+          // 'amount'
+          seriesName = '累计收益金额'
+          seriesData = performanceData.value.map(item => item.strategy * initialPrincipal)
+          yAxisFormatter = '{value} 元'
+          tooltipFormatter = (params: any) =>
+              `<strong>${params[0].name}</strong><br/>${params[0].marker} ${
+                  params[0].seriesName
+              }: <strong>${params[0].value.toFixed(2)} 元</strong>`
+      }
+
+      const option: echarts.EChartsOption = {
+          backgroundColor: 'transparent',
+          tooltip: { trigger: 'axis', formatter: tooltipFormatter },
+          legend: { data: [seriesName], textStyle: { color: '#ccc' }, bottom: 0 },
+          grid: { left: '3%', right: '4%', bottom: '15%', containLabel: true },
+          xAxis: {
+              type: 'category',
+              boundaryGap: false,
+              data: performanceData.value.map(item => item.date),
+              axisLine: { lineStyle: { color: '#8392A5' } }
+          },
+          yAxis: {
+              type: 'value',
+              axisLabel: { formatter: yAxisFormatter, color: '#ccc' },
+              splitLine: { lineStyle: { color: 'rgba(255, 255, 255, 0.1)' } }
+          },
+          series: [
+              {
+                  name: seriesName,
+                  type: 'line',
+                  smooth: true,
+                  showSymbol: false,
+                  data: seriesData,
+                  itemStyle: { color: '#00aaff' },
+                  lineStyle: { width: 3 },
+                  areaStyle: {
+                      // 添加渐变区域填充
+                      color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                          {
+                              offset: 0,
+                              color: 'rgba(0, 170, 255, 0.3)'
+                          },
+                          {
+                              offset: 1,
+                              color: 'rgba(0, 170, 255, 0)'
+                          }
+                      ])
+                  }
+              }
+          ]
+      }
+
+      // 使用 setOption 更新图表
+      performanceChart.setOption(option, true) // true 表示不与之前的 option 合并
+  }
+
+  // 侦听视图模式的变化，并更新图表
+  watch(performanceViewMode, () => {
+      updatePerformanceChart()
+  })
+
+  // 在组件挂载后，首次初始化图表
+  onMounted(() => {
+      updatePerformanceChart()
+  })
 </script>
 
 <style scoped>
@@ -277,6 +416,43 @@
       padding-left: 1rem;
   }
 
+  /* 新增：用于包含切换按钮的卡片头部 */
+  .card-header-with-toggle {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1rem;
+  }
+  .card-title.no-border {
+      border-left: none;
+      padding-left: 0;
+      margin-bottom: 0;
+  }
+
+  /* 新增：视图切换按钮容器和按钮样式 */
+  .view-toggle-container {
+      display: flex;
+      background-color: rgba(0, 0, 0, 0.2);
+      border-radius: 8px;
+      padding: 4px;
+  }
+  .toggle-button {
+      padding: 0.4rem 0.8rem;
+      cursor: pointer;
+      background: transparent;
+      border: none;
+      color: #b0c4de;
+      font-size: 0.85rem;
+      border-radius: 6px;
+      transition: all 0.3s ease;
+  }
+  .toggle-button.active {
+      background-color: #00aaff;
+      color: #ffffff;
+      font-weight: bold;
+      box-shadow: 0 0 10px rgba(0, 170, 255, 0.5);
+  }
+
   .card-description {
       font-size: 0.95rem;
       color: #b0c4de;
@@ -345,9 +521,6 @@
   }
 
   /* 再平衡CTA */
-  .rebalance-card {
-      text-align: center;
-  }
   .rebalance-cta {
       background-color: #00aaff;
       color: #ffffff;
@@ -406,6 +579,13 @@
       line-height: 1.7;
   }
 
+  /* EChart容器样式 */
+  .echart-container {
+      width: 100%;
+      height: 350px;
+      margin-top: 1rem;
+  }
+
   /* 响应式 */
   @media (max-width: 768px) {
       .main-title {
@@ -417,6 +597,11 @@
       .tab-button {
           padding: 0.75rem;
           font-size: 0.9rem;
+      }
+      .card-header-with-toggle {
+          flex-direction: column;
+          align-items: flex-start;
+          gap: 1rem;
       }
   }
 </style>

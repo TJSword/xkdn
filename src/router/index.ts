@@ -38,6 +38,14 @@ export const constantRoutes = [
     path: '/ledger',
     component: () => import('@/views/ledger.vue')
   },
+  {
+    path: '/bonds',
+    component: () => import('@/views/bonds.vue')
+  },
+  {
+    path: '/micro-cap',
+    component: () => import('@/views/micro-cap.vue')
+  },
   // 404页面
   {
     path: '/:pathMatch(.*)*',

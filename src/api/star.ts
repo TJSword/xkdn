@@ -13,11 +13,11 @@ import { getGlobalConfig } from '@/hooks/useConfig'
 // 按需解构baseURL地址
 const { VITE_API_BASE_URL } = getGlobalConfig()
 
-// 导出对应模块的请求接口
-export function getMonthRank(params = {}) {
-    return request.get({
-        url: '/rank',
-        params: params,
-        baseURL: VITE_API_BASE_URL
-    })
+// 请求当前星级
+export function getStarNow(params = {}) {
+  return request.get({
+    url: "/api/img/tu/girl",
+    params: params,
+    baseURL: 'https://api.52vmy.cn'
+  })
 }
