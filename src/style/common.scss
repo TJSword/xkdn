@@ -54,3 +54,50 @@ ul,
 li {
   list-style: none;
 }
+
+/* ==========================================================================
+   全局自定义滚动条样式 (适用于暗色主题)
+   ========================================================================== */
+
+/* 针对 Webkit 内核浏览器 (Chrome, Safari, Edge, etc.) */
+::-webkit-scrollbar {
+  width: 10px;
+  /* 滚动条总宽度 */
+  height: 10px;
+  /* 横向滚动条高度 */
+}
+
+::-webkit-scrollbar-track {
+  background: #1e1e1e;
+  /* 滚动条轨道颜色，使用比主背景稍亮的颜色 */
+  border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb {
+  background-color: #444;
+  /* 滚动条滑块的默认颜色 */
+  border-radius: 10px;
+  border: 2px solid #1e1e1e;
+  /* 创建一个“浮动”效果，与轨道背景色相同 */
+  transition: background-color 0.3s ease;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background-color: #555;
+  /* 鼠标悬停时滑块的颜色，稍微变亮 */
+}
+
+::-webkit-scrollbar-thumb:active {
+  background-color: #666;
+  /* 鼠标点击时滑块的颜色 */
+}
+
+
+/* 针对 Firefox 浏览器 */
+/* 注意：Firefox 的滚动条样式可定制性较弱 */
+html {
+  scrollbar-width: thin;
+  /* 'auto' 或 'thin' 或 'none' */
+  /* 第一个颜色是滑块颜色，第二个是轨道颜色 */
+  scrollbar-color: #444 #1e1e1e;
+}

@@ -2,118 +2,177 @@
   <div class="page-wrapper">
     <div class="main-container">
 
-      <!-- 1. 页面标题 & 管理员切换 -->
+      <!-- 1. 页面标题 -->
       <div class="page-header">
-        <div class="header-top">
-          <a href="#" class="back-button">← 返回主页</a>
-          <div class="admin-switch">
-            <label for="admin-mode">管理员模式</label>
-            <input type="checkbox" id="admin-mode" v-model="isAdmin">
-          </div>
-        </div>
+        <a href="/" class="back-button">← 返回主页</a>
         <h1 class="main-title">
           <span class="title-icon">📒</span>
-          个人实盘记账本
+          何的记账本
         </h1>
         <p class="subtitle">
-          透明、客观、可追溯——记录投资路上的每一步。
+          记录真实投资，见证财富成长。本页面数据非实时，仅为定期更新的实盘分享。
         </p>
+        <p class="update-date">数据更新于：{{ lastUpdatedDate }} (展示昨日收盘数据)</p>
       </div>
 
-      <!-- 2. 仪表盘网格布局 -->
-      <div class="dashboard-grid">
+      <!-- 2. 内容卡片区域 -->
+      <div class="content-grid">
 
-        <!-- A. 关键指标 & 日期选择 -->
-        <div class="content-card summary-card">
-          <div class="metrics-container">
+        <!-- 账户总览 -->
+        <div class="content-card">
+          <div class="card-header-actions">
+            <h2 class="card-title">账户总览</h2>
+            <button class="action-button" @click="isModalVisible = true">录入数据 ✍️</button>
+          </div>
+          <!-- 优化后的指标布局 -->
+          <div class="overview-metrics">
             <div class="metric-item">
-              <span class="metric-label">当前总资产 (元)</span>
-              <span class="metric-value">{{ summaryData.totalAssets }}</span>
+              <span class="metric-label">总金额</span>
+              <span class="metric-value">¥
+                {{ portfolioSummary.totalAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }}</span>
             </div>
             <div class="metric-item">
-              <span class="metric-label">当日总盈亏 (元)</span>
-              <span :class="['metric-value', summaryData.totalPnl.amount >= 0 ? 'positive' : 'negative']">
-                {{ summaryData.totalPnl.amount >= 0 ? '+' : '' }}{{ summaryData.totalPnl.amount }}
-                ({{ summaryData.totalPnl.rate }}%)
+              <span class="metric-label">当日收益</span>
+              <span class="metric-value" :class="getPlClass(portfolioSummary.dailyProfit)">
+                {{ portfolioSummary.dailyProfit >= 0 ? '+' : '' }}{{ portfolioSummary.dailyProfit.toLocaleString('en-US') }}
+              </span>
+            </div>
+            <div class="metric-item">
+              <span class="metric-label">当日收益率</span>
+              <span class="metric-value" :class="getPlClass(portfolioSummary.dailyProfitRate)">
+                {{ portfolioSummary.dailyProfitRate >= 0 ? '+' : '' }}{{ portfolioSummary.dailyProfitRate.toFixed(2) }}%
               </span>
             </div>
           </div>
-          <div class="controls-container">
-            <div class="date-selector">
-              <label for="view-date">查看日期:</label>
-              <input type="date" id="view-date" v-model="selectedDate">
+          <!-- 优化后的图表和图例容器 -->
+          <div class="pie-chart-wrapper">
+            <div ref="pieChartContainer" class="echart-container"></div>
+          </div>
+        </div>
+
+        <!-- 历史表现趋势 -->
+        <div class="content-card">
+          <div class="card-header-actions">
+            <h2 class="card-title">历史表现趋势</h2>
+            <div class="chart-toggle-buttons">
+              <button :class="{ active: activeChartType === 'rate' }" @click="activeChartType = 'rate'">收益率曲线</button>
+              <button :class="{ active: activeChartType === 'amount' }" @click="activeChartType = 'amount'">收益金额曲线</button>
             </div>
-            <button v-if="isAdmin" class="record-btn" @click="openModal">录入数据</button>
+          </div>
+          <div ref="lineChartContainer" class="echart-container" style="height: 300px;"></div>
+        </div>
+
+        <!-- ==================== 新增：各策略收益对比图 ==================== -->
+        <div class="content-card">
+          <h2 class="card-title">各策略收益对比</h2>
+          <p class="card-description">
+            下图展示了不同策略的模拟累计收益率曲线，用于直观对比其风险与回报特性。
+          </p>
+          <div ref="strategyComparisonChartContainer" class="echart-container" style="height: 350px;"></div>
+        </div>
+        <!-- ============================================================= -->
+
+        <!-- 各策略表现指标 (原卡片保留) -->
+        <div class="content-card">
+          <h2 class="card-title">各策略表现详情</h2>
+          <div class="tabs-container">
+            <button v-for="tab in strategyTabs" :key="tab.id" :class="['tab-button', { active: activeStrategyTab === tab.id }]"
+              @click="activeStrategyTab = tab.id">
+              {{ tab.name }}
+            </button>
+          </div>
+          <div class="tab-content">
+            <table class="portfolio-table">
+              <thead>
+                <tr>
+                  <th>表现指标</th>
+                  <th>数值</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>策略总收益率</td>
+                  <td :class="getPlClass(activeStrategyInfo.totalPl)">
+                    {{ activeStrategyInfo.totalPl.toFixed(2) }}%
+                  </td>
+                </tr>
+                <tr>
+                  <td>在总资产中占比</td>
+                  <td>{{ (activeStrategyInfo.percentage * 100).toFixed(2) }}%</td>
+                </tr>
+              </tbody>
+            </table>
+            <p class="strategy-summary">
+              <b>“{{ activeStrategyInfo.name }}”策略总结：</b>{{ activeStrategyInfo.summary }}
+            </p>
           </div>
         </div>
 
-        <!-- B. 总资产走势图 (全宽) -->
-        <div class="content-card full-width-card">
-          <h2 class="card-title">总资产走势</h2>
-          <div ref="assetTrendChart" class="echart-container"></div>
-        </div>
-
-        <!-- C. 各策略当日盈亏 -->
+        <!-- 近期操作记录 (无变化) -->
         <div class="content-card">
-          <h2 class="card-title">各策略当日盈亏</h2>
-          <div ref="dailyPnlChart" class="echart-container-small"></div>
+          <h2 class="card-title">近期操作记录</h2>
+          <table class="portfolio-table">
+            <thead>
+              <tr>
+                <th>日期</th>
+                <th>操作类型</th>
+                <th>标的</th>
+                <th>所属策略</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-if="transactionLogs.length === 0">
+                <td colspan="4" style="text-align: center; color: #8392A5;">暂无操作记录</td>
+              </tr>
+              <tr v-for="(log, index) in transactionLogs" :key="index">
+                <td>{{ log.date }}</td>
+                <td :class="log.type.includes('买入') ? 'text-profit' : 'text-loss'">{{ log.type }}</td>
+                <td>{{ log.target }}</td>
+                <td>{{ log.strategy }}</td>
+              </tr>
+            </tbody>
+          </table>
         </div>
-
-        <!-- D. 当日操作记录 -->
-        <div class="content-card">
-          <h2 class="card-title">当日操作记录</h2>
-          <div v-if="operationsLog && operationsLog.length > 0" class="operations-list-container">
-            <ul class="operations-list">
-              <li v-for="(op, index) in operationsLog" :key="index" :class="op.type">
-                <span class="op-icon"></span>
-                <span class="op-desc">{{ op.description }}</span>
-                <span class="op-time">{{ op.time }}</span>
-              </li>
-            </ul>
-          </div>
-          <p v-else class="no-data-placeholder">当日无操作记录</p>
-        </div>
-
       </div>
     </div>
 
-    <!-- 数据录入模态框 -->
+    <!-- 数据录入弹窗 (无变化) -->
     <Transition name="modal-fade">
-      <div v-if="isModalVisible" class="modal-backdrop" @click="closeModal">
+      <div v-if="isModalVisible" class="modal-backdrop" @click="isModalVisible = false">
         <div class="modal-content" @click.stop>
           <div class="modal-header">
-            <h3>录入 {{ selectedDate }} 的数据</h3>
-            <button class="modal-close-button" @click="closeModal">×</button>
+            <h3>录入数据</h3>
+            <button class="modal-close-button" @click="isModalVisible = false">×</button>
           </div>
           <div class="modal-body">
-            <div class="form-group">
-              <label>当日总资产 (元)</label>
-              <input type="number" v-model.number="newEntryData.totalAssets" placeholder="输入收盘后的总资产">
+            <div class="modal-tabs">
+              <button :class="{ active: modalTab === 'operation' }" @click="modalTab = 'operation'">记录操作</button>
+              <button :class="{ active: modalTab === 'performance' }" @click="modalTab = 'performance'">更新表现</button>
             </div>
-            <div class="form-group">
-              <label>各策略当日盈亏 (元)</label>
-              <div v-for="strategy in newEntryData.strategyPnl" :key="strategy.name" class="strategy-input-group">
-                <span>{{ strategy.name }}</span>
-                <input type="number" v-model.number="strategy.pnlAmount" :placeholder="`输入${strategy.name}盈亏`">
+            <div v-if="modalTab === 'operation'" class="form-container">
+              <div class="form-group"><label for="op-date">日期</label><input type="date" id="op-date" v-model="newOperation.date"></div>
+              <div class="form-group"><label for="op-type">操作类型</label><select id="op-type" v-model="newOperation.type">
+                  <option>买入</option>
+                  <option>卖出</option>
+                  <option>再平衡买入</option>
+                  <option>再平衡卖出</option>
+                </select></div>
+              <div class="form-group"><label for="op-target">标的名称</label><input type="text" id="op-target" v-model="newOperation.target"
+                  placeholder="例如：沪深300ETF"></div>
+              <div class="form-group"><label for="op-strategy">所属策略</label><select id="op-strategy" v-model="newOperation.strategy">
+                  <option v-for="tab in strategyTabs" :key="tab.id" :value="tab.name">{{ tab.name }}</option>
+                </select></div>
+              <button class="form-submit-button" @click="handleRecordOperation">确认记录</button>
+            </div>
+            <div v-if="modalTab === 'performance'" class="form-container">
+              <div class="form-group"><label for="perf-date">选择日期</label><input type="date" id="perf-date" v-model="historyUpdate.date">
               </div>
+              <div class="form-group"><label for="perf-rate">当日累计收益率 (%)</label><input type="number" id="perf-rate"
+                  v-model.number="historyUpdate.rate" placeholder="例如: 3.15"></div>
+              <div class="form-group"><label for="perf-amount">当日累计收益金额 (元)</label><input type="number" id="perf-amount"
+                  v-model.number="historyUpdate.amount" placeholder="例如: 35000.50"></div>
+              <button class="form-submit-button" @click="handleUpdateHistory">确认更新历史</button>
             </div>
-            <div class="form-group">
-              <label>当日操作记录</label>
-              <div v-for="(op, index) in newEntryData.operations" :key="index" class="operation-input-group">
-                <select v-model="op.type">
-                  <option value="buy">买入</option>
-                  <option value="sell">卖出</option>
-                </select>
-                <input type="text" v-model="op.description" placeholder="操作描述，如: 买入XXETF 1000元">
-                <input type="time" v-model="op.time">
-                <button class="delete-op-btn" @click="removeOperationFromForm(index)">-</button>
-              </div>
-              <button class="add-op-btn" @click="addOperationToForm">➕ 添加操作</button>
-            </div>
-          </div>
-          <div class="modal-footer">
-            <button class="cancel-btn" @click="closeModal">取消</button>
-            <button class="save-btn" @click="handleSave">确认保存</button>
           </div>
         </div>
       </div>
@@ -122,223 +181,357 @@
 </template>
 
 <script setup lang="ts">
-  import { ref, reactive, onMounted, onUnmounted, watch, nextTick } from 'vue' // 引入 onUnmounted
+  import { ref, onMounted, onUnmounted, computed, nextTick, watch } from 'vue'
   import * as echarts from 'echarts'
 
-  // --- 类型定义 (无变化) ---
-  interface Pnl {
-      amount: number
-      rate: number
-  }
-  interface StrategyPnl {
-      name: string
-      pnlAmount: number
-      pnlRate?: number
-  }
-  interface Operation {
-      type: 'buy' | 'sell'
-      description: string
-      time: string
-  }
-  interface DailyData {
-      totalAssets: number
-      totalPnl: Pnl
-      strategyPnl: StrategyPnl[]
-      operations: Operation[]
+  // --- 响应式状态定义 ---
+  const activeStrategyTab = ref('allWeather')
+  const pieChartContainer = ref<HTMLElement | null>(null)
+  const lineChartContainer = ref<HTMLElement | null>(null)
+  // 新增：策略对比图的容器引用
+  const strategyComparisonChartContainer = ref<HTMLElement | null>(null)
+  let myPieChart: echarts.ECharts | null = null
+  let myLineChart: echarts.ECharts | null = null
+  // 新增：策略对比图的实例
+  let myComparisonChart: echarts.ECharts | null = null
+
+  const activeChartType = ref<'rate' | 'amount'>('rate')
+  const lastUpdatedDate = ref('2025-07-14')
+  const isModalVisible = ref(false)
+  const modalTab = ref<'operation' | 'performance'>('operation')
+  const newOperation = ref({
+      date: new Date().toISOString().slice(0, 10),
+      type: '买入',
+      target: '',
+      strategy: '全天候策略'
+  })
+  const historyUpdate = ref({ date: new Date().toISOString().slice(0, 10), rate: 0, amount: 0 })
+
+  // --- 数据 ---
+  const portfolioSummary = ref({
+      totalAmount: 1234567.89,
+      dailyProfit: 1234.56,
+      dailyProfitRate: 0.1
+  })
+  const historicalData = ref({
+      dates: [
+          '2025-06-01',
+          '2025-06-05',
+          '2025-06-10',
+          '2025-06-15',
+          '2025-06-20',
+          '2025-06-25',
+          '2025-07-01',
+          '2025-07-05',
+          '2025-07-10',
+          '2025-07-14'
+      ],
+      amounts: [0, 5200, 8300, 7100, 12500, 15000, 22000, 20500, 28000, 31234],
+      rates: [0, 0.5, 0.81, 0.69, 1.22, 1.45, 2.13, 1.98, 2.71, 3.01]
+  })
+  const strategiesData: any = ref({
+      allWeather: {
+          name: '全天候策略',
+          summary: '追求在任何经济环境下都表现稳健，回撤小。',
+          totalPl: 5.68,
+          percentage: 0.4
+      },
+      longTerm: {
+          name: '长钱策略',
+          summary: '高风险高回报，通过长期持有低估指数获取超额收益。',
+          totalPl: 12.33,
+          percentage: 0.3
+      },
+      microCap: {
+          name: '微盘股策略',
+          summary: '风险极高，投资于最小市值的公司，博取最高弹性。',
+          totalPl: -7.37,
+          percentage: 0.15
+      },
+      convertibleBond: {
+          name: '可转债策略',
+          summary: '攻守兼备，熊市抗跌，牛市跟涨。',
+          totalPl: 11.61,
+          percentage: 0.15
+      }
+  })
+  const transactionLogs = ref([
+      { date: '2025-07-10', type: '买入', target: '中证2000指数ETF', strategy: '微盘股策略' }
+  ])
+
+  // 新增：为策略对比图准备的模拟数据
+  const comparisonData = {
+      dates: ['2023-01', '2023-04', '2023-07', '2023-10', '2024-01', '2024-04', '2024-07'],
+      allWeather: [0, 2, 3, 2.5, 4, 5, 5.5],
+      longTerm: [0, 5, 2, 8, 15, 12, 18],
+      microCap: [0, 10, -5, 15, 25, 10, 30],
+      convertibleBond: [0, 3, 1, 6, 10, 8, 14]
   }
 
-  // --- 丰富且连贯的模拟数据库 (无变化) ---
-  const mockDatabase = reactive<Record<string, DailyData>>({
-      '2025-07-15': {
-          /* ... data ... */
-      },
-      '2025-07-14': {
-          /* ... data ... */
-      },
-      '2025-07-11': {
-          /* ... data ... */
-      },
-      '2025-07-10': {
-          /* ... data ... */
-      },
-      '2025-07-09': {
-          /* ... data ... */
+  // --- 计算属性 ---
+  const strategyTabs = computed(() =>
+      Object.entries(strategiesData.value).map(([id, data]: any) => ({ id, name: data.name }))
+  )
+  const activeStrategyInfo = computed(() => strategiesData.value[activeStrategyTab.value])
+  const pieChartData = computed(() =>
+      Object.values(strategiesData.value).map((strategy: any) => ({
+          value: strategy.percentage,
+          name: strategy.name
+      }))
+  )
+
+  const lineChartOption = computed((): echarts.EChartsOption => {
+      const isRate = activeChartType.value === 'rate'
+      const data = isRate ? historicalData.value.rates : historicalData.value.amounts
+      const seriesName = isRate ? '累计收益率' : '累计收益金额'
+      const yAxisFormatter = isRate ? '{value} %' : '¥ {value}'
+      return {
+          backgroundColor: 'transparent',
+          grid: { left: '3%', right: '4%', bottom: '3%', containLabel: true },
+          tooltip: {
+              trigger: 'axis',
+              formatter: (params: any) =>
+                  `<strong>${params[0].name}</strong><br/>${
+                      params[0].marker
+                  } ${seriesName}: <strong>${params[0].value}${isRate ? '%' : ' 元'}</strong>`
+          },
+          xAxis: {
+              type: 'category',
+              boundaryGap: false,
+              data: historicalData.value.dates,
+              axisLine: { lineStyle: { color: '#8392A5' } }
+          },
+          yAxis: {
+              type: 'value',
+              axisLabel: { formatter: yAxisFormatter },
+              axisLine: { lineStyle: { color: '#8392A5' } },
+              splitLine: { lineStyle: { color: 'rgba(255,255,255,0.1)' } }
+          },
+          series: [
+              {
+                  name: seriesName,
+                  type: 'line',
+                  smooth: true,
+                  data: data,
+                  itemStyle: { color: '#00c497' },
+                  areaStyle: {
+                      color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                          { offset: 0, color: 'rgba(0, 196, 151, 0.5)' },
+                          { offset: 1, color: 'rgba(0, 196, 151, 0)' }
+                      ])
+                  }
+              }
+          ]
       }
   })
 
-  // --- 响应式状态 (无变化) ---
-  const isAdmin = ref(true)
-  const isModalVisible = ref(false)
-  const selectedDate = ref('2025-07-15')
-  let newEntryData = reactive(getInitialFormData())
+  // --- Watchers ---
+  watch(activeChartType, () => {
+      if (myLineChart) {
+          myLineChart.setOption(lineChartOption.value, true)
+      }
+  })
 
-  const summaryData = ref<DailyData>(mockDatabase[selectedDate.value] || getEmptyDailyData())
-  const operationsLog = ref<Operation[] | undefined>(summaryData.value.operations)
-
-  const assetTrendChart = ref<HTMLElement | null>(null)
-  const dailyPnlChart = ref<HTMLElement | null>(null)
-  let assetChartInstance: echarts.ECharts | null = null
-  let pnlChartInstance: echarts.ECharts | null = null
-
-  // --- 工具函数 (无变化) ---
-  function getEmptyDailyData(): DailyData {
-      /* ... */
-  }
-  function getInitialFormData() {
-      /* ... */
-  }
-  function formatDate(date: Date) {
-      /* ... */
+  // --- 方法 ---
+  const getPlClass = (pl: number) => {
+      if (pl > 0) return 'text-profit'
+      if (pl < 0) return 'text-loss'
+      return ''
   }
 
-  // --- 核心业务逻辑 (无变化) ---
-  const openModal = () => {
-      /* ... */
-  }
-  const closeModal = () => {
-      /* ... */
-  }
-  const addOperationToForm = () => {
-      /* ... */
-  }
-  const removeOperationFromForm = (index: number) => {
-      /* ... */
-  }
-  const handleSave = () => {
-      /* ... */
-  }
-
-  // --- ECharts 图表更新 (已修复) ---
-  const updateAssetTrendChart = () => {
-      /* ... (无变化) ... */
-  }
-
-  const updateDailyPnlChart = () => {
-      if (!pnlChartInstance) return
-      const data = summaryData.value.strategyPnl || []
-
-      // 【关键修复】更新 setOption 时，必须提供完整的 series 结构，至少包含 type。
-      pnlChartInstance.setOption(
-          {
-              yAxis: { data: data.map(d => d.name) },
+  const initPieChart = () => {
+      if (pieChartContainer.value) {
+          myPieChart = echarts.init(pieChartContainer.value, 'dark')
+          myPieChart.setOption({
+              backgroundColor: 'transparent',
+              tooltip: { trigger: 'item', formatter: '{a} <br/>{b}: {d}%' },
+              legend: {
+                  orient: 'vertical',
+                  left: '5%',
+                  top: 'center',
+                  textStyle: { color: '#ccc' },
+                  formatter: (name: string) => {
+                      const item: any = pieChartData.value.find(p => p.name === name)
+                      return `${name}  ${(item.value * 100).toFixed(0)}%`
+                  }
+              },
               series: [
                   {
-                      name: '盈亏金额', // 补全
-                      type: 'bar', // 补全
-                      data: data.map(d => d.pnlAmount)
+                      name: '策略分布',
+                      type: 'pie',
+                      radius: ['50%', '75%'],
+                      center: ['65%', '50%'], // 将饼图向右移动
+                      avoidLabelOverlap: false,
+                      label: { show: false },
+                      emphasis: { label: { show: false } },
+                      data: pieChartData.value
                   }
-              ],
-              visualMap: {
-                  min: Math.min(...data.map(d => d.pnlAmount), -1),
-                  max: Math.max(...data.map(d => d.pnlAmount), 1)
-              }
-          },
-          { notMerge: true }
-      )
+              ]
+          })
+      }
   }
 
-  // --- 数据同步与监听 (无变化) ---
-  const updatePageData = (date: string) => {
-      /* ... */
+  const initLineChart = () => {
+      if (lineChartContainer.value) {
+          myLineChart = echarts.init(lineChartContainer.value, 'dark')
+          myLineChart.setOption(lineChartOption.value)
+      }
   }
-  watch(selectedDate, updatePageData)
 
-  // --- 生命周期钩子 (已修改) ---
+  // 新增：初始化策略对比图
+  const initComparisonChart = () => {
+      if (strategyComparisonChartContainer.value) {
+          myComparisonChart = echarts.init(strategyComparisonChartContainer.value, 'dark')
+          myComparisonChart.setOption({
+              backgroundColor: 'transparent',
+              tooltip: {
+                  trigger: 'axis',
+                  formatter: (params: any) => {
+                      let res = `<strong>${params[0].name}</strong>`
+                      params.forEach((item: any) => {
+                          res += `<br/>${item.marker} ${item.seriesName}: <strong>${item.value}%</strong>`
+                      })
+                      return res
+                  }
+              },
+              legend: {
+                  data: ['全天候策略', '长钱策略', '微盘股策略', '可转债策略'],
+                  textStyle: { color: '#ccc' },
+                  top: 0
+              },
+              grid: { left: '3%', right: '4%', bottom: '3%', top: '15%', containLabel: true },
+              xAxis: {
+                  type: 'category',
+                  boundaryGap: false,
+                  data: comparisonData.dates,
+                  axisLine: { lineStyle: { color: '#8392A5' } }
+              },
+              yAxis: {
+                  type: 'value',
+                  axisLabel: { formatter: '{value} %' },
+                  splitLine: { lineStyle: { color: 'rgba(255,255,255,0.1)' } }
+              },
+              series: [
+                  {
+                      name: '全天候策略',
+                      type: 'line',
+                      smooth: true,
+                      data: comparisonData.allWeather,
+                      itemStyle: { color: '#00aaff' }
+                  },
+                  {
+                      name: '长钱策略',
+                      type: 'line',
+                      smooth: true,
+                      data: comparisonData.longTerm,
+                      itemStyle: { color: '#ff4081' }
+                  },
+                  {
+                      name: '微盘股策略',
+                      type: 'line',
+                      smooth: true,
+                      data: comparisonData.microCap,
+                      itemStyle: { color: '#f0e68c' }
+                  },
+                  {
+                      name: '可转债策略',
+                      type: 'line',
+                      smooth: true,
+                      data: comparisonData.convertibleBond,
+                      itemStyle: { color: '#add8e6' }
+                  }
+              ]
+          })
+      }
+  }
+
+  const handleRecordOperation = () => {
+      transactionLogs.value.unshift({ ...newOperation.value })
+      isModalVisible.value = false
+  }
+
+  const handleUpdateHistory = () => {
+      const { date, rate, amount } = historyUpdate.value
+      if (!date) {
+          alert('请选择一个日期！')
+          return
+      }
+      const { dates, rates, amounts } = historicalData.value
+      const existingIndex = dates.indexOf(date)
+      if (existingIndex !== -1) {
+          rates[existingIndex] = rate
+          amounts[existingIndex] = amount
+      } else {
+          const newDate = new Date(date)
+          const insertIndex = dates.findIndex(d => new Date(d) > newDate)
+          if (insertIndex === -1) {
+              dates.push(date)
+              rates.push(rate)
+              amounts.push(amount)
+          } else {
+              dates.splice(insertIndex, 0, date)
+              rates.splice(insertIndex, 0, rate)
+              amounts.splice(insertIndex, 0, amount)
+          }
+      }
+      myLineChart?.setOption(lineChartOption.value, true)
+      isModalVisible.value = false
+  }
+
+  const resizeCharts = () => {
+      myPieChart?.resize()
+      myLineChart?.resize()
+      myComparisonChart?.resize() // 新增
+  }
+
   onMounted(() => {
-      // 总资产走势图
-      if (assetTrendChart.value) {
-          assetChartInstance = echarts.init(assetTrendChart.value)
-          assetChartInstance.setOption({
-              /* ... 初始配置 ... */
-          })
-          updateAssetTrendChart()
-      }
-
-      // 当日策略盈亏图
-      if (dailyPnlChart.value) {
-          pnlChartInstance = echarts.init(dailyPnlChart.value)
-          pnlChartInstance.setOption({
-              /* ... 初始配置 ... */
-          })
-          updateDailyPnlChart()
-      }
+      nextTick(() => {
+          initPieChart()
+          initLineChart()
+          initComparisonChart() // 新增
+      })
+      window.addEventListener('resize', resizeCharts)
   })
 
-  // 【关键修复】增加 onUnmounted 钩子，在组件销毁时清理 ECharts 实例
   onUnmounted(() => {
-      if (assetChartInstance) {
-          assetChartInstance.dispose()
-      }
-      if (pnlChartInstance) {
-          pnlChartInstance.dispose()
-      }
+      window.removeEventListener('resize', resizeCharts)
+      myPieChart?.dispose()
+      myLineChart?.dispose()
+      myComparisonChart?.dispose() // 新增
   })
 </script>
 
 <style scoped>
-  /* 样式与上一个版本几乎一致，仅微调了占位符样式 */
-  :root {
-      --theme-color: #00c497;
-      --positive-color: #28a745;
-      --negative-color: #dc3545;
-  }
   .page-wrapper {
       font-family: 'Noto Sans SC', sans-serif;
       background-color: #121212;
       color: #ffffff;
       min-height: 100vh;
       padding: 3rem 1rem;
+      /* 主题绿色背景 */
+      background: radial-gradient(circle at 15% 50%, #1a4a2a, transparent 40%),
+          radial-gradient(circle at 85% 50%, #2a4a1a, transparent 40%), #121212;
   }
   .main-container {
-      max-width: 1200px;
+      max-width: 900px;
       margin: 0 auto;
   }
   .page-header {
       text-align: center;
       margin-bottom: 3rem;
   }
-  .header-top {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      width: 100%;
-      margin-bottom: 1rem;
-  }
-  .back-button {
-      color: #b0c4de;
-      text-decoration: none;
-      font-size: 0.9rem;
-  }
-  .admin-switch {
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-  }
-  .admin-switch input {
-      accent-color: var(--theme-color);
-  }
-  .main-title {
-      font-size: 2.5rem;
-      font-weight: 700;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 1rem;
-      margin-bottom: 0.5rem;
+  .back-button:hover {
+      color: #00c497;
   }
   .title-icon {
-      font-size: 2.8rem;
-      color: var(--theme-color);
-      text-shadow: 0 0 15px var(--theme-color);
+      color: #00c497;
+      text-shadow: 0 0 15px #00c497;
   }
-  .subtitle {
-      font-size: 1.1rem;
-      color: #b0c4de;
-  }
-  .dashboard-grid {
+
+  .content-grid {
       display: grid;
-      grid-template-columns: repeat(2, 1fr);
       gap: 1.5rem;
+      grid-template-columns: 1fr;
   }
   .content-card {
       background: rgba(255, 255, 255, 0.05);
@@ -346,22 +539,24 @@
       border-radius: 12px;
       padding: 1.5rem 2rem;
       backdrop-filter: blur(10px);
+      transition: border-color 0.3s;
   }
-  .full-width-card {
-      grid-column: 1 / -1;
+  .content-card:hover {
+      border-color: rgba(0, 196, 151, 0.5);
   }
-  .summary-card {
-      grid-column: 1 / -1;
+  .card-title {
+      font-size: 1.4rem;
+      border-left: 4px solid #00c497;
+      padding-left: 1rem;
+      margin: 0 0 1.5rem 0;
+  }
+
+  /* 账户总览指标 */
+  .overview-metrics {
       display: flex;
-      justify-content: space-between;
-      align-items: center;
-      flex-wrap: wrap;
-      gap: 1rem;
-  }
-  .metrics-container {
-      display: flex;
-      gap: 2rem;
-      flex-wrap: wrap;
+      justify-content: space-around;
+      text-align: center;
+      margin-bottom: 1.5rem;
   }
   .metric-item {
       display: flex;
@@ -370,122 +565,125 @@
   .metric-label {
       font-size: 0.9rem;
       color: #b0c4de;
-      margin-bottom: 0.25rem;
+      margin-bottom: 0.5rem;
   }
   .metric-value {
       font-size: 1.8rem;
       font-weight: bold;
+      line-height: 1;
   }
-  .metric-value.positive {
-      color: var(--positive-color);
-  }
-  .metric-value.negative {
-      color: var(--negative-color);
-  }
-  .controls-container {
-      display: flex;
-      align-items: center;
-      gap: 1rem;
-  }
-  .date-selector input[type='date'] {
-      background: rgba(0, 0, 0, 0.3);
-      border: 1px solid rgba(255, 255, 255, 0.2);
-      border-radius: 6px;
-      color: #fff;
-      padding: 0.5rem;
-  }
-  .record-btn {
-      background-color: var(--theme-color);
-      color: #fff;
-      border: none;
-      border-radius: 8px;
-      padding: 0.6rem 1.2rem;
-      font-weight: bold;
-      cursor: pointer;
-      transition: all 0.3s;
-  }
-  .card-title {
-      font-size: 1.4rem;
-      font-weight: bold;
-      margin-top: 0;
-      margin-bottom: 1.5rem;
-      border-left: 4px solid var(--theme-color);
-      padding-left: 1rem;
-  }
-  .echart-container {
-      width: 100%;
-      height: 350px;
-  }
-  .echart-container-small {
+
+  /* 饼图容器 */
+  .pie-chart-wrapper {
       width: 100%;
       height: 250px;
   }
-  .operations-list-container {
-      max-height: 250px;
-      overflow-y: auto;
-  }
-  .operations-list {
-      list-style: none;
-      padding: 0;
-      margin: 0;
-  }
-  .operations-list li {
-      display: flex;
-      align-items: center;
-      gap: 1rem;
-      padding: 0.75rem 0;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-  }
-  .op-icon {
-      width: 20px;
-      height: 20px;
-      border-radius: 50%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-weight: bold;
-      color: #121212;
-      flex-shrink: 0;
-  }
-  li.buy .op-icon::before {
-      content: '买';
-      background-color: var(--positive-color);
-  }
-  li.sell .op-icon::before {
-      content: '卖';
-      background-color: var(--negative-color);
-  }
-  .op-icon::before {
-      display: block;
-      width: 20px;
-      height: 20px;
-      border-radius: 50%;
-      text-align: center;
-      line-height: 20px;
-  }
-  .op-desc {
-      flex-grow: 1;
-  }
-  .op-time {
-      font-size: 0.8rem;
-      color: #b0c4de;
-  }
-  .no-data-placeholder {
-      color: #888;
-      text-align: center;
-      padding: 4rem 0;
-      font-style: italic;
+  .echart-container {
+      width: 100%;
+      height: 100%;
   }
 
-  /* 模态框样式 */
-  .modal-fade-enter-active,
-  .modal-fade-leave-active {
-      transition: opacity 0.3s ease;
+  .card-header-actions {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1rem;
   }
-  .modal-fade-enter-from,
-  .modal-fade-leave-to {
-      opacity: 0;
+  .card-header-actions .card-title {
+      margin-bottom: 0;
   }
+  .action-button,
+  .form-submit-button,
+  .chart-toggle-buttons button.active {
+      background-color: #00c497;
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: bold;
+      transition: background-color 0.3s;
+  }
+  .action-button:hover,
+  .form-submit-button:hover {
+      background-color: #00a080;
+  }
+  .action-button {
+      padding: 0.5rem 1rem;
+  }
+  .form-submit-button {
+      padding: 0.9rem;
+  }
+
+  /* 图表切换按钮 */
+  .chart-toggle-buttons {
+      display: flex;
+      background-color: rgba(255, 255, 255, 0.1);
+      border-radius: 8px;
+      padding: 4px;
+  }
+  .chart-toggle-buttons button {
+      padding: 0.5rem 1rem;
+      border: none;
+      background-color: transparent;
+      color: #b0c4de;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.9rem;
+  }
+
+  /* 策略表现详情 */
+  .tabs-container {
+      display: flex;
+      gap: 0.5rem;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      margin-bottom: 1.5rem;
+      flex-wrap: wrap;
+  }
+  .tab-button {
+      padding: 0.75rem 1.5rem;
+      cursor: pointer;
+      background: transparent;
+      border: none;
+      color: #b0c4de;
+      font-size: 1rem;
+      border-bottom: 3px solid transparent;
+      transition: all 0.3s ease;
+  }
+  .tab-button.active {
+      color: #ffffff;
+      border-bottom-color: #00c497;
+  }
+  .portfolio-table {
+      width: 100%;
+      border-collapse: collapse;
+  }
+  .portfolio-table th,
+  .portfolio-table td {
+      padding: 1rem;
+      text-align: left;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  }
+  .portfolio-table tr:last-child td {
+      border-bottom: none;
+  }
+  .strategy-summary {
+      margin-top: 1.5rem;
+      padding: 1rem;
+      background-color: rgba(0, 196, 151, 0.1);
+      border-left: 3px solid #00c497;
+      color: #b0c4de;
+      font-size: 0.9rem;
+      line-height: 1.6;
+  }
+
+  .text-profit {
+      color: #28a745 !important;
+  }
+  .text-loss {
+      color: #ff4081 !important;
+  }
+
+  /* 弹窗样式 */
   .modal-backdrop {
       position: fixed;
       top: 0;
@@ -501,94 +699,52 @@
   }
   .modal-content {
       background: #1e1e1e;
-      border: 1px solid rgba(255, 255, 255, 0.2);
       border-radius: 15px;
+      padding: 1.5rem 2rem;
       width: 90%;
-      max-width: 600px;
-      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
-      display: flex;
-      flex-direction: column;
+      max-width: 500px;
   }
   .modal-header {
       display: flex;
       justify-content: space-between;
-      align-items: center;
-      padding: 1rem 1.5rem;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      margin-bottom: 1.5rem;
   }
-  .modal-body {
-      padding: 1.5rem;
+  .modal-tabs {
+      display: flex;
+      margin-bottom: 1.5rem;
+  }
+  .modal-tabs button {
+      flex-grow: 1;
+      padding: 0.8rem;
+      background-color: transparent;
+      color: #b0c4de;
+      border: 1px solid #444;
+      cursor: pointer;
+  }
+  .modal-tabs button.active {
+      background-color: #00c497;
+      color: #fff;
+      border-color: #00c497;
+  }
+  .form-container {
       display: flex;
       flex-direction: column;
-      gap: 1.5rem;
-      max-height: 60vh;
-      overflow-y: auto;
+      gap: 1.2rem;
   }
-  .form-group > label {
-      display: block;
-      font-weight: bold;
-      margin-bottom: 0.75rem;
+  .form-group {
+      display: flex;
+      flex-direction: column;
+  }
+  .form-group label {
+      margin-bottom: 0.5rem;
+      font-size: 0.9rem;
   }
   .form-group input,
   .form-group select {
-      width: 100%;
-      background: rgba(0, 0, 0, 0.3);
-      border: 1px solid rgba(255, 255, 255, 0.2);
-      border-radius: 6px;
+      background-color: #2c2c2c;
+      border: 1px solid #444;
       color: #fff;
-      padding: 0.75rem;
-  }
-  .strategy-input-group,
-  .operation-input-group {
-      display: flex;
-      gap: 0.75rem;
-      align-items: center;
-      margin-bottom: 0.5rem;
-  }
-  .strategy-input-group span {
-      flex-basis: 120px;
-  }
-  .operation-input-group select {
-      flex-basis: 80px;
-  }
-  .delete-op-btn,
-  .add-op-btn {
-      background: #dc3545;
-      border: none;
-      color: white;
-      border-radius: 50%;
-      width: 24px;
-      height: 24px;
-      font-size: 1rem;
-      cursor: pointer;
-      line-height: 24px;
-  }
-  .add-op-btn {
-      background: var(--theme-color);
-      margin-top: 0.5rem;
-      width: auto;
+      padding: 0.8rem;
       border-radius: 6px;
-      padding: 0.25rem 1rem;
-  }
-  .modal-footer {
-      padding: 1rem 1.5rem;
-      border-top: 1px solid rgba(255, 255, 255, 0.1);
-      display: flex;
-      justify-content: flex-end;
-      gap: 1rem;
-  }
-  .cancel-btn {
-      background: rgba(255, 255, 255, 0.1);
-  }
-  .save-btn {
-      background: var(--theme-color);
-  }
-  .cancel-btn,
-  .save-btn {
-      color: white;
-      padding: 0.6rem 1.2rem;
-      border-radius: 8px;
-      cursor: pointer;
-      font-weight: bold;
   }
 </style>

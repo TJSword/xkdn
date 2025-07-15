@@ -7,31 +7,30 @@
         概览市场全局，选择策略路径，开启您的财富增长之旅。
       </p>
 
-      <!-- 修改后的市场温度计 -->
+      <!-- 市场温度计 -->
       <div class="market-thermometer-container clickable" @click="openModal" title="点击查看详细图表">
-        <!-- 1. 新的头部容器，用于放置标题和评分 -->
         <div class="thermometer-header">
-          <h2 class="section-title">当前市场星级:4.86</h2>
-          <!-- <div class="thermometer-value">{{ marketTemperatureValue.toFixed(2) }} ★</div> -->
+          <!-- 动态显示最新的温度和星级 -->
+          <h2 class="section-title">
+            当前市场温度: {{ latestTemperature.toFixed(2) }}°C
+          </h2>
         </div>
 
-        <!-- 2. 日期移动到评分下方并右对齐 -->
-        <!-- <p class="thermometer-desc">数据日期: {{ latestDate }}</p> -->
+        <p class="thermometer-desc">更新时间: {{ latestDate }}</p>
 
-        <!-- 仪表盘部分保持不变 -->
         <div class="thermometer-gauge">
-          <span class="label cheap">高星(便宜)</span>
+          <span class="label cheap">冷</span>
           <div class="gauge-bar">
             <div class="indicator" :style="{ left: marketTemperaturePercent }">
               <div class="indicator-head"></div>
               <div class="indicator-line"></div>
             </div>
           </div>
-          <span class="label expensive">低星(昂贵)</span>
+          <span class="label expensive">热</span>
         </div>
       </div>
 
-      <!-- 统一的 3x2 功能网格 -->
+      <!-- 功能网格 (无变化) -->
       <div class="features-grid">
         <a v-for="card in allFeatureCards" :key="card.id" :href="card.link" :class="['strategy-card', card.cssClass]">
           <div class="card-icon">{{ card.icon }}</div>
@@ -41,12 +40,12 @@
       </div>
     </div>
 
-    <!-- 模态框 (无变化) -->
+    <!-- 模态框 (ECharts部分已更新) -->
     <Transition name="modal-fade">
       <div v-if="isModalVisible" class="modal-backdrop" @click="closeModal">
         <div class="modal-content" @click.stop>
           <div class="modal-header">
-            <h3>市场星级与指数走势</h3>
+            <h3>市场温度与指数走势</h3>
             <button class="modal-close-button" @click="closeModal">×</button>
           </div>
           <div class="modal-body">
@@ -59,11 +58,12 @@
 </template>
 
 <script setup lang="ts">
-  import { ref, computed, watch, nextTick, onMounted } from 'vue'
+  import { ref, computed, watch, nextTick, onMounted, onUnmounted, inject } from 'vue'
   import * as echarts from 'echarts'
-  import starData from './star.json'
+  // 移除静态 import starData from './star.json'
 
-  // --- 接口定义 (无变化) ---
+  const app: any = inject('tcb')
+  // --- 接口定义 ---
   interface FeatureCard {
       id: number
       title: string
@@ -76,6 +76,9 @@
       day: string
       star: number
       china_index: number
+  }
+  interface ProcessedDataItem extends StarDataItem {
+      temperature: number
   }
 
   // --- 卡片数据定义 (无变化) ---
@@ -106,7 +109,7 @@
       },
       {
           id: 5,
-          title: '个人记账本',
+          title: '何的记账本',
           description: '轻松记录投资与开销，清晰掌握财务状况。',
           icon: '📒',
           cssClass: 'personal-ledger',
@@ -130,32 +133,144 @@
       }
   ])
 
-  // --- 市场温度计与数据处理 (无变化) ---
-  const marketData = ref<StarDataItem[]>(starData as StarDataItem[])
-  const marketTemperatureValue = ref(5.0) // 默认值
-  const latestDate = ref('')
+  // --- 市场温度计与数据处理 (核心修改部分) ---
+  const rawHistoryData = ref<StarDataItem[]>([]) // 用于存储从API获取的原始历史数据
+  const processedMarketData = ref<ProcessedDataItem[]>([])
+  let minStar = ref(1.8) // 数据集中的最低星级
+  let maxStar = ref(5.98) // 数据集中的最高星级
 
-  onMounted(() => {
-      if (marketData.value.length > 0) {
-          const latestDataPoint = marketData.value[marketData.value.length - 1]
-          marketTemperatureValue.value = latestDataPoint.star
-          latestDate.value = latestDataPoint.day
+  const latestStar = ref(5.98) // 初始值设为0
+  const latestTemperature = ref(0)
+  const latestDate = ref('加载中...') // 初始提示
+  let pollingInterval: number | null = null // 定时器ID
+
+  /**
+   * 核心处理函数：基于线性映射计算温度，并填充 processedMarketData
+   * 此函数现在依赖于 rawHistoryData
+   */
+  function processDataWithLinearMapping() {
+      const data = rawHistoryData.value
+      if (!data || data.length === 0) return
+
+      // 1. 找出数据集中的最高和最低星级
+      const allStars = data.map(item => item.star)
+      minStar.value = Math.min(...allStars)
+      maxStar.value = Math.max(...allStars)
+      const starRange = maxStar.value - minStar.value
+
+      // 处理分母为0的边缘情况
+      if (starRange === 0) {
+          processedMarketData.value = data.map(item => ({ ...item, temperature: 50 }))
+      } else {
+          // 2. 遍历所有数据，计算每个数据点的温度
+          processedMarketData.value = data.map(item => {
+              const temp = 100 - ((item.star - minStar.value) / starRange) * 100
+              return { ...item, temperature: temp }
+          })
+      }
+      // 数据处理完成后，可以触发一次最新的温度计算
+      updateLatestTemperature(latestStar.value)
+  }
+
+  /**
+   * 更新最新的温度值
+   * @param starRating - 最新的星级
+   */
+  function updateLatestTemperature(starRating: number) {
+      if (processedMarketData.value.length === 0) return // 确保历史数据已加载
+
+      const range = maxStar.value - minStar.value
+      if (range === 0) {
+          latestTemperature.value = 50
+          return
+      }
+      latestTemperature.value = 100 - ((starRating - minStar.value) / range) * 100
+  }
+
+  /**
+   * [异步] 获取最新的星级和日期
+   */
+  const getTodayStar = () => {
+      app.callFunction({
+          name: 'getStar',
+          data: {}
+      })
+          .then((res: any) => {
+              if (res.result?.data?.result) {
+                  latestStar.value = res.result.data.result.star
+                  latestDate.value = res.result.data.result.update_time
+              }
+          })
+          .catch((err: any) => {
+              console.error('获取最新星级失败:', err)
+              latestDate.value = '数据加载失败'
+          })
+  }
+
+  /**
+   * [异步] 获取历史星级数据 (star.json)
+   * 成功后会调用数据处理函数
+   */
+  const getHistoryStar = () => {
+      // 检查数据是否已存在，如果存在则不重复获取
+      if (rawHistoryData.value.length > 0) {
+          return Promise.resolve()
+      }
+      return app
+          .callFunction({
+              name: 'getHistoryStar',
+              data: {}
+          })
+          .then((res: any) => {
+              if (res.result?.data?.result) {
+                  rawHistoryData.value = res.result.data.result
+                  processDataWithLinearMapping() // 获取到数据后立即进行处理
+              }
+          })
+          .catch((err: any) => {
+              console.error('获取历史星级失败:', err)
+          })
+  }
+
+  /**
+   * 启动定时轮询以获取最新数据
+   */
+  const startPollingTodayStar = () => {
+      getTodayStar() // 立即执行一次
+      // pollingInterval = window.setInterval(getTodayStar, 60000) // 设置每分钟刷新
+  }
+
+  onMounted(async () => {
+      // 1. 首先加载历史数据以确定温度计算的范围
+      await getHistoryStar()
+      // 2. 然后开始轮询获取最新数据
+      startPollingTodayStar()
+  })
+
+  onUnmounted(() => {
+      // 组件卸载时清除定时器，防止内存泄漏
+      if (pollingInterval) {
+          clearInterval(pollingInterval)
       }
   })
 
-  // 计算属性 (无变化)
-  const marketTemperaturePercent = computed(() => {
-      const score = marketTemperatureValue.value
-      const percentage = ((6 - score) / (6 - 1)) * 100
-      return `${Math.max(0, Math.min(100, percentage))}%`
+  // 监听最新星级的变化，以便实时更新温度计
+  watch(latestStar, newStar => {
+      updateLatestTemperature(newStar)
   })
 
-  // --- 模态框与 ECharts 逻辑 (无变化) ---
+  // 计算属性，用于控制温度计指针位置
+  const marketTemperaturePercent = computed(() => {
+      return `${Math.max(0, Math.min(100, latestTemperature.value))}%`
+  })
+
+  // --- 模态框与 ECharts 逻辑 (已更新) ---
   const isModalVisible = ref(false)
   const echartContainer = ref<HTMLElement | null>(null)
   let myChart: echarts.ECharts | null = null
 
   const openModal = () => {
+      // 直接打开模态框，数据获取逻辑已移至 onMounted
       isModalVisible.value = true
   }
   const closeModal = () => {
@@ -163,17 +278,19 @@
   }
 
   watch(isModalVisible, newValue => {
-      if (newValue) {
+      if (newValue && processedMarketData.value.length > 0) {
           nextTick(() => {
               if (echartContainer.value) {
                   myChart = echarts.init(echartContainer.value)
-                  const dates = marketData.value.map(item => item.day)
-                  const starValues = marketData.value.map(item => item.star)
-                  const indexValues = marketData.value.map(item => item.china_index)
+                  const dates = processedMarketData.value.map(item => item.day)
+                  const temperatureValues = processedMarketData.value.map(item =>
+                      item.temperature.toFixed(2)
+                  )
+                  const indexValues = processedMarketData.value.map(item => item.china_index)
 
                   const option: echarts.EChartsOption = {
                       tooltip: { trigger: 'axis', axisPointer: { type: 'cross' } },
-                      legend: { data: ['星级', '中证全指'], textStyle: { color: '#ccc' } },
+                      legend: { data: ['市场温度', '中证全指'], textStyle: { color: '#ccc' } },
                       grid: { left: '8%', right: '8%', bottom: '20%' },
                       xAxis: {
                           type: 'category',
@@ -183,17 +300,18 @@
                       yAxis: [
                           {
                               type: 'value',
-                              name: '星级',
+                              name: '市场温度',
                               position: 'left',
-                              alignTicks: true,
+                              min: 0,
+                              max: 100,
                               axisLine: { show: true, lineStyle: { color: '#5470C6' } },
-                              axisLabel: { formatter: '{value} ★' }
+                              axisLabel: { formatter: '{value} °C' }
                           },
                           {
                               type: 'value',
                               name: '中证全指',
                               position: 'right',
-                              alignTicks: true,
+                              scale: true,
                               axisLine: { show: true, lineStyle: { color: '#91CC75' } },
                               axisLabel: { formatter: '{value}' }
                           }
@@ -204,11 +322,11 @@
                       ],
                       series: [
                           {
-                              name: '星级',
+                              name: '市场温度',
                               type: 'line',
                               yAxisIndex: 0,
                               smooth: true,
-                              data: starValues,
+                              data: temperatureValues,
                               itemStyle: { color: '#5470C6' }
                           },
                           {
@@ -233,8 +351,9 @@
   })
 </script>
 
+
 <style scoped>
-  /* 基本样式和背景 */
+  /* CSS样式部分保持不变 */
   .home-page-wrapper {
       font-family: 'Noto Sans SC', sans-serif;
       background-color: #121212;
@@ -243,20 +362,15 @@
       justify-content: center;
       align-items: center;
       min-height: 100vh;
-      /* padding: 2rem 1rem; */
       overflow: hidden;
       background: radial-gradient(circle at 15% 50%, #1a2a4a, transparent 40%),
           radial-gradient(circle at 85% 50%, #4a1a2a, transparent 40%), #121212;
   }
-
-  /* 主容器 */
   .main-container {
       text-align: center;
       max-width: 1200px;
       width: 100%;
   }
-
-  /* 标题 */
   .main-title {
       font-size: 2.2rem;
       font-weight: 700;
@@ -271,18 +385,15 @@
       margin-left: auto;
       margin-right: auto;
   }
-
-  /* --- 修改后的市场温度计卡片 --- */
   .market-thermometer-container {
       background: rgba(255, 255, 255, 0.05);
       border: 1px solid rgba(255, 255, 255, 0.1);
       border-radius: 15px;
-      padding: 1.2rem 1.5rem; /* 调整了内边距 */
+      padding: 1.2rem 1.5rem;
       backdrop-filter: blur(10px);
       transition: transform 0.3s ease, border-color 0.3s ease;
-      /* 恢复最大宽度，使其居中 */
       margin: 0 auto 2rem auto;
-      text-align: left; /* 让内部内容默认左对齐 */
+      text-align: left;
   }
   .market-thermometer-container.clickable {
       cursor: pointer;
@@ -291,37 +402,24 @@
       transform: scale(1.02);
       border-color: #00aaff;
   }
-
-  /* --- 新增: 卡片内标题和评分的容器 --- */
   .thermometer-header {
       display: flex;
       justify-content: center;
-      align-items: baseline; /* 基线对齐，让文字底部对齐 */
-      margin-bottom: 1.6rem;
+      align-items: baseline;
+      margin-bottom: 0.8rem;
   }
-
   .section-title {
       font-size: 1rem;
-      margin: 0; /* 移除原来的边距 */
+      margin: 0;
       font-weight: bold;
-      color: rgba(255, 255, 255, 0.7);
+      color: rgba(255, 255, 255, 0.9);
   }
-
-  .thermometer-value {
-      font-size: 2rem;
-      font-weight: bold;
-      color: #fff;
-      text-shadow: 0 0 10px rgba(255, 255, 255, 0.3);
-  }
-
-  /* --- 修改: 日期描述的样式 --- */
   .thermometer-desc {
-      margin: 0 0 1rem 0; /* 调整边距，使其位于头部下方，仪表盘上方 */
+      margin: 0 0 1.2rem 0;
       color: #b0c4de;
       font-size: 0.75rem;
-      text-align: right; /* 右对齐以匹配评分位置 */
+      text-align: center;
   }
-
   .thermometer-gauge {
       display: flex;
       align-items: center;
@@ -370,15 +468,11 @@
       position: absolute;
       top: -14px;
   }
-
-  /* 3x2 特性网格 */
   .features-grid {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
       gap: 1.5rem;
   }
-
-  /* 紧凑型卡片样式 */
   .strategy-card {
       background: rgba(255, 255, 255, 0.05);
       border: 1px solid rgba(255, 255, 255, 0.1);
@@ -394,7 +488,7 @@
       flex-direction: column;
       justify-content: center;
       min-height: 150px;
-      text-align: center; /* 确保卡片内容居中 */
+      text-align: center;
   }
   .strategy-card:hover {
       transform: translateY(-8px) scale(1.03);
@@ -413,8 +507,6 @@
       color: #b0c4de;
       line-height: 1.5;
   }
-
-  /* 辉光效果 (无变化) */
   .all-weather:hover {
       box-shadow: 0 0 15px #00aaff;
       border-color: #00aaff;
@@ -457,8 +549,6 @@
   .convertible-bond .card-icon {
       color: #add8e6;
   }
-
-  /* 模态框与响应式样式 (无变化) */
   .modal-backdrop {
       position: fixed;
       top: 0;
@@ -522,8 +612,6 @@
   .modal-fade-leave-to .modal-content {
       transform: scale(0.95);
   }
-
-  /* 响应式布局 */
   @media (max-width: 1024px) {
       .features-grid {
           grid-template-columns: repeat(2, 1fr);
