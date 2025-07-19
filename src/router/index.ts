@@ -1,12 +1,5 @@
-/*
- * @Author: BoLin
- * @Date: 2023-04-02 14:58:39
- * @LastEditors: BoLin
- * @LastEditTime: 2023-04-03 16:56:37
- * @Description: file content
- * @FilePath: \digital-twin-system-framework\src\router\index.ts
- */
 import { createWebHashHistory, createRouter } from 'vue-router'
+import { useUserStore } from '@/store/user' // 引入我们刚创建的 user store
 
 // 路由表
 export const constantRoutes = [
@@ -14,42 +7,54 @@ export const constantRoutes = [
     path: '/',
     redirect: '/home'
   },
-
   {
     path: '/login',
     component: () => import('@/views/login.vue')
   },
   {
     path: '/home',
-    component: () => import('@/views/home.vue')
+    component: () => import('@/views/home.vue'),
+    meta: { requiresAuth: true } // 使用 meta 标记需要 VIP 权限的页面
   },
   {
     path: '/all-weather',
-    component: () => import('@/views/all-weather.vue')
+    component: () => import('@/views/all-weather.vue'),
+    meta: { requiresAuth: true }
   }, {
     path: '/long-term',
-    component: () => import('@/views/long-term.vue')
+    component: () => import('@/views/long-term.vue'),
+    meta: { requiresAuth: true }
   },
   {
     path: '/tools',
-    component: () => import('@/views/tools.vue')
+    component: () => import('@/views/tools.vue'),
+    meta: { requiresAuth: true }
   },
   {
     path: '/ledger',
-    component: () => import('@/views/ledger.vue')
+    component: () => import('@/views/ledger.vue'),
+    meta: { requiresAuth: true }
   },
   {
     path: '/bonds',
-    component: () => import('@/views/bonds.vue')
+    component: () => import('@/views/bonds.vue'),
+    meta: { requiresAuth: true }
   },
   {
     path: '/micro-cap',
-    component: () => import('@/views/micro-cap.vue')
+    component: () => import('@/views/micro-cap.vue'),
+    meta: { requiresAuth: true }
   },
-  // 404页面
+  {
+    path: '/admin',
+    component: () => import('@/views/admin.vue'),
+    meta: { requiresAuth: true }
+  },
+  // 404页面必须放在最后
   {
     path: '/:pathMatch(.*)*',
-    component: () => import('@/views/error/404.vue')
+    name: 'NotFound',
+    component: () => import('@/views/404.vue')
   }
 ]
 
@@ -58,10 +63,40 @@ const router = createRouter({
   routes: constantRoutes
 })
 
-router.beforeEach((to, from, next) => {
-  if (to.query.xxl_sso_sessionid) {
-    localStorage.setItem('xxl_sso_sessionid', to.query.xxl_sso_sessionid as any)
+// 定义一个不需要登录就能访问的“白名单”
+const whiteList = ['/login']
+
+router.beforeEach(async (to, from, next) => {
+  // 从 Pinia store 获取 user store 实例
+  const userStore = useUserStore()
+
+  // 1. 首次进入或刷新页面时，尝试获取用户信息
+  // userStore.fetchUserInfo() 这个 action 内部有逻辑防止重复请求
+  await userStore.fetchUserInfo()
+
+  // 2. 从 store 的 getter 中获取 VIP 状态
+  const isVip = userStore.isVip
+
+  if (isVip) {
+    // 如果用户是 VIP
+    if (to.path === '/login') {
+      // 如果 VIP 用户试图访问登录页，则重定向到首页
+      next({ path: '/home' })
+    } else {
+      // 否则，正常放行
+      next()
+    }
+  } else {
+    // 如果用户不是 VIP (包括未登录、过期等)
+    // 检查目标页面是否在白名单中
+    if (whiteList.includes(to.path)) {
+      // 在白名单中，直接放行
+      next()
+    } else {
+      // 不在白名单中，说明是受保护页面，重定向到登录页
+      next({ path: '/login', query: { redirect: to.fullPath } }) // 可选：带上原路径，方便登录后跳回
+    }
   }
-  next()
 })
+
 export default router

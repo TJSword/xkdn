@@ -79,6 +79,62 @@
           </table>
         </div>
 
+        <div class="content-card">
+          <h2 class="card-title">最新持仓与调仓建议</h2>
+          <p class="card-description">
+            根据模型于 {{ formattedDate }} 生成的最新组合与操作建议。请结合自身情况参考。
+          </p>
+
+          <!-- 最新持仓组合 -->
+          <h3 class="card-subtitle">最新持仓组合 ({{ strategyData.latest_portfolio.length }}只)</h3>
+          <div class="table-wrapper">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>代码</th>
+                  <th>名称</th>
+                  <th>价格</th>
+                  <th>溢价率</th>
+                  <th>剩余规模(亿)</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="item in strategyData.latest_portfolio" :key="item.code">
+                  <td>{{ item.code }}</td>
+                  <td>{{ item.name }}</td>
+                  <td>{{ parseFloat(item.close).toFixed(2) }}</td>
+                  <td>{{ (parseFloat(item.conv_prem) * 100).toFixed(2) }}%</td>
+                  <td>{{ parseFloat(item.remain_size).toFixed(2) }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- 当日调仓 (移到下方) -->
+          <h3 class="card-subtitle">组合调仓指引</h3>
+          <div class="adjustments-grid">
+            <div class="adjustment-block">
+              <h4 class="adjustment-title buy">⬆️ 建议调入</h4>
+              <ul class="adjustment-list">
+                <li v-for="item in buyList" :key="item.code" class="adjustment-item">
+                  <span>{{ item.name }} ({{ item.code }})</span>
+                  <span class="action-badge buy">{{ item.action }}</span>
+                </li>
+                <li v-if="buyList.length === 0" class="adjustment-item-empty">今日无调入建议</li>
+              </ul>
+            </div>
+            <div class="adjustment-block">
+              <h4 class="adjustment-title sell">⬇️ 建议调出</h4>
+              <ul class="adjustment-list">
+                <li v-for="item in sellList" :key="item.code" class="adjustment-item">
+                  <span>{{ item.name }} ({{ item.code }})</span>
+                  <span class="action-badge sell">{{ item.action }}</span>
+                </li>
+                <li v-if="sellList.length === 0" class="adjustment-item-empty">今日无调出建议</li>
+              </ul>
+            </div>
+          </div>
+        </div>
         <!-- 历史业绩与收益曲线卡片 -->
         <div class="content-card">
           <div class="card-header-with-toggle">
@@ -120,8 +176,106 @@
 </template>
 
 <script setup lang="ts">
-  import { ref, onMounted, watch } from 'vue'
+  import { ref, onMounted, watch, computed } from 'vue'
   import * as echarts from 'echarts'
+
+  // --- 策略持仓与调仓数据 ---
+  const strategyData = ref({
+      success: true,
+      message: '成功获取最新数据并生成调仓建议。',
+      latest_date: '20250718',
+      latest_portfolio: [
+          {
+              code: '123185',
+              name: '能辉转债',
+              close: '122.51',
+              remain_size: '3.48',
+              conv_prem: '0.3189'
+          },
+          {
+              code: '123189',
+              name: '晓鸣转债',
+              close: '126.58',
+              remain_size: '3.29',
+              conv_prem: '0.2867'
+          },
+          {
+              code: '123230',
+              name: '金钟转债',
+              close: '124.31',
+              remain_size: '3.50',
+              conv_prem: '0.2850'
+          },
+          {
+              code: '123207',
+              name: '冠中转债',
+              close: '123.70',
+              remain_size: '4.00',
+              conv_prem: '0.1703'
+          },
+          {
+              code: '123199',
+              name: '山河转债',
+              close: '129.30',
+              remain_size: '3.20',
+              conv_prem: '0.2297'
+          },
+          {
+              code: '113680',
+              name: '丽岛转债',
+              close: '120.66',
+              remain_size: '3.00',
+              conv_prem: '0.5235'
+          },
+          {
+              code: '123092',
+              name: '天壕转债',
+              close: '127.65',
+              remain_size: '3.42',
+              conv_prem: '0.2701'
+          },
+          {
+              code: '123130',
+              name: '设研转债',
+              close: '123.30',
+              remain_size: '3.75',
+              conv_prem: '0.3422'
+          },
+          {
+              code: '123224',
+              name: '宇邦转债',
+              close: '129.05',
+              remain_size: '2.85',
+              conv_prem: '0.3470'
+          },
+          {
+              code: '123159',
+              name: '崧盛转债',
+              close: '127.16',
+              remain_size: '2.94',
+              conv_prem: '0.4001'
+          }
+      ],
+      adjustments: [
+          { name: '能辉转债', code: '123185', action: '调入' },
+          { name: '晓鸣转债', code: '123189', action: '调入' },
+          { name: '威唐转债', code: '123088', action: '调出' },
+          { name: '中陆转债', code: '123155', action: '调出' }
+      ]
+  })
+
+  const formattedDate = computed(() => {
+      const dateStr = strategyData.value.latest_date
+      if (!dateStr || dateStr.length !== 8) return dateStr
+      return `${dateStr.slice(0, 4)}-${dateStr.slice(4, 6)}-${dateStr.slice(6, 8)}`
+  })
+
+  const buyList = computed(() =>
+      strategyData.value.adjustments.filter(item => item.action === '调入')
+  )
+  const sellList = computed(() =>
+      strategyData.value.adjustments.filter(item => item.action === '调出')
+  )
 
   // --- 控制FAQ展开 ---
   const openFaqIndex = ref<number | null>(0)
@@ -402,16 +556,88 @@
       color: #add8e6; /* 主题色 */
   }
 
+  /* --- 新增样式 --- */
+  .card-subtitle {
+      font-size: 1.1rem;
+      font-weight: bold;
+      color: #ffffff;
+      margin-top: 2rem;
+      margin-bottom: 1rem;
+      padding-bottom: 0.5rem;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  }
+  .adjustments-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 2rem;
+      margin-bottom: 1rem;
+  }
+  .adjustment-block {
+  }
+  .adjustment-title {
+      font-size: 1rem;
+      margin: 0 0 0.8rem 0;
+      font-weight: 600;
+  }
+  .adjustment-title.buy {
+      color: #5cb85c;
+  }
+  .adjustment-title.sell {
+      color: #d9534f;
+  }
+
+  .adjustment-list {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 0.6rem;
+  }
+  .adjustment-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: rgba(255, 255, 255, 0.05);
+      padding: 0.5rem 0.8rem;
+      border-radius: 6px;
+      font-size: 0.9rem;
+      color: #b0c4de;
+  }
+  .adjustment-item-empty {
+      color: #8392a5;
+      font-size: 0.9rem;
+      padding: 0.5rem 0;
+  }
+  .action-badge {
+      padding: 0.2rem 0.6rem;
+      border-radius: 10px;
+      font-size: 0.8rem;
+      font-weight: bold;
+      color: #fff;
+  }
+  .action-badge.buy {
+      background-color: rgba(92, 184, 92, 0.7);
+  }
+  .action-badge.sell {
+      background-color: rgba(217, 83, 79, 0.7);
+  }
+
+  .table-wrapper {
+      overflow-x: auto; /* 保证表格在小屏幕上可以滚动 */
+  }
   .data-table {
       width: 100%;
       border-collapse: collapse;
-      margin-top: 1.5rem;
+      margin-top: 0; /* 被 card-subtitle 的 margin-bottom 替代 */
+      table-layout: fixed; /*  <-- 核心新增属性 */
   }
   .data-table th,
   .data-table td {
       padding: 0.8rem 1rem;
       text-align: left;
       border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      white-space: nowrap; /* 防止表格内容换行 */
   }
   .data-table th {
       color: #ffffff;
@@ -491,6 +717,10 @@
           flex-direction: column;
           align-items: flex-start;
           gap: 1rem;
+      }
+      .adjustments-grid {
+          grid-template-columns: 1fr; /* 在小屏幕上，调入调出列表垂直排列 */
+          gap: 1.5rem;
       }
   }
 </style>

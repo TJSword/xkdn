@@ -22,17 +22,23 @@
 
         <button type="submit" class="submit-btn">登 录</button>
       </form>
-
-      <!-- “立即注册”的链接已被移除 -->
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-  import { reactive, ref, computed, onUnmounted, inject } from 'vue'
-  const app: any = inject('tcb')
-  const auth = app.auth()
-  let verification_id: any = null
+  import { reactive, ref, computed, onMounted, onUnmounted, inject } from 'vue'
+  import { useRouter, useRoute } from 'vue-router'
+  import app, { auth } from '@/lib/cloudbase'
+  import { useUserStore } from '@/store/user'
+
+  const route = useRoute()
+  const router = useRouter()
+  const userStore = useUserStore()
+  // 注入我们在 App.vue 中提供的 showMessage 函数
+  const showMessage: any = inject('showMessage')
+
+  let verification: any = null
   interface LoginInfo {
       phoneNumber: string
       verificationCode: string
@@ -52,29 +58,74 @@
       return isCoolingDown.value ? `${cooldownSeconds.value}秒后重试` : '获取验证码'
   })
 
-  const handleGetCode = async () => {
-      if (isCoolingDown.value) return
-
-      if (!/^1[3-9]\d{9}$/.test(loginInfo.phoneNumber)) {
-          alert('请输入有效的手机号！')
-          return
+  // --- 新增：封装一个启动倒计时的函数 ---
+  const startCooldownTimer = () => {
+      // 先清除已有的计时器，防止重复执行
+      if (timer) {
+          clearInterval(timer)
       }
-
-      console.log(`正在为手机号 ${loginInfo.phoneNumber} 请求验证码...`)
-
-      // 发送手机验证码
-      const verification = await auth.getVerification({
-          phone_number: '+86 ' + loginInfo.phoneNumber
-      })
-      verification_id = verification.verification_id
-      cooldownSeconds.value = 60
       timer = setInterval(() => {
           cooldownSeconds.value--
           if (cooldownSeconds.value <= 0) {
               clearInterval(timer)
+              // 倒计时结束，清理localStorage
+              localStorage.removeItem('verificationCodeCooldownEnd')
           }
       }, 1000)
   }
+
+  const handleGetCode = async () => {
+      if (isCoolingDown.value) return
+
+      if (!/^1[3-9]\d{9}$/.test(loginInfo.phoneNumber)) {
+          showMessage('请输入有效的手机号！', 'error')
+          return
+      }
+
+      showMessage('正在发送验证码...', 'info')
+
+      try {
+          verification = await auth.getVerification({
+              phone_number: '+86 ' + loginInfo.phoneNumber
+          })
+
+          showMessage('验证码已发送，请注意查收', 'success')
+
+          // --- 修改：保存未来的结束时间戳到 localStorage ---
+          const cooldownEndTime = Date.now() + 60 * 1000 // 当前时间 + 60秒
+          localStorage.setItem('verificationCodeCooldownEnd', String(cooldownEndTime))
+
+          cooldownSeconds.value = 60
+          // --- 修改：调用封装好的函数来启动计时器 ---
+          startCooldownTimer()
+      } catch (error) {
+          showMessage('验证码发送失败，请稍后重试', 'error')
+          console.error(error)
+      }
+  }
+
+  onMounted(() => {
+      if (auth.hasLoginState()) {
+          auth.signOut()
+      }
+
+      // --- 新增：页面加载时检查 localStorage 中的倒计时状态 ---
+      const cooldownEndTime = localStorage.getItem('verificationCodeCooldownEnd')
+      if (cooldownEndTime) {
+          const remainingTime = Number(cooldownEndTime) - Date.now()
+
+          // 如果剩余时间大于0，说明倒计时还未结束
+          if (remainingTime > 0) {
+              // 设置倒计时秒数
+              cooldownSeconds.value = Math.ceil(remainingTime / 1000)
+              // 启动倒计时
+              startCooldownTimer()
+          } else {
+              // 如果时间已过，清理掉旧的存储
+              localStorage.removeItem('verificationCodeCooldownEnd')
+          }
+      }
+  })
 
   onUnmounted(() => {
       if (timer) {
@@ -83,26 +134,35 @@
   })
 
   const handleLogin = async () => {
-      // 在实际应用中，这里会调用您的后端API
-      // 后端API会检查手机号是否存在。如果不存在，则创建新用户（注册）；如果存在，则直接登录。
+      // ... 此处 handleLogin 函数的逻辑保持不变
       if (!loginInfo.phoneNumber || !loginInfo.verificationCode) {
-          alert('请输入手机号和验证码！')
+          showMessage('请输入手机号和验证码！', 'error')
           return
       }
 
-      // 验证验证码的正确性
-      auth.verify({
-          verification_id: verification_id,
-          verification_code: loginInfo.verificationCode
-      })
-          .then((res: any) => {
-              console.log(res)
-          })
-          .catch((error: any) => {
-              console.log(error)
+      try {
+          showMessage(`正在登录...`, 'info')
+
+          const userInfo: any = await userStore.login({
+              phoneNumber: loginInfo.phoneNumber,
+              verificationCode: loginInfo.verificationCode,
+              verification: verification
           })
 
-      alert(`登录/注册成功！\n手机号: ${loginInfo.phoneNumber}`)
+          if (userInfo.isVip) {
+              if (userInfo.isNew) {
+                  showMessage('首次登录,送七天付费体验~', 'success', 5000)
+              } else {
+                  showMessage('登录成功', 'success', 3000)
+              }
+              router.push('/home')
+          } else {
+              showMessage('会员已过期,请联系开发者续费', 'error', 10000)
+          }
+      } catch (error) {
+          console.error('登录失败:', error)
+          showMessage('登录失败，请检查验证码或稍后重试', 'error')
+      }
   }
 </script>
 
@@ -274,6 +334,7 @@
       cursor: pointer;
       transition: transform 0.3s ease, box-shadow 0.3s ease;
       margin-top: 1rem;
+      margin-bottom: 3rem;
   }
 
   .submit-btn:hover {

@@ -1,43 +1,24 @@
-<!--
- * @Author: BoLin
- * @Date: 2023-04-12 17:30:21
- * @LastEditors: BoLin
- * @LastEditTime: 2023-04-25 17:39:23
- * @Description: file content
- * @FilePath: \digital-twin-system-framework\src\App.vue
--->
+
 <template>
   <el-config-provider :locale="locale">
     <router-view />
   </el-config-provider>
+  <MessageComponent :messages="messages" />
 </template>
 
 <script lang="ts" setup>
   import zhCn from 'element-plus/es/locale/lang/zh-cn'
-  import { provide } from 'vue'
+  // import { provide } from 'vue'
+  import { useMessage } from './composables/useMessage'
+  import MessageComponent from '@/components/Message.vue'
 
+  // 创建消息系统的实例
+  const messageSystem = useMessage()
+
+  // 将 showMessage 函数提供给所有子组件
+  provide('showMessage', messageSystem.showMessage)
+
+  // 将消息列表传递给 MessageComponent
+  const { messages } = messageSystem
   let locale = zhCn
-
-  //初始化SDK实例
-  import cloudbase from '@cloudbase/js-sdk'
-  const app = cloudbase.init({
-      env: 'xkdn-9g0lbgfyc7310777'
-  })
-  const auth = app.auth()
-  auth.signInAnonymously()
-
-  provide('tcb', app)
-
-  // app.callFunction({
-  //     // 云函数名称
-  //     name: 'login',
-  //     // 传给云函数的参数
-  //     data: {
-  //         a: 1
-  //     }
-  // })
-  //     .then((res: any) => {
-  //         console.log(res)
-  //     })
-  //     .catch(console.error)
 </script>
