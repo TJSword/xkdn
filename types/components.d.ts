@@ -11,7 +11,6 @@ declare module '@vue/runtime-core' {
   export interface GlobalComponents {
     ElConfigProvider: typeof import('element-plus/es')['ElConfigProvider']
     Main: typeof import('./../src/components/loading/main.vue')['default']
-    MarsMap: typeof import('./../src/components/mars-work/mars-map.vue')['default']
     Message: typeof import('./../src/components/Message.vue')['default']
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']

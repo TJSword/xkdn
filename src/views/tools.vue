@@ -4,7 +4,9 @@
 
       <!-- 1. 页面标题 -->
       <div class="page-header">
-        <a href="#" class="back-button">← 返回主页</a>
+        <router-link to="/home" class="back-button">
+          ← 返回主页
+        </router-link>
         <h1 class="main-title">
           <span class="title-icon">🛠️</span>
           投资小工具

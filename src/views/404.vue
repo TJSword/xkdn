@@ -18,9 +18,9 @@
         </p>
 
         <!-- 返回主页按钮 -->
-        <a href="/" class="home-button">
+        <router-link to="/home" class="home-button">
           返回主页，重回正轨
-        </a>
+        </router-link>
       </div>
 
     </div>

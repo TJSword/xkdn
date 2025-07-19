@@ -67,7 +67,7 @@ export default defineConfig(({ command, mode }: ConfigEnv): UserConfig => {
       eslintPlugin(),
 
       // 创建script标签引入app.config.js环境变量
-      createScriptTag(command, ENV.VITE_PUBLIC_PATH)
+      // createScriptTag(command, ENV.VITE_PUBLIC_PATH)
     ],
     build: {
       // 取消计算文件大小,加快打包速度

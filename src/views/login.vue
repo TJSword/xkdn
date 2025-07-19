@@ -23,6 +23,28 @@
         <button type="submit" class="submit-btn">登 录</button>
       </form>
     </div>
+
+    <!-- ======== 新增：会员过期提示弹窗 ======== -->
+    <Transition name="modal-fade">
+      <div v-if="isExpiryModalVisible" class="modal-backdrop" @click="closeExpiryModal">
+        <div class="modal-content" @click.stop>
+          <div class="modal-header">
+            <h3>会员时光已尽，期待与您再续前缘</h3>
+            <button class="modal-close-button" @click="closeExpiryModal">×</button>
+          </div>
+          <div class="modal-body">
+            <p>感谢曾经的陪伴！您的会员体验已到期。</p>
+            <p>如果本站的策略与工具曾为您带来价值，并希望能继续与我们一同在投资之路上探索，欢迎添加开发者微信续费。期待您的回归！</p>
+            <div class="copy-section" @click="copyToClipboard('lib-young')" title="点击复制">
+              <span>微信号: <strong>lib-young</strong></span>
+              <span class="copy-icon">📋</span>
+            </div>
+            <button class="modal-confirm-button" @click="closeExpiryModal">好的，我了解了</button>
+          </div>
+        </div>
+      </div>
+    </Transition>
+    <!-- ===================================== -->
   </div>
 </template>
 
@@ -37,6 +59,29 @@
   const userStore = useUserStore()
   // 注入我们在 App.vue 中提供的 showMessage 函数
   const showMessage: any = inject('showMessage')
+
+  // ======== 新增：弹窗状态控制 ========
+  const isExpiryModalVisible = ref(false)
+
+  const openExpiryModal = () => {
+      isExpiryModalVisible.value = true
+  }
+
+  const closeExpiryModal = () => {
+      isExpiryModalVisible.value = false
+  }
+  // ===================================
+
+  // ======== 新增：点击复制功能 ========
+  const copyToClipboard = async (text: string) => {
+      try {
+          await navigator.clipboard.writeText(text)
+          showMessage('微信号已复制！', 'success')
+      } catch (err) {
+          showMessage('复制失败，请手动复制', 'error')
+          console.error('Failed to copy: ', err)
+      }
+  }
 
   let verification: any = null
   interface LoginInfo {
@@ -132,7 +177,6 @@
           clearInterval(timer)
       }
   })
-
   const handleLogin = async () => {
       // ... 此处 handleLogin 函数的逻辑保持不变
       if (!loginInfo.phoneNumber || !loginInfo.verificationCode) {
@@ -152,12 +196,19 @@
           if (userInfo.isVip) {
               if (userInfo.isNew) {
                   showMessage('首次登录,送七天付费体验~', 'success', 5000)
+                  router.push({
+                      name: 'home', // 使用 name 跳转更佳，但 path: '/home' 也可以
+                      state: { newUser: true }
+                  })
               } else {
                   showMessage('登录成功', 'success', 3000)
+                  router.push({
+                      name: 'home' // 使用 name 跳转更佳，但 path: '/home' 也可以
+                  })
               }
-              router.push('/home')
           } else {
-              showMessage('会员已过期,请联系开发者续费', 'error', 10000)
+              openExpiryModal()
+              // showMessage('会员已过期,请联系开发者续费', 'error', 10000)
           }
       } catch (error) {
           console.error('登录失败:', error)
@@ -355,5 +406,126 @@
       -webkit-text-fill-color: #ffffff !important;
       caret-color: #ffffff;
       transition: background-color 5000s ease-in-out 0s;
+  }
+  /* ======== 新增：弹窗通用及特定样式 ======== */
+  .modal-backdrop {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0, 0, 0, 0.7);
+      backdrop-filter: blur(8px);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 1000;
+  }
+
+  .modal-content {
+      background: #1e1e1e;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 15px;
+      padding: 1.5rem 2rem;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+      width: 90%;
+      max-width: 450px;
+      transform: scale(1);
+      color: #e0e0e0;
+  }
+
+  .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1.5rem;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      padding-bottom: 1rem;
+  }
+
+  .modal-header h3 {
+      margin: 0;
+      font-size: 1.2rem;
+      color: #ffffff;
+  }
+
+  .modal-close-button {
+      background: transparent;
+      border: none;
+      color: #fff;
+      font-size: 2rem;
+      cursor: pointer;
+      line-height: 1;
+  }
+
+  .modal-body {
+      text-align: left;
+      line-height: 1.8;
+  }
+
+  .modal-body p {
+      margin-bottom: 1rem;
+  }
+
+  .copy-section {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background-color: rgba(255, 255, 255, 0.1);
+      padding: 0.8rem 1rem;
+      border-radius: 8px;
+      margin: 1.5rem 0;
+      cursor: pointer;
+      border: 1px solid transparent;
+      transition: all 0.3s ease;
+  }
+
+  .copy-section:hover {
+      border-color: #00aaff;
+      background-color: rgba(0, 170, 255, 0.1);
+  }
+
+  .copy-section strong {
+      color: #ffffff;
+      font-weight: 700;
+  }
+
+  .copy-icon {
+      font-size: 1.2rem;
+  }
+
+  .modal-confirm-button {
+      width: 100%;
+      padding: 0.8rem;
+      background: #00aaff;
+      border: none;
+      border-radius: 8px;
+      color: #ffffff;
+      font-size: 1rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: transform 0.3s ease;
+      margin-top: 1rem;
+  }
+
+  .modal-confirm-button:hover {
+      transform: translateY(-3px);
+  }
+
+  .modal-fade-enter-active,
+  .modal-fade-leave-active {
+      transition: opacity 0.3s ease;
+  }
+  .modal-fade-enter-active .modal-content,
+  .modal-fade-leave-active .modal-content {
+      transition: transform 0.3s ease;
+  }
+  .modal-fade-enter-from,
+  .modal-fade-leave-to {
+      opacity: 0;
+  }
+  .modal-fade-enter-from .modal-content,
+  .modal-fade-leave-to .modal-content {
+      transform: scale(0.95);
   }
 </style>
