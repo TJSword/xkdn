@@ -2,7 +2,7 @@
   <div class="page-wrapper">
     <div class="main-container">
 
-      <!-- 1. 页面标题 -->
+      <!-- 1. 页面标题 (无变化) -->
       <div class="page-header">
         <a href="#" class="back-button">← 返回主页</a>
         <h1 class="main-title">
@@ -39,115 +39,164 @@
           </ul>
         </div>
 
-        <!-- 指数估值列表 (无变化) -->
+        <!-- ==================== 修改：推荐投资组合，增加编辑功能与空状态 ==================== -->
         <div class="content-card">
-          <h2 class="card-title">核心指数估值列表</h2>
-          <p class="card-description">以下列表展示了部分核心指数的当前估值状态，是执行“低买高卖”策略的重要参考。</p>
-          <table class="data-table">
-            <thead>
-              <tr>
-                <th>指数名称</th>
-                <th>基金代码</th>
-                <th>基金名称</th>
-                <th>当前估值</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td>沪深300</td>
-                <td>000300</td>
-                <td>沪深300ETF</td>
-                <td><span class="valuation-badge low">低估区域</span></td>
-              </tr>
-              <tr>
-                <td>中证500</td>
-                <td>000905</td>
-                <td>中证500ETF</td>
-                <td><span class="valuation-badge low">低估区域</span></td>
-              </tr>
-              <tr>
-                <td>恒生指数</td>
-                <td>HSI</td>
-                <td>恒生指数ETF</td>
-                <td><span class="valuation-badge low">低估区域</span></td>
-              </tr>
-              <tr>
-                <td>标普500</td>
-                <td>SPX</td>
-                <td>标普500ETF</td>
-                <td><span class="valuation-badge reasonable">合理区域</span></td>
-              </tr>
-              <tr>
-                <td>纳斯达克100</td>
-                <td>NDX</td>
-                <td>纳斯达克100ETF</td>
-                <td><span class="valuation-badge high">高估区域</span></td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-
-        <!-- 推荐投资组合 (无变化) -->
-        <div class="content-card">
-          <h2 class="card-title">示例投资组合 (基于当前估值)</h2>
+          <div class="card-header-with-admin">
+            <h2 class="card-title no-border">示例投资组合 (基于当前估值)</h2>
+            <div v-if="isAdmin" class="admin-controls">
+              <button v-if="!isPortfolioEditing" @click="editPortfolio" class="edit-button">编辑</button>
+            </div>
+          </div>
           <p class="card-description">此组合优先选择当前处于“低估区域”的指数进行配置，当其进入合理或高估区域后，则会考虑其他低估品种。</p>
-          <table class="data-table">
-            <thead>
-              <tr>
-                <th>指数风格</th>
-                <th>指数名称</th>
-                <th>基金代码</th>
-                <th>基金名称</th>
-                <th>建议份数</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td>A股大盘价值</td>
-                <td>沪深300</td>
-                <td>000300</td>
-                <td>沪深300ETF</td>
-                <td>3份</td>
-              </tr>
-              <tr>
-                <td>A股中小盘成长</td>
-                <td>中证500</td>
-                <td>000905</td>
-                <td>中证500ETF</td>
-                <td>2份</td>
-              </tr>
-              <tr>
-                <td>港股市场核心</td>
-                <td>恒生指数</td>
-                <td>HSI</td>
-                <td>恒生指数ETF</td>
-                <td>2份</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
 
-        <!-- ==================== 新增：历史业绩与收益曲线卡片 ==================== -->
+          <!-- 显示模式 -->
+          <div v-if="!isPortfolioEditing">
+            <table v-if="portfolioData.length > 0" class="data-table">
+              <thead>
+                <tr>
+                  <th>指数风格</th>
+                  <th>指数名称</th>
+                  <th>基金代码</th>
+                  <th>基金名称</th>
+                  <th>建议份数</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="(item, index) in portfolioData" :key="`display-p-${index}`">
+                  <td>{{ item.style }}</td>
+                  <td>{{ item.indexName }}</td>
+                  <td>{{ item.code }}</td>
+                  <td>{{ item.fundName }}</td>
+                  <td>{{ item.shares }}</td>
+                </tr>
+              </tbody>
+            </table>
+            <div v-else class="empty-state">
+              <p>当前暂无推荐的投资组合。</p>
+            </div>
+          </div>
+
+          <!-- 编辑模式 -->
+          <div v-else>
+            <table v-if="tempPortfolioData.length > 0" class="data-table">
+              <thead>
+                <tr>
+                  <th>指数风格</th>
+                  <th>指数名称</th>
+                  <th>基金代码</th>
+                  <th>基金名称</th>
+                  <th>建议份数</th>
+                  <th>操作</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="(item, index) in tempPortfolioData" :key="`edit-p-${index}`">
+                  <td><input type="text" v-model="item.style" class="input-edit"></td>
+                  <td><input type="text" v-model="item.indexName" class="input-edit"></td>
+                  <td><input type="text" v-model="item.code" class="input-edit"></td>
+                  <td><input type="text" v-model="item.fundName" class="input-edit"></td>
+                  <td><input type="text" v-model="item.shares" class="input-edit"></td>
+                  <td><button @click="deletePortfolioRow(index)" class="delete-row-button">删除</button></td>
+                </tr>
+              </tbody>
+            </table>
+            <div v-else class="empty-state">
+              <p>请点击下方“添加一行”开始配置投资组合。</p>
+            </div>
+
+            <button @click="addPortfolioRow" class="add-row-button">+ 添加一行</button>
+            <div class="edit-actions">
+              <button @click="savePortfolio" class="action-button save">保存</button>
+              <button @click="cancelPortfolio" class="action-button cancel">取消</button>
+            </div>
+          </div>
+        </div>
+        <!-- ===================================================================== -->
+
+        <!-- ==================== 新增：高估卖出提醒卡片，带编辑功能与空状态 ==================== -->
+        <div class="content-card">
+          <div class="card-header-with-admin">
+            <h2 class="card-title no-border">高估卖出提醒</h2>
+            <div v-if="isAdmin" class="admin-controls">
+              <button v-if="!isSellAlertEditing" @click="editSellAlert" class="edit-button">编辑</button>
+            </div>
+          </div>
+          <p class="card-description">以下指数已进入高估区域，根据策略纪律，建议分批卖出或停止买入，等待更好的时机。</p>
+
+          <!-- 显示模式 -->
+          <div v-if="!isSellAlertEditing">
+            <table v-if="sellAlertData.length > 0" class="data-table">
+              <thead>
+                <tr>
+                  <th>指数名称</th>
+                  <th>基金代码</th>
+                  <th>当前状态</th>
+                  <th>操作建议</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="(item, index) in sellAlertData" :key="`display-s-${index}`">
+                  <td>{{ item.indexName }}</td>
+                  <td>{{ item.code }}</td>
+                  <td><span class="valuation-badge high">{{ item.status }}</span></td>
+                  <td>{{ item.suggestion }}</td>
+                </tr>
+              </tbody>
+            </table>
+            <div v-else class="empty-state">
+              <p>当前暂无高估卖出提醒。</p>
+            </div>
+          </div>
+
+          <!-- 编辑模式 -->
+          <div v-else>
+            <table v-if="tempSellAlertData.length > 0" class="data-table">
+              <thead>
+                <tr>
+                  <th>指数名称</th>
+                  <th>基金代码</th>
+                  <th>当前状态</th>
+                  <th>操作建议</th>
+                  <th>操作</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="(item, index) in tempSellAlertData" :key="`edit-s-${index}`">
+                  <td><input type="text" v-model="item.indexName" class="input-edit"></td>
+                  <td><input type="text" v-model="item.code" class="input-edit"></td>
+                  <td><input type="text" v-model="item.status" class="input-edit"></td>
+                  <td><input type="text" v-model="item.suggestion" class="input-edit"></td>
+                  <td><button @click="deleteSellAlertRow(index)" class="delete-row-button">删除</button></td>
+                </tr>
+              </tbody>
+            </table>
+            <div v-else class="empty-state">
+              <p>请点击下方“添加一行”增加卖出提醒。</p>
+            </div>
+
+            <button @click="addSellAlertRow" class="add-row-button">+ 添加一行</button>
+            <div class="edit-actions">
+              <button @click="saveSellAlert" class="action-button save">保存</button>
+              <button @click="cancelSellAlert" class="action-button cancel">取消</button>
+            </div>
+          </div>
+        </div>
+        <!-- ======================================================================= -->
+
+        <!-- 历史业绩与收益曲线卡片 (无变化) -->
         <div class="content-card">
           <div class="card-header-with-toggle">
             <h2 class="card-title no-border">历史业绩</h2>
-            <!-- 视图切换按钮 -->
             <div class="view-toggle-container">
-              <button :class="['toggle-button', { active: performanceViewMode === 'rate' }]" @click="performanceViewMode = 'rate'">
-                累计收益率
-              </button>
-              <button :class="['toggle-button', { active: performanceViewMode === 'amount' }]" @click="performanceViewMode = 'amount'">
-                累计收益金额
-              </button>
+              <button :class="['toggle-button', { active: performanceViewMode === 'rate' }]"
+                @click="performanceViewMode = 'rate'">累计收益率</button>
+              <button :class="['toggle-button', { active: performanceViewMode === 'amount' }]"
+                @click="performanceViewMode = 'amount'">累计收益金额</button>
             </div>
           </div>
-          <p class="card-description">
-            下图展示了长钱策略的模拟累计收益曲线。请注意，数据为模拟回测，不代表真实收益，旨在说明策略的高波动、高潜在回报特性。
-          </p>
-          <!-- ECharts 图表容器 -->
+          <p class="card-description">下图展示了长钱策略的模拟累计收益曲线。请注意，数据为模拟回测，不代表真实收益，旨在说明策略的高波动、高潜在回报特性。</p>
           <div ref="performanceChartContainer" class="echart-container"></div>
         </div>
-        <!-- ===================================================================== -->
 
         <!-- FAQ (无变化) -->
         <div class="content-card">
@@ -198,13 +247,11 @@
       }
   ])
 
-  // ==================== 新增：ECharts 图表逻辑 (与之前页面一致) ====================
+  // --- ECharts 图表逻辑 (无变化) ---
   const performanceViewMode = ref<'rate' | 'amount'>('rate')
   const initialPrincipal = 10000
   const performanceChartContainer = ref<HTMLElement | null>(null)
   let performanceChart: echarts.ECharts | null = null
-
-  // 模拟的历史业绩数据 (为长钱策略调整了波动性)
   const performanceData = ref([
       { date: '2022-01-01', strategy: 1.0 },
       { date: '2022-02-01', strategy: 1.05 },
@@ -225,18 +272,15 @@
       { date: '2023-05-01', strategy: 1.48 },
       { date: '2023-06-01', strategy: 1.6 }
   ])
-
   const updatePerformanceChart = () => {
       if (!performanceChartContainer.value) return
       if (!performanceChart) {
           performanceChart = echarts.init(performanceChartContainer.value, 'dark')
       }
-
-      let seriesData: number[]
-      let yAxisFormatter: string
-      let tooltipFormatter: (params: any) => string
-      let seriesName: string
-
+      let seriesData: number[],
+          yAxisFormatter: string,
+          tooltipFormatter: (params: any) => string,
+          seriesName: string
       if (performanceViewMode.value === 'rate') {
           seriesName = '累计收益率'
           seriesData = performanceData.value.map(item => (item.strategy - 1) * 100)
@@ -254,7 +298,6 @@
                   params[0].seriesName
               }: <strong>${params[0].value.toFixed(2)} 元</strong>`
       }
-
       const option: echarts.EChartsOption = {
           backgroundColor: 'transparent',
           tooltip: { trigger: 'axis', formatter: tooltipFormatter },
@@ -278,34 +321,95 @@
                   smooth: true,
                   showSymbol: false,
                   data: seriesData,
-                  itemStyle: { color: '#ff4081' }, // 使用长钱策略主题色
+                  itemStyle: { color: '#ff4081' },
                   lineStyle: { width: 3 },
                   areaStyle: {
                       color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-                          {
-                              offset: 0,
-                              color: 'rgba(255, 64, 129, 0.3)' // 使用主题色渐变
-                          },
-                          {
-                              offset: 1,
-                              color: 'rgba(255, 64, 129, 0)'
-                          }
+                          { offset: 0, color: 'rgba(255, 64, 129, 0.3)' },
+                          { offset: 1, color: 'rgba(255, 64, 129, 0)' }
                       ])
                   }
               }
           ]
       }
-
       performanceChart.setOption(option, true)
   }
-
   watch(performanceViewMode, () => {
       updatePerformanceChart()
   })
-
   onMounted(() => {
       updatePerformanceChart()
   })
+
+  // ==================== 新增与修改：管理员编辑功能相关逻辑 ====================
+  const isAdmin = ref(true)
+
+  // --- 示例投资组合编辑逻辑 ---
+  const isPortfolioEditing = ref(false)
+  const portfolioData = ref([
+      {
+          style: 'A股大盘价值',
+          indexName: '沪深300',
+          code: '000300',
+          fundName: '沪深300ETF',
+          shares: '3份'
+      },
+      {
+          style: 'A股中小盘成长',
+          indexName: '中证500',
+          code: '000905',
+          fundName: '中证500ETF',
+          shares: '2份'
+      },
+      {
+          style: '港股市场核心',
+          indexName: '恒生指数',
+          code: 'HSI',
+          fundName: '恒生指数ETF',
+          shares: '2份'
+      }
+  ])
+  let tempPortfolioData = ref<any[]>([])
+  const editPortfolio = () => {
+      tempPortfolioData.value = JSON.parse(JSON.stringify(portfolioData.value))
+      isPortfolioEditing.value = true
+  }
+  const savePortfolio = () => {
+      portfolioData.value = tempPortfolioData.value
+      isPortfolioEditing.value = false
+  }
+  const cancelPortfolio = () => {
+      isPortfolioEditing.value = false
+  }
+  const addPortfolioRow = () => {
+      tempPortfolioData.value.push({ style: '', indexName: '', code: '', fundName: '', shares: '' })
+  }
+  const deletePortfolioRow = (index: number) => {
+      tempPortfolioData.value.splice(index, 1)
+  }
+
+  // --- 高估卖出提醒编辑逻辑 ---
+  const isSellAlertEditing = ref(false)
+  // 初始设置为空数组以展示空状态
+  const sellAlertData = ref<any[]>([])
+  let tempSellAlertData = ref<any[]>([])
+  const editSellAlert = () => {
+      tempSellAlertData.value = JSON.parse(JSON.stringify(sellAlertData.value))
+      isSellAlertEditing.value = true
+  }
+  const saveSellAlert = () => {
+      sellAlertData.value = tempSellAlertData.value
+      isSellAlertEditing.value = false
+  }
+  const cancelSellAlert = () => {
+      isSellAlertEditing.value = false
+  }
+  const addSellAlertRow = () => {
+      tempSellAlertData.value.push({ indexName: '', code: '', status: '高估区域', suggestion: '' })
+  }
+  const deleteSellAlertRow = (index: number) => {
+      tempSellAlertData.value.splice(index, 1)
+  }
 </script>
 
 <style scoped>
@@ -320,21 +424,17 @@
       color: #ffffff;
       min-height: 100vh;
       padding: 3rem 1rem;
-      /* 背景渐变使用主题色相关色调 */
       background: radial-gradient(circle at 15% 50%, #2a1a4a, transparent 40%),
           radial-gradient(circle at 85% 50%, #4a1a2a, transparent 40%), #121212;
   }
-
   .main-container {
       max-width: 900px;
       margin: 0 auto;
   }
-
   .page-header {
       text-align: center;
       margin-bottom: 3rem;
   }
-
   .back-button {
       color: #b0c4de;
       text-decoration: none;
@@ -344,9 +444,8 @@
       margin-bottom: 1rem;
   }
   .back-button:hover {
-      color: #ff4081; /* 主题色 */
+      color: #ff4081;
   }
-
   .main-title {
       font-size: 2.5rem;
       font-weight: 700;
@@ -358,14 +457,13 @@
   }
   .title-icon {
       font-size: 2.8rem;
-      color: #ff4081; /* 主题色 */
-      text-shadow: 0 0 15px #ff4081; /* 主题色 */
+      color: #ff4081;
+      text-shadow: 0 0 15px #ff4081;
   }
   .subtitle {
       font-size: 1.1rem;
       color: #b0c4de;
   }
-
   .content-grid {
       display: grid;
       gap: 1.5rem;
@@ -379,7 +477,7 @@
       transition: border-color 0.3s ease;
   }
   .content-card:hover {
-      border-color: rgba(255, 64, 129, 0.5); /* 主题色 */
+      border-color: rgba(255, 64, 129, 0.5);
   }
 
   .card-title {
@@ -387,31 +485,40 @@
       font-weight: bold;
       margin-top: 0;
       margin-bottom: 1rem;
-      border-left: 4px solid #ff4081; /* 主题色 */
+      border-left: 4px solid #ff4081;
       padding-left: 1rem;
   }
-
-  /* 风险卡片特殊样式 */
   .risk-warning-card {
-      border-left-color: #ff4081; /* 主题色 */
+      border-left-color: #ff4081;
   }
   .risk-warning-card .card-title::before {
       content: '⚠️';
       margin-right: 0.75rem;
   }
 
-  /* ==================== 新增：与图表切换相关的样式 ==================== */
+  /* ==================== 与图表切换、管理员编辑相关的样式 (有修改) ==================== */
   .card-header-with-toggle {
       display: flex;
       justify-content: space-between;
       align-items: center;
       margin-bottom: 1rem;
   }
+  /* 修改：为带编辑按钮的卡片标题容器增加竖条样式 */
+  .card-header-with-admin {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1rem;
+      border-left: 4px solid #ff4081;
+      padding-left: 1rem;
+  }
+  /* 修改：让标题本身不再有边框和内边距，由父容器控制 */
   .card-title.no-border {
       border-left: none;
       padding-left: 0;
       margin-bottom: 0;
   }
+
   .view-toggle-container {
       display: flex;
       background-color: rgba(0, 0, 0, 0.2);
@@ -429,15 +536,107 @@
       transition: all 0.3s ease;
   }
   .toggle-button.active {
-      background-color: #ff4081; /* 主题色 */
+      background-color: #ff4081;
       color: #ffffff;
       font-weight: bold;
-      box-shadow: 0 0 10px rgba(255, 64, 129, 0.5); /* 主题色 */
+      box-shadow: 0 0 10px rgba(255, 64, 129, 0.5);
   }
   .echart-container {
       width: 100%;
       height: 350px;
       margin-top: 1rem;
+  }
+  .edit-button {
+      padding: 0.4rem 1rem;
+      font-size: 0.85rem;
+      color: #fff;
+      background-color: rgba(255, 255, 255, 0.2);
+      border: 1px solid rgba(255, 255, 255, 0.3);
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.3s;
+  }
+  .edit-button:hover {
+      background-color: #ff4081;
+      border-color: #ff4081;
+  }
+
+  .input-edit {
+      width: 100%;
+      background-color: rgba(0, 0, 0, 0.2);
+      border: 1px solid #8392a5;
+      border-radius: 4px;
+      color: #fff;
+      padding: 0.5rem;
+  }
+  .input-edit:focus {
+      outline: none;
+      border-color: #ff4081;
+  }
+
+  /* 新增：添加/删除行按钮和空状态样式 */
+  .delete-row-button {
+      background: none;
+      border: none;
+      color: #ff8a80;
+      cursor: pointer;
+      text-decoration: underline;
+      padding: 0;
+      font-size: 0.85rem;
+  }
+  .add-row-button {
+      width: 100%;
+      border: 2px dashed rgba(255, 255, 255, 0.2);
+      background: transparent;
+      color: #b0c4de;
+      padding: 0.6rem;
+      margin-top: 1rem;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+  }
+  .add-row-button:hover {
+      background-color: rgba(255, 64, 129, 0.1);
+      border-color: rgba(255, 64, 129, 0.5);
+  }
+  .empty-state {
+      text-align: center;
+      padding: 2rem 1rem;
+      background: rgba(0, 0, 0, 0.1);
+      border-radius: 8px;
+      margin-top: 1.5rem;
+  }
+  .empty-state p {
+      margin: 0;
+      color: #b0c4de;
+  }
+
+  .edit-actions {
+      margin-top: 1rem;
+      display: flex;
+      gap: 1rem;
+      justify-content: flex-end;
+  }
+  .action-button {
+      padding: 0.5rem 1.2rem;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      color: #fff;
+      font-weight: bold;
+      transition: all 0.3s;
+  }
+  .action-button.save {
+      background-color: #ff4081;
+  }
+  .action-button.save:hover {
+      opacity: 0.9;
+  }
+  .action-button.cancel {
+      background-color: rgba(255, 255, 255, 0.2);
+  }
+  .action-button.cancel:hover {
+      background-color: rgba(255, 255, 255, 0.3);
   }
   /* =================================================================== */
 
@@ -461,7 +660,7 @@
       content: '✔';
       position: absolute;
       left: 0;
-      color: #ff4081; /* 主题色 */
+      color: #ff4081;
   }
 
   .data-table {
@@ -474,6 +673,7 @@
       padding: 0.8rem 1rem;
       text-align: left;
       border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      vertical-align: middle;
   }
   .data-table th {
       color: #ffffff;
@@ -538,7 +738,7 @@
       font-size: 1.5rem;
       font-weight: bold;
       transition: transform 0.3s ease;
-      color: #ff4081; /* 主题色 */
+      color: #ff4081;
   }
   .faq-icon.is-open {
       transform: rotate(45deg);

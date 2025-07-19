@@ -10,7 +10,6 @@
       <!-- 市场温度计 -->
       <div class="market-thermometer-container clickable" @click="openModal" title="点击查看详细图表">
         <div class="thermometer-header">
-          <!-- 动态显示最新的温度和星级 -->
           <h2 class="section-title">
             当前市场温度: {{ latestTemperature.toFixed(2) }}°C
           </h2>
@@ -30,7 +29,7 @@
         </div>
       </div>
 
-      <!-- 功能网格 (无变化) -->
+      <!-- 功能网格 -->
       <div class="features-grid">
         <a v-for="card in allFeatureCards" :key="card.id" :href="card.link" :class="['strategy-card', card.cssClass]">
           <div class="card-icon">{{ card.icon }}</div>
@@ -38,9 +37,15 @@
           <p class="card-description">{{ card.description }}</p>
         </a>
       </div>
+
+      <!-- 新增：页面底部的会员到期信息 -->
+      <div class="membership-footer">
+        👑 会员有效期至: {{ membershipExpiryDate }}
+      </div>
+
     </div>
 
-    <!-- 模态框 (ECharts部分已更新) -->
+    <!-- 模态框 -->
     <Transition name="modal-fade">
       <div v-if="isModalVisible" class="modal-backdrop" @click="closeModal">
         <div class="modal-content" @click.stop>
@@ -58,11 +63,10 @@
 </template>
 
 <script setup lang="ts">
-  import { ref, computed, watch, nextTick, onMounted, onUnmounted, inject } from 'vue'
+  import { ref, computed, watch, nextTick, onMounted, onUnmounted } from 'vue'
+  import app, { auth } from '@/lib/cloudbase'
   import * as echarts from 'echarts'
-  // 移除静态 import starData from './star.json'
 
-  const app: any = inject('tcb')
   // --- 接口定义 ---
   interface FeatureCard {
       id: number
@@ -81,7 +85,7 @@
       temperature: number
   }
 
-  // --- 卡片数据定义 (无变化) ---
+  // --- 卡片数据定义 (已恢复原状) ---
   const allFeatureCards = ref<FeatureCard[]>([
       {
           id: 1,
@@ -100,23 +104,24 @@
           link: '#long-term'
       },
       {
-          id: 7,
+          id: 3,
+          title: '可转债策略',
+          description: '兼具股债特性，提供攻守兼备的投资选择。',
+          icon: '🔄',
+          cssClass: 'convertible-bond',
+          link: '#bonds'
+      },
+      {
+          id: 4,
           title: '微盘股策略',
           description: '挖掘小市值公司潜力，追求超额收益。',
           icon: '💎',
           cssClass: 'micro-cap',
           link: '#micro-cap'
       },
+
       {
           id: 5,
-          title: '何的记账本',
-          description: '轻松记录投资与开销，清晰掌握财务状况。',
-          icon: '📒',
-          cssClass: 'personal-ledger',
-          link: '#ledger'
-      },
-      {
-          id: 6,
           title: '投资小工具',
           description: '提供再平衡计算器等，辅助科学决策。',
           icon: '🛠️',
@@ -124,60 +129,66 @@
           link: '#tools'
       },
       {
-          id: 8,
-          title: '可转债策略',
-          description: '兼具股债特性，提供攻守兼备的投资选择。',
-          icon: '🔄',
-          cssClass: 'convertible-bond',
-          link: '#bonds'
+          id: 6,
+          title: '老何的实盘',
+          description: '记录真实投资操作，分享市场实战经验。',
+          icon: '🚀',
+          cssClass: 'personal-ledger',
+          link: '#ledger'
       }
   ])
 
-  // --- 市场温度计与数据处理 (核心修改部分) ---
-  const rawHistoryData = ref<StarDataItem[]>([]) // 用于存储从API获取的原始历史数据
-  const processedMarketData = ref<ProcessedDataItem[]>([])
-  let minStar = ref(1.8) // 数据集中的最低星级
-  let maxStar = ref(5.98) // 数据集中的最高星级
+  // --- 会员状态 ---
+  const membershipExpiryDate = ref('加载中...')
 
-  const latestStar = ref(5.98) // 初始值设为0
+  // --- 市场温度计与数据处理 ---
+  const rawHistoryData = ref<StarDataItem[]>([])
+  const processedMarketData = ref<ProcessedDataItem[]>([])
+  let minStar = ref(1.8)
+  let maxStar = ref(5.98)
+
+  const latestStar = ref(5.98)
   const latestTemperature = ref(0)
-  const latestDate = ref('加载中...') // 初始提示
-  let pollingInterval: number | null = null // 定时器ID
+  const latestDate = ref('加载中...')
+  let pollingInterval: number | null = null
 
   /**
-   * 核心处理函数：基于线性映射计算温度，并填充 processedMarketData
-   * 此函数现在依赖于 rawHistoryData
+   * [异步] 获取会员到期时间 (示例)
    */
+  const getMembershipExpiry = async () => {
+      try {
+          // 在这里替换为您的真实API调用
+          setTimeout(() => {
+              membershipExpiryDate.value = '2025-12-31'
+          }, 1000)
+      } catch (error) {
+          console.error('获取会员信息失败:', error)
+          membershipExpiryDate.value = '获取失败'
+      }
+  }
+
   function processDataWithLinearMapping() {
       const data = rawHistoryData.value
       if (!data || data.length === 0) return
 
-      // 1. 找出数据集中的最高和最低星级
       const allStars = data.map(item => item.star)
       minStar.value = Math.min(...allStars)
       maxStar.value = Math.max(...allStars)
       const starRange = maxStar.value - minStar.value
 
-      // 处理分母为0的边缘情况
       if (starRange === 0) {
           processedMarketData.value = data.map(item => ({ ...item, temperature: 50 }))
       } else {
-          // 2. 遍历所有数据，计算每个数据点的温度
           processedMarketData.value = data.map(item => {
               const temp = 100 - ((item.star - minStar.value) / starRange) * 100
               return { ...item, temperature: temp }
           })
       }
-      // 数据处理完成后，可以触发一次最新的温度计算
       updateLatestTemperature(latestStar.value)
   }
 
-  /**
-   * 更新最新的温度值
-   * @param starRating - 最新的星级
-   */
   function updateLatestTemperature(starRating: number) {
-      if (processedMarketData.value.length === 0) return // 确保历史数据已加载
+      if (processedMarketData.value.length === 0) return
 
       const range = maxStar.value - minStar.value
       if (range === 0) {
@@ -187,9 +198,6 @@
       latestTemperature.value = 100 - ((starRating - minStar.value) / range) * 100
   }
 
-  /**
-   * [异步] 获取最新的星级和日期
-   */
   const getTodayStar = () => {
       app.callFunction({
           name: 'getStar',
@@ -207,12 +215,7 @@
           })
   }
 
-  /**
-   * [异步] 获取历史星级数据 (star.json)
-   * 成功后会调用数据处理函数
-   */
   const getHistoryStar = () => {
-      // 检查数据是否已存在，如果存在则不重复获取
       if (rawHistoryData.value.length > 0) {
           return Promise.resolve()
       }
@@ -224,7 +227,7 @@
           .then((res: any) => {
               if (res.result?.data?.result) {
                   rawHistoryData.value = res.result.data.result
-                  processDataWithLinearMapping() // 获取到数据后立即进行处理
+                  processDataWithLinearMapping()
               }
           })
           .catch((err: any) => {
@@ -232,45 +235,36 @@
           })
   }
 
-  /**
-   * 启动定时轮询以获取最新数据
-   */
   const startPollingTodayStar = () => {
-      getTodayStar() // 立即执行一次
-      // pollingInterval = window.setInterval(getTodayStar, 60000) // 设置每分钟刷新
+      getTodayStar()
+      // pollingInterval = window.setInterval(getTodayStar, 60000)
   }
 
   onMounted(async () => {
-      // 1. 首先加载历史数据以确定温度计算的范围
-      await getHistoryStar()
-      // 2. 然后开始轮询获取最新数据
+      await Promise.all([getMembershipExpiry(), getHistoryStar()])
       startPollingTodayStar()
   })
 
   onUnmounted(() => {
-      // 组件卸载时清除定时器，防止内存泄漏
       if (pollingInterval) {
           clearInterval(pollingInterval)
       }
   })
 
-  // 监听最新星级的变化，以便实时更新温度计
   watch(latestStar, newStar => {
       updateLatestTemperature(newStar)
   })
 
-  // 计算属性，用于控制温度计指针位置
   const marketTemperaturePercent = computed(() => {
       return `${Math.max(0, Math.min(100, latestTemperature.value))}%`
   })
 
-  // --- 模态框与 ECharts 逻辑 (已更新) ---
+  // --- 模态框与 ECharts 逻辑 (无变化) ---
   const isModalVisible = ref(false)
   const echartContainer = ref<HTMLElement | null>(null)
   let myChart: echarts.ECharts | null = null
 
   const openModal = () => {
-      // 直接打开模态框，数据获取逻辑已移至 onMounted
       isModalVisible.value = true
   }
   const closeModal = () => {
@@ -353,7 +347,7 @@
 
 
 <style scoped>
-  /* CSS样式部分保持不变 */
+  /* CSS样式部分 */
   .home-page-wrapper {
       font-family: 'Noto Sans SC', sans-serif;
       background-color: #121212;
@@ -370,6 +364,7 @@
       text-align: center;
       max-width: 1200px;
       width: 100%;
+      padding-bottom: 2rem; /* 给底部留出空间 */
   }
   .main-title {
       font-size: 2.2rem;
@@ -549,6 +544,16 @@
   .convertible-bond .card-icon {
       color: #add8e6;
   }
+
+  /* 新增：页面底部会员信息的样式 */
+  .membership-footer {
+      text-align: center;
+      margin-top: 3rem; /* 与上方网格拉开距离 */
+      font-size: 0.85rem;
+      color: #8392a5; /* 使用一种更柔和的颜色 */
+      font-weight: 500;
+  }
+
   .modal-backdrop {
       position: fixed;
       top: 0;
@@ -646,6 +651,9 @@
       .strategy-card {
           min-height: auto;
           padding: 1.5rem;
+      }
+      .membership-footer {
+          margin-top: 2rem;
       }
   }
 </style>

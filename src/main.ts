@@ -15,12 +15,13 @@ import router from './router'
 import { install } from '@/components/loading'
 import { initEcharts } from '@/plugins/echarts'
 import 'element-plus/theme-chalk/el-message.css'
-
+import { createPinia } from 'pinia'
 const bootstrap = (app: App) => {
-    install(app)
-    initEcharts(app)
-    app.use(router)
-    app.mount('#app')
+  install(app)
+  initEcharts(app)
+  app.use(createPinia())
+  app.use(router)
+  app.mount('#app')
 }
 
 bootstrap(createApp(APP))

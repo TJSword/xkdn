@@ -4,7 +4,7 @@
 
       <!-- 1. 页面标题 -->
       <div class="page-header">
-        <a href="#" class="back-button">← 返回主页</a>
+        <a href="/#/home" class="back-button">← 返回主页</a>
         <h1 class="main-title">
           <span class="title-icon">❂</span>
           全天候策略
@@ -21,8 +21,8 @@
         <div class="content-card">
           <h2 class="card-title">策略简介</h2>
           <p class="card-description">
-            全天候策略（All-Weather
-            Strategy）是由桥水基金创始人瑞·达利欧所创。其核心思想是，通过持有一系列经过精心配置且不相关的资产，构建一个能够在任何经济环境（经济增长、经济衰退、高通胀、低通胀）下都能有相对稳健表现的投资组合，目标不是追求最高收益，而是实现长期的、平滑的财富增长。
+            本全天候策略的构建灵感，源自桥水基金创始人瑞·达利欧（Ray Dalio）的同名策略及哈里·布朗（Harry
+            Browne）的永久投资组合。策略的核心在于，通过精心配置一系列低相关性的资产，旨在构建一个无论在经济增长、衰退、高通胀还是低通胀等任何宏观环境下，都具备稳健表现的投资组合。我们追求的并非短期最高收益，而是长期、平滑的资本增值。
           </p>
         </div>
 
@@ -61,29 +61,36 @@
                 <tr>
                   <th>资产类别</th>
                   <th>建议配置比例</th>
-                  <th>示例ETF</th>
+                  <th>对应ETF</th>
+                  <th>ETF代码</th>
                 </tr>
               </thead>
               <tbody>
                 <tr>
-                  <td>股票资产</td>
+                  <td>A股资产</td>
+                  <td>20%</td>
+                  <td>中证红利质量ETF</td>
+                  <td>159209</td>
+
+                </tr>
+                <tr>
+                  <td>美股资产</td>
+                  <td>20%</td>
+                  <td>纳指ETF富国</td>
+                  <td>513870</td>
+                </tr>
+                <tr>
+                  <td>超长期国债</td>
                   <td>30%</td>
-                  <td>沪深300ETF / 标普500ETF</td>
-                </tr>
-                <tr>
-                  <td>长期国债</td>
-                  <td>40%</td>
-                  <td>20年+超长期国债ETF</td>
-                </tr>
-                <tr>
-                  <td>中期国债</td>
-                  <td>15%</td>
-                  <td>7-10年中期国债ETF</td>
+                  <td>30年国债ETF</td>
+                  <td>511890</td>
+
                 </tr>
                 <tr>
                   <td>大宗商品 (黄金)</td>
-                  <td>15%</td>
-                  <td>黄金ETF</td>
+                  <td>30%</td>
+                  <td>黄金ETF华夏</td>
+                  <td>518850</td>
                 </tr>
               </tbody>
             </table>
@@ -95,29 +102,35 @@
                 <tr>
                   <th>资产类别</th>
                   <th>建议配置比例</th>
-                  <th>示例基金类型</th>
+                  <th>对应基金名称</th>
+                  <th>基金代码</th>
                 </tr>
               </thead>
               <tbody>
                 <tr>
-                  <td>股票型基金</td>
+                  <td>A股资产</td>
+                  <td>20%</td>
+                  <td>华夏中证红利质量ETF联接A</td>
+                  <td>016440</td>
+
+                </tr>
+                <tr>
+                  <td>美股资产</td>
+                  <td>20%</td>
+                  <td>宝盈纳斯达克100指数A</td>
+                  <td>019736</td>
+                </tr>
+                <tr>
+                  <td>超长期国债</td>
                   <td>30%</td>
-                  <td>沪深300指数基金 / 全球股票指数基金</td>
+                  <td>华泰保兴安悦债券A</td>
+                  <td>007540</td>
                 </tr>
                 <tr>
-                  <td>长期纯债基金</td>
-                  <td>40%</td>
-                  <td>投资于长久期利率债的债券基金</td>
-                </tr>
-                <tr>
-                  <td>中短期纯债基金</td>
-                  <td>15%</td>
-                  <td>投资于中短久期利率债的债券基金</td>
-                </tr>
-                <tr>
-                  <td>黄金基金 (QDII)</td>
-                  <td>15%</td>
-                  <td>投资于海外黄金ETF的联接基金</td>
+                  <td>大宗商品 (黄金)</td>
+                  <td>30%</td>
+                  <td>建信上海金ETF联接A</td>
+                  <td>009033</td>
                 </tr>
               </tbody>
             </table>
@@ -150,11 +163,14 @@
         <div class="content-card">
           <h2 class="card-title">动态再平衡 (Rebalancing)</h2>
           <p class="card-description">
-            由于市场波动，各类资产的比例会偏离初始目标。再平衡是指定期（如每半年或一年）或按比例（如偏离5%）将投资组合恢复到目标配置的操作。这是确保策略长期有效的核心纪律。
+            由于市场波动，各类资产的比例会偏离初始目标。再平衡是指定期（如每半年或一年）或按比例（如偏离15%）将投资组合恢复到目标配置的操作。这是确保策略长期有效的核心纪律。
           </p>
-          <button class="rebalance-cta">
-            前往再平衡工具 🛠️
-          </button>
+          <div class="rebalance-cta-box">
+            <button class="rebalance-cta">
+              前往再平衡工具 🛠️
+            </button>
+          </div>
+
         </div>
 
         <!-- FAQ (无变化) -->
@@ -181,7 +197,9 @@
 <script setup lang="ts">
   import { ref, onMounted, watch } from 'vue'
   import * as echarts from 'echarts'
-
+  import app from '@/lib/cloudbase'
+  // 1. 新增：加载状态，提升用户体验
+  const isLoading = ref(true)
   // --- 控制Tabs和FAQ (无变化) ---
   const activeTab = ref<'on-exchange' | 'off-exchange'>('on-exchange')
   const openFaqIndex = ref<number | null>(0)
@@ -190,8 +208,12 @@
   }
   const faqList = ref([
       {
+          question: '在全天候策略中，我能用“红利低波指数”来替代原计划中的A股资产吗？',
+          answer: '不建议这样做。全天候策略中，股票的核心作用是在“经济增长”的牛市环境下提供收益。红利低波指数本质上是防御型资产，其稳健表现主要在熊市和震荡市，这与组合中长债的对冲功能发生重叠。这种替换会削弱组合在牛市的上行潜力，损害其在关键经济环境下的表现。'
+      },
+      {
           question: '我应该多久进行一次再平衡？',
-          answer: '没有绝对的答案。常见的做法是基于时间的（如每季度、每半年或每年）或基于阈值的（当任一资产类别偏离其目标权重超过某个百分比，如5%时）。对于普通投资者，每年检查一次是合理的起点。'
+          answer: '没有绝对的答案。常见的做法是基于时间的（如每季度、每半年或每年）或基于阈值的（当任一资产类别偏离其目标权重超过某个百分比，如15%时）。对于普通投资者，每年检查一次是合理的起点。'
       },
       {
           question: '全天候策略适合我吗？',
@@ -200,10 +222,6 @@
       {
           question: '这个策略有什么风险？',
           answer: '虽然全天候策略旨在降低风险，但它并非没有风险。在所有资产类别都表现不佳的极端市场环境下（如滞胀初期），组合仍可能出现亏损。此外，它在长期牛市中的表现可能会落后于100%的股票投资组合。'
-      },
-      {
-          question: '我可以直接复制这个配置吗？',
-          answer: '这里的配置仅为示例，用于阐述策略原理。实际投资前，您应根据自身的风险承受能力、投资目标以及可投资的品种进行调整。务必进行独立研究，或咨询专业的财务顾问。'
       }
   ])
 
@@ -240,7 +258,34 @@
       { date: '2023-05-01', strategy: 1.14 },
       { date: '2023-06-01', strategy: 1.16 }
   ])
+  const fetchPerformanceData = async (strategyId: string) => {
+      isLoading.value = true
+      try {
+          const res = await app.callFunction({
+              name: 'getSingleStrategyPerformance',
+              data: {
+                  strategy_id: strategyId
+              },
+              parse: true
+          })
 
+          if (res.result && res.result.success) {
+              // 将获取到的数据赋值给 performanceData
+              performanceData.value = res.result.data
+              console.log(`成功获取策略 [${strategyId}] 的数据:`, performanceData.value)
+
+              // 数据回来后，立即更新图表
+              updatePerformanceChart()
+          } else {
+              throw new Error(res.result.message || '从云端获取数据失败')
+          }
+      } catch (error) {
+          console.error('fetchPerformanceData 失败:', error)
+          // 在这里可以显示错误提示
+      } finally {
+          isLoading.value = false
+      }
+  }
   /**
    * 更新或初始化业绩图表的核心函数
    */
@@ -330,7 +375,20 @@
 
   // 在组件挂载后，首次初始化图表
   onMounted(() => {
-      updatePerformanceChart()
+      // 在这里决定要请求哪个策略的数据
+      // 在一个真实的Vue Router应用中，您会从路由参数中获取这个ID
+      // 例如: const route = useRoute(); const strategyId = route.params.id;
+
+      // 此处我们硬编码一个ID作为示例
+      const currentStrategyId = 'allWeather' // <-- 对于不同页面，修改这里即可
+
+      // 页面挂载后，调用方法从云端获取数据
+      fetchPerformanceData(currentStrategyId)
+
+      // 监听窗口大小变化的事件可以保留
+      window.addEventListener('resize', () => {
+          performanceChart?.resize()
+      })
   })
 </script>
 
@@ -521,6 +579,11 @@
   }
 
   /* 再平衡CTA */
+  .rebalance-cta-box {
+      width: 100%;
+      display: flex;
+      justify-content: center;
+  }
   .rebalance-cta {
       background-color: #00aaff;
       color: #ffffff;

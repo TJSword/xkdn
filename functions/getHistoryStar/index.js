@@ -1,70 +1,53 @@
-// 引入 Node.js 核心模块
-const https = require('https')
+// 引入 axios 库
+// 注意：axios 是第三方库，需要在云函数的 package.json 中声明依赖，并执行 npm install
+const axios = require('axios')
 
 // 云函数入口函数
 exports.main = async (event, context) => {
-    const targetUrl = 'https://screw.yhlsd.com/api/ugc/market_star/query_history_star.json?tab=4'
+    // 目标 URL，可以直接包含查询参数字符串
+    const targetUrl = 'https://screw.yhlsd.com/api/ugc/market_star/query_history_star.json'
 
-    // 我们将 https.get 的回调模式封装成一个 Promise，以便能使用 async/await
-    return (
-        new Promise((resolve, reject) => {
-            // 使用 https.get 发起请求
-            const req = https.get(targetUrl, res => {
-                // 检查 HTTP 状态码
-                if (res.statusCode < 200 || res.statusCode >= 300) {
-                    // 如果状态码不是 2xx，则视为请求失败
-                    // 返回一个包含错误信息的对象来拒绝 Promise
-                    return reject({
-                        success: false,
-                        error: `Request Failed. Status Code: ${res.statusCode}`
-                    })
-                }
-
-                // 数据是分块(chunk)接收的，我们需要将它们拼接起来
-                let rawData = ''
-                res.on('data', chunk => {
-                    rawData += chunk
-                })
-
-                // 当所有数据接收完毕时
-                res.on('end', () => {
-                    try {
-                        // 尝试将接收到的字符串解析为 JSON
-                        const parsedData = JSON.parse(rawData)
-                        // 成功！返回一个包含数据的对象来解决 Promise
-                        resolve({
-                            success: true,
-                            data: parsedData
-                        })
-                    } catch (e) {
-                        // 如果 JSON 解析失败
-                        console.error('JSON parsing error:', e.message)
-                        reject({
-                            success: false,
-                            error: 'Failed to parse JSON response.',
-                            details: e.message
-                        })
-                    }
-                })
-            })
-
-            // 监听请求本身的错误事件（例如，DNS查找失败、网络不通等）
-            req.on('error', e => {
-                console.error(`Request error: ${e.message}`)
-                reject({
-                    success: false,
-                    error: 'HTTPS request error.',
-                    details: e.message
-                })
-            })
-
-            // 结束请求（对于GET请求，这是必需的）
-            req.end()
+    try {
+        // 使用 axios 发起 GET 请求
+        // 我们可以将查询参数作为第二个参数的 `params` 对象的属性传入
+        const response = await axios.get(targetUrl, {
+            params: {
+                tab: 4 // axios 会自动将其拼接成 ?tab=4
+            }
         })
-            // 统一捕获 Promise 链中可能出现的未处理的拒绝
-            .catch(errorResult => {
-                // 确保即使Promise被拒绝，云函数本身也返回一个结构化的对象
-                return errorResult
-            })
-    )
+
+        // 请求成功 (axios 默认只将 2xx 状态码视为成功)
+        // axios 会自动将 JSON 格式的响应体解析为 JavaScript 对象
+        return {
+            success: true,
+            data: response.data
+        }
+    } catch (error) {
+        // 如果请求失败（网络错误、超时、非 2xx 状态码等），axios 会抛出异常
+        console.error('Axios request error:', error)
+
+        // 返回一个结构化的错误信息
+        if (error.response) {
+            // 服务器返回了响应，但状态码不是 2xx
+            return {
+                success: false,
+                error: `Request Failed. Status Code: ${error.response.status}`,
+                details: error.response.data
+            }
+        } else if (error.request) {
+            // 请求已发出，但没有收到响应
+            return {
+                success: false,
+                error: 'No response received from server.',
+                details: error.message
+            }
+        } else {
+            // 在设置请求时触发了错误
+            return {
+                success: false,
+                error: 'Error setting up the request.',
+                details: error.message
+            }
+        }
+    }
 }

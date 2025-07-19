@@ -19,8 +19,7 @@ import createProxy from './build/createProxy'
 export default defineConfig(({ command, mode }: ConfigEnv): UserConfig => {
   const ENV = loadEnv(mode, process.cwd())
   const proxy = createProxy(ENV)
-  console.log('当前运行环境信息:')
-  console.log(ENV)
+
   return {
     base: ENV.VITE_PUBLIC_PATH,
     resolve: {
