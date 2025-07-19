@@ -4,7 +4,9 @@
 
       <!-- 1. 页面标题 (无变化) -->
       <div class="page-header">
-        <a href="#" class="back-button">← 返回主页</a>
+        <router-link to="/home" class="back-button">
+          ← 返回主页
+        </router-link>
         <h1 class="main-title">
           <span class="title-icon">⌛</span>
           长钱策略
@@ -44,11 +46,13 @@
           <div class="card-header-with-admin">
             <h2 class="card-title no-border">示例投资组合 (基于当前估值)</h2>
             <div v-if="isAdmin" class="admin-controls">
-              <button v-if="!isPortfolioEditing" @click="editPortfolio" class="edit-button">编辑</button>
+              <button v-if="!isPortfolioEditing  && userInfo.admin" @click="editPortfolio" class="edit-button">编辑</button>
             </div>
           </div>
           <p class="card-description">此组合优先选择当前处于“低估区域”的指数进行配置，当其进入合理或高估区域后，则会考虑其他低估品种。</p>
-
+          <p class="update-time" v-if="portfolioUpdatedAt">
+            最后更新于: {{ portfolioUpdatedAt }}
+          </p>
           <!-- 显示模式 -->
           <div v-if="!isPortfolioEditing">
             <table v-if="portfolioData.length > 0" class="data-table">
@@ -73,6 +77,17 @@
             </table>
             <div v-else class="empty-state">
               <p>当前暂无推荐的投资组合。</p>
+            </div>
+            <div class="strategy-tips">
+              <h3 class="tips-title">投资执行小贴士</h3>
+              <ul class="tips-list">
+                <li>
+                  <strong>平滑成本：</strong>将资金分为20份以上，优先“日定投”，其次“周定投”，以平滑成本。
+                </li>
+                <li>
+                  <strong>复利增长：</strong>买入后，请务必将分红方式修改为“红利再投资”，让收益滚动增长。
+                </li>
+              </ul>
             </div>
           </div>
 
@@ -118,11 +133,13 @@
           <div class="card-header-with-admin">
             <h2 class="card-title no-border">高估卖出提醒</h2>
             <div v-if="isAdmin" class="admin-controls">
-              <button v-if="!isSellAlertEditing" @click="editSellAlert" class="edit-button">编辑</button>
+              <button v-if="!isSellAlertEditing && userInfo.admin" @click="editSellAlert" class="edit-button">编辑</button>
             </div>
           </div>
           <p class="card-description">以下指数已进入高估区域，根据策略纪律，建议分批卖出或停止买入，等待更好的时机。</p>
-
+          <p class="update-time" v-if="sellAlertUpdatedAt">
+            最后更新于: {{ sellAlertUpdatedAt }}
+          </p>
           <!-- 显示模式 -->
           <div v-if="!isSellAlertEditing">
             <table v-if="sellAlertData.length > 0" class="data-table">
@@ -184,7 +201,7 @@
         <!-- ======================================================================= -->
 
         <!-- 历史业绩与收益曲线卡片 (无变化) -->
-        <div class="content-card">
+        <!-- <div class="content-card">
           <div class="card-header-with-toggle">
             <h2 class="card-title no-border">历史业绩</h2>
             <div class="view-toggle-container">
@@ -196,7 +213,7 @@
           </div>
           <p class="card-description">下图展示了长钱策略的模拟累计收益曲线。请注意，数据为模拟回测，不代表真实收益，旨在说明策略的高波动、高潜在回报特性。</p>
           <div ref="performanceChartContainer" class="echart-container"></div>
-        </div>
+        </div> -->
 
         <!-- FAQ (无变化) -->
         <div class="content-card">
@@ -220,8 +237,158 @@
 </template>
 
 <script setup lang="ts">
-  import { ref, onMounted, watch } from 'vue'
+  import { ref, onMounted, watch, computed } from 'vue'
   import * as echarts from 'echarts'
+  import { useUserStore } from '@/store/user'
+  import { storeToRefs } from 'pinia'
+  import app from '@/lib/cloudbase' // 假设 app 实例从这里导入
+  const showMessage: any = inject('showMessage')
+  const userStore = useUserStore()
+  const { userInfo }: any = storeToRefs(userStore)
+
+  // --- 辅助函数：格式化时间戳 ---
+  const formatTimestamp = (timestamp: any) => {
+      // 1. 检查 timestamp 是否有效。如果为 null、undefined 或空字符串，直接返回。
+      if (!timestamp) return ''
+
+      // 2. 创建 Date 对象。new Date() 可以智能地解析多种格式，
+      //    包括 Date 对象本身、ISO 字符串、以及您提供的 "Sat Jul 19..." 格式。
+      const date = new Date(timestamp)
+
+      // 3. 检查转换后的 date 是否是有效的日期，防止传入无效字符串导致 "Invalid Date"。
+      if (isNaN(date.getTime())) {
+          return '' // 如果是无效日期，返回空字符串
+      }
+
+      // 4. 格式化输出
+      const year = date.getFullYear()
+      const month = (date.getMonth() + 1).toString().padStart(2, '0')
+      const day = date.getDate().toString().padStart(2, '0')
+      const hours = date.getHours().toString().padStart(2, '0')
+      const minutes = date.getMinutes().toString().padStart(2, '0')
+
+      return `${year}-${month}-${day} ${hours}:${minutes}`
+  }
+  // --- 管理员权限 ---
+  const isAdmin = computed(() => userInfo.value?.admin === true)
+
+  // --- 投资组合与卖出提醒的数据状态 ---
+  const isPortfolioEditing = ref(false)
+  const portfolioData = ref<any[]>([])
+  const portfolioUpdatedAt = ref('') // 新增：投资组合更新时间
+  let tempPortfolioData = ref<any[]>([])
+
+  const isSellAlertEditing = ref(false)
+  const sellAlertData = ref<any[]>([])
+  const sellAlertUpdatedAt = ref('') // 新增：卖出提醒更新时间
+  let tempSellAlertData = ref<any[]>([])
+
+  // --- 云函数调用逻辑 ---
+  const fetchStrategyData = () => {
+      app.callFunction({
+          name: 'getStrategyConfig',
+          parse: true
+      })
+          .then((res: any) => {
+              if (res.result?.success) {
+                  const { portfolio, sellAlert } = res.result.data
+                  portfolioData.value = portfolio.data || []
+                  portfolioUpdatedAt.value = formatTimestamp(portfolio.updatedAt)
+
+                  sellAlertData.value = sellAlert.data || []
+                  sellAlertUpdatedAt.value = formatTimestamp(sellAlert.updatedAt)
+              } else {
+                  showMessage('获取策略数据失败', 'error')
+              }
+          })
+          .catch((err: any) => {
+              showMessage('网络错误，无法加载策略数据', 'error')
+          })
+  }
+
+  // 组件挂载时获取初始数据
+  onMounted(() => {
+      fetchStrategyData()
+      updatePerformanceChart() // 原有的图表逻辑保留
+  })
+
+  // --- 投资组合编辑逻辑 (已修改为调用云函数) ---
+  const editPortfolio = () => {
+      tempPortfolioData.value = JSON.parse(JSON.stringify(portfolioData.value))
+      isPortfolioEditing.value = true
+  }
+  const savePortfolio = () => {
+      app.callFunction({
+          name: 'updateStrategyConfig',
+          parse: true,
+          data: {
+              type: 'portfolio',
+              data: tempPortfolioData.value
+          }
+      })
+          .then((res: any) => {
+              if (res.result?.success) {
+                  showMessage('投资组合保存成功', 'success')
+                  isPortfolioEditing.value = false
+                  fetchStrategyData() // 重新获取数据以刷新页面
+              } else {
+                  showMessage('保存失败', 'error')
+              }
+          })
+          .catch((err: any) => {
+              showMessage('网络错误，保存失败', 'error')
+          })
+  }
+  const cancelPortfolio = () => {
+      isPortfolioEditing.value = false
+  }
+  const addPortfolioRow = () => {
+      tempPortfolioData.value.push({ style: '', indexName: '', code: '', fundName: '', shares: '' })
+  }
+  const deletePortfolioRow = (index: number) => {
+      tempPortfolioData.value.splice(index, 1)
+  }
+
+  // --- 高估卖出提醒编辑逻辑 (已修改为调用云函数) ---
+  const editSellAlert = () => {
+      tempSellAlertData.value = JSON.parse(JSON.stringify(sellAlertData.value))
+      isSellAlertEditing.value = true
+  }
+  const saveSellAlert = () => {
+      app.callFunction({
+          name: 'updateStrategyConfig',
+          parse: true,
+          data: {
+              type: 'sellAlert',
+              data: tempSellAlertData.value
+          }
+      })
+          .then((res: any) => {
+              if (res.result?.success) {
+                  showMessage('卖出建议保存成功', 'success')
+                  isSellAlertEditing.value = false
+                  fetchStrategyData() // 重新获取数据以刷新页面
+              } else {
+                  showMessage('保存失败', 'error')
+              }
+          })
+          .catch((err: any) => {
+              showMessage('网络错误，保存失败', 'error')
+          })
+  }
+  const cancelSellAlert = () => {
+      isSellAlertEditing.value = false
+  }
+  const addSellAlertRow = () => {
+      tempSellAlertData.value.push({ indexName: '', code: '', status: '高估区域', suggestion: '' })
+  }
+  const deleteSellAlertRow = (index: number) => {
+      tempSellAlertData.value.splice(index, 1)
+  }
+
+  // =================================================================
+  // 以下是您页面中原有的、无需修改的逻辑（FAQ 和 ECharts 图表）
+  // =================================================================
 
   // --- 控制FAQ展开 (无变化) ---
   const openFaqIndex = ref<number | null>(0)
@@ -231,7 +398,7 @@
   const faqList = ref([
       {
           question: '“长钱”具体指什么钱？',
-          answer: '长钱指的是您在相当长的一段时间内（通常建议至少5-10年）确定不会动用或依赖的闲置资金。它不应是您的应急备用金、生活费或短期内有明确用途（如买房、买车）的钱。'
+          answer: '长钱指的是您在相当长的一段时间内（通常建议至少5年以上）确定不会动用或依赖的闲置资金。它不应是您的应急备用金、生活费或短期内有明确用途（如买房、买车）的钱。'
       },
       {
           question: '如果我买入的指数一直跌怎么办？',
@@ -337,79 +504,6 @@
   watch(performanceViewMode, () => {
       updatePerformanceChart()
   })
-  onMounted(() => {
-      updatePerformanceChart()
-  })
-
-  // ==================== 新增与修改：管理员编辑功能相关逻辑 ====================
-  const isAdmin = ref(true)
-
-  // --- 示例投资组合编辑逻辑 ---
-  const isPortfolioEditing = ref(false)
-  const portfolioData = ref([
-      {
-          style: 'A股大盘价值',
-          indexName: '沪深300',
-          code: '000300',
-          fundName: '沪深300ETF',
-          shares: '3份'
-      },
-      {
-          style: 'A股中小盘成长',
-          indexName: '中证500',
-          code: '000905',
-          fundName: '中证500ETF',
-          shares: '2份'
-      },
-      {
-          style: '港股市场核心',
-          indexName: '恒生指数',
-          code: 'HSI',
-          fundName: '恒生指数ETF',
-          shares: '2份'
-      }
-  ])
-  let tempPortfolioData = ref<any[]>([])
-  const editPortfolio = () => {
-      tempPortfolioData.value = JSON.parse(JSON.stringify(portfolioData.value))
-      isPortfolioEditing.value = true
-  }
-  const savePortfolio = () => {
-      portfolioData.value = tempPortfolioData.value
-      isPortfolioEditing.value = false
-  }
-  const cancelPortfolio = () => {
-      isPortfolioEditing.value = false
-  }
-  const addPortfolioRow = () => {
-      tempPortfolioData.value.push({ style: '', indexName: '', code: '', fundName: '', shares: '' })
-  }
-  const deletePortfolioRow = (index: number) => {
-      tempPortfolioData.value.splice(index, 1)
-  }
-
-  // --- 高估卖出提醒编辑逻辑 ---
-  const isSellAlertEditing = ref(false)
-  // 初始设置为空数组以展示空状态
-  const sellAlertData = ref<any[]>([])
-  let tempSellAlertData = ref<any[]>([])
-  const editSellAlert = () => {
-      tempSellAlertData.value = JSON.parse(JSON.stringify(sellAlertData.value))
-      isSellAlertEditing.value = true
-  }
-  const saveSellAlert = () => {
-      sellAlertData.value = tempSellAlertData.value
-      isSellAlertEditing.value = false
-  }
-  const cancelSellAlert = () => {
-      isSellAlertEditing.value = false
-  }
-  const addSellAlertRow = () => {
-      tempSellAlertData.value.push({ indexName: '', code: '', status: '高估区域', suggestion: '' })
-  }
-  const deleteSellAlertRow = (index: number) => {
-      tempSellAlertData.value.splice(index, 1)
-  }
 </script>
 
 <style scoped>
@@ -492,7 +586,7 @@
       border-left-color: #ff4081;
   }
   .risk-warning-card .card-title::before {
-      content: '⚠️';
+      /* content: '⚠️'; */
       margin-right: 0.75rem;
   }
 
@@ -639,7 +733,13 @@
       background-color: rgba(255, 255, 255, 0.3);
   }
   /* =================================================================== */
-
+  /* 新增：更新时间样式 */
+  .update-time {
+      font-size: 0.8rem;
+      color: #8392a5; /* 一个不那么显眼的颜色 */
+      margin-top: -0.5rem; /* 向上移动一点，靠近描述文字 */
+      margin-bottom: 1.5rem;
+  }
   .card-description {
       font-size: 0.95rem;
       color: #b0c4de;
@@ -690,6 +790,43 @@
   .data-table td:last-child {
       font-weight: bold;
       color: #fff;
+  }
+
+  .strategy-tips {
+      margin-top: 2rem; /* 与上方表格/空状态保持距离 */
+      padding: 1rem 1.5rem;
+      background-color: rgba(255, 64, 129, 0.05); /* 使用主题色的淡淡背景 */
+      border-left: 4px solid #ff4081; /* 左侧有主题色强调线 */
+      border-radius: 0 8px 8px 0; /* 配合左边框，设置圆角 */
+  }
+
+  .tips-title {
+      margin-top: 0;
+      margin-bottom: 0.75rem;
+      font-size: 1.1rem;
+      color: #ffffff; /* 标题用亮色 */
+      font-weight: bold;
+  }
+
+  .tips-list {
+      padding-left: 0;
+      list-style-type: none; /* 去掉默认的项目符号 */
+      margin: 0;
+  }
+
+  .tips-list li {
+      color: #b0c4de; /* 描述文字用次要颜色 */
+      font-size: 0.9rem;
+      line-height: 1.7;
+  }
+
+  .tips-list li:not(:last-child) {
+      margin-bottom: 0.5rem; /* 列表项之间的间距 */
+  }
+
+  .tips-list strong {
+      color: #ffc107; /* 强调部分的关键词用醒目的黄色 */
+      font-weight: bold;
   }
 
   .valuation-badge {

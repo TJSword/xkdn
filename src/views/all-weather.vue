@@ -4,7 +4,10 @@
 
       <!-- 1. 页面标题 -->
       <div class="page-header">
-        <a href="/#/home" class="back-button">← 返回主页</a>
+        <router-link to="/home" class="back-button">
+          ← 返回主页
+        </router-link>
+
         <h1 class="main-title">
           <span class="title-icon">❂</span>
           全天候策略
@@ -137,11 +140,142 @@
           </div>
         </div>
 
-        <!-- ==================== 已修改的卡片：历史业绩与收益曲线 ==================== -->
+        <!-- ==================== 新增卡片：年度业绩回测 ==================== -->
         <div class="content-card">
+          <h2 class="card-title">年度业绩回测 (2014-2024)</h2>
+          <p class="card-description">
+            下表展示了在过去十年间，全天候策略各组成部分及整体的年度收益率(%)表现。这有助于我们理解在不同市场年份中，各类资产如何相互作用，共同平滑了组合的整体波动。
+          </p>
+
+          <div class="table-container">
+            <table class="performance-data-table">
+              <thead>
+                <tr>
+                  <th>年份</th>
+                  <th>红利质量</th>
+                  <th>纳斯达克</th>
+                  <th>黄金</th>
+                  <th>招商产业债</th>
+                  <th class="highlight-col">全天候收益</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>2014</td>
+                  <td>45.50</td>
+                  <td>16.13</td>
+                  <td>1.93</td>
+                  <td>21.42</td>
+                  <td class="highlight-col">19.33</td>
+                </tr>
+                <tr>
+                  <td>2015</td>
+                  <td>17.10</td>
+                  <td>17.19</td>
+                  <td class="negative">-6.79</td>
+                  <td>11.85</td>
+                  <td class="highlight-col">8.38</td>
+                </tr>
+                <tr>
+                  <td>2016</td>
+                  <td>13.57</td>
+                  <td>10.89</td>
+                  <td>17.47</td>
+                  <td>4.17</td>
+                  <td class="highlight-col">11.38</td>
+                </tr>
+                <tr>
+                  <td>2017</td>
+                  <td>51.37</td>
+                  <td>21.67</td>
+                  <td>2.84</td>
+                  <td>3.02</td>
+                  <td class="highlight-col">16.37</td>
+                </tr>
+                <tr>
+                  <td>2018</td>
+                  <td class="negative">-21.10</td>
+                  <td>3.84</td>
+                  <td>3.49</td>
+                  <td>8.64</td>
+                  <td class="highlight-col">0.19</td>
+                </tr>
+                <tr>
+                  <td>2019</td>
+                  <td>40.68</td>
+                  <td>39.87</td>
+                  <td>19.13</td>
+                  <td>6.71</td>
+                  <td class="highlight-col">23.86</td>
+                </tr>
+                <tr>
+                  <td>2020</td>
+                  <td>37.95</td>
+                  <td>34.37</td>
+                  <td>13.90</td>
+                  <td>4.17</td>
+                  <td class="highlight-col">19.89</td>
+                </tr>
+                <tr>
+                  <td>2021</td>
+                  <td>8.91</td>
+                  <td>24.56</td>
+                  <td class="negative">-4.78</td>
+                  <td>6.50</td>
+                  <td class="highlight-col">7.21</td>
+                </tr>
+                <tr>
+                  <td>2022</td>
+                  <td class="negative">-6.19</td>
+                  <td class="negative">-28.23</td>
+                  <td>9.07</td>
+                  <td>2.59</td>
+                  <td class="highlight-col negative">-3.39</td>
+                </tr>
+                <tr>
+                  <td>2023</td>
+                  <td class="negative">-1.85</td>
+                  <td>54.14</td>
+                  <td>15.95</td>
+                  <td>5.00</td>
+                  <td class="highlight-col">16.74</td>
+                </tr>
+                <tr>
+                  <td>2024</td>
+                  <td>18.38</td>
+                  <td>24.57</td>
+                  <td>25.96</td>
+                  <td>4.15</td>
+                  <td class="highlight-col">17.62</td>
+                </tr>
+              </tbody>
+              <tfoot>
+                <tr>
+                  <td>平均年化</td>
+                  <td>18.57</td>
+                  <td>19.91</td>
+                  <td>8.92</td>
+                  <td>7.11</td>
+                  <td class="highlight-col">12.51</td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+
+          <div class="backtest-notes">
+            <h3 class="notes-title">回测说明</h3>
+            <ul>
+              <li><strong>债券替代：</strong>由于历史数据限制，回测中使用了“招商产业债”来近似模拟超长期国债的表现。虽然久期略有差异，但其走势和相关性在一定程度上可以反映长债的特点，因此回测结果仍具有较高的参考价值。</li>
+              <li><strong>再平衡方式：</strong>本回测采用的是【年度再平衡】策略。实践中，若采用基于阈值的动态再平衡策略（如当任一资产偏离目标权重超过特定比例时触发），理论上可能捕获更多市场机会，或可获得微弱的超额收益。</li>
+            </ul>
+          </div>
+        </div>
+        <!-- ===================================================================== -->
+
+        <!-- 历史业绩与收益曲线 (原卡片) -->
+        <!-- <div class="content-card">
           <div class="card-header-with-toggle">
             <h2 class="card-title no-border">历史业绩</h2>
-            <!-- 新增的视图切换按钮 -->
             <div class="view-toggle-container">
               <button :class="['toggle-button', { active: performanceViewMode === 'rate' }]" @click="performanceViewMode = 'rate'">
                 累计收益率
@@ -154,10 +288,8 @@
           <p class="card-description">
             下图展示了全天候策略的模拟累计收益曲线。请注意，数据为模拟回测，仅用于说明策略特性，不代表真实收益。
           </p>
-          <!-- ECharts 图表容器 -->
           <div ref="performanceChartContainer" class="echart-container"></div>
-        </div>
-        <!-- ===================================================================== -->
+        </div> -->
 
         <!-- 动态再平衡 (无变化) -->
         <div class="content-card">
@@ -166,9 +298,10 @@
             由于市场波动，各类资产的比例会偏离初始目标。再平衡是指定期（如每半年或一年）或按比例（如偏离15%）将投资组合恢复到目标配置的操作。这是确保策略长期有效的核心纪律。
           </p>
           <div class="rebalance-cta-box">
-            <button class="rebalance-cta">
+            <router-link to="/tools" class="rebalance-cta">
               前往再平衡工具 🛠️
-            </button>
+            </router-link>
+
           </div>
 
         </div>
@@ -380,10 +513,10 @@
       // 例如: const route = useRoute(); const strategyId = route.params.id;
 
       // 此处我们硬编码一个ID作为示例
-      const currentStrategyId = 'allWeather' // <-- 对于不同页面，修改这里即可
+      // const currentStrategyId = 'allWeather' // <-- 对于不同页面，修改这里即可
 
       // 页面挂载后，调用方法从云端获取数据
-      fetchPerformanceData(currentStrategyId)
+      // fetchPerformanceData(currentStrategyId)
 
       // 监听窗口大小变化的事件可以保留
       window.addEventListener('resize', () => {
@@ -474,7 +607,7 @@
       padding-left: 1rem;
   }
 
-  /* 新增：用于包含切换按钮的卡片头部 */
+  /* 用于包含切换按钮的卡片头部 */
   .card-header-with-toggle {
       display: flex;
       justify-content: space-between;
@@ -487,7 +620,7 @@
       margin-bottom: 0;
   }
 
-  /* 新增：视图切换按钮容器和按钮样式 */
+  /* 视图切换按钮容器和按钮样式 */
   .view-toggle-container {
       display: flex;
       background-color: rgba(0, 0, 0, 0.2);
@@ -578,6 +711,85 @@
       color: #fff;
   }
 
+  /* ==================== 新增样式 ==================== */
+  .table-container {
+      overflow-x: auto;
+      margin-bottom: 1.5rem;
+      border-radius: 8px;
+  }
+  .performance-data-table {
+      width: 100%;
+      min-width: 650px;
+      border-collapse: collapse;
+      font-size: 0.9rem;
+  }
+  .performance-data-table th,
+  .performance-data-table td {
+      padding: 0.8rem;
+      text-align: center;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      white-space: nowrap;
+  }
+  .performance-data-table th {
+      background-color: rgba(0, 170, 255, 0.1);
+      font-weight: bold;
+      color: #fff;
+  }
+  .performance-data-table tbody tr:nth-child(even) {
+      background-color: rgba(255, 255, 255, 0.03);
+  }
+  .performance-data-table tbody td {
+      color: #b0c4de;
+  }
+  .performance-data-table td:first-child {
+      font-weight: bold;
+      color: #fff;
+  }
+  .performance-data-table .negative {
+      color: #ff6b6b !important;
+      font-weight: bold;
+  }
+  .performance-data-table .highlight-col {
+      font-weight: bold;
+      color: #fff;
+      background-color: rgba(0, 170, 255, 0.08);
+  }
+  .performance-data-table tfoot tr {
+      background-color: rgba(0, 0, 0, 0.25);
+      font-weight: bold;
+  }
+  .performance-data-table tfoot td {
+      color: #fff;
+  }
+  .backtest-notes {
+      margin-top: 1.5rem;
+      padding: 1.25rem;
+      background: rgba(0, 0, 0, 0.2);
+      border-radius: 8px;
+      border-left: 3px solid #b0c4de;
+  }
+  .notes-title {
+      margin-top: 0;
+      margin-bottom: 0.75rem;
+      font-size: 1.1rem;
+      font-weight: bold;
+      color: #fff;
+  }
+  .backtest-notes ul {
+      padding-left: 1.25rem;
+      margin: 0;
+      color: #b0c4de;
+      font-size: 0.9rem;
+      line-height: 1.8;
+  }
+  .backtest-notes li {
+      margin-bottom: 0.5rem;
+  }
+  .backtest-notes li:last-child {
+      margin-bottom: 0;
+  }
+  /* ================================================== */
+
   /* 再平衡CTA */
   .rebalance-cta-box {
       width: 100%;
@@ -600,6 +812,7 @@
   .rebalance-cta:hover {
       transform: translateY(-3px);
       box-shadow: 0 4px 20px rgba(0, 170, 255, 0.5);
+      text-decoration: none;
   }
 
   /* FAQ 样式 */

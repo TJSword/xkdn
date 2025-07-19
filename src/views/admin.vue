@@ -4,7 +4,10 @@
 
       <!-- 1. 页面标题 (已分离) -->
       <div class="page-header">
-        <a href="#" class="back-button">← 返回仪表盘</a>
+        <router-link to="/home" class="back-button">
+          ← 返回主页
+        </router-link>
+
         <h1 class="main-title">
           <span class="title-icon">👥</span>
           用户管理
@@ -39,12 +42,10 @@
                 </tr>
               </thead>
               <tbody>
-                <tr v-if="paginatedUsers.length === 0">
-                  <td colspan="4" class="text-center no-data">
-                    {{ searchPhone ? '没有找到匹配的用户' : '暂无用户数据' }}
-                  </td>
+                <tr v-if="isLoading">
+                  <td colspan="4" class="text-center no-data">正在加载用户数据...</td>
                 </tr>
-                <tr v-for="user in paginatedUsers" :key="user.id">
+                <tr v-else v-for="user in users" :key="user.id">
                   <td>{{ user.id }}</td>
                   <td>{{ user.phone }}</td>
                   <td>{{ user.membershipExpiry }}</td>
@@ -60,7 +61,7 @@
 
           <!-- 分页控件 -->
           <div class="pagination-controls" v-if="totalPages > 0">
-            <span class="total-count">共 {{ totalFilteredUsers }} 条</span>
+            <span class="total-count">共 {{ totalUsers  }} 条</span>
             <div class="pagination-buttons">
               <button @click="prevPage" :disabled="currentPage === 1" class="pagination-button">
               </button>
@@ -116,54 +117,96 @@
 </template>
 
 <script setup lang="ts">
-  import { ref, computed, watch } from 'vue'
-
-  // --- TypeScript 接口定义 ---
+  import { ref, computed, watch, onMounted } from 'vue'
+  import app from '@/lib/cloudbase' // **修改**: 明确从您的库中导入 app 实例
+  const showMessage: any = inject('showMessage')
+  // --- TypeScript 接口定义 (id 修改为 string 以匹配数据库 _id) ---
   interface User {
-      id: number
+      id: string
       phone: string
       membershipExpiry: string // 格式: YYYY-MM-DD
   }
 
   // --- 响应式数据 ---
-  const allUsers = ref<User[]>([
-      { id: 101, phone: '138****1234', membershipExpiry: '2025-08-15' },
-      { id: 102, phone: '139****5678', membershipExpiry: '2025-07-22' },
-      { id: 103, phone: '158****9900', membershipExpiry: '2026-01-01' },
-      { id: 104, phone: '136****4321', membershipExpiry: '2025-09-30' },
-      { id: 105, phone: '188****1111', membershipExpiry: '2025-12-31' },
-      { id: 106, phone: '131****2222', membershipExpiry: '2025-11-11' },
-      { id: 107, phone: '132****3333', membershipExpiry: '2026-02-28' },
-      { id: 108, phone: '133****4444', membershipExpiry: '2025-07-31' },
-      { id: 109, phone: '134****5555', membershipExpiry: '2025-10-10' },
-      { id: 110, phone: '135****6677', membershipExpiry: '2026-03-15' }
-  ])
-
+  const users = ref<User[]>([])
   const searchPhone = ref('')
+  const isLoading = ref(true)
 
   // --- 分页状态 ---
   const currentPage = ref(1)
-  const itemsPerPage = ref(8) // 每页显示5条
-
-  // --- 筛选逻辑 ---
-  const filteredUsers = computed(() => {
-      if (!searchPhone.value) {
-          return allUsers.value
-      }
-      return allUsers.value.filter(user => user.phone.includes(searchPhone.value))
-  })
+  const itemsPerPage = ref(8)
+  const totalUsers = ref(0)
 
   // --- 分页计算 ---
-  const totalFilteredUsers = computed(() => filteredUsers.value.length)
-  const totalPages = computed(() => Math.ceil(totalFilteredUsers.value / itemsPerPage.value))
+  const totalPages = computed(() => Math.ceil(totalUsers.value / itemsPerPage.value))
 
-  const paginatedUsers = computed(() => {
-      const start = (currentPage.value - 1) * itemsPerPage.value
-      const end = start + itemsPerPage.value
-      return filteredUsers.value.slice(start, end)
+  // --- 云函数调用逻辑 (已适配您的项目风格) ---
+
+  /**
+   * @description: 从后端获取用户数据
+   */
+  const fetchUsers = () => {
+      isLoading.value = true
+      app.callFunction({
+          name: 'getUsers',
+          parse: true, // 按照您的习惯添加
+          data: {
+              searchPhone: searchPhone.value,
+              page: currentPage.value,
+              limit: itemsPerPage.value
+          }
+      })
+          .then((res: any) => {
+              // 确保云函数执行成功并返回了数据
+              if (res.result && res.result.success) {
+                  users.value = res.result.data.users
+                  totalUsers.value = res.result.data.total
+              } else {
+                  // 处理云函数返回的业务错误
+                  showMessage('获取用户失败', 'error')
+                  users.value = []
+                  totalUsers.value = 0
+              }
+          })
+          .catch((err: any) => {
+              // 处理网络或云函数执行本身的错误
+              showMessage('网络错误，无法加载用户数据', 'error')
+              users.value = []
+              totalUsers.value = 0
+          })
+          .finally(() => {
+              isLoading.value = false
+          })
+  }
+
+  // --- 组件挂载时首次加载数据 ---
+  onMounted(() => {
+      fetchUsers()
   })
 
-  // --- 分页方法 ---
+  // --- 监听搜索和分页变化，重新获取数据 ---
+  watch(
+      [searchPhone, currentPage],
+      (newValues, oldValues) => {
+          const newSearch = newValues[0]
+          const oldSearch = oldValues[0]
+
+          // 只有在搜索词变化时，才强制重置到第一页
+          if (newSearch !== oldSearch) {
+              if (currentPage.value !== 1) {
+                  currentPage.value = 1 // 这会自动触发 watch 重新执行 fetchUsers
+              } else {
+                  fetchUsers() // 如果已在第一页，则直接获取
+              }
+          } else {
+              // 否则，说明是页码变化，直接获取新页码的数据
+              fetchUsers()
+          }
+      },
+      { immediate: false }
+  ) // 设置 immediate: false 避免和 onMounted 重复调用
+
+  // --- 分页方法 (保持不变) ---
   const goToPage = (page: number) => {
       if (page >= 1 && page <= totalPages.value) {
           currentPage.value = page
@@ -175,10 +218,6 @@
   const nextPage = () => {
       goToPage(currentPage.value + 1)
   }
-
-  watch(searchPhone, () => {
-      currentPage.value = 1
-  })
 
   // --- 模态框逻辑 ---
   const isModalVisible = ref(false)
@@ -198,22 +237,54 @@
 
   const newExpiryDate = computed(() => {
       if (!selectedUser.value || !weeksToAdd.value || weeksToAdd.value <= 0) return ''
-      const currentExpiryDate = new Date(selectedUser.value.membershipExpiry)
-      const daysToAdd = weeksToAdd.value * 7
-      currentExpiryDate.setDate(currentExpiryDate.getDate() + daysToAdd)
-      const year = currentExpiryDate.getFullYear()
-      const month = (currentExpiryDate.getMonth() + 1).toString().padStart(2, '0')
-      const day = currentExpiryDate.getDate().toString().padStart(2, '0')
-      return `${year}-${month}-${day}`
+
+      // 确定计算的起始日期
+      const isNewUserOrExpired =
+          selectedUser.value.membershipExpiry === '未设置' ||
+          new Date(selectedUser.value.membershipExpiry) < new Date()
+      const startDate = isNewUserOrExpired
+          ? new Date()
+          : new Date(selectedUser.value.membershipExpiry)
+
+      // 增加周数 (setDate 会自动处理月份和年份的进位)
+      startDate.setDate(startDate.getDate() + weeksToAdd.value * 7)
+
+      // 格式化为 YYYY-MM-DD HH:mm
+      const year = startDate.getFullYear()
+      const month = (startDate.getMonth() + 1).toString().padStart(2, '0')
+      const day = startDate.getDate().toString().padStart(2, '0')
+      const hours = startDate.getHours().toString().padStart(2, '0')
+      const minutes = startDate.getMinutes().toString().padStart(2, '0')
+
+      return `${year}-${month}-${day} ${hours}:${minutes}`
   })
 
+  // **修改**: 确认续费逻辑，适配您的调用风格
   const confirmRenewal = () => {
-      if (!selectedUser.value || !newExpiryDate.value) return
-      const userIndex = allUsers.value.findIndex(u => u.id === selectedUser.value!.id)
-      if (userIndex !== -1) {
-          allUsers.value[userIndex].membershipExpiry = newExpiryDate.value
-      }
-      closeModal()
+      if (!selectedUser.value || !weeksToAdd.value || weeksToAdd.value <= 0) return
+
+      app.callFunction({
+          name: 'renewMembership',
+          parse: true,
+          data: {
+              userId: selectedUser.value.id,
+              weeksToAdd: weeksToAdd.value
+          }
+      })
+          .then((res: any) => {
+              if (res.result && res.result.success) {
+                  showMessage('续费成功！', 'success')
+                  closeModal()
+                  // **关键**: 续费成功后，刷新当前页的用户列表
+                  fetchUsers()
+              } else {
+                  showMessage('续费失败', 'error')
+              }
+          })
+          .catch((err: any) => {
+              console.error('调用云函数 renewMembership 失败:', err)
+              showMessage('网络错误，续费操作失败', 'error')
+          })
   }
 </script>
 

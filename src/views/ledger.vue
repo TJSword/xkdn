@@ -3,7 +3,10 @@
     <div class="main-container">
       <!-- 1. 页面标题 -->
       <div class="page-header">
-        <a href="/" class="back-button">← 返回主页</a>
+        <router-link to="/home" class="back-button">
+          ← 返回主页
+        </router-link>
+        <!-- <a href="/" class="back-button">← 返回主页</a> -->
         <h1 class="main-title">
           <span class="title-icon">🚀</span>
           何的记账本
@@ -55,7 +58,7 @@
         </div>
 
         <!-- 历史表现趋势 -->
-        <div class="content-card">
+        <!-- <div class="content-card">
           <div class="card-header-actions">
             <h2 class="card-title">历史表现趋势</h2>
             <div class="chart-toggle-buttons">
@@ -64,16 +67,16 @@
             </div>
           </div>
           <div ref="lineChartContainer" class="echart-container" style="height: 300px;"></div>
-        </div>
+        </div> -->
 
         <!-- 各策略收益对比图 -->
-        <div class="content-card">
+        <!-- <div class="content-card">
           <h2 class="card-title">各策略收益对比</h2>
           <p class="card-description">
             下图展示了不同策略的模拟累计收益率曲线，用于直观对比其风险与回报特性。
           </p>
           <div ref="strategyComparisonChartContainer" class="echart-container" style="height: 350px;"></div>
-        </div>
+        </div> -->
 
         <!-- 近期操作记录 -->
         <div class="content-card">
@@ -90,7 +93,7 @@
             </thead>
             <tbody>
               <tr v-if="transactionLogs.length === 0">
-                <td colspan="4" style="text-align: center; color: #8392A5;">暂无操作记录</td>
+                <td colspan="5" style="text-align: center; color: #8392A5;">暂无操作记录</td>
               </tr>
               <tr v-for="(log, index) in transactionLogs" :key="index">
                 <td>{{ log.transaction_date }}</td>
@@ -106,7 +109,7 @@
     </div>
 
     <!-- ==================== 新增：数据录入悬浮按钮 ==================== -->
-    <button class="fab" @click="isModalVisible = true" title="录入新数据">+</button>
+    <div class="fab" v-if="userInfo.admin" @click="isModalVisible = true" title="录入新数据">+</div>
 
     <!-- ==================== 新增：数据录入弹窗 ==================== -->
     <transition name="modal-fade">
@@ -202,6 +205,10 @@
   import { ref, onMounted, onUnmounted, computed, nextTick, watch } from 'vue'
   import * as echarts from 'echarts'
   import app from '@/lib/cloudbase'
+  import { useUserStore } from '@/store/user'
+  import { storeToRefs } from 'pinia'
+  const userStore = useUserStore()
+  const { userInfo }: any = storeToRefs(userStore)
   const showMessage: any = inject('showMessage')
   // --- 响应式状态定义 ---
   const pieChartContainer = ref<HTMLElement | null>(null)
@@ -265,10 +272,10 @@
   })
   // 策略数据现在包含ID，更符合数据库设计
   const strategiesData: any = ref({
-      allWeather: { name: '全天候策略', percentage: 0.4 },
-      longTerm: { name: '长钱策略', percentage: 0.3 },
-      microCap: { name: '微盘股策略', percentage: 0.15 },
-      convertibleBond: { name: '可转债策略', percentage: 0.15 }
+      allWeather: { name: '全天候策略' },
+      longTerm: { name: '长钱策略' },
+      microCap: { name: '微盘股策略' },
+      convertibleBond: { name: '可转债策略' }
   })
   const dailyProfitComposition = ref([
       { name: '全天候策略', value: 650.18 },
@@ -277,15 +284,7 @@
       { name: '可转债策略', value: 100.5 }
   ])
 
-  const transactionLogs: any = ref([
-      {
-          transaction_date: '2025-07-10',
-          type: '买入',
-          target: '中证2000指数ETF',
-          amount: 2000,
-          strategy: '微盘股策略'
-      }
-  ])
+  const transactionLogs: any = ref([])
 
   const comparisonData: any = {
       dates: ['2023-01', '2023-04', '2023-07', '2023-10', '2024-01', '2024-04', '2024-07'],
@@ -295,13 +294,7 @@
       convertibleBond: [0, 3, 1, 6, 10, 8, 14]
   }
 
-  // --- 计算属性 ---
-  const pieChartData: any = computed(() =>
-      Object.values(strategiesData.value).map((strategy: any) => ({
-          value: strategy.percentage,
-          name: strategy.name
-      }))
-  )
+  const pieChartData: any = ref([])
   // 用于弹窗下拉选择
   const strategyTabs = computed(() =>
       Object.entries(strategiesData.value).map(([id, data]: any) => ({ id, name: data.name }))
@@ -368,7 +361,6 @@
 
   // --- 新增：表单提交方法 ---
   const submitDailyPerformance = async () => {
-      console.log(newDailyPerformance.value.strategy_amount)
       // 1. 数据校验 (一个好的实践)
       if (
           newDailyPerformance.value.strategy_amount === null ||
@@ -388,7 +380,6 @@
           daily_profit: Number(newDailyPerformance.value.daily_profit),
           cumulative_rate: Number(newDailyPerformance.value.cumulative_rate)
       }
-      console.log(postData)
       // 3. 使用 try...catch 结构来调用云函数并处理可能出现的错误
 
       // !!! 核心：将这里的 URL 替换成您自己的云函数 API 网关访问路径 !!!
@@ -402,7 +393,6 @@
       // 我们在函数前面加上了 async，所以这里可以用 await 来等待结果
 
       // 5. 处理云函数返回的成功响应
-      console.log(res)
       if (res.result && res.result.success) {
           showMessage('数据保存成功！', 'success')
           // 关闭弹窗
@@ -431,7 +421,7 @@
           strategy_id: newTransaction.value.strategy_id,
           notes: newTransaction.value.notes
       }
-      console.log(postData)
+
       // 3. 调用名为 'saveTransaction' 的云函数
       const res = await app.callFunction({
           name: 'saveTransaction', // <-- 对应新的云函数名
@@ -466,27 +456,79 @@
           myPieChart = echarts.init(pieChartContainer.value, 'dark')
           myPieChart.setOption({
               backgroundColor: 'transparent',
-              tooltip: { trigger: 'item', formatter: '{a} <br/>{b}: {d}%' },
+              // 1. 定义一个与您页面风格匹配的颜色列表
+              color: ['#00aaff', '#f0e68c', '#add8e6', '#b39ddb'],
+              tooltip: {
+                  trigger: 'item',
+                  formatter: '{a} <br/>{b}: {c} ({d}%)', // 提示框显示金额和百分比
+                  backgroundColor: 'rgba(20, 20, 20, 0.85)', // 提示框背景色
+                  borderColor: '#00c497',
+                  borderWidth: 2,
+                  textStyle: {
+                      color: '#e0e0e0'
+                  }
+              },
+              // 2. 使用 graphic 组件在环图中心添加标题，比 series.title 更灵活
+              graphic: {
+                  type: 'text',
+                  left: 'center',
+                  top: 'center',
+                  style: {
+                      text: '持仓分布', // 您可以改成任何您想显示的文字
+                      textAlign: 'center',
+                      fill: '#e0e0e0', // 文字颜色
+                      fontSize: 18, // 字体大小
+                      fontWeight: 'bold'
+                  }
+              },
               series: [
                   {
                       name: '策略分布',
                       type: 'pie',
-                      radius: ['50%', '75%'],
+                      // 3. 调整内外半径，让环更宽，视觉效果更突出
+                      radius: ['60%', '80%'],
                       center: ['50%', '50%'],
-                      avoidLabelOverlap: true,
+                      avoidLabelOverlap: false, // 关闭以自定义标签位置
+                      // 4. 优化每一块饼图的默认样式
+                      itemStyle: {
+                          borderRadius: 8, // 给每个扇区添加圆角，更现代化
+                          borderColor: '#121212', // 边框颜色与背景一致，制造分割感
+                          borderWidth: 1,
+                          // 添加阴影以增加立体感
+                          shadowBlur: 10,
+                          shadowColor: 'rgba(0, 0, 0, 0.5)'
+                      },
+                      // 5. 优化标签和引导线样式
                       label: {
                           show: true,
                           position: 'outer',
                           formatter: '{b}\n({d}%)',
-                          color: '#ccc',
-                          fontSize: 12
+                          // 标签文字颜色使用您页面中的辅助文字颜色
+                          color: '#b0c4de',
+                          fontSize: 13
                       },
                       labelLine: {
                           show: true,
-                          length: 15,
-                          length2: 10,
-                          smooth: 0.2,
-                          lineStyle: { color: '#8392A5' }
+                          length: 20,
+                          length2: 15,
+                          smooth: true, // 让引导线更平滑
+                          lineStyle: {
+                              color: '#8392A5',
+                              width: 1.5
+                          }
+                      },
+                      // 6. 优化鼠标悬停时的高亮效果
+                      emphasis: {
+                          label: {
+                              show: true,
+                              fontSize: 15,
+                              fontWeight: 'bold'
+                          },
+                          itemStyle: {
+                              // 高亮时放大，并添加发光效果
+                              shadowBlur: 20,
+                              shadowColor: 'rgba(0, 196, 151, 0.6)'
+                          }
                       },
                       data: pieChartData.value
                   }
@@ -507,14 +549,22 @@
           myProfitCompositionChart = echarts.init(profitCompositionChartContainer.value, 'dark')
           myProfitCompositionChart.setOption({
               backgroundColor: 'transparent',
-              grid: { left: '5%', right: '5%', top: '5%', bottom: '5%', containLabel: true },
+              grid: { left: '10%', right: '15%', top: '5%', bottom: '10%', containLabel: true },
               tooltip: {
                   trigger: 'axis',
-                  axisPointer: { type: 'shadow' },
+                  axisPointer: { type: 'none' },
                   formatter: (params: any) =>
-                      `${params[0].name}<br/>收益: <strong>${params[0].value} 元</strong>`
+                      `${params[0].name}<br/>收益: <strong>${params[0].value} 元</strong>`,
+                  backgroundColor: 'rgba(20, 20, 20, 0.85)',
+                  borderColor: '#00c497',
+                  borderWidth: 2,
+                  textStyle: { color: '#e0e0e0' }
               },
-              xAxis: { type: 'value', axisLabel: { show: false }, splitLine: { show: false } },
+              xAxis: {
+                  type: 'value',
+                  axisLabel: { show: false },
+                  splitLine: { show: false }
+              },
               yAxis: {
                   type: 'category',
                   data: dailyProfitComposition.value.map(item => item.name).reverse(),
@@ -526,14 +576,44 @@
                   {
                       name: '当日收益',
                       type: 'bar',
-                      barWidth: '60%',
+                      // ==================== 修改点 1：减小条形宽度 ====================
+                      barWidth: '40%', // 从 '60%' 减小到 '40%' 或你喜欢的其他值
+
                       data: dailyProfitComposition.value
                           .map(item => ({
                               value: item.value,
-                              itemStyle: { color: item.value > 0 ? '#28a745' : '#ff4081' }
+                              itemStyle: {
+                                  // ==================== 修改点 2：为每个条形添加圆角 ====================
+                                  borderRadius: [0, 5, 5, 0], // 右上角和右下角为圆角
+                                  // 保持原来的颜色逻辑
+                                  color: item.value > 0 ? '#ff4081' : '#28a745'
+                              }
                           }))
                           .reverse(),
-                      label: { show: true, position: 'right', formatter: '{c}', color: 'auto' }
+
+                      label: {
+                          show: true,
+                          position: 'right',
+                          formatter: '{c}',
+                          color: 'auto',
+                          distance: 5 // 让标签离条形图远一点
+                      },
+
+                      // ==================== 修改点 3：增加高亮时的浮动光晕效果 ====================
+                      emphasis: {
+                          focus: 'series', // 聚焦当前系列
+                          itemStyle: {
+                              // 使用 shadowBlur 和 shadowColor 制造光晕效果
+                              shadowBlur: 20,
+                              shadowColor: 'rgba(255, 255, 255, 0.5)'
+                          },
+                          label: {
+                              show: true, // 确保标签在悬停时显示
+                              fontWeight: 'bold', // 字体加粗
+                              fontSize: 16, // 字体放大 (可以按需调整)
+                              color: '#fff' // [可选] 强制为白色，使其更突出
+                          }
+                      }
                   }
               ]
           })
@@ -639,7 +719,6 @@
 
           if (res.result && res.result.success) {
               const pageData = res.result.data
-              console.log('成功获取页面数据:', pageData)
 
               // 1. 更新总览数据
               portfolioSummary.value.totalAmount = pageData.overview.totalAmount
@@ -658,6 +737,7 @@
                   name: p.name,
                   value: p.value
               }))
+              initPieChart()
               dailyProfitComposition.value = pageData.overview.profitContribution
 
               // 3. 更新历史趋势图数据
@@ -694,7 +774,6 @@
               throw new Error(res.result.message || '获取数据失败')
           }
       } catch (error) {
-          console.error('fetchPageData 失败:', error)
           // 在这里可以显示一个全局的错误提示
           showMessage('页面数据加载失败，请刷新重试。', 'error')
       } finally {
@@ -887,10 +966,10 @@
   }
 
   .text-profit {
-      color: #28a745 !important;
+      color: #ff4081 !important;
   }
   .text-loss {
-      color: #ff4081 !important;
+      color: #28a745 !important;
   }
 
   /* ==================== 新增样式 ==================== */
@@ -899,23 +978,24 @@
       position: fixed;
       bottom: 2rem;
       right: 2rem;
-      width: 56px;
-      height: 56px;
+      width: 48px;
+      height: 48px;
       background-color: #00c497;
       color: white;
       border: none;
       border-radius: 50%;
-      font-size: 2rem;
-      line-height: 56px;
-      text-align: center;
+      font-size: 1.5rem;
       box-shadow: 0 6px 10px 0 rgba(0, 0, 0, 0.3);
       cursor: pointer;
       transition: all 0.3s ease;
       z-index: 999;
+      display: flex;
+      align-items: center;
+      justify-content: center;
   }
   .fab:hover {
       background-color: #00a080;
-      transform: scale(1.05);
+      /* transform: scale(1.05); */
   }
 
   /* 弹窗样式 */

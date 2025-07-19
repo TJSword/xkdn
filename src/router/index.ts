@@ -1,6 +1,8 @@
 import { createWebHashHistory, createRouter } from 'vue-router'
 import { useUserStore } from '@/store/user' // 引入我们刚创建的 user store
 
+
+
 // 路由表
 export const constantRoutes = [
   {
@@ -13,6 +15,7 @@ export const constantRoutes = [
   },
   {
     path: '/home',
+    name: 'home',
     component: () => import('@/views/home.vue'),
     meta: { requiresAuth: true } // 使用 meta 标记需要 VIP 权限的页面
   },
@@ -45,6 +48,12 @@ export const constantRoutes = [
     component: () => import('@/views/micro-cap.vue'),
     meta: { requiresAuth: true }
   },
+
+  {
+    path: '/about',
+    component: () => import('@/views/about.vue'),
+    meta: { requiresAuth: true }
+  },
   {
     path: '/admin',
     component: () => import('@/views/admin.vue'),
@@ -68,11 +77,22 @@ const whiteList = ['/login']
 
 router.beforeEach(async (to, from, next) => {
   // 从 Pinia store 获取 user store 实例
-  const userStore = useUserStore()
+  const userStore: any = useUserStore()
 
   // 1. 首次进入或刷新页面时，尝试获取用户信息
   // userStore.fetchUserInfo() 这个 action 内部有逻辑防止重复请求
   await userStore.fetchUserInfo()
+  // 优先处理 /admin 页面
+  if (to.path === '/admin') {
+    if (userStore.userInfo?.admin === true) {
+      // 是管理员，放行
+      next()
+    } else {
+      next({ name: 'NotFound' })
+    }
+    return
+  }
+
 
   // 2. 从 store 的 getter 中获取 VIP 状态
   const isVip = userStore.isVip
@@ -87,7 +107,7 @@ router.beforeEach(async (to, from, next) => {
       next()
     }
   } else {
-    // 如果用户不是 VIP (包括未登录、过期等)
+
     // 检查目标页面是否在白名单中
     if (whiteList.includes(to.path)) {
       // 在白名单中，直接放行

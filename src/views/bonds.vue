@@ -4,13 +4,15 @@
 
       <!-- 1. 页面标题 -->
       <div class="page-header">
-        <a href="#" class="back-button">← 返回主页</a>
+        <router-link to="/home" class="back-button">
+          ← 返回主页
+        </router-link>
         <h1 class="main-title">
           <span class="title-icon">🔄</span>
           可转债策略
         </h1>
         <p class="subtitle">
-          攻守兼备，穿越牛熊的投资艺术。
+          量化驱动，每日择优，追求复利增长的艺术。
         </p>
       </div>
 
@@ -21,8 +23,8 @@
         <div class="content-card">
           <h2 class="card-title">策略简介</h2>
           <p class="card-description">
-            可转换公司债券（Convertible
-            Bond）是一种特殊的债券，它允许持有者在特定时间内，按特定价格将其转换为发行公司的普通股。这赋予了它独特的“债股双性”：当公司股价上涨时，它可以像股票一样享受高增长；当股价下跌时，它仍能像债券一样提供固定的票息和到期本金，形成“下有保底，上不封顶”的独特优势。
+            本策略以“三低”（低价格、低溢价率、低剩余规模）因子为量化核心，每日筛选并轮动交易具备高性价比的可转债组合。我们摒弃主观预测，严格执行纪律，旨在动态捕捉市场短期价值机会，力求实现稳健的复利增长。
+
           </p>
         </div>
 
@@ -30,13 +32,13 @@
         <div class="content-card">
           <h2 class="card-title">组合思想：低价买入，静待花开</h2>
           <p class="card-description">
-            本策略的核心是在保证足够安全边际的前提下，捕捉正股上涨带来的超额收益。
+            本策略的核心是在保证安全边际的前提下，通过高频轮动实现组合的动态优化。
           </p>
           <ul class="idea-list">
-            <li><b>价格保底：</b> 优先选择价格较低（如110元以下）的可转债，使其更接近纯债价值，提供强大的下跌保护。</li>
-            <li><b>低溢价：</b> 寻找转股溢价率较低的品种，这意味着转债价格与正股价格的偏离度小，正股上涨时转债的跟涨能力更强。</li>
-            <li><b>分散投资：</b> 由于单只转债可能面临正股退市或公司信用风险，因此必须通过构建一个包含10-20只不同转债的组合来分散风险。</li>
-            <li><b>博弈下修和强赎：</b> 在熊市中博弈发行人“下修转股价”带来的脉冲机会；在牛市中享受正股上涨和“强赎”预期带来的双重驱动。</li>
+            <li><b>三低核心：</b> 以低价格、低溢价率、低剩余规模为核心筛选标准，构建具备高安全边际和强向上弹性的初始投资池。</li>
+            <li><b>每日轮动：</b> 模型于每个交易日下午2:30重新评估全市场可转债，卖出价值减弱的品种，换入新的价值洼地。</li>
+            <li><b>纪律执行：</b> 严格遵循模型信号进行交易，完全摒除人性中的贪婪与恐惧。追求长期稳健的复利增长。</li>
+            <li><b>风险分散：</b> 始终保持持有10只不同可转债的组合，有效分散单一公司的基本面风险和流动性风险。</li>
           </ul>
         </div>
 
@@ -66,15 +68,16 @@
                 </td>
               </tr>
               <tr>
-                <td>到期收益率 (YTM)</td>
-                <td>持有至到期能获得的年化收益率，是最终的兜底保障。</td>
-                <td><span class="valuation-badge reasonable">越高越好 (正数)</span></td>
-              </tr>
-              <tr>
                 <td>债券余额</td>
                 <td>尚未转股的债券规模。规模太小可能流动性差。</td>
                 <td><span class="valuation-badge reasonable">> 1亿</span></td>
               </tr>
+              <!-- <tr>
+                <td>到期收益率 (YTM)</td>
+                <td>持有至到期能获得的年化收益率，是最终的兜底保障。</td>
+                <td><span class="valuation-badge reasonable">越高越好 (正数)</span></td>
+              </tr> -->
+
             </tbody>
           </table>
         </div>
@@ -86,9 +89,9 @@
           </p>
 
           <!-- 最新持仓组合 -->
-          <h3 class="card-subtitle">最新持仓组合 ({{ strategyData.latest_portfolio.length }}只)</h3>
+          <h3 class="card-subtitle">最新持仓组合 ({{ strategyData?.latest_portfolio.length }}只)</h3>
           <div class="table-wrapper">
-            <table class="data-table">
+            <table class="data-table portfolio-table">
               <thead>
                 <tr>
                   <th>代码</th>
@@ -130,13 +133,13 @@
                   <span>{{ item.name }} ({{ item.code }})</span>
                   <span class="action-badge sell">{{ item.action }}</span>
                 </li>
-                <li v-if="sellList.length === 0" class="adjustment-item-empty">今日无调出建议</li>
+                <li v-if="sellList.length == 0" class="adjustment-item-empty">今日无调出建议</li>
               </ul>
             </div>
           </div>
         </div>
         <!-- 历史业绩与收益曲线卡片 -->
-        <div class="content-card">
+        <!-- <div class="content-card">
           <div class="card-header-with-toggle">
             <h2 class="card-title no-border">历史业绩</h2>
             <div class="view-toggle-container">
@@ -152,7 +155,7 @@
             下图展示了可转债策略的模拟累计收益曲线。可见其波动小于纯股策略，但长期回报优于纯债策略。数据为模拟，不代表真实收益。
           </p>
           <div ref="performanceChartContainer" class="echart-container"></div>
-        </div>
+        </div> -->
 
         <!-- FAQ -->
         <div class="content-card">
@@ -164,7 +167,7 @@
                 <span :class="['faq-icon', { 'is-open': openFaqIndex === index }]">+</span>
               </button>
               <div v-if="openFaqIndex === index" class="faq-answer">
-                <p>{{ item.answer }}</p>
+                <p style="white-space: pre-line;">{{ item.answer }}</p>
               </div>
             </div>
           </div>
@@ -178,92 +181,21 @@
 <script setup lang="ts">
   import { ref, onMounted, watch, computed } from 'vue'
   import * as echarts from 'echarts'
-
+  import app, { auth } from '@/lib/cloudbase'
+  const getStrategyData = () => {
+      app.callFunction({
+          name: 'getBondPortfolio',
+          parse: true
+      }).then((res: any) => {
+          strategyData.value = res.result
+      })
+  }
   // --- 策略持仓与调仓数据 ---
-  const strategyData = ref({
-      success: true,
-      message: '成功获取最新数据并生成调仓建议。',
-      latest_date: '20250718',
-      latest_portfolio: [
-          {
-              code: '123185',
-              name: '能辉转债',
-              close: '122.51',
-              remain_size: '3.48',
-              conv_prem: '0.3189'
-          },
-          {
-              code: '123189',
-              name: '晓鸣转债',
-              close: '126.58',
-              remain_size: '3.29',
-              conv_prem: '0.2867'
-          },
-          {
-              code: '123230',
-              name: '金钟转债',
-              close: '124.31',
-              remain_size: '3.50',
-              conv_prem: '0.2850'
-          },
-          {
-              code: '123207',
-              name: '冠中转债',
-              close: '123.70',
-              remain_size: '4.00',
-              conv_prem: '0.1703'
-          },
-          {
-              code: '123199',
-              name: '山河转债',
-              close: '129.30',
-              remain_size: '3.20',
-              conv_prem: '0.2297'
-          },
-          {
-              code: '113680',
-              name: '丽岛转债',
-              close: '120.66',
-              remain_size: '3.00',
-              conv_prem: '0.5235'
-          },
-          {
-              code: '123092',
-              name: '天壕转债',
-              close: '127.65',
-              remain_size: '3.42',
-              conv_prem: '0.2701'
-          },
-          {
-              code: '123130',
-              name: '设研转债',
-              close: '123.30',
-              remain_size: '3.75',
-              conv_prem: '0.3422'
-          },
-          {
-              code: '123224',
-              name: '宇邦转债',
-              close: '129.05',
-              remain_size: '2.85',
-              conv_prem: '0.3470'
-          },
-          {
-              code: '123159',
-              name: '崧盛转债',
-              close: '127.16',
-              remain_size: '2.94',
-              conv_prem: '0.4001'
-          }
-      ],
-      adjustments: [
-          { name: '能辉转债', code: '123185', action: '调入' },
-          { name: '晓鸣转债', code: '123189', action: '调入' },
-          { name: '威唐转债', code: '123088', action: '调出' },
-          { name: '中陆转债', code: '123155', action: '调出' }
-      ]
+  const strategyData: any = ref({
+      adjustments: [],
+      latest_portfolio: []
   })
-
+  getStrategyData()
   const formattedDate = computed(() => {
       const dateStr = strategyData.value.latest_date
       if (!dateStr || dateStr.length !== 8) return dateStr
@@ -271,10 +203,10 @@
   })
 
   const buyList = computed(() =>
-      strategyData.value.adjustments.filter(item => item.action === '调入')
+      strategyData.value.adjustments.filter((item: any) => item.action === '调入')
   )
   const sellList = computed(() =>
-      strategyData.value.adjustments.filter(item => item.action === '调出')
+      strategyData.value.adjustments.filter((item: any) => item.action === '调出')
   )
 
   // --- 控制FAQ展开 ---
@@ -285,20 +217,24 @@
 
   const faqList = ref([
       {
-          question: '什么是“强制赎回”（强赎）？',
-          answer: '当发行公司的股价在一段时间内持续高于转股价的一定比例（通常是130%）时，公司有权以一个较低的价格（如103元）提前赎回全部未转股的债券。这会“逼迫”投资者要么卖出转债，要么转换为股票来避免损失，是牛市中转债价格上涨的重要催化剂。'
+          question: '我如何才能参与本策略？',
+          answer: '参与本策略，您首先需要在您的A股证券账户中开通“可转换债券”的交易权限。根据交易所规定，开通此权限通常需要满足以下两个条件：\n\n1.  投资经验： 具备2年及以上的证券交易经验（从首次股票交易日算起）。\n2.  资产要求： 在申请开通权限前的连续20个交易日里，您证券账户内的日均资产不低于人民币10万元。\n\n满足条件后，您可以通过券商的APP或交易软件在线申请开通。具体流程可能因券商而异，建议咨询您的开户券商获取详细指引。'
       },
       {
-          question: '什么是“回售”？',
-          answer: '与强赎相反，回售是保护投资者的条款。当公司股价在一段时间内持续低于转股价的一定比例（如70%）时，投资者有权以一个约定的价格（如100元+当期利息）将转债卖回给公司。这是熊市中重要的兜底条款之一。'
+          question: '可转债是什么？它为什么适合普通人投资？',
+          answer: '可转债是上市公司发行的一种特殊债券。您可以将其理解为一张“附带股票期权的借条”。\n\n   债性（保底）： 作为债券，它承诺到期归还本金并支付利息，提供了基础的安全性。\n   股性（增值）： 它允许持有者在特定条件下，按约定价格（转股价）将其转换为公司股票，从而在公司股价上涨时享受收益。\n\n正是这种“下有保底，上不封顶”的特性，使其成为一种攻守兼备、非常适合普通投资者入门的品种。'
       },
       {
-          question: '投资可转债最大的风险是什么？',
-          answer: '最大的风险主要有两个：一是正股价格长期低迷，导致转债的“股性”无法体现，最终只能获得微薄的债券利息；二是公司信用风险，即发行方违约无法偿还本息，虽然罕见但存在可能。因此，分散投资和选择基本面稳健的公司至关重要。'
+          question: '投资可转债需要了解哪些核心规则？',
+          answer: '理解可转债的四个核心条款至关重要，它们决定了可转债的价值变化：\n \n1.  转股价： 决定一张可转债能换多少股股票（换股数量 = 100 / 转股价）。\n \n2.  下修条款： 当股价长期低于转股价时，公司有权下调转股价，以提高转股吸引力。这对投资者是利好。\n \n3.  强赎条款： 当股价长期高于转股价一定幅度（通常是130%）时，公司有权以较低价格（如103元）强制赎回。这是为了“逼迫”投资者转股或卖出，是重要的获利了结信号。\n \n4.  回售条款： 当股价长期低于转股价一定幅度（通常是70%）时，投资者有权以约定价格（如101-103元）将可转债卖还给公司。这是保护投资者的最后一道防线。'
       },
       {
-          question: '我应该如何交易可转债？',
-          answer: '可转债在中国市场上市，可以通过任何一个标准的股票账户进行交易，操作与买卖股票完全相同。'
+          question: '什么是“转股溢价率”？为什么它很重要？',
+          answer: '转股溢价率是衡量可转债价格相对于其内在股票价值高出多少的指标。\n\n公式： 转股溢价率 = (转债价格 - 转股价值) / 转股价值 * 100%\n\n   溢价率越低： 说明转债价格与其股票价值越接近，股性越强，正股上涨时跟涨能力也越强。\n   溢价率越高： 说明转债价格中“债性”和“期权”的成分更多，股性越弱，受正股影响较小，相对更抗跌。\n\n本策略的核心之一就是寻找低溢价率的品种，以期获得更高的上涨弹性。'
+      },
+      {
+          question: '投资可转债可能面临哪些主要风险？',
+          answer: '主要有以下两类风险：\n\n1.  违约风险： 发行公司基本面恶化，无力偿还本金和利息。通常选择高评级（如AA级及以上）的可转债并进行分散投资，可以有效降低此风险。\n\n2.  机会成本风险： 如果持有至到期，可转债的票面利率通常很低，收益可能跑不赢通胀。本策略通过积极的轮动交易，旨在避免这种情况，追求更高的超额收益。'
       }
   ])
 
@@ -572,8 +508,6 @@
       gap: 2rem;
       margin-bottom: 1rem;
   }
-  .adjustment-block {
-  }
   .adjustment-title {
       font-size: 1rem;
       margin: 0 0 0.8rem 0;
@@ -630,7 +564,9 @@
       width: 100%;
       border-collapse: collapse;
       margin-top: 0; /* 被 card-subtitle 的 margin-bottom 替代 */
-      table-layout: fixed; /*  <-- 核心新增属性 */
+  }
+  .data-table.portfolio-table {
+      table-layout: fixed;
   }
   .data-table th,
   .data-table td {
