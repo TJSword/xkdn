@@ -573,10 +573,8 @@
       }
 
       /* 步骤二：确保表格可以滚动，并优化单元格内容 */
-      .table-wrapper {
-          /* 您已有的 overflow-x: auto; 是正确的 */
-          /* 我们可以为滚动条增加样式 */
-      }
+      /* .table-wrapper {
+        } */
       .table-wrapper::-webkit-scrollbar {
           height: 6px;
       }
