@@ -341,6 +341,10 @@
   }
   const faqList = ref([
       {
+          question: '投资全天候策略需要择时吗？',
+          answer: '基本不需要。 全天候策略采用的是风险平价思想，其目标是构建一个在不同经济环境中都能平滑波动的资产组合。由于策略本身已经通过资产配置极大地降低了整体波动性，因此“择时”操作（即选择买入时机）对最终收益的贡献非常有限。它的核心是“持有”而非“交易”，因此您可以随时开始您的投资。'
+      },
+      {
           question: '在全天候策略中，我能用“红利低波指数”来替代原计划中的A股资产吗？',
           answer: '不建议这样做。全天候策略中，股票的核心作用是在“经济增长”的牛市环境下提供收益。红利低波指数本质上是防御型资产，其稳健表现主要在熊市和震荡市，这与组合中长债的对冲功能发生重叠。这种替换会削弱组合在牛市的上行潜力，损害其在关键经济环境下的表现。'
       },
@@ -592,6 +596,12 @@
       padding: 1.5rem 2rem;
       backdrop-filter: blur(10px);
       transition: border-color 0.3s ease;
+      /* 1. 改变布局模式为 flex，这是让内部元素正确表现的关键 */
+      display: flex;
+      flex-direction: column; /* 让卡片内部的 h2, p, table 等元素垂直排列 */
+
+      /* 2. 这是最重要的“必杀技”，它确保卡片自身不会被内容撑开 */
+      min-width: 0;
   }
   .content-card:hover {
       border-color: rgba(0, 170, 255, 0.5);
@@ -863,21 +873,133 @@
   }
 
   /* 响应式 */
+  /* ... 您现有的所有 CSS 样式代码 ... */
+
+  /* ======================================================= */
+  /* ========   最终版响应式样式 (修复滚动与布局问题)   ======== */
+  /* ======================================================= */
+
+  /* --- 强制禁止页面级的横向滚动，这是修复背景和布局错乱的关键 --- */
+  html,
+  body {
+      overflow-x: hidden;
+  }
+
+  /* --- 中等屏幕 / 平板 (<= 992px) --- */
+  @media (max-width: 992px) {
+      .page-wrapper {
+          /* 在平板上给页面一些呼吸空间 */
+          padding: 2.5rem 1.5rem;
+      }
+  }
+
+  /* --- 小型屏幕 / 手机 (<= 768px) --- */
   @media (max-width: 768px) {
+      .page-wrapper {
+          padding: 2rem 1rem;
+          /* 确保wrapper不会被内容撑开 */
+          width: 100%;
+          box-sizing: border-box;
+      }
+
+      .main-container {
+          /* 确保主容器也不会超过屏幕宽度 */
+          width: 100%;
+          max-width: 100%;
+      }
+
+      /* --- 移动端头部样式 --- */
+      .page-header {
+          /* text-align: left; */
+          margin-bottom: 2.5rem;
+      }
+
+      .back-button {
+          font-size: 1rem;
+          font-weight: 500;
+          margin-bottom: 1.5rem;
+          display: block; /* 使其成为块级元素，更易点击 */
+      }
+
       .main-title {
           font-size: 2rem;
+          /* justify-content: flex-start; */
+          gap: 0.8rem;
       }
+
+      .subtitle {
+          /* text-align: left; */
+          font-size: 1rem;
+      }
+
+      /* --- 通用卡片样式 --- */
       .content-card {
-          padding: 1.5rem;
+          padding: 1.2rem;
       }
-      .tab-button {
-          padding: 0.75rem;
+
+      .card-title {
+          font-size: 1.25rem;
+          padding-left: 0.8rem;
+      }
+      .card-description {
           font-size: 0.9rem;
       }
-      .card-header-with-toggle {
-          flex-direction: column;
-          align-items: flex-start;
-          gap: 1rem;
+
+      /* --- 关键修复：处理两个宽表格 --- */
+      /* 我们为两个表格的直接父容器应用滚动，如果不存在，则对表格自身应用 */
+      .tab-content,
+      .table-container {
+          overflow-x: auto; /* 让这个容器可以横向滚动 */
+          -webkit-overflow-scrolling: touch; /* 在iOS上提供更流畅的滚动体验 */
+
+          /* 添加一个视觉提示，告诉用户这里可以滚动 */
+          -webkit-mask-image: linear-gradient(
+              to right,
+              transparent,
+              black 20px,
+              black 95%,
+              transparent
+          );
+          mask-image: linear-gradient(to right, transparent, black 20px, black 95%, transparent);
+      }
+
+      /* 设置表格的最小宽度，确保它不会被不自然地压缩 */
+      .portfolio-table,
+      .performance-data-table {
+          min-width: 600px; /* 根据内容设定一个合理的最小宽度 */
+          width: 100%;
+      }
+
+      /* 优化滚动条样式 */
+      .tab-content::-webkit-scrollbar,
+      .table-container::-webkit-scrollbar {
+          height: 6px;
+      }
+
+      .tab-content::-webkit-scrollbar-thumb,
+      .table-container::-webkit-scrollbar-thumb {
+          background: #00aaff;
+          border-radius: 3px;
+      }
+
+      /* --- 其他元素适配 --- */
+      .tabs-container {
+          width: 100%;
+      }
+      .tab-button {
+          flex: 1;
+          text-align: center;
+          font-size: 0.9rem;
+          padding: 0.75rem 0.5rem;
+      }
+
+      .rebalance-cta-box {
+          margin-top: 1rem;
+      }
+      .rebalance-cta {
+          display: block;
+          width: 100%;
+          text-align: center;
       }
   }
 </style>

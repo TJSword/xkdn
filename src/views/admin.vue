@@ -561,4 +561,101 @@
   .modal-fade-leave-to {
       opacity: 0;
   }
+  /* ======================================================= */
+  /* ========      用户管理页面移动端适配      ======== */
+  /* ======================================================= */
+
+  @media (max-width: 768px) {
+      /* 步骤一：修正卡片的收缩行为，防止被内部表格撑开 */
+      .content-card {
+          min-width: 0;
+          padding: 1.5rem 1rem; /* 减小卡片内边距 */
+      }
+
+      /* 步骤二：确保表格可以滚动，并优化单元格内容 */
+      .table-wrapper {
+          /* 您已有的 overflow-x: auto; 是正确的 */
+          /* 我们可以为滚动条增加样式 */
+      }
+      .table-wrapper::-webkit-scrollbar {
+          height: 6px;
+      }
+      .table-wrapper::-webkit-scrollbar-thumb {
+          background: #00aaff;
+          border-radius: 3px;
+      }
+      .portfolio-table th,
+      .portfolio-table td {
+          white-space: nowrap; /* 确保单元格内容不换行 */
+          padding: 0.8rem;
+      }
+
+      /* 步骤三：调整卡片头部的布局，让搜索框换行 */
+      .card-header-with-toggle {
+          flex-direction: column; /* 垂直堆叠 */
+          align-items: flex-start; /* 左对齐 */
+          gap: 1rem;
+      }
+      .search-input {
+          width: 100%; /* 让搜索框撑满宽度 */
+          box-sizing: border-box;
+      }
+
+      /* 步骤四：优化分页控件的布局 */
+      .pagination-controls {
+          flex-direction: column; /* 垂直堆叠 */
+          align-items: center; /* 居中对齐 */
+          gap: 1rem;
+      }
+      .pagination-buttons {
+          /* 让按钮容器可以在需要时换行 */
+          flex-wrap: wrap;
+          justify-content: center;
+      }
+
+      .modal-content {
+          padding: 1.5rem 1.2rem; /* 稍微调整内边距，让上下空间更足 */
+          max-height: 90vh; /* 新增：限制最大高度 */
+          overflow-y: auto; /* 新增：当内容超长时，弹窗内部可以滚动 */
+          width: 78%;
+      }
+      .modal-header h3 {
+          font-size: 1.2rem;
+      }
+
+      /* --- 新增：适配弹窗表单内部 --- */
+      .modal-form .form-group {
+          margin-bottom: 1.5rem; /* 稍微增大表单项之间的间距 */
+      }
+      .modal-form label {
+          font-size: 0.9rem; /* 统一标签字号 */
+      }
+      .modal-form .info-text {
+          font-size: 1.05rem; /* 让信息文本更突出一点 */
+      }
+      .modal-form .form-input {
+          padding: 0.9rem; /* 增大输入框内边距，方便点击和输入 */
+          font-size: 1.05rem;
+      }
+
+      .modal-footer {
+          flex-direction: column-reverse;
+          gap: 0.8rem;
+          margin-top: 2rem; /* 增大与表单的间距 */
+          padding-top: 1.2rem;
+      }
+      .button-secondary,
+      .button-primary {
+          width: 100%;
+          padding: 0.9rem; /* 统一增大按钮内边距 */
+      }
+
+      /* 其他通用微调 */
+      .main-title {
+          font-size: 2rem;
+      }
+      .subtitle {
+          font-size: 1rem;
+      }
+  }
 </style>

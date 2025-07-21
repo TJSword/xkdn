@@ -891,4 +891,36 @@
           padding: 1.5rem;
       }
   }
+  /* ======================================================= */
+  /* ========      代码修改最小的移动端表格适配      ======== */
+  /* ======================================================= */
+
+  /* 仅在移动端屏幕宽度下生效 */
+  @media (max-width: 768px) {
+      /* 步骤一：修正卡片的收缩行为，防止被内部表格撑开 */
+      /* 这是解决问题的根源，必须要有 */
+      .content-card {
+          min-width: 0;
+      }
+
+      /* 步骤二：让表格自身变得可以滚动 */
+      .data-table {
+          display: block; /* 关键：将 table 的显示模式从 table 改为 block */
+          width: 100%; /* 让这个 block 占满父容器宽度 */
+          overflow-x: auto; /* 核心：在 block 上启用水平滚动 */
+
+          -webkit-overflow-scrolling: touch; /* iOS上提供流畅滚动 */
+      }
+
+      /* 步骤三：确保表格的单元格内容不会被错误地换行 */
+      .data-table th,
+      .data-table td {
+          white-space: nowrap; /* 防止单元格内容断行，保持表格结构 */
+      }
+
+      /* 步骤四 (可选，但推荐): 为编辑模式的输入框设置最小宽度 */
+      .data-table .input-edit {
+          min-width: 120px;
+      }
+  }
 </style>

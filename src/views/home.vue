@@ -173,7 +173,15 @@
           link: '/ledger'
       },
       {
-          id: 7,
+          id: 7, // 给一个不重复的ID
+          title: '财富版图',
+          description: '将您的资产目标具象化，一步步点亮全国版图。',
+          icon: '🗺️',
+          cssClass: 'wealth-map', // 定义一个新的CSS类
+          link: '/wealth-map' // 定义新的路由路径
+      },
+      {
+          id: 8,
           title: '关于本站',
           description: '了解建站初衷、开发者、会员服务与联系方式。',
           icon: '💡',
@@ -606,6 +614,13 @@
   .strategy-card:hover {
       transform: translateY(-8px) scale(1.03);
   }
+  .wealth-map:hover {
+      box-shadow: 0 0 15px #ffd700; /* 金色光晕 */
+      border-color: #ffd700;
+  }
+  .wealth-map .card-icon {
+      color: #ffd700;
+  }
   .about-us:hover {
       box-shadow: 0 0 15px #ffc107;
       border-color: #ffc107;
@@ -817,6 +832,29 @@
       .membership-footer {
           margin-top: 2rem;
       }
+      .modal-content {
+          padding: 1.2rem 1rem;
+      }
+
+      /* --- 新增：进一步减小图表高度 --- */
+      .echart-container {
+          height: 300px; /* 在最小屏幕上可以再小一点 */
+      }
+
+      /* --- 新增：适配欢迎弹窗的特定内容 --- */
+      .welcome-modal-body h4 {
+          font-size: 1.05rem; /* 减小欢迎弹窗内的小标题字号 */
+      }
+      .welcome-modal-body ul {
+          padding-left: 0.5rem; /* 减小列表的左内边距 */
+      }
+      .welcome-modal-body li {
+          font-size: 0.9rem; /* 减小列表项字号 */
+      }
+      .welcome-modal-button {
+          width: 100%; /* 让“开始探索”按钮撑满宽度，更易点击 */
+          padding: 0.9rem;
+      }
   }
 
   .welcome-modal-content {
@@ -891,5 +929,177 @@
       text-align: center;
       line-height: 1.6;
       color: #fff;
+  }
+
+  /* ... Your other CSS rules up to the membership-footer ... */
+
+  /* ==================================================== */
+  /* ========   RESPONSIVE STYLES (Tablet & Mobile)  ======== */
+  /* ==================================================== */
+
+  /* --- Medium screens / Tablets (<= 1024px) --- */
+  @media (max-width: 1024px) {
+      .main-container {
+          /* Allow the container to shrink and add some horizontal padding */
+          width: 95%;
+          padding-left: 1rem;
+          padding-right: 1rem;
+          max-width: none; /* Override the desktop max-width */
+      }
+
+      /* Make the page scrollable instead of trying to vertically center everything */
+      .home-page-wrapper {
+          align-items: flex-start;
+          padding-top: 2rem;
+          overflow-y: auto; /* Allow scrolling if content is too long */
+      }
+
+      /* Switch to a 2-column grid for the feature cards */
+      .features-grid {
+          grid-template-columns: repeat(2, 1fr);
+          gap: 1.2rem;
+      }
+
+      .main-title {
+          font-size: 2rem;
+      }
+  }
+
+  /* --- Small screens / Large Phones (<= 768px) --- */
+  @media (max-width: 768px) {
+      /* Adjust background for a better look on portrait screens */
+      .home-page-wrapper {
+          background: radial-gradient(circle at 50% 20%, #1a2a4a, transparent 70%),
+              radial-gradient(circle at 50% 80%, #4a1a2a, transparent 70%), #121212;
+      }
+
+      .main-container {
+          width: 100%;
+      }
+
+      /* Reduce card size slightly */
+      .strategy-card {
+          padding: 1rem;
+          min-height: 140px;
+      }
+
+      /* Make modal popups take up more screen width */
+      .modal-content {
+          width: 80%;
+          padding: 1.5rem;
+      }
+
+      .modal-header h3 {
+          font-size: 1.2rem;
+      }
+
+      /* Reduce chart height on smaller screens */
+      .echart-container {
+          height: 400px;
+      }
+      .modal-content {
+          width: 80%; /* 弹窗宽度占屏幕的90%，避免贴边 */
+          padding: 1.5rem 1.2rem; /* 减小内边距 */
+          max-height: 90vh; /* 新增：最大高度，防止内容超长 */
+          overflow-y: auto; /* 新增：当内容超长时，弹窗内部可以滚动 */
+      }
+
+      /* --- 新增：统一调整所有弹窗头部 --- */
+      .modal-header h3 {
+          font-size: 1.2rem; /* 减小弹窗标题字号 */
+      }
+
+      /* --- 新增：为图表弹窗调整图表高度 --- */
+      .echart-container {
+          /* 您已有此规则，可以保留或调整数值 */
+          height: 350px; /* 在中等屏幕上设置一个合适的高度 */
+      }
+  }
+
+  /* --- Extra Small screens / Most Phones (<= 576px) --- */
+  @media (max-width: 576px) {
+      .home-page-wrapper {
+          padding: 1.5rem 1rem; /* Add padding to the main wrapper */
+      }
+      .main-container {
+          padding: 0; /* Remove padding from container as wrapper now has it */
+      }
+
+      .main-title {
+          font-size: 1.8rem;
+      }
+
+      .subtitle {
+          font-size: 0.9rem;
+          margin-bottom: 1.5rem;
+      }
+
+      .market-thermometer-container {
+          padding: 1rem;
+      }
+
+      .thermometer-header {
+          /* Stack title and other elements vertically */
+          flex-direction: column;
+          align-items: flex-start;
+          gap: 0.25rem;
+      }
+      .thermometer-desc {
+          text-align: left; /* Align date to the left */
+          margin-bottom: 1rem;
+      }
+
+      /* Switch to a single-column grid, stacking cards vertically */
+      .features-grid {
+          grid-template-columns: 1fr;
+      }
+
+      .strategy-card {
+          display: flex; /* 启用 Flexbox 布局 */
+          flex-direction: column; /* 设置主轴为垂直方向，实现堆叠效果 */
+          justify-content: center; /* 在垂直方向上居中对齐内容 */
+          align-items: center; /* 在水平方向上居中对齐内容 */
+          text-align: center; /* 确保文本本身也是居中对齐的 */
+          padding: 1.5rem 1rem; /* 调整内边距，上下多一些，左右少一些 */
+          min-height: 160px; /* 设置一个最小高度，让所有卡片看起来更统一 */
+      }
+
+      .strategy-card .card-icon {
+          font-size: 2.2rem;
+          margin: 0 0 0.75rem 0; /* 清除所有外边距，只在图标下方留出空间 */
+      }
+
+      .strategy-card .card-title {
+          font-size: 1.15rem;
+          line-height: 1.3;
+          margin: 0 0 0.5rem 0; /* 清除所有外边距，只在标题下方留出空间 */
+      }
+
+      .strategy-card .card-description {
+          font-size: 0.85rem;
+          line-height: 1.5; /* 为正文设置更舒适的行高 */
+          color: #b0c4de;
+          margin: 0;
+          /* 一个小技巧：限制描述的最大宽度，使其在换行时更好看 */
+          max-width: 90%;
+      }
+
+      .membership-footer {
+          margin-top: 2.5rem;
+          font-size: 0.8rem;
+      }
+
+      /* Adjust welcome modal for small screens */
+      .welcome-modal-button {
+          width: 100%; /* Make button full-width */
+      }
+
+      .welcome-modal-body ul {
+          padding-left: 0.5rem;
+      }
+
+      .echart-container {
+          height: 350px; /* Further reduce chart height */
+      }
   }
 </style>
