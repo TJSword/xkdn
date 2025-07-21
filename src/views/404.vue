@@ -120,23 +120,60 @@
       box-shadow: 0 4px 20px rgba(0, 170, 255, 0.5);
   }
 
-  /* 响应式调整 */
-  @media (max-width: 576px) {
+  /* ======================================================= */
+  /* ========      404 页面响应式样式 (优化版)      ======== */
+  /* ======================================================= */
+
+  /* --- 中等屏幕 / 平板 (<= 768px) --- */
+  @media (max-width: 768px) {
+      .page-wrapper {
+          /* 调整背景以适应纵向屏幕 */
+          background: radial-gradient(circle at 50% 20%, #1a2a4a, transparent 60%),
+              radial-gradient(circle at 50% 80%, #4a1a2a, transparent 60%), #121212;
+      }
+
       .error-card {
-          padding: 2rem 1.5rem;
+          /* 在平板和较大手机上，稍微减小一点内边距 */
+          padding: 2.5rem 2rem;
       }
+
       .error-code {
-          font-size: 6rem;
+          font-size: 7rem; /* 字体比PC小，比手机大 */
       }
+
       .error-title {
-          font-size: 1.5rem;
+          font-size: 1.8rem;
       }
+  }
+
+  /* --- 小型屏幕 / 手机 (<= 576px) --- */
+  @media (max-width: 576px) {
+      .page-wrapper {
+          padding: 1rem; /* 进一步减小页面边距 */
+      }
+
+      .error-card {
+          padding: 2rem 1.5rem; /* 您已有的规则，很好 */
+      }
+
+      .error-code {
+          font-size: 6rem; /* 您已有的规则，很好 */
+      }
+
+      .error-title {
+          font-size: 1.5rem; /* 您已有的规则，很好 */
+      }
+
       .error-description {
-          font-size: 0.9rem;
+          font-size: 0.9rem; /* 您已有的规则，很好 */
+          line-height: 1.8; /* 增加一点行高，让文字更易读 */
+          margin-bottom: 3rem; /* 增大与按钮的间距，让布局更舒展 */
       }
+
       .home-button {
-          width: 100%;
-          padding: 1rem;
+          width: 70%; /* 您已有的规则，非常关键 */
+          padding: 1rem; /* 您已有的规则，让按钮更大更易点 */
+          font-size: 1rem; /* 稍微调整字号 */
       }
   }
 </style>

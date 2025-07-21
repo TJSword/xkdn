@@ -16,6 +16,7 @@ import { install } from '@/components/loading'
 import { initEcharts } from '@/plugins/echarts'
 import 'element-plus/theme-chalk/el-message.css'
 import { createPinia } from 'pinia'
+import 'mapbox-gl/dist/mapbox-gl.css';
 const bootstrap = (app: App) => {
   install(app)
   initEcharts(app)

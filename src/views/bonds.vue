@@ -85,7 +85,7 @@
         <div class="content-card">
           <h2 class="card-title">最新持仓与调仓建议</h2>
           <p class="card-description">
-            根据模型于 {{ formattedDate }} 生成的最新组合与操作建议。请结合自身情况参考。
+            根据模型于 {{ formattedDate }} 14:30 生成的最新组合与操作建议。请结合自身情况参考。
           </p>
 
           <!-- 最新持仓组合 -->
@@ -645,18 +645,56 @@
       line-height: 1.7;
   }
 
+  /* ======================================================= */
+  /* ========      可转债策略页面移动端适配      ======== */
+  /* ======================================================= */
+
   @media (max-width: 768px) {
+      /* 步骤一：修正卡片的收缩行为，防止被内部表格撑开 */
       .content-card {
-          padding: 1.5rem;
+          min-width: 0;
+          padding: 1.5rem 1rem; /* 统一调整内边距 */
       }
+
+      /* 步骤二：让所有 data-table 表格自身变得可以滚动 */
+      /* 这会同时作用于“核心指标解读”和“最新持仓组合”两个表格 */
+      .data-table {
+          display: block; /* 关键：将 table 的显示模式改为 block */
+          width: 100%;
+          overflow-x: auto; /* 核心：启用水平滚动 */
+          -webkit-overflow-scrolling: touch; /* iOS上提供流畅滚动 */
+      }
+
+      /* 步骤三：确保表格的单元格内容不换行，保持结构 */
+      /* 您已有的 white-space: nowrap; 是正确的，我们保留它 */
+      .data-table th,
+      .data-table td {
+          white-space: nowrap;
+      }
+
+      /* 步骤四：处理图表卡片的切换按钮，使其堆叠 */
       .card-header-with-toggle {
           flex-direction: column;
           align-items: flex-start;
           gap: 1rem;
       }
+
+      /* 步骤五：处理调仓指引，使其垂直排列 */
+      /* 您已有的这个规则是正确的，我们保留它 */
       .adjustments-grid {
           grid-template-columns: 1fr; /* 在小屏幕上，调入调出列表垂直排列 */
           gap: 1.5rem;
+      }
+
+      /* 步骤六 (可选但推荐): 优化标题和正文的字体大小 */
+      .main-title {
+          font-size: 2rem;
+      }
+      .card-title {
+          font-size: 1.25rem;
+      }
+      .card-description {
+          font-size: 0.9rem;
       }
   }
 </style>

@@ -48,7 +48,11 @@ export const constantRoutes = [
     component: () => import('@/views/micro-cap.vue'),
     meta: { requiresAuth: true }
   },
-
+  {
+    path: '/wealth-map',
+    component: () => import('@/views/wealth-map.vue'),
+    meta: { requiresAuth: true }
+  },
   {
     path: '/about',
     component: () => import('@/views/about.vue'),

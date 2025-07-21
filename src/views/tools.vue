@@ -115,7 +115,7 @@
       { id: 1, name: '红利质量', amount: 6000, target: 20 },
       { id: 2, name: '纳指100', amount: 3000, target: 20 },
       { id: 3, name: '超长债', amount: 1000, target: 30 },
-      { id: 3, name: '黄金', amount: 1000, target: 30 }
+      { id: 4, name: '黄金', amount: 1000, target: 30 }
   ])
   const additionalInvestment = ref<number>(1000)
   const calculationResult = ref<Result | null>(null)
@@ -422,5 +422,65 @@
       transform: rotate(45deg);
       font-size: 0.8rem;
       font-weight: bold;
+  }
+  /* ======================================================= */
+  /* ========      投资小工具页面移动端适配      ======== */
+  /* ======================================================= */
+
+  @media (max-width: 768px) {
+      /* 修正卡片的收缩行为，防止被内部表格撑开 */
+      .content-card {
+          min-width: 0;
+          padding: 1.5rem 1rem; /* 减小卡片内边距 */
+      }
+
+      /* 优化标题和正文的字体大小 */
+      .main-title {
+          font-size: 2rem;
+      }
+      .card-title {
+          font-size: 1.25rem;
+      }
+      .card-description {
+          font-size: 0.9rem;
+      }
+
+      /* 确保表格容器的滚动条样式在小屏幕上也能良好显示 */
+      .table-container::-webkit-scrollbar {
+          height: 6px;
+      }
+      .table-container::-webkit-scrollbar-thumb {
+          background: #8a2be2; /* 使用主题色 */
+          border-radius: 3px;
+      }
+
+      /* --- 核心优化：调整计算区域的布局 --- */
+      .calculation-zone {
+          flex-direction: column; /* 将“追加投资”和“开始计算”按钮垂直堆叠 */
+          align-items: stretch; /* 让子元素宽度撑满容器 */
+          gap: 1.5rem; /* 增大垂直间距 */
+      }
+
+      .input-group {
+          width: 100%;
+          flex-direction: column; /* 标签和输入框也垂直堆叠 */
+          align-items: flex-start; /* 左对齐 */
+          gap: 0.5rem;
+      }
+
+      .input-group input {
+          width: 100%; /* 输入框撑满宽度 */
+          max-width: none; /* 覆盖桌面端的最大宽度限制 */
+          box-sizing: border-box; /* 保证 padding 不会撑开宽度 */
+      }
+
+      .calculate-btn {
+          width: 100%; /* 计算按钮也撑满宽度，方便点击 */
+      }
+
+      /* 优化结果展示区域的内边距 */
+      .result-container {
+          padding: 1rem;
+      }
   }
 </style>

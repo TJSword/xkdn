@@ -15,8 +15,9 @@
           记录真实投资，见证财富成长。
         </p>
         <p class="update-info">
-          本页面数据非实时，仅为定期更新的实盘分享 • 数据更新于：{{ lastUpdatedDate }}
+          本页面数据非实时，仅为定期更新的实盘分享。
         </p>
+        <p class="update-info">数据更新于：{{ lastUpdatedDate }}</p>
       </div>
 
       <!-- 2. 内容卡片区域 -->
@@ -222,7 +223,7 @@
   let myProfitCompositionChart: echarts.ECharts | null = null
 
   const activeChartType = ref<'rate' | 'amount'>('rate')
-  const lastUpdatedDate = ref('2025-07-14')
+  const lastUpdatedDate = ref('加载中...')
 
   // --- 新增：弹窗控制 ---
   const isModalVisible = ref(false)
@@ -250,9 +251,9 @@
 
   // --- 数据 ---
   const portfolioSummary = ref({
-      totalAmount: 1234567.89,
-      dailyProfit: 1234.56,
-      dailyProfitRate: 0.1
+      totalAmount: 0,
+      dailyProfit: 0,
+      dailyProfitRate: 0
   })
   const historicalData = ref({
       dates: [
@@ -454,6 +455,8 @@
   const initPieChart = () => {
       if (pieChartContainer.value) {
           myPieChart = echarts.init(pieChartContainer.value, 'dark')
+          const isMobile = window.innerWidth <= 768
+          const pieRadius = isMobile ? ['43%', '63%'] : ['60%', '80%']
           myPieChart.setOption({
               backgroundColor: 'transparent',
               // 1. 定义一个与您页面风格匹配的颜色列表
@@ -468,6 +471,7 @@
                       color: '#e0e0e0'
                   }
               },
+              // grid: { left: '10%', right: '30%', bottom: '10%', containLabel: true },
               // 2. 使用 graphic 组件在环图中心添加标题，比 series.title 更灵活
               graphic: {
                   type: 'text',
@@ -486,7 +490,7 @@
                       name: '策略分布',
                       type: 'pie',
                       // 3. 调整内外半径，让环更宽，视觉效果更突出
-                      radius: ['60%', '80%'],
+                      radius: pieRadius,
                       center: ['50%', '50%'],
                       avoidLabelOverlap: false, // 关闭以自定义标签位置
                       // 4. 优化每一块饼图的默认样式
@@ -688,8 +692,10 @@
 
   const resizeCharts = () => {
       myPieChart?.resize()
-      myLineChart?.resize()
-      myComparisonChart?.resize()
+      // initPieChart()
+
+      // myLineChart?.resize()
+      // myComparisonChart?.resize()
       myProfitCompositionChart?.resize()
   }
 
@@ -783,17 +789,32 @@
 
   // 建议将图表初始化逻辑封装成一个函数，方便重复调用
   const initOrUpdateCharts = () => {
-      // 销毁旧实例，防止内存泄漏
-      myPieChart?.dispose()
-      myProfitCompositionChart?.dispose()
-      myLineChart?.dispose()
-      myComparisonChart?.dispose()
+      // 使用 nextTick 来确保 DOM 已经准备好
+      nextTick(() => {
+          // 销毁旧实例，防止内存泄漏
+          myPieChart?.dispose()
+          myProfitCompositionChart?.dispose()
+          // myLineChart?.dispose(); // 如果您暂时不用，可以注释掉
+          // myComparisonChart?.dispose(); // 如果您暂时不用，可以注释掉
 
-      // 重新初始化
-      initPieChart()
-      initProfitCompositionChart()
-      initLineChart()
-      initComparisonChart()
+          // 重新初始化
+          // 在初始化前，增加一个判断，确保容器存在且可见
+          if (pieChartContainer.value && pieChartContainer.value.clientWidth > 0) {
+              initPieChart()
+          }
+          if (
+              profitCompositionChartContainer.value &&
+              profitCompositionChartContainer.value.clientWidth > 0
+          ) {
+              initProfitCompositionChart()
+          }
+          // if (lineChartContainer.value) { // 如果您暂时不用，可以注释掉
+          //     initLineChart();
+          // }
+          // if (strategyComparisonChartContainer.value) { // 如果您暂时不用，可以注释掉
+          //     initComparisonChart();
+          // }
+      })
   }
 </script>
 
@@ -1110,5 +1131,94 @@
   .modal-fade-enter-from,
   .modal-fade-leave-to {
       opacity: 0;
+  }
+
+  /* ======================================================= */
+  /* ========      记账本页面移动端适配      ======== */
+  /* ======================================================= */
+
+  @media (max-width: 768px) {
+      /* 步骤一：修正卡片的收缩行为，防止被内部表格撑开 */
+      .content-card {
+          min-width: 0;
+          padding: 1.5rem 1rem; /* 统一减小内边距 */
+      }
+
+      /* 步骤二：让操作记录表格自身可以滚动 */
+      .portfolio-table {
+          display: block;
+          width: 100%;
+          overflow-x: auto;
+          -webkit-overflow-scrolling: touch;
+      }
+      .portfolio-table th,
+      .portfolio-table td {
+          white-space: nowrap; /* 确保单元格内容不换行 */
+      }
+
+      /* --- 核心优化：调整布局为垂直堆叠 --- */
+
+      /* 1. 调整总览区域的指标显示为垂直排列 */
+      .overview-metrics {
+          flex-direction: column; /* 垂直堆叠 */
+          align-items: stretch; /* 子项撑满宽度 */
+          gap: 1.5rem; /* 增大间距 */
+      }
+      .metric-item {
+          flex-direction: row; /* 指标的标签和数值改为水平排列 */
+          justify-content: space-between; /* 两端对齐 */
+          align-items: baseline;
+          background: rgba(255, 255, 255, 0.05); /* 给每个指标项一个背景，更清晰 */
+          padding: 1rem;
+          border-radius: 8px;
+      }
+      .metric-value {
+          font-size: 1.5rem; /* 适当减小数值字号 */
+      }
+
+      /* 2. 调整总览区域的两个图表为垂直排列 */
+      .charts-container-split {
+          flex-direction: column; /* 垂直堆叠 */
+          height: auto; /* 高度由内容决定 */
+          gap: 2.5rem; /* 增大图表间距 */
+      }
+      .chart-column {
+          width: 100%; /* 每个图表占满宽度 */
+          height: 220px; /* 给每个图表一个固定的高度 */
+      }
+      .echart-container {
+          /* 例如，在移动端统一所有图表高度为250px */
+          height: 250px !important;
+      }
+
+      /* 3. 调整历史表现趋势图的切换按钮为垂直排列 */
+      .card-header-actions {
+          flex-direction: column;
+          align-items: flex-start; /* 左对齐 */
+          gap: 1rem;
+      }
+
+      /* --- 其他微调 --- */
+
+      .main-title {
+          font-size: 2rem;
+      }
+      .card-title {
+          font-size: 1.25rem;
+      }
+
+      /* 调整悬浮按钮位置，避免与底部导航栏（如果有）重叠 */
+      .fab {
+          bottom: 1.5rem;
+          right: 1.5rem;
+      }
+
+      /* 调整弹窗内边距和字体，使其在小屏幕上更紧凑 */
+      .modal-content {
+          padding: 1.5rem;
+      }
+      .modal-title {
+          font-size: 1.3rem;
+      }
   }
 </style>
