@@ -316,6 +316,7 @@
               const cityInfo = cityDataMap.value.get(cityName)
               let popupContent = `<strong>${cityName}</strong>`
               if (cityInfo) popupContent += `<br/>点亮价格: ${cityInfo.price.toLocaleString()} 元`
+              // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
               popup.setLngLat(e.lngLat).setHTML(popupContent).addTo(map.value!)
           }
       })
