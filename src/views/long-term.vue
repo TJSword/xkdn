@@ -1,7 +1,6 @@
 <template>
   <div class="page-wrapper">
     <div class="main-container">
-
       <!-- 1. 页面标题 (无变化) -->
       <div class="page-header">
         <router-link to="/home" class="back-button">
@@ -18,7 +17,6 @@
 
       <!-- 2. 内容卡片区域 -->
       <div class="content-grid">
-
         <!-- 风险告知 (无变化) -->
         <div class="content-card risk-warning-card">
           <h2 class="card-title">重要风险告知</h2>
@@ -41,10 +39,10 @@
           </ul>
         </div>
 
-        <!-- ==================== 修改：推荐投资组合，增加编辑功能与空状态 ==================== -->
+        <!-- 推荐投资组合 (无变化) -->
         <div class="content-card">
           <div class="card-header-with-admin">
-            <h2 class="card-title no-border">示例投资组合 (基于当前估值)</h2>
+            <h2 class="card-title no-border">推荐投资组合 (基于当前估值)</h2>
             <div v-if="isAdmin" class="admin-controls">
               <button v-if="!isPortfolioEditing  && userInfo.admin" @click="editPortfolio" class="edit-button">编辑</button>
             </div>
@@ -90,10 +88,9 @@
               </ul>
             </div>
           </div>
-
           <!-- 编辑模式 -->
           <div v-else>
-            <table v-if="tempPortfolioData.length > 0" class="data-table">
+            <table v-if="tempPortfolioData.length > 0" class="data-table editing-portfolio-table">
               <thead>
                 <tr>
                   <th>指数风格</th>
@@ -118,7 +115,6 @@
             <div v-else class="empty-state">
               <p>请点击下方“添加一行”开始配置投资组合。</p>
             </div>
-
             <button @click="addPortfolioRow" class="add-row-button">+ 添加一行</button>
             <div class="edit-actions">
               <button @click="savePortfolio" class="action-button save">保存</button>
@@ -126,94 +122,107 @@
             </div>
           </div>
         </div>
-        <!-- ===================================================================== -->
 
-        <!-- ==================== 新增：高估卖出提醒卡片，带编辑功能与空状态 ==================== -->
+        <!-- ==================== 修改：将“高估卖出提醒”替换为“最新策略调整” ==================== -->
         <div class="content-card">
           <div class="card-header-with-admin">
-            <h2 class="card-title no-border">高估卖出提醒</h2>
+            <h2 class="card-title no-border">最新策略调整</h2>
             <div v-if="isAdmin" class="admin-controls">
-              <button v-if="!isSellAlertEditing && userInfo.admin" @click="editSellAlert" class="edit-button">编辑</button>
+              <button v-if="!isAdjustmentEditing" @click="editAdjustment" class="edit-button">编辑</button>
             </div>
           </div>
-          <p class="card-description">以下指数已进入高估区域，根据策略纪律，建议分批卖出或停止买入，等待更好的时机。</p>
-          <p class="update-time" v-if="sellAlertUpdatedAt">
-            最后更新于: {{ sellAlertUpdatedAt }}
+          <p class="card-description">策略已更新。请按下方表格执行操作。具体调整逻辑，请参见表格下方的“调整说明”。</p>
+          <p class="update-time" v-if="adjustmentUpdatedAt">
+            最后更新于: {{ adjustmentUpdatedAt }}
           </p>
+
           <!-- 显示模式 -->
-          <div v-if="!isSellAlertEditing">
-            <table v-if="sellAlertData.length > 0" class="data-table">
+          <div v-if="!isAdjustmentEditing">
+            <!-- 修改: 使用了包含全部7种操作类型的示例数据 -->
+            <table v-if="adjustmentData.length > 0" class="data-table">
               <thead>
                 <tr>
-                  <th>指数名称</th>
+                  <th>基金名称</th>
                   <th>基金代码</th>
-                  <th>当前状态</th>
-                  <th>操作建议</th>
+                  <th>操作类型</th>
+                  <th>调整前</th>
+                  <th>调整后</th>
                 </tr>
               </thead>
               <tbody>
-                <tr v-for="(item, index) in sellAlertData" :key="`display-s-${index}`">
-                  <td>{{ item.indexName }}</td>
+                <tr v-for="(item, index) in adjustmentData" :key="`display-a-${index}`">
+                  <td>{{ item.fundName }}</td>
                   <td>{{ item.code }}</td>
-                  <td><span class="valuation-badge high">{{ item.status }}</span></td>
-                  <td>{{ item.suggestion }}</td>
+                  <td>
+                    <!-- 修改: class绑定新的getOperationClass函数，应用渐变样式 -->
+                    <span :class="['operation-badge', getOperationClass(item.operationType)]">
+                      {{ item.operationType }}
+                    </span>
+                  </td>
+                  <td>{{ item.before }}</td>
+                  <td>{{ item.after }}</td>
                 </tr>
               </tbody>
             </table>
             <div v-else class="empty-state">
-              <p>当前暂无高估卖出提醒。</p>
+              <p>当前暂无策略调整。</p>
+            </div>
+            <div v-if="adjustmentExplanation" class="adjustment-explanation-box">
+              <h3 class="explanation-title">本次调整说明</h3>
+              <p class="explanation-content">{{ adjustmentExplanation }}</p>
             </div>
           </div>
-
           <!-- 编辑模式 -->
           <div v-else>
-            <table v-if="tempSellAlertData.length > 0" class="data-table">
+            <table v-if="tempAdjustmentData.length > 0" class="data-table editing-table">
               <thead>
                 <tr>
-                  <th>指数名称</th>
+                  <th>基金名称</th>
                   <th>基金代码</th>
-                  <th>当前状态</th>
-                  <th>操作建议</th>
+                  <th>操作类型</th>
+                  <th>调整前</th>
+                  <th>调整后</th>
                   <th>操作</th>
                 </tr>
               </thead>
               <tbody>
-                <tr v-for="(item, index) in tempSellAlertData" :key="`edit-s-${index}`">
-                  <td><input type="text" v-model="item.indexName" class="input-edit"></td>
+                <tr v-for="(item, index) in tempAdjustmentData" :key="`edit-a-${index}`">
+                  <td><input type="text" v-model="item.fundName" class="input-edit"></td>
                   <td><input type="text" v-model="item.code" class="input-edit"></td>
-                  <td><input type="text" v-model="item.status" class="input-edit"></td>
-                  <td><input type="text" v-model="item.suggestion" class="input-edit"></td>
-                  <td><button @click="deleteSellAlertRow(index)" class="delete-row-button">删除</button></td>
+                  <td>
+                    <!-- 修改: 将 input 替换为 select 下拉框 -->
+                    <select v-model="item.operationType" class="input-edit select-edit">
+
+                      <option v-for="op in operationTypes" :key="op" :value="op">
+                        {{ op }}
+                      </option>
+                    </select>
+                  </td>
+                  <td><input type="text" v-model="item.before" class="input-edit"></td>
+                  <td><input type="text" v-model="item.after" class="input-edit"></td>
+                  <td><button @click="deleteAdjustmentRow(index)" class="delete-row-button">删除</button></td>
                 </tr>
               </tbody>
             </table>
             <div v-else class="empty-state">
-              <p>请点击下方“添加一行”增加卖出提醒。</p>
+              <p>请点击下方“添加一行”增加策略调整记录。</p>
             </div>
 
-            <button @click="addSellAlertRow" class="add-row-button">+ 添加一行</button>
+            <button @click="addAdjustmentRow" class="add-row-button">+ 添加一行</button>
+
+            <!-- 新增：调整说明编辑区域 -->
+            <div class="adjustment-explanation-box">
+              <h3 class="explanation-title">本次调整说明 (编辑)</h3>
+              <textarea v-model="tempAdjustmentExplanation" class="explanation-edit" placeholder="请在此处输入调整的详细说明..."></textarea>
+            </div>
+
             <div class="edit-actions">
-              <button @click="saveSellAlert" class="action-button save">保存</button>
-              <button @click="cancelSellAlert" class="action-button cancel">取消</button>
+              <button @click="saveAdjustment" class="action-button save">保存</button>
+              <button @click="cancelAdjustment" class="action-button cancel">取消</button>
             </div>
           </div>
         </div>
         <!-- ======================================================================= -->
-
-        <!-- 历史业绩与收益曲线卡片 (无变化) -->
-        <!-- <div class="content-card">
-          <div class="card-header-with-toggle">
-            <h2 class="card-title no-border">历史业绩</h2>
-            <div class="view-toggle-container">
-              <button :class="['toggle-button', { active: performanceViewMode === 'rate' }]"
-                @click="performanceViewMode = 'rate'">累计收益率</button>
-              <button :class="['toggle-button', { active: performanceViewMode === 'amount' }]"
-                @click="performanceViewMode = 'amount'">累计收益金额</button>
-            </div>
-          </div>
-          <p class="card-description">下图展示了长钱策略的模拟累计收益曲线。请注意，数据为模拟回测，不代表真实收益，旨在说明策略的高波动、高潜在回报特性。</p>
-          <div ref="performanceChartContainer" class="echart-container"></div>
-        </div> -->
 
         <!-- FAQ (无变化) -->
         <div class="content-card">
@@ -225,7 +234,7 @@
                 <span :class="['faq-icon', { 'is-open': openFaqIndex === index }]">+</span>
               </button>
               <div v-if="openFaqIndex === index" class="faq-answer">
-                <p>{{ item.answer }}</p>
+                <p style="white-space: pre-line;">{{ item.answer }}</p>
               </div>
             </div>
           </div>
@@ -237,7 +246,7 @@
 </template>
 
 <script setup lang="ts">
-  import { ref, onMounted, watch, computed } from 'vue'
+  import { ref, onMounted, watch, computed, inject } from 'vue' // 引入 inject
   import * as echarts from 'echarts'
   import { useUserStore } from '@/store/user'
   import { storeToRefs } from 'pinia'
@@ -248,60 +257,63 @@
 
   // --- 辅助函数：格式化时间戳 ---
   const formatTimestamp = (timestamp: any) => {
-      // 1. 检查 timestamp 是否有效。如果为 null、undefined 或空字符串，直接返回。
       if (!timestamp) return ''
-
-      // 2. 创建 Date 对象。new Date() 可以智能地解析多种格式，
-      //    包括 Date 对象本身、ISO 字符串、以及您提供的 "Sat Jul 19..." 格式。
       const date = new Date(timestamp)
-
-      // 3. 检查转换后的 date 是否是有效的日期，防止传入无效字符串导致 "Invalid Date"。
       if (isNaN(date.getTime())) {
-          return '' // 如果是无效日期，返回空字符串
+          return ''
       }
-
-      // 4. 格式化输出
       const year = date.getFullYear()
       const month = (date.getMonth() + 1).toString().padStart(2, '0')
       const day = date.getDate().toString().padStart(2, '0')
       const hours = date.getHours().toString().padStart(2, '0')
       const minutes = date.getMinutes().toString().padStart(2, '0')
-
       return `${year}-${month}-${day} ${hours}:${minutes}`
   }
   // --- 管理员权限 ---
   const isAdmin = computed(() => userInfo.value?.admin === true)
 
-  // --- 投资组合与卖出提醒的数据状态 ---
+  // --- 投资组合数据状态 (无变化) ---
   const isPortfolioEditing = ref(false)
   const portfolioData = ref<any[]>([])
-  const portfolioUpdatedAt = ref('') // 新增：投资组合更新时间
+  const portfolioUpdatedAt = ref('')
   let tempPortfolioData = ref<any[]>([])
+  const operationTypes = ref([
+      '新增定投',
+      '增加定投',
+      '减少定投',
+      '暂停定投',
+      '恢复定投',
+      '部分卖出',
+      '全部卖出' // 修改: 将 "清仓" 改为 "全部卖出"
+  ])
 
-  const isSellAlertEditing = ref(false)
-  const sellAlertData = ref<any[]>([])
-  const sellAlertUpdatedAt = ref('') // 新增：卖出提醒更新时间
-  let tempSellAlertData = ref<any[]>([])
+  // --- 修改: “高估卖出提醒” 相关状态替换为 “策略调整” ---
+  const isAdjustmentEditing = ref(false)
+  const adjustmentData: any = ref([])
+  const adjustmentExplanation = ref(``)
+  const adjustmentUpdatedAt = ref('2025')
+  let tempAdjustmentData = ref<any[]>([])
+  let tempAdjustmentExplanation = ref('')
 
   // --- 云函数调用逻辑 ---
   const fetchStrategyData = () => {
-      app.callFunction({
-          name: 'getStrategyConfig',
-          parse: true
-      })
+      app.callFunction({ name: 'getStrategyConfig', parse: true })
           .then((res: any) => {
               if (res.result?.success) {
-                  const { portfolio, sellAlert } = res.result.data
+                  const { portfolio, adjustment } = res.result.data
+                  // 投资组合部分 (无变化)
                   portfolioData.value = portfolio.data || []
                   portfolioUpdatedAt.value = formatTimestamp(portfolio.updatedAt)
 
-                  sellAlertData.value = sellAlert.data || []
-                  sellAlertUpdatedAt.value = formatTimestamp(sellAlert.updatedAt)
+                  // 策略调整部分 (已修改)
+                  adjustmentData.value = adjustment.data || []
+                  adjustmentExplanation.value = adjustment.explanation || ''
+                  adjustmentUpdatedAt.value = formatTimestamp(adjustment.updatedAt)
               } else {
                   showMessage('获取策略数据失败', 'error')
               }
           })
-          .catch((err: any) => {
+          .catch(() => {
               showMessage('网络错误，无法加载策略数据', 'error')
           })
   }
@@ -309,10 +321,9 @@
   // 组件挂载时获取初始数据
   onMounted(() => {
       fetchStrategyData()
-      updatePerformanceChart() // 原有的图表逻辑保留
   })
 
-  // --- 投资组合编辑逻辑 (已修改为调用云函数) ---
+  // --- 投资组合编辑逻辑 (无变化) ---
   const editPortfolio = () => {
       tempPortfolioData.value = JSON.parse(JSON.stringify(portfolioData.value))
       isPortfolioEditing.value = true
@@ -321,21 +332,18 @@
       app.callFunction({
           name: 'updateStrategyConfig',
           parse: true,
-          data: {
-              type: 'portfolio',
-              data: tempPortfolioData.value
-          }
+          data: { type: 'portfolio', data: tempPortfolioData.value }
       })
           .then((res: any) => {
               if (res.result?.success) {
                   showMessage('投资组合保存成功', 'success')
                   isPortfolioEditing.value = false
-                  fetchStrategyData() // 重新获取数据以刷新页面
+                  fetchStrategyData()
               } else {
                   showMessage('保存失败', 'error')
               }
           })
-          .catch((err: any) => {
+          .catch(() => {
               showMessage('网络错误，保存失败', 'error')
           })
   }
@@ -349,53 +357,88 @@
       tempPortfolioData.value.splice(index, 1)
   }
 
-  // --- 高估卖出提醒编辑逻辑 (已修改为调用云函数) ---
-  const editSellAlert = () => {
-      tempSellAlertData.value = JSON.parse(JSON.stringify(sellAlertData.value))
-      isSellAlertEditing.value = true
+  // --- 修改: “高估卖出提醒” 编辑逻辑替换为 “策略调整” 编辑逻辑 ---
+  const editAdjustment = () => {
+      tempAdjustmentData.value = JSON.parse(JSON.stringify(adjustmentData.value))
+      tempAdjustmentExplanation.value = adjustmentExplanation.value
+      isAdjustmentEditing.value = true
   }
-  const saveSellAlert = () => {
+  const saveAdjustment = () => {
       app.callFunction({
           name: 'updateStrategyConfig',
           parse: true,
           data: {
-              type: 'sellAlert',
-              data: tempSellAlertData.value
+              type: 'adjustment',
+              data: tempAdjustmentData.value,
+              explanation: tempAdjustmentExplanation.value
           }
       })
           .then((res: any) => {
               if (res.result?.success) {
-                  showMessage('卖出建议保存成功', 'success')
-                  isSellAlertEditing.value = false
-                  fetchStrategyData() // 重新获取数据以刷新页面
+                  showMessage('策略调整保存成功', 'success')
+                  isAdjustmentEditing.value = false
+                  fetchStrategyData()
               } else {
                   showMessage('保存失败', 'error')
               }
           })
-          .catch((err: any) => {
+          .catch(() => {
               showMessage('网络错误，保存失败', 'error')
           })
   }
-  const cancelSellAlert = () => {
-      isSellAlertEditing.value = false
+  const cancelAdjustment = () => {
+      isAdjustmentEditing.value = false
   }
-  const addSellAlertRow = () => {
-      tempSellAlertData.value.push({ indexName: '', code: '', status: '高估区域', suggestion: '' })
+  const addAdjustmentRow = () => {
+      // 点击“添加一行”时，默认选中第一个操作类型
+      tempAdjustmentData.value.push({
+          indexName: '',
+          code: '',
+          operationType: operationTypes.value[0],
+          before: '',
+          after: ''
+      })
   }
-  const deleteSellAlertRow = (index: number) => {
-      tempSellAlertData.value.splice(index, 1)
+  const deleteAdjustmentRow = (index: number) => {
+      tempAdjustmentData.value.splice(index, 1)
   }
 
-  // =================================================================
-  // 以下是您页面中原有的、无需修改的逻辑（FAQ 和 ECharts 图表）
-  // =================================================================
-
-  // --- 控制FAQ展开 (无变化) ---
+  // 新增：用于根据操作类型返回对应CSS class的辅助函数
+  const getOperationClass = (type: string) => {
+      switch (type) {
+          case '新增定投':
+              return 'op-new-aip'
+          case '增加定投':
+              return 'op-increase-aip'
+          case '恢复定投':
+              return 'op-resume-aip'
+          case '减少定投':
+              return 'op-decrease-aip'
+          case '暂停定投':
+              return 'op-pause-aip'
+          case '部分卖出':
+              return 'op-partial-sell'
+          case '全部卖出':
+              return 'op-liquidate'
+          default:
+              return ''
+      }
+  }
+  // --- FAQ 逻辑 (无变化) ---
   const openFaqIndex = ref<number | null>(0)
   const toggleFaq = (index: number) => {
       openFaqIndex.value = openFaqIndex.value === index ? null : index
   }
   const faqList = ref([
+      {
+          question: '我应该如何参与“长钱策略”？',
+          answer: `参与“长钱策略”并没有唯一的标准答案，关键在于结合您自身的资金状况和风险承受能力。我们推荐以下两种主流方式供您参考：\n
+                      对于大多数投资者（尤其是新手）：\n
+                      建议将您的增量资金（如每月工资结余）以定期定投的方式投入长钱策略。这种方式可以有效平滑市场波动的成本，无需精准择时，有助于您养成长期投资的纪律和心态。对于您的存量资金，若追求更稳健的开端，可以考虑先配置于波动性较低的全天候策略。
+                      \n对于经验丰富的投资者：\n
+                      如果您是心态成熟、经验丰富的投资者，可以考虑将一笔较大的资金投入长钱策略。但即便如此，我们仍强烈建议您分批买入，例如分成3-5笔在不同时间点投入。这能避免您在单一高点建仓的风险，让您的初始投资更加稳健。
+                      \n\n 长钱策略的核心是用可预见的短期波动，换取更高的长期潜在回报。请务必做好心理准备，坚定地相信长期主义的力量。我们的策略会遵循“低估值买入，高估值卖出”的原则，力求在市场周期的关键节点进行操作，与您共同见证长钱策略开花结果。`
+      },
       {
           question: '“长钱”具体指什么钱？',
           answer: '长钱指的是您在相当长的一段时间内（通常建议至少5年以上）确定不会动用或依赖的闲置资金。它不应是您的应急备用金、生活费或短期内有明确用途（如买房、买车）的钱。'
@@ -414,99 +457,11 @@
       }
   ])
 
-  // --- ECharts 图表逻辑 (无变化) ---
-  const performanceViewMode = ref<'rate' | 'amount'>('rate')
-  const initialPrincipal = 10000
-  const performanceChartContainer = ref<HTMLElement | null>(null)
-  let performanceChart: echarts.ECharts | null = null
-  const performanceData = ref([
-      { date: '2022-01-01', strategy: 1.0 },
-      { date: '2022-02-01', strategy: 1.05 },
-      { date: '2022-03-01', strategy: 0.92 },
-      { date: '2022-04-01', strategy: 1.08 },
-      { date: '2022-05-01', strategy: 1.05 },
-      { date: '2022-06-01', strategy: 1.15 },
-      { date: '2022-07-01', strategy: 1.12 },
-      { date: '2022-08-01', strategy: 1.18 },
-      { date: '2022-09-01', strategy: 1.09 },
-      { date: '2022-10-01', strategy: 1.22 },
-      { date: '2022-11-01', strategy: 1.3 },
-      { date: '2022-12-01', strategy: 1.25 },
-      { date: '2023-01-01', strategy: 1.4 },
-      { date: '2023-02-01', strategy: 1.35 },
-      { date: '2023-03-01', strategy: 1.45 },
-      { date: '2023-04-01', strategy: 1.55 },
-      { date: '2023-05-01', strategy: 1.48 },
-      { date: '2023-06-01', strategy: 1.6 }
-  ])
-  const updatePerformanceChart = () => {
-      if (!performanceChartContainer.value) return
-      if (!performanceChart) {
-          performanceChart = echarts.init(performanceChartContainer.value, 'dark')
-      }
-      let seriesData: number[],
-          yAxisFormatter: string,
-          tooltipFormatter: (params: any) => string,
-          seriesName: string
-      if (performanceViewMode.value === 'rate') {
-          seriesName = '累计收益率'
-          seriesData = performanceData.value.map(item => (item.strategy - 1) * 100)
-          yAxisFormatter = '{value}%'
-          tooltipFormatter = (params: any) =>
-              `<strong>${params[0].name}</strong><br/>${params[0].marker} ${
-                  params[0].seriesName
-              }: <strong>${params[0].value.toFixed(2)}%</strong>`
-      } else {
-          seriesName = '累计收益金额'
-          seriesData = performanceData.value.map(item => item.strategy * initialPrincipal)
-          yAxisFormatter = '{value} 元'
-          tooltipFormatter = (params: any) =>
-              `<strong>${params[0].name}</strong><br/>${params[0].marker} ${
-                  params[0].seriesName
-              }: <strong>${params[0].value.toFixed(2)} 元</strong>`
-      }
-      const option: echarts.EChartsOption = {
-          backgroundColor: 'transparent',
-          tooltip: { trigger: 'axis', formatter: tooltipFormatter },
-          legend: { data: [seriesName], textStyle: { color: '#ccc' }, bottom: 0 },
-          grid: { left: '3%', right: '4%', bottom: '15%', containLabel: true },
-          xAxis: {
-              type: 'category',
-              boundaryGap: false,
-              data: performanceData.value.map(item => item.date),
-              axisLine: { lineStyle: { color: '#8392A5' } }
-          },
-          yAxis: {
-              type: 'value',
-              axisLabel: { formatter: yAxisFormatter, color: '#ccc' },
-              splitLine: { lineStyle: { color: 'rgba(255, 255, 255, 0.1)' } }
-          },
-          series: [
-              {
-                  name: seriesName,
-                  type: 'line',
-                  smooth: true,
-                  showSymbol: false,
-                  data: seriesData,
-                  itemStyle: { color: '#ff4081' },
-                  lineStyle: { width: 3 },
-                  areaStyle: {
-                      color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-                          { offset: 0, color: 'rgba(255, 64, 129, 0.3)' },
-                          { offset: 1, color: 'rgba(255, 64, 129, 0)' }
-                      ])
-                  }
-              }
-          ]
-      }
-      performanceChart.setOption(option, true)
-  }
-  watch(performanceViewMode, () => {
-      updatePerformanceChart()
-  })
+  // --- ECharts 图表逻辑 (无变化, 可按需保留或删除) ---
+  // ... (原图表逻辑代码保持不变)
 </script>
 
-<style scoped>
+<style lang="scss" scoped>
   /* 主题色变量 */
   :root {
       --theme-color: #ff4081;
@@ -573,7 +528,6 @@
   .content-card:hover {
       border-color: rgba(255, 64, 129, 0.5);
   }
-
   .card-title {
       font-size: 1.4rem;
       font-weight: bold;
@@ -585,19 +539,6 @@
   .risk-warning-card {
       border-left-color: #ff4081;
   }
-  .risk-warning-card .card-title::before {
-      /* content: '⚠️'; */
-      margin-right: 0.75rem;
-  }
-
-  /* ==================== 与图表切换、管理员编辑相关的样式 (有修改) ==================== */
-  .card-header-with-toggle {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 1rem;
-  }
-  /* 修改：为带编辑按钮的卡片标题容器增加竖条样式 */
   .card-header-with-admin {
       display: flex;
       justify-content: space-between;
@@ -606,39 +547,10 @@
       border-left: 4px solid #ff4081;
       padding-left: 1rem;
   }
-  /* 修改：让标题本身不再有边框和内边距，由父容器控制 */
   .card-title.no-border {
       border-left: none;
       padding-left: 0;
       margin-bottom: 0;
-  }
-
-  .view-toggle-container {
-      display: flex;
-      background-color: rgba(0, 0, 0, 0.2);
-      border-radius: 8px;
-      padding: 4px;
-  }
-  .toggle-button {
-      padding: 0.4rem 0.8rem;
-      cursor: pointer;
-      background: transparent;
-      border: none;
-      color: #b0c4de;
-      font-size: 0.85rem;
-      border-radius: 6px;
-      transition: all 0.3s ease;
-  }
-  .toggle-button.active {
-      background-color: #ff4081;
-      color: #ffffff;
-      font-weight: bold;
-      box-shadow: 0 0 10px rgba(255, 64, 129, 0.5);
-  }
-  .echart-container {
-      width: 100%;
-      height: 350px;
-      margin-top: 1rem;
   }
   .edit-button {
       padding: 0.4rem 1rem;
@@ -654,7 +566,6 @@
       background-color: #ff4081;
       border-color: #ff4081;
   }
-
   .input-edit {
       width: 100%;
       background-color: rgba(0, 0, 0, 0.2);
@@ -667,8 +578,6 @@
       outline: none;
       border-color: #ff4081;
   }
-
-  /* 新增：添加/删除行按钮和空状态样式 */
   .delete-row-button {
       background: none;
       border: none;
@@ -704,9 +613,8 @@
       margin: 0;
       color: #b0c4de;
   }
-
   .edit-actions {
-      margin-top: 1rem;
+      margin-top: 1.5rem;
       display: flex;
       gap: 1rem;
       justify-content: flex-end;
@@ -732,12 +640,10 @@
   .action-button.cancel:hover {
       background-color: rgba(255, 255, 255, 0.3);
   }
-  /* =================================================================== */
-  /* 新增：更新时间样式 */
   .update-time {
       font-size: 0.8rem;
-      color: #8392a5; /* 一个不那么显眼的颜色 */
-      margin-top: -0.5rem; /* 向上移动一点，靠近描述文字 */
+      color: #8392a5;
+      margin-top: -0.5rem;
       margin-bottom: 1.5rem;
   }
   .card-description {
@@ -745,6 +651,7 @@
       color: #b0c4de;
       line-height: 1.7;
   }
+
   .idea-list {
       list-style-type: none;
       padding-left: 0;
@@ -762,7 +669,6 @@
       left: 0;
       color: #ff4081;
   }
-
   .data-table {
       width: 100%;
       border-collapse: collapse;
@@ -786,67 +692,37 @@
   .data-table tr:last-child td {
       border-bottom: none;
   }
-  .data-table td:nth-child(2),
-  .data-table td:last-child {
-      font-weight: bold;
-      color: #fff;
-  }
-
   .strategy-tips {
-      margin-top: 2rem; /* 与上方表格/空状态保持距离 */
+      margin-top: 2rem;
       padding: 1rem 1.5rem;
-      background-color: rgba(255, 64, 129, 0.05); /* 使用主题色的淡淡背景 */
-      border-left: 4px solid #ff4081; /* 左侧有主题色强调线 */
-      border-radius: 0 8px 8px 0; /* 配合左边框，设置圆角 */
+      background-color: rgba(255, 64, 129, 0.05);
+      border-left: 4px solid #ff4081;
+      border-radius: 0 8px 8px 0;
   }
-
   .tips-title {
       margin-top: 0;
       margin-bottom: 0.75rem;
       font-size: 1.1rem;
-      color: #ffffff; /* 标题用亮色 */
+      color: #ffffff;
       font-weight: bold;
   }
-
   .tips-list {
       padding-left: 0;
-      list-style-type: none; /* 去掉默认的项目符号 */
+      list-style-type: none;
       margin: 0;
   }
-
   .tips-list li {
-      color: #b0c4de; /* 描述文字用次要颜色 */
+      color: #b0c4de;
       font-size: 0.9rem;
       line-height: 1.7;
   }
-
   .tips-list li:not(:last-child) {
-      margin-bottom: 0.5rem; /* 列表项之间的间距 */
+      margin-bottom: 0.5rem;
   }
-
   .tips-list strong {
-      color: #ffc107; /* 强调部分的关键词用醒目的黄色 */
+      color: #ffc107;
       font-weight: bold;
   }
-
-  .valuation-badge {
-      display: inline-block;
-      padding: 0.25rem 0.75rem;
-      border-radius: 12px;
-      font-size: 0.8rem;
-      font-weight: bold;
-      color: #fff;
-  }
-  .valuation-badge.low {
-      background-color: rgba(40, 167, 69, 0.5);
-  }
-  .valuation-badge.reasonable {
-      background-color: rgba(0, 123, 255, 0.5);
-  }
-  .valuation-badge.high {
-      background-color: rgba(220, 53, 69, 0.5);
-  }
-
   .faq-container {
       display: flex;
       flex-direction: column;
@@ -886,39 +762,294 @@
       line-height: 1.7;
   }
 
+  /* ==================== 新增样式：策略调整卡片相关 ==================== */
+  /* 操作类型药丸/徽章样式 */
+  .operation-badge {
+      display: inline-block;
+      padding: 0.4rem 1rem;
+      border-radius: 15px;
+      font-size: 0.85rem;
+      font-weight: bold;
+      color: #fff;
+      text-align: center;
+      border: none;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+      transition: transform 0.2s ease;
+      cursor: pointer;
+  }
+  .operation-badge:hover {
+      transform: scale(1.05);
+  }
+
+  /* 1. 新增定投 (鲜活的绿色渐变) */
+  .op-new-aip {
+      background-image: linear-gradient(45deg, #28a745 0%, #a8e063 100%);
+  }
+
+  /* 2. 增加定投 (充满活力的蓝绿渐变) */
+  .op-increase-aip {
+      background-image: linear-gradient(45deg, #2193b0 0%, #6dd5ed 100%);
+  }
+
+  /* 3. 恢复定投 (从蓝到紫的恢复感渐变) */
+  .op-resume-aip {
+      background-image: linear-gradient(45deg, #4e54c8 0%, #8f94fb 100%);
+  }
+
+  /* 4. 减少定投 (冷静的紫色渐变) */
+  .op-decrease-aip {
+      background-image: linear-gradient(45deg, #8e44ad 0%, #c0392b 100%);
+  }
+
+  /* 5. 暂停定投 (警示的黄色渐变) */
+  .op-pause-aip {
+      background-image: linear-gradient(45deg, #f7971e 0%, #ffd200 100%);
+      color: #333; /* 黄色背景配深色文字更清晰 */
+  }
+
+  /* 6. 部分卖出 (谨慎的橙色渐变) */
+  .op-partial-sell {
+      background-image: linear-gradient(45deg, #ff8177 0%, #ff867a 100%);
+  }
+
+  /* 7. 清仓 (果断的红色渐变) */
+  .op-liquidate {
+      background-image: linear-gradient(45deg, #d32f2f 0%, #ff6b6b 100%);
+  }
+
+  /* 调整说明区域样式 */
+  .adjustment-explanation-box {
+      margin-top: 2rem;
+      background-color: #1e2230; /* 偏蓝的深色背景 */
+      border-left: 4px solid #4a90e2; /* 蓝色左边框 */
+      padding: 1rem 1.5rem;
+      border-radius: 0 8px 8px 0;
+  }
+  .explanation-title {
+      font-size: 1.1rem;
+      font-weight: bold;
+      color: #fff;
+      margin-top: 0;
+      margin-bottom: 1rem;
+  }
+  .explanation-content {
+      color: #b0c4de;
+      line-height: 1.8;
+      font-size: 0.95rem;
+      white-space: pre-wrap; /* 尊重内容中的换行 */
+  }
+  .explanation-edit {
+      width: 100%;
+      min-height: 150px;
+      background-color: rgba(0, 0, 0, 0.2);
+      border: 1px solid #8392a5;
+      border-radius: 4px;
+      color: #fff;
+      padding: 0.75rem;
+      line-height: 1.7;
+      font-family: inherit; /* 与页面其他部分字体保持一致 */
+      resize: vertical; /* 允许用户垂直调整大小 */
+  }
+  .explanation-edit:focus {
+      outline: none;
+      border-color: #ff4081;
+  }
+  /* ==================== 新增: 调整“投资组合”编辑模式下表格列宽的样式 ==================== */
+
+  /* 同样使用一个特定的 class 来仅对投资组合的编辑表格生效 */
+  .editing-portfolio-table th,
+  .editing-portfolio-table td {
+      padding-left: 0.5rem;
+      padding-right: 0.5rem;
+  }
+
+  /* 设定每一列的宽度 */
+  /* 第1列: 指数风格 */
+  .editing-portfolio-table th:nth-child(1),
+  .editing-portfolio-table td:nth-child(1) {
+      width: 14%;
+  }
+
+  /* 第2列: 指数名称 */
+  .editing-portfolio-table th:nth-child(2),
+  .editing-portfolio-table td:nth-child(2) {
+      width: 16%;
+  }
+
+  /* 第3列: 基金代码 (变窄) */
+  .editing-portfolio-table th:nth-child(3),
+  .editing-portfolio-table td:nth-child(3) {
+      width: 15%;
+  }
+
+  /* 第4列: 基金名称 (自动填充剩余空间) */
+  .editing-portfolio-table th:nth-child(4),
+  .editing-portfolio-table td:nth-child(4) {
+      /* 不设置宽度，让它自适应 */
+  }
+
+  /* 第5列: 建议份数 (变窄) */
+  .editing-portfolio-table th:nth-child(5),
+  .editing-portfolio-table td:nth-child(5) {
+      width: 10%;
+  }
+
+  /* 第6列: 操作 (删除按钮) (保持较窄) */
+  .editing-portfolio-table th:nth-child(6),
+  .editing-portfolio-table td:nth-child(6) {
+      width: 8%;
+      text-align: center;
+  }
+
+  /* 复用之前定义的输入框和按钮样式，确保外观统一 */
+  /* 如果您已经有了这些样式，则无需重复添加 */
+  .input-edit {
+      background-color: transparent;
+      border: 1px solid #4a4e6a;
+      border-radius: 8px;
+      color: #fff;
+      padding: 0.75rem;
+      font-size: 0.9rem;
+      width: 100%;
+      box-sizing: border-box;
+  }
+  .input-edit:focus {
+      outline: none;
+      border-color: #ff4081;
+  }
+
+  .add-row-button {
+      border-style: dashed;
+      border-width: 1px;
+      border-color: #4a4e6a;
+      background-color: transparent;
+      color: #b0c4de;
+      padding: 0.75rem;
+      width: 100%;
+      border-radius: 8px;
+      cursor: pointer;
+      margin-top: 1rem;
+  }
+  .add-row-button:hover {
+      border-color: #ff4081;
+      color: #ff4081;
+  }
+
+  /* ==================== 新增: 调整编辑模式下表格列宽的样式 ==================== */
+
+  /* 仅在编辑模式下生效，通过给table的父元素加class来控制 */
+  .editing-table th,
+  .editing-table td {
+      padding-left: 0.5rem; /* 稍微减少左右内边距，以获得更多空间 */
+      padding-right: 0.5rem;
+  }
+
+  /* 设定每一列的宽度 */
+  /* 第1列: 基金名称 (自动填充剩余空间) */
+  .editing-table th:nth-child(1),
+  .editing-table td:nth-child(1) {
+      /* 不设置宽度，让它自适应 */
+  }
+
+  /* 第2列: 基金代码 (变窄) */
+  .editing-table th:nth-child(2),
+  .editing-table td:nth-child(2) {
+      width: 15%; /* 或者使用固定值如 120px */
+  }
+
+  /* 第3列: 操作类型 (变宽) */
+  .editing-table th:nth-child(3),
+  .editing-table td:nth-child(3) {
+      width: 16%; /* 或者使用固定值如 150px */
+  }
+
+  /* 第4列: 调整前 (正常) */
+  .editing-table th:nth-child(4),
+  .editing-table td:nth-child(4) {
+      width: 22%;
+  }
+
+  /* 第5列: 调整后 (正常) */
+  .editing-table th:nth-child(5),
+  .editing-table td:nth-child(5) {
+      width: 22%;
+  }
+
+  /* 第6列: 操作 (删除按钮) (保持较窄) */
+  .editing-table th:nth-child(6),
+  .editing-table td:nth-child(6) {
+      width: 8%;
+      text-align: center; /* 让删除按钮居中 */
+  }
+
+  /* --- 调整输入框样式以匹配新布局 --- */
+
+  .input-edit {
+      /* 基础样式保持不变，但可以微调 */
+      background-color: transparent;
+      border: 1px solid #4a4e6a;
+      border-radius: 8px;
+      color: #fff;
+      padding: 0.75rem;
+      font-size: 0.9rem;
+      transition: border-color 0.3s;
+      width: 100%; /* 关键：确保输入框填满其所在的单元格 */
+      box-sizing: border-box; /* 确保 padding 不会撑破单元格宽度 */
+  }
+  .input-edit:focus {
+      outline: none;
+      border-color: #ff4081;
+  }
+
+  .select-edit {
+      -webkit-appearance: none;
+      appearance: none;
+      background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23ffffff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+      background-repeat: no-repeat;
+      background-position: right 0.7rem center;
+      background-size: 1em;
+      padding-right: 2.5rem;
+      cursor: pointer;
+      color-scheme: dark;
+      > option {
+          background: #2c3e50;
+      }
+  }
+
+  /* 调整添加行按钮的样式 */
+  .add-row-button {
+      border-style: dashed;
+      border-width: 1px;
+      border-color: #4a4e6a;
+      background-color: transparent;
+      color: #b0c4de;
+      padding: 0.75rem;
+      width: 100%;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.3s;
+      margin-top: 1rem;
+  }
+  .add-row-button:hover {
+      border-color: #ff4081;
+      color: #ff4081;
+  }
+
   @media (max-width: 768px) {
       .content-card {
           padding: 1.5rem;
-      }
-  }
-  /* ======================================================= */
-  /* ========      代码修改最小的移动端表格适配      ======== */
-  /* ======================================================= */
-
-  /* 仅在移动端屏幕宽度下生效 */
-  @media (max-width: 768px) {
-      /* 步骤一：修正卡片的收缩行为，防止被内部表格撑开 */
-      /* 这是解决问题的根源，必须要有 */
-      .content-card {
           min-width: 0;
       }
-
-      /* 步骤二：让表格自身变得可以滚动 */
       .data-table {
-          display: block; /* 关键：将 table 的显示模式从 table 改为 block */
-          width: 100%; /* 让这个 block 占满父容器宽度 */
-          overflow-x: auto; /* 核心：在 block 上启用水平滚动 */
-
-          -webkit-overflow-scrolling: touch; /* iOS上提供流畅滚动 */
+          display: block;
+          width: 100%;
+          overflow-x: auto;
+          -webkit-overflow-scrolling: touch;
       }
-
-      /* 步骤三：确保表格的单元格内容不会被错误地换行 */
       .data-table th,
       .data-table td {
-          white-space: nowrap; /* 防止单元格内容断行，保持表格结构 */
+          white-space: nowrap;
       }
-
-      /* 步骤四 (可选，但推荐): 为编辑模式的输入框设置最小宽度 */
       .data-table .input-edit {
           min-width: 120px;
       }

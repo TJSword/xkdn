@@ -136,7 +136,7 @@
   const currentPage = ref(1)
   const itemsPerPage = ref(8)
   const totalUsers = ref(0)
-
+  let debounceTimer: any = null // 用于存储 setTimeout 的 ID
   // --- 分页计算 ---
   const totalPages = computed(() => Math.ceil(totalUsers.value / itemsPerPage.value))
 
@@ -185,27 +185,31 @@
   })
 
   // --- 监听搜索和分页变化，重新获取数据 ---
-  watch(
-      [searchPhone, currentPage],
-      (newValues, oldValues) => {
-          const newSearch = newValues[0]
-          const oldSearch = oldValues[0]
+  watch(searchPhone, (newValue, oldValue) => {
+      // 清除上一次的计时器，防止在输入过程中触发
+      clearTimeout(debounceTimer)
 
-          // 只有在搜索词变化时，才强制重置到第一页
-          if (newSearch !== oldSearch) {
-              if (currentPage.value !== 1) {
-                  currentPage.value = 1 // 这会自动触发 watch 重新执行 fetchUsers
-              } else {
-                  fetchUsers() // 如果已在第一页，则直接获取
-              }
+      // 启动一个新的计时器，500毫秒后执行
+      debounceTimer = setTimeout(() => {
+          // 核心逻辑：
+          // 只有当搜索词真正发生变化时，才进行操作。
+          // 搜索时，我们总是希望从第一页开始查看结果。
+          // 将页码重置为 1 会自动触发下面的另一个 watch 来获取数据，代码更简洁。
+          if (currentPage.value !== 1) {
+              currentPage.value = 1
           } else {
-              // 否则，说明是页码变化，直接获取新页码的数据
+              // 如果当前已经在第一页，页码不会变化，无法触发watch，所以需要手动调用
               fetchUsers()
           }
+      }, 500) // 500毫秒的延迟，用户停止输入半秒后触发搜索
+  })
+  watch(
+      currentPage,
+      () => {
+          fetchUsers()
       },
       { immediate: false }
-  ) // 设置 immediate: false 避免和 onMounted 重复调用
-
+  )
   // --- 分页方法 (保持不变) ---
   const goToPage = (page: number) => {
       if (page >= 1 && page <= totalPages.value) {
@@ -574,7 +578,7 @@
 
       /* 步骤二：确保表格可以滚动，并优化单元格内容 */
       /* .table-wrapper {
-        } */
+              } */
       .table-wrapper::-webkit-scrollbar {
           height: 6px;
       }
