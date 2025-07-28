@@ -9,7 +9,7 @@
         <!-- <a href="/" class="back-button">← 返回主页</a> -->
         <h1 class="main-title">
           <span class="title-icon">🚀</span>
-          何的记账本
+          老何的实盘
         </h1>
         <p class="subtitle">
           记录真实投资，见证财富成长。
@@ -26,6 +26,10 @@
         <div class="content-card">
           <div class="card-header-actions">
             <h2 class="card-title">账户总览</h2>
+            <div v-if="userInfo.admin" class="admin-controls">
+              <!-- 新增的数据录入按钮 -->
+              <button @click="isModalVisible = true" class="edit-button">数据录入</button>
+            </div>
           </div>
           <div class="overview-metrics">
             <div class="metric-item">
@@ -87,9 +91,9 @@
               <tr>
                 <th>日期</th>
                 <th>操作类型</th>
-                <th>标的</th>
                 <th>操作金额</th>
                 <th>所属策略</th>
+                <th>备注</th>
               </tr>
             </thead>
             <tbody>
@@ -99,9 +103,9 @@
               <tr v-for="(log, index) in transactionLogs" :key="index">
                 <td>{{ log.transaction_date }}</td>
                 <td :class="log.type.includes('买入') ? 'text-profit' : 'text-loss'">{{ log.type }}</td>
-                <td>{{ log.target }}</td>
                 <td>{{ log.amount }}</td>
                 <td>{{ log.strategy }}</td>
+                <th>{{ log.notes }}</th>
               </tr>
             </tbody>
           </table>
@@ -109,10 +113,6 @@
       </div>
     </div>
 
-    <!-- ==================== 新增：数据录入悬浮按钮 ==================== -->
-    <div class="fab" v-if="userInfo.admin" @click="isModalVisible = true" title="录入新数据">+</div>
-
-    <!-- ==================== 新增：数据录入弹窗 ==================== -->
     <transition name="modal-fade">
       <div v-if="isModalVisible" class="modal-backdrop" @click.self="isModalVisible = false">
         <div class="modal-content">
@@ -147,16 +147,13 @@
               </div>
               <div class="form-group">
                 <label for="perf-amount">策略总金额 (元)</label>
-                <input type="number" id="perf-amount" placeholder="截至收盘该策略的总资产" v-model.number="newDailyPerformance.strategy_amount">
+                <input id="perf-amount" placeholder="截至收盘该策略的总资产" v-model.number="newDailyPerformance.strategy_amount">
               </div>
               <div class="form-group">
                 <label for="perf-profit">当日收益 (元)</label>
-                <input type="number" id="perf-profit" placeholder="今天该策略的盈利或亏损" v-model.number="newDailyPerformance.daily_profit">
+                <input id="perf-profit" placeholder="今天该策略的盈利或亏损" v-model.number="newDailyPerformance.daily_profit">
               </div>
-              <div class="form-group">
-                <label for="perf-rate">累计收益率 (%)</label>
-                <input type="number" id="perf-rate" placeholder="该策略的累计收益率" v-model.number="newDailyPerformance.cumulative_rate">
-              </div>
+
               <button class="form-submit-button" @click="submitDailyPerformance">提交表现记录</button>
             </div>
 
@@ -175,13 +172,13 @@
                   <option>再平衡卖出</option>
                 </select>
               </div>
-              <div class="form-group">
+              <!-- <div class="form-group">
                 <label for="trans-target">操作标的</label>
                 <input type="text" id="trans-target" placeholder="例如：沪深300ETF" v-model="newTransaction.target">
-              </div>
+              </div> -->
               <div class="form-group">
                 <label for="trans-amount">操作金额 (元)</label>
-                <input type="number" id="trans-amount" placeholder="例如: 5000" v-model.number="newTransaction.amount">
+                <input id="trans-amount" placeholder="例如: 5000" v-model.number="newTransaction.amount">
               </div>
               <div class="form-group">
                 <label for="trans-strategy">所属策略</label>
@@ -235,15 +232,13 @@
       record_date: today,
       strategy_id: 'allWeather',
       strategy_amount: null,
-      daily_profit: null,
-      cumulative_rate: null
+      daily_profit: null
   })
 
   // 新增：操作记录表单数据
   const newTransaction = ref({
       transaction_date: today,
       type: '买入',
-      target: '',
       strategy_id: 'allWeather',
       notes: '',
       amount: null
@@ -365,8 +360,7 @@
       // 1. 数据校验 (一个好的实践)
       if (
           newDailyPerformance.value.strategy_amount === null ||
-          newDailyPerformance.value.daily_profit === null ||
-          newDailyPerformance.value.cumulative_rate === null
+          newDailyPerformance.value.daily_profit === null
       ) {
           showMessage('错误：策略总金额、当日收益和累计收益率均为必填项！', 'error')
           return // 阻止提交
@@ -378,8 +372,7 @@
           record_date: newDailyPerformance.value.record_date,
           strategy_id: newDailyPerformance.value.strategy_id,
           strategy_amount: Number(newDailyPerformance.value.strategy_amount),
-          daily_profit: Number(newDailyPerformance.value.daily_profit),
-          cumulative_rate: Number(newDailyPerformance.value.cumulative_rate)
+          daily_profit: Number(newDailyPerformance.value.daily_profit)
       }
       // 3. 使用 try...catch 结构来调用云函数并处理可能出现的错误
 
@@ -406,9 +399,9 @@
 
   const submitTransaction = async () => {
       // 1. 数据校验
-      if (!newTransaction.value.target || !newTransaction.value.transaction_date) {
+      if (!newTransaction.value.transaction_date) {
           // 假设标的是必填的
-          showMessage('错误：操作日期和操作标的为必填项！', 'error')
+          showMessage('错误：操作日期为必填项！', 'error')
           return
       }
 
@@ -417,7 +410,6 @@
       const postData = {
           transaction_date: newTransaction.value.transaction_date,
           type: newTransaction.value.type,
-          target: newTransaction.value.target,
           amount: Number(newTransaction.value.amount),
           strategy_id: newTransaction.value.strategy_id,
           notes: newTransaction.value.notes
@@ -438,7 +430,6 @@
           transactionLogs.value.unshift({
               date: newTransaction.value.transaction_date,
               type: newTransaction.value.type,
-              target: newTransaction.value.target,
               amount: newTransaction.value.amount,
               // 根据 strategy_id 从 strategiesData 中查找策略名称
               strategy: strategiesData.value[newTransaction.value.strategy_id].name
@@ -553,7 +544,7 @@
           myProfitCompositionChart = echarts.init(profitCompositionChartContainer.value, 'dark')
           myProfitCompositionChart.setOption({
               backgroundColor: 'transparent',
-              grid: { left: '10%', right: '15%', top: '5%', bottom: '10%', containLabel: true },
+              grid: { left: '10%', right: '18%', top: '5%', bottom: '10%', containLabel: true },
               tooltip: {
                   trigger: 'axis',
                   axisPointer: { type: 'none' },
@@ -1101,8 +1092,7 @@
       font-size: 0.9rem;
       color: #b0c4de;
   }
-  .form-group input,
-  .form-group select {
+  .form-group input {
       background-color: #2c2c2c;
       border: 1px solid #555;
       color: #fff;
@@ -1112,15 +1102,110 @@
       width: 100%;
       box-sizing: border-box; /* 确保 padding 不会影响宽度 */
   }
-  .form-group input:focus,
   .form-group select:focus {
       outline: none;
       border-color: #00c497;
   }
-  /* 让date-input显示日历图标 */
+  .form-group select {
+      /* --- 步骤 1: 移除浏览器默认外观，特别是箭头 --- */
+      -webkit-appearance: none; /* 针对 Chrome, Safari, Opera */
+      -moz-appearance: none; /* 针对 Firefox */
+      appearance: none; /* W3C 标准 */
+
+      /* --- 步骤 2: 添加自定义的箭头作为背景图 --- */
+      /* 这是一个白色的向下小箭头的 SVG */
+      background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23ffffff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+      background-repeat: no-repeat;
+
+      /* --- 步骤 3: 控制箭头的位置 (这是您问题的核心) --- */
+      /* 将箭头定位在右侧，距离边缘 1rem (或16px) 的位置 */
+      background-position: right 1rem center;
+      background-size: 1em; /* 控制箭头的大小 */
+
+      /* --- 步骤 4: 为新箭头腾出空间，防止文字覆盖它 --- */
+      /* 增加右侧的内边距，确保文字不会跑到箭头下面 */
+      padding-right: 2.5rem; /* 这个值通常比 background-position 的右边距大一些 */
+
+      /* --- 保留您原有的样式 --- */
+      background-color: #2c2c2c;
+      border: 1px solid #555;
+      color: #fff;
+      padding-top: 0.8rem; /* 分开写 padding，因为 padding-right 被重写了 */
+      padding-bottom: 0.8rem;
+      padding-left: 0.8rem;
+      border-radius: 6px;
+      font-size: 1rem;
+      width: 100%;
+      box-sizing: border-box;
+  }
+
+  /* 额外添加：当下拉框为焦点状态时，样式保持不变 */
+  .form-group select:focus {
+      outline: none;
+      border-color: #00c497;
+  }
+
+  /* 额外添加：修改下拉选项的背景色和文字颜色，以适应深色主题 */
+  .form-group select option {
+      background: #2c2c2c; /* 选项背景色 */
+      color: #fff; /* 选项文字颜色 */
+  }
+
+  /* 额外添加：确保 date input 的日历图标样式不受影响 */
   input[type='date']::-webkit-calendar-picker-indicator {
       filter: invert(1);
       cursor: pointer;
+  }
+  /* --- 从长钱策略页复制过来的样式，用于统一编辑按钮 --- */
+  .card-header-with-admin {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1.5rem; /* 调整与下方内容的间距 */
+      border-left: 4px solid #00c497; /* 保持本页面的绿色主题边框 */
+      padding-left: 1rem;
+  }
+
+  .card-title.no-border {
+      border-left: none;
+      padding-left: 0;
+      margin-bottom: 0;
+      margin-top: 0; /* 确保标题垂直居中 */
+  }
+
+  .admin-controls {
+      /* 这个容器用于放置按钮 */
+  }
+
+  .edit-button {
+      padding: 0.4rem 1rem;
+      font-size: 0.85rem;
+      color: #fff;
+      /* 初始为灰色透明背景 */
+      background-color: rgba(255, 255, 255, 0.2);
+      border: 1px solid rgba(255, 255, 255, 0.3);
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.3s;
+  }
+
+  .edit-button:hover {
+      /* 悬停时变为长钱策略的粉色，统一操作感 */
+      background-color: #00a080;
+      border-color: #00a080;
+  }
+
+  /* 确保原有的卡片标题样式不会冲突 */
+  .card-header-actions {
+      /* 您可以保留或删除这个类，因为它现在被 .card-header-with-admin 替代了 */
+  }
+
+  /* 覆盖原有的 .card-title 边距，当它不在新头部里时 */
+  .content-card > .card-title {
+      font-size: 1.4rem;
+      border-left: 4px solid #00c497;
+      padding-left: 1rem;
+      margin: 0 0 1.5rem 0;
   }
 
   /* 过渡动画 */

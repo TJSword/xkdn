@@ -1,102 +1,165 @@
 // src/store/user.js
 
 import { defineStore } from 'pinia'
-import app, { auth } from '@/lib/cloudbase' // 引入你的 cloudbase 实例
+import app, { auth } from '@/lib/cloudbase'
 
 export const useUserStore = defineStore('user', {
-  // 状态：存储数据的地方
-  state: () => ({
-    // 用户信息对象，默认为 null
-    userInfo: null,
-    // 标记是否已经尝试从后端获取过用户信息，防止重复请求
-    hasAttemptedLogin: false
+  state: (): any => ({
+    userInfo: null, // 存储从我们自己数据库（通过云函数）获取的用户信息
+    hasAttemptedLogin: false // 标记是否已尝试获取用户信息
   }),
 
-  // Getters：类似于计算属性，用于派生状态
   getters: {
-    /**
-     * 用户是否为 VIP
-     * @returns {boolean}
-     */
-    isVip: (state: any) => {
-      // 使用可选链 (?.) 和双重否定 (!!) 来安全地获取布尔值
-      // 即使 userInfo 是 null 也不会报错
-      return !!state.userInfo?.isVip
-    },
-    /**
-     * 用户是否已登录（只要有用户信息就算登录）
-     * @returns {boolean}
-     */
-    isLoggedIn: (state) => {
-      return state.userInfo !== null
-    }
+    isVip: (state) => !!state.userInfo?.isVip,
+    isLoggedIn: (state) => state.userInfo !== null
   },
 
-  // Actions：用于处理业务逻辑和异步操作
   actions: {
     /**
-     * 异步操作：调用云函数登录或注册，并更新 store 中的状态
-     * 这个 action 是幂等的，即使被多次调用，也只会执行一次网络请求。
+     * 【核心】在任何认证操作（登录、注册）成功后，调用此内部方法来获取/同步我们自己数据库的用户信息
+     * @returns {Promise<any>} 返回从我们数据库获取的用户信息
+     */
+    async _syncUserInfo(phoneNumber: any) {
+      try {
+        // 调用我们自定义的云函数，它会根据当前登录的 tcb 用户，查找或创建我们自己数据库的记录
+        const res = await app.callFunction({ name: 'loginOrRegister', data: { phone: phoneNumber } })
+        this.userInfo = res.result
+        this.hasAttemptedLogin = true
+        return this.userInfo
+      } catch (error) {
+        console.error('同步用户信息失败:', error)
+        // 同步失败时，最好也登出，因为 tcb 认证和我们的业务数据库状态不一致
+        await this.logout()
+        throw error // 把错误继续向上抛出，让调用方知道失败了
+      }
+    },
+
+    /**
+     * 【新增】处理手机号+密码登录
+     * @param {object} loginData - 包含 phoneNumber 和 password
+     */
+    async loginWithPassword(loginData: any) {
+      const { phoneNumber, password } = loginData
+
+      // 1. 使用 tcb auth 进行密码登录
+      await auth.signIn({
+        username: '+86 ' + phoneNumber, // tcb auth 需要国家码前缀
+        password: password
+      })
+
+      // 2. tcb 登录成功后，同步我们自己数据库的用户信息
+      return this._syncUserInfo()
+    },
+
+    /**
+     * 【新增】处理注册逻辑
+     * @param {object} registerData - 包含 phoneNumber, password, verificationCode
+     */
+    async register(registerData: any) {
+      const { phoneNumber, password, verificationCode, verification } = registerData
+
+      // 检查 verification 对象是否存在
+      if (!verification || !verification.verification_id) {
+        throw new Error("请先获取验证码");
+      }
+
+      // 2. 验证短信码，获取 verification_token
+      const verificationTokenRes = await auth.verify({
+        verification_id: verification.verification_id,
+        verification_code: verificationCode
+      })
+
+      // 3. 使用 tcb auth 注册新用户
+      // 注意：signUp 成功后，tcb 会自动处理登录
+      await auth.signUp({
+        phone_number: '+86 ' + phoneNumber,
+        password: password,
+        verification_code: verificationCode,
+        verification_token: verificationTokenRes.verification_token
+      })
+
+      // 4. tcb 注册并自动登录后，同步我们自己数据库的用户信息
+      // 此时 loginOrRegister 云函数会发现是新用户，并为其创建记录
+
+      return this._syncUserInfo(phoneNumber)
+    },
+
+    /**
+     * 【新增】处理重置密码逻辑
+     * @param {object} resetData - 包含 phoneNumber, newPassword, verificationCode
+     */
+    async resetPassword(resetData: any) {
+      const { phoneNumber, newPassword, verificationCode, verification } = resetData
+
+      if (!verification || !verification.verification_id) {
+        throw new Error("请先获取验证码");
+      }
+
+      // 2. 验证短信码，获取 verification_token
+      const verificationTokenRes = await auth.verify({
+        verification_id: verification.verification_id,
+        verification_code: verificationCode
+      })
+
+      // 3. 使用 tcb auth 重置密码
+      await auth.resetPassword({
+        phone_number: '+86 ' + phoneNumber,
+        new_password: newPassword,
+        verification_token: verificationTokenRes.verification_token
+      })
+
+      // 重置密码成功后，用户并未登录，所以不需要同步信息。
+      // 只需返回成功状态即可。
+      return { success: true }
+    },
+
+    /**
+     * 【新增】处理已登录用户修改密码
+     * @param {object} changeData - 包含 currentPassword 和 newPassword
+     */
+    async updatePassword(changeData: any) {
+      const { currentPassword, newPassword } = changeData
+
+      // 检查用户是否真的已登录
+      if (!auth.currentUser) {
+        throw new Error("用户未登录，无法修改密码。")
+      }
+      const sudoRes = await auth.sudo({
+        password: currentPassword,
+      });
+      await auth.setPassword({
+        new_password: newPassword,
+        sudo_token: sudoRes.sudo_token,
+      });
+      return { success: true }
+    },
+
+
+    /**
+     * 【保留并优化】应用初始化时检查用户登录状态
      */
     async fetchUserInfo() {
-      // 如果已经尝试过获取用户信息，则直接返回，避免重复调用云函数
       if (this.hasAttemptedLogin) {
         return
       }
 
-      try {
-        const res = await app.callFunction({ name: 'loginOrRegister' })
-        this.userInfo = res.result // 将云函数返回的结果存入 state
-      } catch (error) {
-        console.error('获取用户信息失败:', error)
-        this.userInfo = null // 如果失败，确保用户信息为 null
-      } finally {
-        // 无论成功还是失败，都标记为已尝试过
+      // 检查 tcb 的登录状态
+      if (auth.hasLoginState()) {
+        // 如果 tcb 认为已登录，则同步我们的用户信息
+        await this._syncUserInfo()
+      } else {
+        // 如果未登录，则标记为已尝试
         this.hasAttemptedLogin = true
       }
     },
-    async login(loginData: any) {
-      const { phoneNumber, verificationCode, verification } = loginData;
-
-      // 1. 验证验证码
-      const verificationTokenRes = await auth.verify({
-        verification_id: verification.verification_id,
-        verification_code: verificationCode
-      });
-
-      // 2. 根据是否为老用户，执行登录或注册
-      if (verification.is_user) {
-        await auth.signIn({
-          username: '+86 ' + phoneNumber,
-          verification_token: verificationTokenRes.verification_token
-        });
-      } else {
-        // 备注：signUp 成功后，会自动登录
-        await auth.signUp({
-          phone_number: '+86 ' + phoneNumber,
-          verification_code: verificationCode,
-          verification_token: verificationTokenRes.verification_token
-        });
-      }
-
-      // 3. 关键：在登录成功后，立即调用云函数获取用户信息并更新 store
-      const userInfoRes = await app.callFunction({ name: 'loginOrRegister', data: { phone: auth.currentUser.phone_number.split(' ')[1] } });
-      console.log(userInfoRes)
-      // 4. 更新 Pinia 的 state
-      this.userInfo = userInfoRes.result;
-      this.hasAttemptedLogin = true; // 同样需要更新这个状态
-
-      // 5. 将用户信息返回给调用方（登录组件）
-      return this.userInfo;
-    },
-
 
     /**
      * 退出登录
      */
     async logout() {
-      // 如果你的 cloudbase auth 需要调用 signOut
-      await auth.signOut()
+      if (auth.currentUser) {
+        await auth.signOut()
+      }
 
       // 清空 Pinia store 中的状态
       this.userInfo = null

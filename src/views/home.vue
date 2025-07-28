@@ -2,9 +2,9 @@
   <div class="home-page-wrapper">
     <div class="main-container">
       <!-- 标题和副标题 -->
-      <h1 class="main-title">探索您的投资哲学</h1>
+      <h1 class="main-title">想亏都难</h1>
       <p class="subtitle">
-        概览市场全局，选择策略路径，开启您的财富增长之旅。
+        戒掉情绪交易 从这里开始
       </p>
 
       <!-- 市场温度计 -->
@@ -39,8 +39,10 @@
       </div>
 
       <!-- 新增：页面底部的会员到期信息 -->
-      <div class="membership-footer">
-        👑 会员有效期至: {{ membershipExpiryDate }}
+      <div class="user-actions-footer">
+        <span>👑 会员有效期至: {{ membershipExpiryDate }}</span>
+        <span class="separator">|</span>
+        <div href="#" @click.prevent="openPasswordModal" class="action-link">修改密码</div>
       </div>
 
     </div>
@@ -92,6 +94,37 @@
         </div>
       </div>
     </Transition>
+
+    <Transition name="modal-fade">
+      <div v-if="isPasswordModalVisible" class="modal-backdrop" @click="closePasswordModal">
+        <div class="modal-content password-modal-content" @click.stop>
+          <div class="modal-header">
+            <h3>修改您的登录密码</h3>
+            <button class="modal-close-button" @click="closePasswordModal">×</button>
+          </div>
+          <div class="modal-body">
+            <form @submit.prevent="handlePasswordChange">
+              <div class="form-group">
+                <input type="password" id="currentPassword" class="input-field" v-model="passwordData.currentPassword" placeholder=" "
+                  required>
+                <label for="currentPassword" class="input-label">当前密码</label>
+              </div>
+              <div class="form-group">
+                <input type="password" id="newPassword" class="input-field" v-model="passwordData.newPassword" placeholder=" " required>
+                <label for="newPassword" class="input-label">新密码</label>
+              </div>
+              <div class="form-group">
+                <input type="password" id="confirmNewPassword" class="input-field" v-model="passwordData.confirmNewPassword" placeholder=" "
+                  required>
+                <label for="confirmNewPassword" class="input-label">确认新密码</label>
+              </div>
+              <button type="submit" class="submit-btn">确认修改</button>
+            </form>
+          </div>
+        </div>
+      </div>
+    </Transition>
+
   </div>
 </template>
 
@@ -100,6 +133,7 @@
   import app, { auth } from '@/lib/cloudbase'
   import * as echarts from 'echarts'
   import { useUserStore } from '@/store/user'
+  const showMessage: any = inject('showMessage')
   const userStore: any = useUserStore()
   // console.log(userStore.userInfo.admin)
 
@@ -239,46 +273,43 @@
       latestTemperature.value = 100 - ((starRating - minStar.value) / range) * 100
   }
 
-  const getTodayStar = () => {
-      app.callFunction({
-          name: 'getStar',
-          data: {}
-      })
-          .then((res: any) => {
-              if (res.result?.data?.result) {
-                  latestStar.value = res.result.data.result.star
-                  latestDate.value = res.result.data.result.update_time
-              }
-          })
-          .catch((err: any) => {
-              console.error('获取最新星级失败:', err)
-              latestDate.value = '数据加载失败'
-          })
-  }
-
-  const getHistoryStar = () => {
-      if (rawHistoryData.value.length > 0) {
-          return Promise.resolve()
-      }
+  /**
+   * [新函数] 通过一次调用获取所有市场数据（今日和历史）
+   */
+  const fetchMarketData = () => {
       return app
           .callFunction({
-              name: 'getHistoryStar',
+              name: 'getMarketData', // 调用我们新的合并函数
               data: {}
           })
           .then((res: any) => {
-              if (res.result?.data?.result) {
-                  rawHistoryData.value = res.result.data.result
-                  processDataWithLinearMapping()
+              if (res.result?.success) {
+                  const { today, history } = res.result.data
+
+                  // --- 从单个响应中填充所有数据 ---
+
+                  // 1. 设置今日星级数据
+                  if (today?.result) {
+                      latestStar.value = today.result.star
+                      latestDate.value = today.result.update_time
+                  }
+
+                  // 2. 设置历史星级数据
+                  if (history?.result) {
+                      rawHistoryData.value = history.result
+                      // 设置完历史数据后，处理它以计算温度
+                      processDataWithLinearMapping()
+                  }
+              } else {
+                  // 处理云函数本身返回错误的情况
+                  console.error('getMarketData 函数执行失败:', res.result?.error)
+                  latestDate.value = '数据加载失败'
               }
           })
           .catch((err: any) => {
-              console.error('获取历史星级失败:', err)
+              console.error('调用 getMarketData 云函数失败:', err)
+              latestDate.value = '数据加载失败'
           })
-  }
-
-  const startPollingTodayStar = () => {
-      getTodayStar()
-      // pollingInterval = window.setInterval(getTodayStar, 60000)
   }
   const isWelcomeModalVisible = ref(false)
   const closeWelcomeModal = () => {
@@ -286,21 +317,19 @@
   }
 
   onMounted(async () => {
-      await Promise.all([getMembershipExpiry(), getHistoryStar()])
-      startPollingTodayStar()
-      // --- 新增：检查 history.state ---
-      // window.history.state 中包含了路由跳转时附加的数据
+      // 现在我们并行获取会员信息和所有的市场数据
+      await Promise.all([getMembershipExpiry(), fetchMarketData()])
+
+      // --- 您 onMounted 中的其余逻辑保持不变 ---
       if (window.history.state && window.history.state.newUser) {
           setTimeout(() => {
               isWelcomeModalVisible.value = true
           }, 500)
 
-          // （可选）如果希望用户按后退再按前进回来时不再显示，可以清除它
           const newState = { ...window.history.state, newUser: false }
           window.history.replaceState(newState, '')
       }
   })
-
   onUnmounted(() => {
       if (pollingInterval) {
           clearInterval(pollingInterval)
@@ -448,10 +477,73 @@
           }
       }
   })
+  const isPasswordModalVisible = ref(false)
+  const passwordData = reactive({
+      currentPassword: '',
+      newPassword: '',
+      confirmNewPassword: ''
+  })
+
+  const openPasswordModal = () => {
+      isPasswordModalVisible.value = true
+  }
+  const closePasswordModal = () => {
+      isPasswordModalVisible.value = false
+      // 关闭时清空数据
+      passwordData.currentPassword = ''
+      passwordData.newPassword = ''
+      passwordData.confirmNewPassword = ''
+  }
+  const handlePasswordChange = async () => {
+      // 1. 前端校验
+      if (
+          !passwordData.currentPassword ||
+          !passwordData.newPassword ||
+          !passwordData.confirmNewPassword
+      ) {
+          showMessage('请填写所有字段！', 'error')
+          return
+      }
+      if (passwordData.newPassword !== passwordData.confirmNewPassword) {
+          showMessage('两次输入的新密码不一致！', 'error')
+          return
+      }
+      if (passwordData.newPassword.length < 6) {
+          showMessage('新密码长度不能少于6位！', 'error')
+          return
+      }
+
+      try {
+          showMessage('正在修改密码...', 'info')
+          const userStore = useUserStore() // 获取 store 实例
+
+          // 确保调用的是 updatePassword
+          await userStore.updatePassword({
+              currentPassword: passwordData.currentPassword,
+              newPassword: passwordData.newPassword
+          })
+
+          showMessage('密码修改成功！', 'success')
+          closePasswordModal() // 关闭弹窗
+      } catch (error: any) {
+          console.error('修改密码失败:', error)
+          showMessage(error.message || '修改密码失败，请检查当前密码是否正确', 'error')
+      }
+  }
 </script>
 
 
 <style scoped>
+  /* --- 浏览器自动填充样式 (保持不变) --- */
+  .input-field:-webkit-autofill,
+  .input-field:-webkit-autofill:hover,
+  .input-field:-webkit-autofill:focus,
+  .input-field:-webkit-autofill:active {
+      -webkit-box-shadow: 0 0 0px 1000px transparent inset !important;
+      -webkit-text-fill-color: #ffffff !important;
+      caret-color: #ffffff;
+      transition: background-color 5000s ease-in-out 0s;
+  }
   /* CSS样式部分 */
   .home-page-wrapper {
       font-family: 'Noto Sans SC', sans-serif;
@@ -702,15 +794,38 @@
   }
 
   /* 新增：页面底部会员信息的样式 */
-  .membership-footer {
+  .user-actions-footer {
       text-align: center;
-      margin-top: 3rem;
-      /* 与上方网格拉开距离 */
-      font-size: 0.85rem;
-      color: #8392a5;
-      /* 使用一种更柔和的颜色 */
+      margin-top: 3rem; /* 与上方网格保持足够距离 */
+      color: #8392a5; /* 使用一种柔和、不刺眼的颜色 */
+      font-size: 0.9rem;
       font-weight: 500;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 0.8rem; /* 在各项之间创建一些空间 */
   }
+
+  .user-actions-footer .separator {
+      color: rgba(131, 146, 165, 0.5); /* 分隔符颜色更淡一些 */
+  }
+
+  .user-actions-footer .action-link {
+      color: #8392a5; /* 链接颜色与普通文本一致 */
+      padding-top: 1px;
+      border-bottom: 1px solid transparent; /* 准备一个透明的下划线，用于悬停效果 */
+      cursor: pointer;
+      transition: all 0.3s ease; /* 平滑过渡效果 */
+  }
+
+  /* 鼠标悬停时，链接才变得突出 */
+  .user-actions-footer .action-link:hover {
+      color: #00aaff; /* 悬停时变为高亮色 */
+      border-bottom-color: #00aaff; /* 显示下划线 */
+  }
+
+  /* 在样式文件末尾，添加新弹窗和表单的样式 */
+  /* 这些样式可以复用登录页的，以保持风格统一 */
 
   .modal-backdrop {
       position: fixed;
@@ -784,6 +899,101 @@
   .modal-fade-leave-to .modal-content {
       transform: scale(0.95);
   }
+  .password-modal-content {
+      /* 新增：应用与登录页一致的玻璃拟态效果 */
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      backdrop-filter: blur(15px);
+      -webkit-backdrop-filter: blur(15px);
+      box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+
+      /* 修改：减小最大宽度，使其更协调 */
+      max-width: 450px !important;
+      width: 90%; /* 确保在小屏幕上不会过宽 */
+
+      /* 修改：调整内边距和圆角，使其更精致 */
+      padding: 2.5rem;
+      border-radius: 20px;
+  }
+
+  /* --- 弹窗头部样式 --- */
+  .password-modal-content .modal-header {
+      padding-bottom: 1.2rem;
+      margin-bottom: 2rem; /* 增加与表单的距离 */
+      text-align: center; /* 让标题居中 */
+      border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+  }
+
+  .password-modal-content .modal-header h3 {
+      font-size: 1.5rem; /* 适当增大标题字号 */
+      font-weight: 700;
+  }
+
+  /* 隐藏默认的关闭按钮，因为头部已经居中，不再需要它在角落 */
+  .password-modal-content .modal-close-button {
+      display: none;
+  }
+
+  /* --- 弹窗内表单的样式 --- */
+  .password-modal-content .form-group {
+      position: relative;
+      margin-bottom: 2.2rem; /* 增加输入框之间的垂直间距 */
+  }
+
+  /* 复用登录页的输入框和标签样式，确保统一 */
+  .password-modal-content .input-field {
+      width: 100%;
+      background: transparent;
+      border: none;
+      border-bottom: 2px solid rgba(255, 255, 255, 0.3);
+      padding: 10px 5px;
+      font-size: 1.1rem;
+      color: #ffffff;
+      outline: none;
+      transition: all 0.3s ease;
+      caret-color: #00aaff;
+  }
+
+  .password-modal-content .input-field:focus {
+      border-bottom-color: #00aaff;
+  }
+
+  .password-modal-content .input-label {
+      position: absolute;
+      top: 10px;
+      left: 5px;
+      font-size: 1.1rem;
+      color: #b0c4de;
+      pointer-events: none;
+      transition: all 0.3s ease;
+  }
+
+  .password-modal-content .input-field:focus + .input-label,
+  .password-modal-content .input-field:not(:placeholder-shown) + .input-label {
+      top: -18px;
+      font-size: 0.9rem;
+      color: #00aaff;
+  }
+
+  /* --- 弹窗内提交按钮的样式 --- */
+  .password-modal-content .submit-btn {
+      width: 100%;
+      padding: 1rem;
+      background: #00aaff;
+      border: none;
+      border-radius: 10px; /* 圆角与容器协调 */
+      color: #ffffff;
+      font-size: 1.2rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: transform 0.3s ease, box-shadow 0.3s ease;
+      margin-top: 1.5rem;
+  }
+
+  .password-modal-content .submit-btn:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 0 15px #00aaff, 0 0 30px rgba(0, 170, 255, 0.5);
+  }
 
   @media (max-width: 1024px) {
       .features-grid {
@@ -810,14 +1020,14 @@
       }
 
       .thermometer-header {
-          flex-direction: column;
-          align-items: flex-start;
+          /* flex-direction: column; */
+          /* align-items: flex-start; */
           gap: 0.25rem;
           margin-bottom: 0.5rem;
       }
 
       .thermometer-desc {
-          text-align: left;
+          text-align: center;
       }
 
       .features-grid {
@@ -969,8 +1179,8 @@
   @media (max-width: 768px) {
       /* Adjust background for a better look on portrait screens */
       .home-page-wrapper {
-          background: radial-gradient(circle at 50% 20%, #1a2a4a, transparent 70%),
-              radial-gradient(circle at 50% 80%, #4a1a2a, transparent 70%), #121212;
+          background: radial-gradient(circle at 15% 50%, #1a2a4a, transparent 40%),
+              radial-gradient(circle at 85% 50%, #4a1a2a, transparent 40%), #121212;
       }
 
       .main-container {
@@ -1014,6 +1224,35 @@
           /* 您已有此规则，可以保留或调整数值 */
           height: 350px; /* 在中等屏幕上设置一个合适的高度 */
       }
+      .user-profile-bar {
+          flex-direction: column;
+          gap: 1rem;
+          padding: 1rem;
+      }
+      .password-modal-content {
+          /* 可以稍微减小内边距，让内容区更大 */
+          padding: 2rem 1.5rem;
+      }
+
+      .password-modal-content .modal-header {
+          /* 减小头部与表单的距离 */
+          margin-bottom: 1.5rem;
+      }
+
+      .password-modal-content .modal-header h3 {
+          /* 减小标题字号 */
+          font-size: 1.3rem;
+      }
+
+      .password-modal-content .form-group {
+          /* ✨ 核心修改：缩短输入框的下外边距 */
+          margin-bottom: 1.5rem; /* 从原来的 2.2rem 缩短 */
+      }
+
+      .password-modal-content .submit-btn {
+          /* 减小按钮的上外边距 */
+          margin-top: 1rem;
+      }
   }
 
   /* --- Extra Small screens / Most Phones (<= 576px) --- */
@@ -1040,13 +1279,15 @@
 
       .thermometer-header {
           /* Stack title and other elements vertically */
-          flex-direction: column;
+          /* flex-direction: column; */
           align-items: flex-start;
+          justify-content: center;
           gap: 0.25rem;
       }
       .thermometer-desc {
-          text-align: left; /* Align date to the left */
-          margin-bottom: 1rem;
+          text-align: center; /* Align date to the left */
+          margin-top: 0.1rem;
+          margin-bottom: 1.2rem;
       }
 
       /* Switch to a single-column grid, stacking cards vertically */
@@ -1060,8 +1301,8 @@
           justify-content: center; /* 在垂直方向上居中对齐内容 */
           align-items: center; /* 在水平方向上居中对齐内容 */
           text-align: center; /* 确保文本本身也是居中对齐的 */
-          padding: 1.5rem 1rem; /* 调整内边距，上下多一些，左右少一些 */
-          min-height: 160px; /* 设置一个最小高度，让所有卡片看起来更统一 */
+          padding: 0.2rem 1rem 0.8rem; /* 调整内边距，上下多一些，左右少一些 */
+          min-height: 140px; /* 设置一个最小高度，让所有卡片看起来更统一 */
       }
 
       .strategy-card .card-icon {
@@ -1100,6 +1341,16 @@
 
       .echart-container {
           height: 350px; /* Further reduce chart height */
+      }
+      .user-actions-footer {
+          flex-direction: column; /* 垂直堆叠 */
+          gap: 0.5rem; /* 减小堆叠后的间距 */
+          margin-top: 2.5rem;
+      }
+
+      /* 在堆叠模式下，隐藏分隔符 */
+      .user-actions-footer .separator {
+          display: none;
       }
   }
 </style>
