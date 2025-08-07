@@ -36,11 +36,12 @@
                 </tr>
               </thead>
               <tbody>
+                <!-- MODIFICATION: Added data-label attributes for mobile view -->
                 <tr v-for="(asset) in portfolio" :key="asset.id">
-                  <td><input type="text" v-model="asset.name" placeholder="如: 沪深300ETF"></td>
-                  <td><input type="number" v-model.number="asset.amount" min="0"></td>
-                  <td><input type="number" v-model.number="asset.target" min="0" max="100"></td>
-                  <td><button class="delete-btn" @click="removeAsset(asset.id)">×</button></td>
+                  <td data-label="资产名称"><input type="text" v-model="asset.name" placeholder="如: 沪深300ETF"></td>
+                  <td data-label="当前持仓 (元)"><input type="number" v-model.number="asset.amount" min="0"></td>
+                  <td data-label="计划比例 (%)"><input type="number" v-model.number="asset.target" min="0" max="100"></td>
+                  <td data-label="操作"><button class="delete-btn" @click="removeAsset(asset.id)">×</button></td>
                 </tr>
               </tbody>
             </table>
@@ -69,16 +70,46 @@
               </li>
             </ul>
           </div>
+        </div>
 
+        <!-- 复利计算器 -->
+        <div class="content-card compound-calculator">
+          <h2 class="card-title">复利计算器</h2>
+          <p class="card-description">直观感受世界第八大奇迹的力量，预测您在不同的预期年化收益率和定投计划下的未来财富。</p>
+
+          <!-- 输入区域 -->
+          <div class="calculator-inputs">
+            <div class="input-group">
+              <label for="principal">初始本金 (元):</label>
+              <input type="number" id="principal" v-model.number="compoundInputs.principal" min="0" placeholder="例如: 10000">
+            </div>
+            <div class="input-group">
+              <label for="rate">预期年化收益率 (%):</label>
+              <input type="number" id="rate" v-model.number="compoundInputs.rate" min="0" placeholder="例如: 8">
+            </div>
+            <div class="input-group">
+              <label for="years">投资年限 (年):</label>
+              <input type="number" id="years" v-model.number="compoundInputs.years" min="0" placeholder="例如: 20">
+            </div>
+            <div class="input-group">
+              <label for="monthly-contribution">每月定投 (元):</label>
+              <input type="number" id="monthly-contribution" v-model.number="compoundInputs.monthlyContribution" min="0"
+                placeholder="例如: 500">
+            </div>
+          </div>
+
+          <!-- 计算按钮 -->
+          <div class="calculation-zone">
+            <button class="calculate-btn" @click="calculateCompoundInterest">开始计算</button>
+          </div>
+
+          <!-- 结果展示 (图表) -->
+          <div v-if="chartOption" class="chart-container">
+            <v-chart class="chart" :option="chartOption" autoresize />
+          </div>
         </div>
 
         <!-- 其他工具卡片 (示例) -->
-        <div class="content-card coming-soon">
-          <h2 class="card-title">复利计算器</h2>
-          <p class="card-description">直观感受世界第八大奇迹的力量，预测您在不同利率下的未来财富。</p>
-          <span class="status-tag">敬请期待</span>
-        </div>
-
         <div class="content-card coming-soon">
           <h2 class="card-title">定投计算器</h2>
           <p class="card-description">模拟在不同市场行情下进行定期投资的最终效果，辅助您制定定投计划。</p>
@@ -91,9 +122,24 @@
 </template>
 
 <script setup lang="ts">
-  import { ref } from 'vue'
+  import { ref, provide } from 'vue'
+  import { use } from 'echarts/core'
+  import { CanvasRenderer } from 'echarts/renderers'
+  import { BarChart } from 'echarts/charts'
+  import {
+      TitleComponent,
+      TooltipComponent,
+      GridComponent,
+      LegendComponent
+  } from 'echarts/components'
+  import VChart from 'vue-echarts'
 
-  // --- 类型定义 ---
+  // 注册 ECharts 组件
+  use([CanvasRenderer, BarChart, TitleComponent, TooltipComponent, GridComponent, LegendComponent])
+
+  // --- 1. 类型定义 ---
+
+  // 再平衡计算器相关类型
   interface Asset {
       id: number
       name: string
@@ -110,7 +156,17 @@
       adjustments: Adjustment[]
   }
 
-  // --- 响应式状态 ---
+  // 复利计算器输入类型
+  interface CompoundInputs {
+      principal: number
+      rate: number
+      years: number
+      monthlyContribution: number
+  }
+
+  // --- 2. 响应式状态 ---
+
+  // 再平衡计算器状态
   const portfolio = ref<Asset[]>([
       { id: 1, name: '红利质量', amount: 6000, target: 20 },
       { id: 2, name: '纳指100', amount: 3000, target: 20 },
@@ -120,7 +176,19 @@
   const additionalInvestment = ref<number>(1000)
   const calculationResult = ref<Result | null>(null)
 
-  // --- 方法 ---
+  // 复利计算器状态
+  const compoundInputs = ref<CompoundInputs>({
+      principal: 10000,
+      rate: 8,
+      years: 20,
+      monthlyContribution: 500
+  })
+  // ECharts 配置项
+  const chartOption = ref<any | null>(null)
+
+  // --- 3. 方法 ---
+
+  // --- 再平衡计算器方法 ---
   const addAsset = () => {
       portfolio.value.push({
           id: Date.now(),
@@ -135,9 +203,8 @@
   }
 
   const calculateRebalance = () => {
-      // 校验比例之和
-      const totalTarget = portfolio.value.reduce((sum, asset) => sum + asset.target, 0)
-      if (totalTarget !== 100) {
+      const totalTarget = portfolio.value.reduce((sum, asset) => sum + (asset.target || 0), 0)
+      if (Math.abs(totalTarget - 100) > 0.01) {
           alert(`错误：计划比例总和必须为100%，当前为 ${totalTarget}%。`)
           calculationResult.value = null
           return
@@ -155,15 +222,13 @@
       const adjustments: Adjustment[] = portfolio.value.map(asset => {
           const targetAmount = newTotal * (asset.target / 100)
           const adjustmentValue = targetAmount - asset.amount
-
           let action: '买入' | '卖出' | '持有' = '持有'
+
           if (adjustmentValue > 0.01) {
-              // 增加一个小的阈值避免浮点数误差
               action = '买入'
           } else if (adjustmentValue < -0.01) {
               action = '卖出'
           }
-
           return {
               name: asset.name || '未命名资产',
               action,
@@ -173,9 +238,130 @@
 
       calculationResult.value = { newTotal, adjustments }
   }
+
+  // --- 复利计算器方法 ---
+  const calculateCompoundInterest = () => {
+      const { principal, rate, years, monthlyContribution } = compoundInputs.value
+
+      if (principal < 0 || rate < 0 || years <= 0 || monthlyContribution < 0) {
+          alert('错误：请输入有效的正数，且投资年限必须大于0。')
+          chartOption.value = null
+          return
+      }
+
+      const monthlyRate = rate / 100 / 12
+      const xAxisData: string[] = []
+      const principalData: number[] = []
+      const interestData: number[] = []
+
+      // 逐年计算数据
+      for (let year = 1; year <= years; year++) {
+          const totalMonths = year * 12
+
+          // 计算当前年度的总价值
+          const fvOfPrincipal = principal * Math.pow(1 + monthlyRate, totalMonths)
+          let fvOfAnnuity = 0
+          if (monthlyRate > 0) {
+              fvOfAnnuity =
+                  monthlyContribution * ((Math.pow(1 + monthlyRate, totalMonths) - 1) / monthlyRate)
+          } else {
+              fvOfAnnuity = monthlyContribution * totalMonths
+          }
+          const finalValue = fvOfPrincipal + fvOfAnnuity
+
+          // 计算当前年度的总投入本金和总收益
+          const totalPrincipal = principal + monthlyContribution * totalMonths
+          const totalInterest = finalValue - totalPrincipal
+
+          // 存储数据
+          xAxisData.push(`第 ${year} 年`)
+          principalData.push(parseFloat(totalPrincipal.toFixed(2)))
+          interestData.push(parseFloat(totalInterest.toFixed(2)))
+      }
+
+      // 生成 ECharts 配置
+      chartOption.value = {
+          backgroundColor: 'transparent',
+          tooltip: {
+              trigger: 'axis',
+              axisPointer: { type: 'shadow' },
+              backgroundColor: 'rgba(18, 18, 18, 0.9)',
+              borderColor: '#8a2be2',
+              borderWidth: 1,
+              textStyle: { color: '#fff' },
+              formatter: (params: any) => {
+                  const year = params[0].name
+                  const principalVal = params[0].value
+                  const interestVal = params[1].value
+                  const totalVal = principalVal + interestVal
+                  return `<strong>${year}</strong><br/>
+                                          累计本金: ${principalVal.toLocaleString()} 元<br/>
+                                          累计收益: ${interestVal.toLocaleString()} 元<br/>
+                                          <strong style="color: #8a2be2;">资产总计: ${totalVal.toLocaleString()} 元</strong>
+                                        `
+              }
+          },
+          legend: {
+              data: ['累计本金', '累计收益'],
+              textStyle: { color: '#b0c4de' },
+              top: '0%'
+          },
+          grid: {
+              left: '3%',
+              right: '4%',
+              bottom: '3%',
+              top: '16%',
+              containLabel: true
+          },
+          xAxis: {
+              type: 'category',
+              data: xAxisData,
+              axisLine: { lineStyle: { color: '#b0c4de' } },
+              axisLabel: { color: '#b0c4de' }
+          },
+          yAxis: {
+              type: 'value',
+              name: '金额 (元)',
+              nameTextStyle: { color: '#b0c4de' },
+              axisLine: { show: true, lineStyle: { color: '#b0c4de' } },
+              axisLabel: { color: '#b0c4de' },
+              splitLine: { lineStyle: { color: 'rgba(255, 255, 255, 0.1)' } }
+          },
+          series: [
+              {
+                  name: '累计本金',
+                  type: 'bar',
+                  stack: 'total', // 关键：堆叠
+                  emphasis: { focus: 'series' },
+                  data: principalData,
+                  itemStyle: { color: '#465A7A' } // 深紫色
+              },
+              {
+                  name: '累计收益',
+                  type: 'bar',
+                  stack: 'total',
+                  emphasis: { focus: 'series' },
+                  data: interestData,
+                  // MODIFICATION: Changed color to match theme, updated comment
+                  itemStyle: { color: '#FFBF00' } // 使用主题色，代表增益
+              }
+          ]
+      }
+  }
 </script>
 
 <style scoped>
+  /* --- 新增：页面加载动画定义 --- */
+  @keyframes fadeInUp {
+      from {
+          opacity: 0;
+          transform: translateY(20px);
+      }
+      to {
+          opacity: 1;
+          transform: translateY(0);
+      }
+  }
   /* 定义页面主题色 */
   :root {
       --theme-color: #8a2be2; /* 蓝紫色 */
@@ -200,6 +386,8 @@
   .page-header {
       text-align: center;
       margin-bottom: 3rem;
+      animation: fadeInUp 0.5s ease-out forwards;
+      opacity: 0;
   }
 
   .back-button {
@@ -246,9 +434,22 @@
       padding: 1.5rem 2rem;
       backdrop-filter: blur(10px);
       transition: border-color 0.3s ease;
+      display: flex;
+      flex-direction: column;
+      animation: fadeInUp 0.5s ease-out forwards;
+      opacity: 0;
   }
   .content-card:hover {
       border-color: rgba(138, 43, 226, 0.5);
+  }
+  .tools-grid .content-card:nth-child(1) {
+      animation-delay: 0.2s;
+  }
+  .tools-grid .content-card:nth-child(2) {
+      animation-delay: 0.3s;
+  }
+  .tools-grid .content-card:nth-child(3) {
+      animation-delay: 0.4s;
   }
 
   .card-title {
@@ -269,7 +470,7 @@
   /* 表格和输入框样式 */
   .table-container {
       overflow-x: auto;
-  } /* 保证在小屏幕上可滑动 */
+  }
   .data-table {
       width: 100%;
       border-collapse: collapse;
@@ -297,6 +498,7 @@
       padding: 0.6rem;
       font-size: 0.9rem;
       text-align: center;
+      box-sizing: border-box;
   }
   .data-table input:focus {
       border-color: #8a2be2;
@@ -316,6 +518,7 @@
   }
   .add-asset-btn {
       margin-top: 1rem;
+      margin-bottom: 1rem;
       background: rgba(138, 43, 226, 0.2);
       border: 1px dashed #8a2be2;
       color: #8a2be2;
@@ -323,15 +526,37 @@
       border-radius: 8px;
       cursor: pointer;
       transition: all 0.3s;
+      align-self: flex-start;
   }
   .add-asset-btn:hover {
       background: rgba(138, 43, 226, 0.4);
       color: #fff;
   }
 
-  /* 计算区域 */
+  /* 复利计算器输入区域 */
+  .calculator-inputs {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 1.5rem;
+      margin-bottom: 2rem;
+  }
+
+  .calculator-inputs .input-group {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+  }
+  .calculator-inputs .input-group label {
+      text-align: left;
+  }
+  .calculator-inputs .input-group input {
+      max-width: none;
+      width: 100%;
+  }
+
+  /* 通用计算区域 */
   .calculation-zone {
-      margin-top: 2rem;
+      margin-top: auto; /* Push to the bottom */
       padding-top: 1.5rem;
       border-top: 1px solid rgba(255, 255, 255, 0.1);
       display: flex;
@@ -340,6 +565,14 @@
       gap: 1rem;
       flex-wrap: wrap;
   }
+  /* 复利计算器按钮特殊布局 */
+  .compound-calculator .calculation-zone {
+      justify-content: center;
+      border-top: none;
+      padding-top: 0;
+      margin-top: 0;
+  }
+
   .input-group {
       display: flex;
       align-items: center;
@@ -356,7 +589,13 @@
       color: #fff;
       padding: 0.6rem;
       max-width: 180px;
+      box-sizing: border-box;
   }
+  .input-group input:focus {
+      border-color: #8a2be2;
+      outline: none;
+  }
+
   .calculate-btn {
       background-color: #8a2be2;
       color: #ffffff;
@@ -368,10 +607,15 @@
       cursor: pointer;
       transition: all 0.3s ease;
       box-shadow: 0 0 15px rgba(138, 43, 226, 0.3);
+      flex-grow: 1; /* 让按钮在flex容器中可以伸展 */
   }
   .calculate-btn:hover {
       transform: translateY(-2px);
       box-shadow: 0 4px 20px rgba(138, 43, 226, 0.5);
+  }
+  .rebalance-calculator .calculate-btn {
+      max-width: 200px;
+      flex-grow: 0;
   }
 
   /* 结果区域 */
@@ -394,6 +638,7 @@
       list-style: none;
       padding: 0;
       margin: 0;
+      line-height: 1.8;
   }
   .result-list li {
       margin-bottom: 0.5rem;
@@ -403,6 +648,12 @@
   }
   .sell-action {
       color: #dc3545;
+  }
+
+  /* 图表容器样式 */
+  .chart-container {
+      margin-top: 2rem;
+      height: 400px; /* 必须给图表一个明确的高度 */
   }
 
   /* 待开发卡片样式 */
@@ -423,18 +674,18 @@
       font-size: 0.8rem;
       font-weight: bold;
   }
-  /* ======================================================= */
-  /* ========      投资小工具页面移动端适配      ======== */
-  /* ======================================================= */
 
+  /* ======================================================= */
+  /* ========           移动端适配 (<= 768px)         ======== */
+  /* ======================================================= */
   @media (max-width: 768px) {
-      /* 修正卡片的收缩行为，防止被内部表格撑开 */
+      .page-wrapper {
+          padding: 2rem 1rem;
+      }
       .content-card {
-          min-width: 0;
-          padding: 1.5rem 1rem; /* 减小卡片内边距 */
+          padding: 1.5rem 1rem;
       }
 
-      /* 优化标题和正文的字体大小 */
       .main-title {
           font-size: 2rem;
       }
@@ -445,42 +696,124 @@
           font-size: 0.9rem;
       }
 
-      /* 确保表格容器的滚动条样式在小屏幕上也能良好显示 */
-      .table-container::-webkit-scrollbar {
-          height: 6px;
+      /* MODIFICATION: Responsive table styles start */
+      .table-container {
+          overflow-x: hidden; /* Hide horizontal scroll on mobile */
       }
-      .table-container::-webkit-scrollbar-thumb {
-          background: #8a2be2; /* 使用主题色 */
-          border-radius: 3px;
+      .data-table {
+          min-width: 100%; /* Allow table to shrink */
+          border-collapse: separate; /* Required for border-radius on tr */
+          border-spacing: 0;
+      }
+      /* Hide table headers, but not for screen readers */
+      .data-table thead {
+          border: none;
+          clip: rect(0 0 0 0);
+          height: 1px;
+          margin: -1px;
+          overflow: hidden;
+          padding: 0;
+          position: absolute;
+          width: 1px;
       }
 
-      /* --- 核心优化：调整计算区域的布局 --- */
+      .data-table tr {
+          display: block;
+          border: 1px solid rgba(255, 255, 255, 0.1);
+          border-radius: 8px;
+          margin-bottom: 1rem;
+          padding: 0.5rem 1rem;
+      }
+
+      .data-table td {
+          display: block;
+          text-align: right;
+          position: relative;
+          padding: 0.75rem 0;
+          padding-left: 50%;
+          border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      }
+
+      .data-table td:last-child {
+          border-bottom: none;
+          padding-top: 1rem;
+      }
+
+      .data-table td::before {
+          content: attr(data-label);
+          position: absolute;
+          left: 0;
+          width: 45%;
+          padding-right: 10px;
+          white-space: nowrap;
+          text-align: left;
+          font-weight: normal;
+          color: #b0c4de;
+          font-size: 0.9em;
+      }
+
+      .data-table input[type='text'],
+      .data-table input[type='number'] {
+          width: 100%;
+          text-align: right;
+          padding: 0.5rem;
+      }
+
+      /* Special styling for the action button cell */
+      .data-table td[data-label='操作'] {
+          padding-left: 0;
+          text-align: center;
+      }
+      .data-table td[data-label='操作']::before {
+          content: none;
+      }
+      /* MODIFICATION: Responsive table styles end */
+
+      .calculator-inputs {
+          grid-template-columns: 1fr;
+          gap: 1rem;
+          margin-bottom: 1.5rem;
+      }
+
       .calculation-zone {
-          flex-direction: column; /* 将“追加投资”和“开始计算”按钮垂直堆叠 */
-          align-items: stretch; /* 让子元素宽度撑满容器 */
-          gap: 1.5rem; /* 增大垂直间距 */
+          flex-direction: column;
+          align-items: stretch;
+          gap: 1.5rem;
       }
 
       .input-group {
           width: 100%;
-          flex-direction: column; /* 标签和输入框也垂直堆叠 */
-          align-items: flex-start; /* 左对齐 */
+          flex-direction: column;
+          align-items: flex-start;
           gap: 0.5rem;
       }
-
       .input-group input {
-          width: 100%; /* 输入框撑满宽度 */
-          max-width: none; /* 覆盖桌面端的最大宽度限制 */
-          box-sizing: border-box; /* 保证 padding 不会撑开宽度 */
+          width: 100%;
+          max-width: none;
       }
 
       .calculate-btn {
-          width: 100%; /* 计算按钮也撑满宽度，方便点击 */
+          width: 100%;
+          max-width: none;
       }
 
-      /* 优化结果展示区域的内边距 */
       .result-container {
           padding: 1rem;
       }
+
+      .chart-container {
+          height: 350px;
+          margin-top: 1.5rem;
+      }
+  }
+  input::-webkit-outer-spin-button,
+  input::-webkit-inner-spin-button {
+      -webkit-appearance: none;
+      margin: 0;
+  }
+
+  /* 隐藏数字输入框的上下箭头 (适用于 Firefox) */
+  input[type='number'] {
+      -moz-appearance: textfield;
   }
 </style>

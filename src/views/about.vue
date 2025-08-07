@@ -145,6 +145,17 @@
 </script>
 
 <style scoped>
+  /* --- 新增：页面加载动画定义 --- */
+  @keyframes fadeInUp {
+      from {
+          opacity: 0;
+          transform: translateY(20px);
+      }
+      to {
+          opacity: 1;
+          transform: translateY(0);
+      }
+  }
   /* 继承主页风格 - 完全复用 */
   .page-wrapper {
       font-family: 'Noto Sans SC', sans-serif;
@@ -165,6 +176,8 @@
   .page-header {
       text-align: center;
       margin-bottom: 3rem;
+      animation: fadeInUp 0.5s ease-out forwards;
+      opacity: 0;
   }
 
   .back-button {
@@ -211,9 +224,27 @@
       padding: 1.5rem 2rem;
       backdrop-filter: blur(10px);
       transition: border-color 0.3s ease;
+      animation: fadeInUp 0.5s ease-out forwards;
+      opacity: 0;
   }
   .content-card:hover {
       border-color: rgba(255, 193, 7, 0.5); /* 调整为理念的颜色 */
+  }
+
+  .content-card:nth-child(1) {
+      animation-delay: 0.2s;
+  }
+  .content-card:nth-child(2) {
+      animation-delay: 0.3s;
+  }
+  .content-card:nth-child(3) {
+      animation-delay: 0.4s;
+  }
+  .content-card:nth-child(4) {
+      animation-delay: 0.5s;
+  }
+  .content-card:nth-child(5) {
+      animation-delay: 0.6s;
   }
 
   .card-title {

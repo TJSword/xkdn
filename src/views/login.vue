@@ -210,7 +210,6 @@
               formData.confirmPassword = ''
               formData.verificationCode = ''
               return false
-              
           }
           await userStore.register({
               phoneNumber: formData.phoneNumber,
@@ -388,9 +387,31 @@
       -webkit-backdrop-filter: blur(12px);
       box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
       text-align: center;
-      animation: fadeIn 0.8s ease-in-out;
+      /* animation: fadeIn 0.8s ease-in-out; */
+  }
+  /* --- 新增：为卡片内部元素添加交错动画 --- */
+  .login-title,
+  .login-subtitle,
+  form,
+  .form-switcher {
+      /* 关键：应用动画，并设置初始状态为透明 */
+      animation: fadeIn 0.6s ease-out forwards;
+      opacity: 0;
   }
 
+  /* 设置不同的延迟时间 */
+  .login-title {
+      animation-delay: 0.1s;
+  }
+  .login-subtitle {
+      animation-delay: 0.2s;
+  }
+  form {
+      animation-delay: 0.3s;
+  }
+  .form-switcher {
+      animation-delay: 0.4s;
+  }
   @keyframes fadeIn {
       from {
           opacity: 0;

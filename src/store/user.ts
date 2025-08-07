@@ -2,7 +2,6 @@
 
 import { defineStore } from 'pinia'
 import app, { auth } from '@/lib/cloudbase'
-
 export const useUserStore = defineStore('user', {
   state: (): any => ({
     userInfo: null, // 存储从我们自己数据库（通过云函数）获取的用户信息
@@ -150,6 +149,7 @@ export const useUserStore = defineStore('user', {
       } else {
         // 如果未登录，则标记为已尝试
         this.hasAttemptedLogin = true
+        this.userInfo = null
       }
     },
 

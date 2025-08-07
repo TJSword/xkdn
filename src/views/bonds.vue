@@ -219,12 +219,12 @@
       {
           question: '我如何才能参与“可转债策略”？',
           answer: `我们所有的策略操作，都在交易日的下午2:30之后执行，以贴近收盘价，确保操作的有效性。\n
-                            首次参与\n
-                            如果您是第一次参与本策略，请根据最新持仓列表，然后将您计划投入的资金，对列表中的所有品种进行等权重买入，即可完成初始建仓。\n
-                            后续调仓\n
-                            完成建仓后，您无需进行任何复杂的分析。每个交易日，您只需严格遵循我们发布的组合调仓指引进行操作即可。该指引会直接、明确地列出当天需要卖出和买入的具体品种。
-                            \n参与前提：\n
-          在进行任何交易前，请务必确保您的A股证券账户已成功开通“可转换债券”的交易权限（通常要求2年交易经验及连续20日日均10万资产）。详情请咨询您的开户券商。`
+                                    首次参与\n
+                                    如果您是第一次参与本策略，请根据最新持仓列表，然后将您计划投入的资金，对列表中的所有品种进行等权重买入，即可完成初始建仓。\n
+                                    后续调仓\n
+                                    完成建仓后，您无需进行任何复杂的分析。每个交易日，您只需严格遵循我们发布的组合调仓指引进行操作即可。该指引会直接、明确地列出当天需要卖出和买入的具体品种。
+                                    \n参与前提：\n
+                  在进行任何交易前，请务必确保您的A股证券账户已成功开通“可转换债券”的交易权限（通常要求2年交易经验及连续20日日均10万资产）。详情请咨询您的开户券商。`
       },
       {
           question: '可转债是什么？它为什么适合普通人投资？',
@@ -356,6 +356,17 @@
 
 <style scoped>
   /* 继承并主题化页面样式 */
+  /* --- 新增：页面加载动画定义 --- */
+  @keyframes fadeInUp {
+      from {
+          opacity: 0;
+          transform: translateY(20px);
+      }
+      to {
+          opacity: 1;
+          transform: translateY(0);
+      }
+  }
   .page-wrapper {
       font-family: 'Noto Sans SC', sans-serif;
       background-color: #121212;
@@ -376,6 +387,8 @@
   .page-header {
       text-align: center;
       margin-bottom: 3rem;
+      animation: fadeInUp 0.5s ease-out forwards;
+      opacity: 0;
   }
 
   .back-button {
@@ -421,9 +434,26 @@
       padding: 1.5rem 2rem;
       backdrop-filter: blur(10px);
       transition: border-color 0.3s ease;
+      animation: fadeInUp 0.5s ease-out forwards;
+      opacity: 0;
   }
   .content-card:hover {
       border-color: rgba(173, 216, 230, 0.5); /* 主题色 */
+  }
+  .content-card:nth-child(1) {
+      animation-delay: 0.2s;
+  }
+  .content-card:nth-child(2) {
+      animation-delay: 0.3s;
+  }
+  .content-card:nth-child(3) {
+      animation-delay: 0.4s;
+  }
+  .content-card:nth-child(4) {
+      animation-delay: 0.5s;
+  }
+  .content-card:nth-child(5) {
+      animation-delay: 0.6s;
   }
 
   .card-title {

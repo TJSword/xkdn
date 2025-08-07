@@ -293,6 +293,16 @@
 </script>
 
 <style scoped>
+  @keyframes fadeInUp {
+      from {
+          opacity: 0;
+          transform: translateY(20px);
+      }
+      to {
+          opacity: 1;
+          transform: translateY(0);
+      }
+  }
   /* 恢复为更通用的页面布局 */
   .page-wrapper {
       font-family: 'Noto Sans SC', sans-serif;
@@ -312,6 +322,8 @@
   .page-header {
       text-align: center;
       margin-bottom: 3rem;
+      animation: fadeInUp 0.5s ease-out forwards;
+      opacity: 0;
   }
 
   .back-button {
@@ -357,6 +369,9 @@
       border-radius: 12px;
       padding: 1.5rem 2rem;
       backdrop-filter: blur(10px);
+      animation: fadeInUp 0.5s ease-out forwards;
+      animation-delay: 0.2s; /* 添加延迟，让它在标题之后出现 */
+      opacity: 0;
   }
 
   .card-header-with-toggle {
@@ -578,7 +593,7 @@
 
       /* 步骤二：确保表格可以滚动，并优化单元格内容 */
       /* .table-wrapper {
-              } */
+                    } */
       .table-wrapper::-webkit-scrollbar {
           height: 6px;
       }
