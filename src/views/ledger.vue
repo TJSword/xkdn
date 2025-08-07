@@ -810,6 +810,17 @@
 </script>
 
 <style scoped>
+  /* --- 新增：页面加载动画定义 --- */
+  @keyframes fadeInUp {
+      from {
+          opacity: 0;
+          transform: translateY(20px);
+      }
+      to {
+          opacity: 1;
+          transform: translateY(0);
+      }
+  }
   .page-wrapper {
       font-family: 'Noto Sans SC', sans-serif;
       background-color: #121212;
@@ -826,6 +837,8 @@
   .page-header {
       text-align: center;
       margin-bottom: 3rem;
+      animation: fadeInUp 0.5s ease-out forwards;
+      opacity: 0;
   }
   /* --- 新增/修改样式 开始 --- */
   .page-header .subtitle {
@@ -859,9 +872,20 @@
       padding: 1.5rem 2rem;
       backdrop-filter: blur(10px);
       transition: border-color 0.3s;
+      animation: fadeInUp 0.5s ease-out forwards;
+      opacity: 0;
   }
   .content-card:hover {
       border-color: rgba(0, 196, 151, 0.5);
+  }
+  .content-card:nth-child(1) {
+      animation-delay: 0.2s;
+  }
+  .content-card:nth-child(2) {
+      animation-delay: 0.3s;
+  }
+  .content-card:nth-child(3) {
+      animation-delay: 0.4s;
   }
   .card-title {
       font-size: 1.4rem;

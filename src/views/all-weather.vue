@@ -86,7 +86,7 @@
                   <td>超长期国债</td>
                   <td>30%</td>
                   <td>30年国债ETF</td>
-                  <td>511890</td>
+                  <td>511090</td>
 
                 </tr>
                 <tr>
@@ -530,6 +530,16 @@
 </script>
 
 <style scoped>
+  @keyframes fadeInUp {
+      from {
+          opacity: 0;
+          transform: translateY(20px);
+      }
+      to {
+          opacity: 1;
+          transform: translateY(0);
+      }
+  }
   /* 继承主页风格 */
   .page-wrapper {
       font-family: 'Noto Sans SC', sans-serif;
@@ -550,6 +560,8 @@
   .page-header {
       text-align: center;
       margin-bottom: 3rem;
+      animation: fadeInUp 0.5s ease-out forwards;
+      opacity: 0;
   }
 
   .back-button {
@@ -602,10 +614,29 @@
 
       /* 2. 这是最重要的“必杀技”，它确保卡片自身不会被内容撑开 */
       min-width: 0;
+      animation: fadeInUp 0.5s ease-out forwards;
+      opacity: 0;
   }
   .content-card:hover {
       border-color: rgba(0, 170, 255, 0.5);
   }
+  /* --- 新增：为卡片设置交错加载动画 --- */
+  .content-card:nth-child(1) {
+      animation-delay: 0.2s;
+  }
+  .content-card:nth-child(2) {
+      animation-delay: 0.3s;
+  }
+  .content-card:nth-child(3) {
+      animation-delay: 0.4s;
+  }
+  .content-card:nth-child(4) {
+      animation-delay: 0.5s;
+  }
+  .content-card:nth-child(5) {
+      animation-delay: 0.6s;
+  }
+  /* 如果有更多卡片，可以继续添加 */
 
   .card-title {
       font-size: 1.4rem;

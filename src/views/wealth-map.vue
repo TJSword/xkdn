@@ -390,6 +390,17 @@
 </script>
 
 <style scoped>
+  /* --- 新增：页面加载动画定义 --- */
+  @keyframes fadeInUp {
+      from {
+          opacity: 0;
+          transform: translateY(20px);
+      }
+      to {
+          opacity: 1;
+          transform: translateY(0);
+      }
+  }
   /* 基本页面布局和头部样式 (无变化) */
   .page-wrapper {
       font-family: 'Noto Sans SC', sans-serif;
@@ -407,6 +418,8 @@
   .page-header {
       text-align: center;
       margin-bottom: 2rem;
+      animation: fadeInUp 0.5s ease-out forwards;
+      opacity: 0;
   }
   .back-button {
       color: #b0c4de;
@@ -446,6 +459,9 @@
       display: flex;
       flex-direction: column;
       gap: 1.5rem;
+      animation: fadeInUp 0.5s ease-out forwards;
+      animation-delay: 0.2s; /* 添加延迟，让它在标题之后出现 */
+      opacity: 0;
   }
   .card-header-section {
       display: grid;

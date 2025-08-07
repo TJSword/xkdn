@@ -433,11 +433,11 @@
       {
           question: '我应该如何参与“长钱策略”？',
           answer: `参与“长钱策略”并没有唯一的标准答案，关键在于结合您自身的资金状况和风险承受能力。我们推荐以下两种主流方式供您参考：\n
-                      对于大多数投资者（尤其是新手）：\n
-                      建议将您的增量资金（如每月工资结余）以定期定投的方式投入长钱策略。这种方式可以有效平滑市场波动的成本，无需精准择时，有助于您养成长期投资的纪律和心态。对于您的存量资金，若追求更稳健的开端，可以考虑先配置于波动性较低的全天候策略。
-                      \n对于经验丰富的投资者：\n
-                      如果您是心态成熟、经验丰富的投资者，可以考虑将一笔较大的资金投入长钱策略。但即便如此，我们仍强烈建议您分批买入，例如分成3-5笔在不同时间点投入。这能避免您在单一高点建仓的风险，让您的初始投资更加稳健。
-                      \n\n 长钱策略的核心是用可预见的短期波动，换取更高的长期潜在回报。请务必做好心理准备，坚定地相信长期主义的力量。我们的策略会遵循“低估值买入，高估值卖出”的原则，力求在市场周期的关键节点进行操作，与您共同见证长钱策略开花结果。`
+                              对于大多数投资者（尤其是新手）：\n
+                              建议将您的增量资金（如每月工资结余）以定期定投的方式投入长钱策略。这种方式可以有效平滑市场波动的成本，无需精准择时，有助于您养成长期投资的纪律和心态。对于您的存量资金，若追求更稳健的开端，可以考虑先配置于波动性较低的全天候策略。
+                              \n对于经验丰富的投资者：\n
+                              如果您是心态成熟、经验丰富的投资者，可以考虑将一笔较大的资金投入长钱策略。但即便如此，我们仍强烈建议您分批买入，例如分成3-5笔在不同时间点投入。这能避免您在单一高点建仓的风险，让您的初始投资更加稳健。
+                              \n\n 长钱策略的核心是用可预见的短期波动，换取更高的长期潜在回报。请务必做好心理准备，坚定地相信长期主义的力量。我们的策略会遵循“低估值买入，高估值卖出”的原则，力求在市场周期的关键节点进行操作，与您共同见证长钱策略开花结果。`
       },
       {
           question: '“长钱”具体指什么钱？',
@@ -462,6 +462,16 @@
 </script>
 
 <style lang="scss" scoped>
+  @keyframes fadeInUp {
+      from {
+          opacity: 0;
+          transform: translateY(20px);
+      }
+      to {
+          opacity: 1;
+          transform: translateY(0);
+      }
+  }
   /* 主题色变量 */
   :root {
       --theme-color: #ff4081;
@@ -483,6 +493,8 @@
   .page-header {
       text-align: center;
       margin-bottom: 3rem;
+      animation: fadeInUp 0.5s ease-out forwards;
+      opacity: 0;
   }
   .back-button {
       color: #b0c4de;
@@ -524,9 +536,26 @@
       padding: 1.5rem 2rem;
       backdrop-filter: blur(10px);
       transition: border-color 0.3s ease;
+      animation: fadeInUp 0.5s ease-out forwards;
+      opacity: 0;
   }
   .content-card:hover {
       border-color: rgba(255, 64, 129, 0.5);
+  }
+  .content-card:nth-child(1) {
+      animation-delay: 0.2s;
+  }
+  .content-card:nth-child(2) {
+      animation-delay: 0.3s;
+  }
+  .content-card:nth-child(3) {
+      animation-delay: 0.4s;
+  }
+  .content-card:nth-child(4) {
+      animation-delay: 0.5s;
+  }
+  .content-card:nth-child(5) {
+      animation-delay: 0.6s;
   }
   .card-title {
       font-size: 1.4rem;

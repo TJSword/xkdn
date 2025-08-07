@@ -394,6 +394,7 @@
       // 5. 拼接成最终的字符串格式
       return `${Y}-${M}-${D} ${h}:${m}`
   }
+
   const getMembershipExpiry = async () => {
       try {
           // 在这里替换为您的真实API调用
@@ -445,7 +446,7 @@
                           }
                       ],
                       dataZoom: [
-                          { type: 'inside', start: 80, end: 100 },
+                          { type: 'inside', start: 93, end: 100 },
                           { show: true, type: 'slider', start: 80, end: 100, bottom: 10 }
                       ],
                       series: [
@@ -534,6 +535,18 @@
 
 
 <style scoped>
+  /* --- 新增：页面加载动画定义 --- */
+  @keyframes fadeInUp {
+      from {
+          opacity: 0;
+          transform: translateY(20px);
+      }
+      to {
+          opacity: 1;
+          transform: translateY(0);
+      }
+  }
+
   /* --- 浏览器自动填充样式 (保持不变) --- */
   .input-field:-webkit-autofill,
   .input-field:-webkit-autofill:hover,
@@ -544,7 +557,8 @@
       caret-color: #ffffff;
       transition: background-color 5000s ease-in-out 0s;
   }
-  /* CSS样式部分 */
+
+  /* CSS样式部分 (恢复为您的原始样式) */
   .home-page-wrapper {
       font-family: 'Noto Sans SC', sans-serif;
       background-color: #121212;
@@ -571,6 +585,9 @@
       font-weight: 700;
       margin-bottom: 0.5rem;
       text-shadow: 0 0 15px rgba(255, 255, 255, 0.1);
+      /* 应用加载动画 */
+      animation: fadeInUp 0.5s ease-out forwards;
+      opacity: 0;
   }
 
   .subtitle {
@@ -580,6 +597,9 @@
       max-width: 550px;
       margin-left: auto;
       margin-right: auto;
+      /* 应用加载动画, 延迟0.2秒 */
+      animation: fadeInUp 0.5s ease-out 0.2s forwards;
+      opacity: 0;
   }
 
   .market-thermometer-container {
@@ -591,6 +611,9 @@
       transition: transform 0.3s ease, border-color 0.3s ease;
       margin: 0 auto 2rem auto;
       text-align: left;
+      /* 应用加载动画, 延迟0.4秒 */
+      animation: fadeInUp 0.5s ease-out 0.4s forwards;
+      opacity: 0;
   }
 
   .market-thermometer-container.clickable {
@@ -683,10 +706,14 @@
       display: grid;
       grid-template-columns: repeat(3, 1fr);
       gap: 1.5rem;
+      /* 应用加载动画, 延迟0.6秒 */
+      animation: fadeInUp 0.5s ease-out 0.6s forwards;
+      opacity: 0;
   }
 
   .strategy-card {
-      background: rgba(255, 255, 255, 0.05);
+      /* 修改：使用更有质感的渐变背景 */
+      background: linear-gradient(145deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.02));
       border: 1px solid rgba(255, 255, 255, 0.1);
       border-radius: 12px;
       padding: 1.2rem;
@@ -793,7 +820,7 @@
       color: #add8e6;
   }
 
-  /* 新增：页面底部会员信息的样式 */
+  /* 页面底部会员信息的样式 */
   .user-actions-footer {
       text-align: center;
       margin-top: 3rem; /* 与上方网格保持足够距离 */
@@ -804,6 +831,9 @@
       justify-content: center;
       align-items: center;
       gap: 0.8rem; /* 在各项之间创建一些空间 */
+      /* 应用加载动画, 延迟0.8秒 */
+      animation: fadeInUp 0.5s ease-out 0.8s forwards;
+      opacity: 0;
   }
 
   .user-actions-footer .separator {
@@ -822,10 +852,11 @@
   .user-actions-footer .action-link:hover {
       color: #00aaff; /* 悬停时变为高亮色 */
       border-bottom-color: #00aaff; /* 显示下划线 */
+      /* 修改：添加辉光效果 */
+      text-shadow: 0 0 8px rgba(0, 170, 255, 0.7);
   }
 
-  /* 在样式文件末尾，添加新弹窗和表单的样式 */
-  /* 这些样式可以复用登录页的，以保持风格统一 */
+  /* --- 之后的所有样式都恢复为您的原始版本 --- */
 
   .modal-backdrop {
       position: fixed;
@@ -995,6 +1026,7 @@
       box-shadow: 0 0 15px #00aaff, 0 0 30px rgba(0, 170, 255, 0.5);
   }
 
+  /* ... 之后的响应式和其他样式都保持您原来的版本 ... */
   @media (max-width: 1024px) {
       .features-grid {
           grid-template-columns: repeat(2, 1fr);
@@ -1141,30 +1173,24 @@
       color: #fff;
   }
 
-  /* ... Your other CSS rules up to the membership-footer ... */
-
   /* ==================================================== */
   /* ========   RESPONSIVE STYLES (Tablet & Mobile)  ======== */
   /* ==================================================== */
 
-  /* --- Medium screens / Tablets (<= 1024px) --- */
   @media (max-width: 1024px) {
       .main-container {
-          /* Allow the container to shrink and add some horizontal padding */
           width: 95%;
           padding-left: 1rem;
           padding-right: 1rem;
-          max-width: none; /* Override the desktop max-width */
+          max-width: none;
       }
 
-      /* Make the page scrollable instead of trying to vertically center everything */
       .home-page-wrapper {
           align-items: flex-start;
           padding-top: 2rem;
-          overflow-y: auto; /* Allow scrolling if content is too long */
+          overflow-y: auto;
       }
 
-      /* Switch to a 2-column grid for the feature cards */
       .features-grid {
           grid-template-columns: repeat(2, 1fr);
           gap: 1.2rem;
@@ -1175,9 +1201,7 @@
       }
   }
 
-  /* --- Small screens / Large Phones (<= 768px) --- */
   @media (max-width: 768px) {
-      /* Adjust background for a better look on portrait screens */
       .home-page-wrapper {
           background: radial-gradient(circle at 15% 50%, #1a2a4a, transparent 40%),
               radial-gradient(circle at 85% 50%, #4a1a2a, transparent 40%), #121212;
@@ -1187,13 +1211,11 @@
           width: 100%;
       }
 
-      /* Reduce card size slightly */
       .strategy-card {
           padding: 1rem;
           min-height: 140px;
       }
 
-      /* Make modal popups take up more screen width */
       .modal-content {
           width: 80%;
           padding: 1.5rem;
@@ -1203,26 +1225,22 @@
           font-size: 1.2rem;
       }
 
-      /* Reduce chart height on smaller screens */
       .echart-container {
           height: 400px;
       }
       .modal-content {
-          width: 80%; /* 弹窗宽度占屏幕的90%，避免贴边 */
-          padding: 1.5rem 1.2rem; /* 减小内边距 */
-          max-height: 90vh; /* 新增：最大高度，防止内容超长 */
-          overflow-y: auto; /* 新增：当内容超长时，弹窗内部可以滚动 */
+          width: 80%;
+          padding: 1.5rem 1.2rem;
+          max-height: 90vh;
+          overflow-y: auto;
       }
 
-      /* --- 新增：统一调整所有弹窗头部 --- */
       .modal-header h3 {
-          font-size: 1.2rem; /* 减小弹窗标题字号 */
+          font-size: 1.2rem;
       }
 
-      /* --- 新增：为图表弹窗调整图表高度 --- */
       .echart-container {
-          /* 您已有此规则，可以保留或调整数值 */
-          height: 350px; /* 在中等屏幕上设置一个合适的高度 */
+          height: 350px;
       }
       .user-profile-bar {
           flex-direction: column;
@@ -1230,38 +1248,32 @@
           padding: 1rem;
       }
       .password-modal-content {
-          /* 可以稍微减小内边距，让内容区更大 */
           padding: 2rem 1.5rem;
       }
 
       .password-modal-content .modal-header {
-          /* 减小头部与表单的距离 */
           margin-bottom: 1.5rem;
       }
 
       .password-modal-content .modal-header h3 {
-          /* 减小标题字号 */
           font-size: 1.3rem;
       }
 
       .password-modal-content .form-group {
-          /* ✨ 核心修改：缩短输入框的下外边距 */
-          margin-bottom: 1.5rem; /* 从原来的 2.2rem 缩短 */
+          margin-bottom: 1.5rem;
       }
 
       .password-modal-content .submit-btn {
-          /* 减小按钮的上外边距 */
           margin-top: 1rem;
       }
   }
 
-  /* --- Extra Small screens / Most Phones (<= 576px) --- */
   @media (max-width: 576px) {
       .home-page-wrapper {
-          padding: 1.5rem 1rem; /* Add padding to the main wrapper */
+          padding: 1.5rem 1rem;
       }
       .main-container {
-          padding: 0; /* Remove padding from container as wrapper now has it */
+          padding: 0;
       }
 
       .main-title {
@@ -1278,50 +1290,46 @@
       }
 
       .thermometer-header {
-          /* Stack title and other elements vertically */
-          /* flex-direction: column; */
           align-items: flex-start;
           justify-content: center;
           gap: 0.25rem;
       }
       .thermometer-desc {
-          text-align: center; /* Align date to the left */
+          text-align: center;
           margin-top: 0.1rem;
           margin-bottom: 1.2rem;
       }
 
-      /* Switch to a single-column grid, stacking cards vertically */
       .features-grid {
           grid-template-columns: 1fr;
       }
 
       .strategy-card {
-          display: flex; /* 启用 Flexbox 布局 */
-          flex-direction: column; /* 设置主轴为垂直方向，实现堆叠效果 */
-          justify-content: center; /* 在垂直方向上居中对齐内容 */
-          align-items: center; /* 在水平方向上居中对齐内容 */
-          text-align: center; /* 确保文本本身也是居中对齐的 */
-          padding: 0.2rem 1rem 0.8rem; /* 调整内边距，上下多一些，左右少一些 */
-          min-height: 140px; /* 设置一个最小高度，让所有卡片看起来更统一 */
+          display: flex;
+          flex-direction: column;
+          justify-content: center;
+          align-items: center;
+          text-align: center;
+          padding: 0.2rem 1rem 0.8rem;
+          min-height: 140px;
       }
 
       .strategy-card .card-icon {
           font-size: 2.2rem;
-          margin: 0 0 0.75rem 0; /* 清除所有外边距，只在图标下方留出空间 */
+          margin: 0 0 0.75rem 0;
       }
 
       .strategy-card .card-title {
           font-size: 1.15rem;
           line-height: 1.3;
-          margin: 0 0 0.5rem 0; /* 清除所有外边距，只在标题下方留出空间 */
+          margin: 0 0 0.5rem 0;
       }
 
       .strategy-card .card-description {
           font-size: 0.85rem;
-          line-height: 1.5; /* 为正文设置更舒适的行高 */
+          line-height: 1.5;
           color: #b0c4de;
           margin: 0;
-          /* 一个小技巧：限制描述的最大宽度，使其在换行时更好看 */
           max-width: 90%;
       }
 
@@ -1330,9 +1338,8 @@
           font-size: 0.8rem;
       }
 
-      /* Adjust welcome modal for small screens */
       .welcome-modal-button {
-          width: 100%; /* Make button full-width */
+          width: 100%;
       }
 
       .welcome-modal-body ul {
@@ -1340,15 +1347,14 @@
       }
 
       .echart-container {
-          height: 350px; /* Further reduce chart height */
+          height: 350px;
       }
       .user-actions-footer {
-          flex-direction: column; /* 垂直堆叠 */
-          gap: 0.5rem; /* 减小堆叠后的间距 */
+          flex-direction: column;
+          gap: 0.5rem;
           margin-top: 2.5rem;
       }
 
-      /* 在堆叠模式下，隐藏分隔符 */
       .user-actions-footer .separator {
           display: none;
       }
