@@ -24,8 +24,65 @@
           <h2 class="card-title">策略简介</h2>
           <p class="card-description">
             本策略以“三低”（低价格、低溢价率、低剩余规模）因子为量化核心，每日筛选并轮动交易具备高性价比的可转债组合。我们摒弃主观预测，严格执行纪律，旨在动态捕捉市场短期价值机会，力求实现稳健的复利增长。
-
           </p>
+        </div>
+
+        <!-- 新增：转债市场概览 -->
+        <div class="content-card">
+          <h2 class="card-title">转债市场概览</h2>
+          <p class="card-description">
+            以下为截至 <strong>{{ formattedDate }}</strong> 的最新全市场可转债核心数据统计，反映市场整体温度。
+          </p>
+
+          <!-- 核心指标 -->
+          <div class="market-stats-grid">
+            <div class="stat-item">
+              <div class="stat-value">
+                {{ marketData.equal_weight_index.toFixed(2) }}
+                <span :class="['stat-change', marketData.equal_weight_change_pct <= 0 ? 'positive' : 'negative']">
+                  {{ formattedChangePct }}
+                </span>
+              </div>
+              <div class="stat-label">可转债等权指数</div>
+            </div>
+            <div class="stat-item">
+              <div class="stat-value">{{ marketData.median_price.toFixed(2) }}</div>
+              <div class="stat-label">价格中位数</div>
+            </div>
+            <div class="stat-item">
+              <div class="stat-value">{{ (marketData.median_premium_rate * 100).toFixed(2) }}%</div>
+              <div class="stat-label">溢价率中位数</div>
+            </div>
+          </div>
+
+          <!-- 价格分布 -->
+          <h3 class="card-subtitle">价格分布情况 (只)</h3>
+          <div class="price-dist-grid">
+            <div class="dist-item">
+              <div class="dist-count">{{ marketData.price_distribution.lt_90 }}</div>
+              <div class="dist-range">&lt; 90元</div>
+            </div>
+            <div class="dist-item">
+              <div class="dist-count">{{ marketData.price_distribution.btw_90_100 }}</div>
+              <div class="dist-range">90 ~ 100元</div>
+            </div>
+            <div class="dist-item">
+              <div class="dist-count">{{ marketData.price_distribution.btw_100_110 }}</div>
+              <div class="dist-range">100 ~ 110元</div>
+            </div>
+            <div class="dist-item">
+              <div class="dist-count">{{ marketData.price_distribution.btw_110_120 }}</div>
+              <div class="dist-range">110 ~ 120元</div>
+            </div>
+            <div class="dist-item">
+              <div class="dist-count">{{ marketData.price_distribution.btw_120_130 }}</div>
+              <div class="dist-range">120 ~ 130元</div>
+            </div>
+            <div class="dist-item">
+              <div class="dist-count">{{ marketData.price_distribution.gt_130 }}</div>
+              <div class="dist-range">&gt; 130元</div>
+            </div>
+          </div>
         </div>
 
         <!-- 组合思想 -->
@@ -117,16 +174,6 @@
           <h3 class="card-subtitle">组合调仓指引</h3>
           <div class="adjustments-grid">
             <div class="adjustment-block">
-              <h4 class="adjustment-title buy">⬆️ 建议调入</h4>
-              <ul class="adjustment-list">
-                <li v-for="item in buyList" :key="item.code" class="adjustment-item">
-                  <span>{{ item.name }} ({{ item.code }})</span>
-                  <span class="action-badge buy">{{ item.action }}</span>
-                </li>
-                <li v-if="buyList.length === 0" class="adjustment-item-empty">今日无调入建议</li>
-              </ul>
-            </div>
-            <div class="adjustment-block">
               <h4 class="adjustment-title sell">⬇️ 建议调出</h4>
               <ul class="adjustment-list">
                 <li v-for="item in sellList" :key="item.code" class="adjustment-item">
@@ -136,6 +183,17 @@
                 <li v-if="sellList.length == 0" class="adjustment-item-empty">今日无调出建议</li>
               </ul>
             </div>
+            <div class="adjustment-block">
+              <h4 class="adjustment-title buy">⬆️ 建议调入</h4>
+              <ul class="adjustment-list">
+                <li v-for="item in buyList" :key="item.code" class="adjustment-item">
+                  <span>{{ item.name }} ({{ item.code }})</span>
+                  <span class="action-badge buy">{{ item.action }}</span>
+                </li>
+                <li v-if="buyList.length === 0" class="adjustment-item-empty">今日无调入建议</li>
+              </ul>
+            </div>
+
           </div>
         </div>
         <!-- 历史业绩与收益曲线卡片 -->
@@ -187,19 +245,63 @@
           name: 'getBondPortfolio',
           parse: true
       }).then((res: any) => {
+          // 直接使用从云函数返回的结果
           strategyData.value = res.result
       })
   }
+
   // --- 策略持仓与调仓数据 ---
   const strategyData: any = ref({
       adjustments: [],
-      latest_portfolio: []
+      latest_portfolio: [],
+      market_overview: {
+          // 初始化市场概览数据结构
+          equal_weight_index: 0,
+          equal_weight_change_pct: 0,
+          median_price: 0,
+          median_premium_rate: 0,
+          price_distribution: {
+              lt_90: 0,
+              btw_90_100: 0,
+              btw_100_110: 0,
+              btw_110_120: 0,
+              btw_120_130: 0,
+              gt_130: 0
+          }
+      }
   })
   getStrategyData()
   const formattedDate = computed(() => {
       const dateStr = strategyData.value.latest_date
       if (!dateStr || dateStr.length !== 8) return dateStr
       return `${dateStr.slice(0, 4)}-${dateStr.slice(4, 6)}-${dateStr.slice(6, 8)}`
+  })
+
+  // --- 新增：处理市场概览数据的计算属性 ---
+  const marketData = computed(() => {
+      // 提供默认值，防止数据加载完成前模板渲染出错
+      return (
+          strategyData.value.market_overview || {
+              equal_weight_index: 0,
+              equal_weight_change_pct: 0,
+              median_price: 0,
+              median_premium_rate: 0,
+              price_distribution: {
+                  lt_90: 0,
+                  btw_90_100: 0,
+                  btw_100_110: 0,
+                  btw_110_120: 0,
+                  btw_120_130: 0,
+                  gt_130: 0
+              }
+          }
+      )
+  })
+
+  const formattedChangePct = computed(() => {
+      const pct = marketData.value.equal_weight_change_pct * 100
+      const sign = pct > 0 ? '+' : ''
+      return `${sign}${pct.toFixed(2)}%`
   })
 
   const buyList = computed(() =>
@@ -219,12 +321,12 @@
       {
           question: '我如何才能参与“可转债策略”？',
           answer: `我们所有的策略操作，都在交易日的下午2:30之后执行，以贴近收盘价，确保操作的有效性。\n
-                                    首次参与\n
-                                    如果您是第一次参与本策略，请根据最新持仓列表，然后将您计划投入的资金，对列表中的所有品种进行等权重买入，即可完成初始建仓。\n
-                                    后续调仓\n
-                                    完成建仓后，您无需进行任何复杂的分析。每个交易日，您只需严格遵循我们发布的组合调仓指引进行操作即可。该指引会直接、明确地列出当天需要卖出和买入的具体品种。
-                                    \n参与前提：\n
-                  在进行任何交易前，请务必确保您的A股证券账户已成功开通“可转换债券”的交易权限（通常要求2年交易经验及连续20日日均10万资产）。详情请咨询您的开户券商。`
+                                                    首次参与\n
+                                                    如果您是第一次参与本策略，请根据最新持仓列表，然后将您计划投入的资金，对列表中的所有品种进行等权重买入，即可完成初始建仓。\n
+                                                    后续调仓\n
+                                                    完成建仓后，您无需进行任何复杂的分析。每个交易日，您只需严格遵循我们发布的组合调仓指引进行操作即可。该指引会直接、明确地列出当天需要卖出和买入的具体品种。
+                                                    \n参与前提：\n
+                                  在进行任何交易前，请务必确保您的A股证券账户已成功开通“可转换债券”的交易权限（通常要求2年交易经验及连续20日日均10万资产）。详情请咨询您的开户券商。`
       },
       {
           question: '可转债是什么？它为什么适合普通人投资？',
@@ -455,6 +557,10 @@
   .content-card:nth-child(5) {
       animation-delay: 0.6s;
   }
+  /* 为新增的卡片添加动画延迟 */
+  .content-card:nth-child(6) {
+      animation-delay: 0.7s;
+  }
 
   .card-title {
       font-size: 1.4rem;
@@ -528,7 +634,67 @@
       color: #add8e6; /* 主题色 */
   }
 
-  /* --- 新增样式 --- */
+  /* --- 新增：市场概览卡片样式 --- */
+  .market-stats-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1rem;
+      margin-top: 1.5rem;
+  }
+  .stat-item {
+      background: rgba(255, 255, 255, 0.03);
+      border-radius: 8px;
+      padding: 1.2rem 1rem;
+      text-align: center;
+  }
+  .stat-value {
+      font-size: 1.7rem;
+      font-weight: 700;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-wrap: wrap; /* 允许换行 */
+  }
+  .stat-change {
+      font-size: 0.9rem;
+      font-weight: bold;
+      margin-left: 0.5rem;
+  }
+  .stat-change.positive {
+      color: #5cb85c;
+  }
+  .stat-change.negative {
+      color: #d9534f;
+  }
+  .stat-label {
+      font-size: 0.8rem;
+      color: #b0c4de;
+      margin-top: 0.5rem;
+  }
+  .price-dist-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(80px, 1fr));
+      gap: 1rem;
+  }
+  .dist-item {
+      background: rgba(255, 255, 255, 0.03);
+      border-radius: 8px;
+      padding: 1rem;
+      text-align: center;
+  }
+  .dist-count {
+      font-size: 1.5rem;
+      font-weight: bold;
+      color: #fff;
+  }
+  .dist-range {
+      font-size: 0.8rem;
+      color: #b0c4de;
+      margin-top: 0.25rem;
+  }
+  /* --- 结束新增样式 --- */
+
   .card-subtitle {
       font-size: 1.1rem;
       font-weight: bold;
@@ -693,7 +859,6 @@
       }
 
       /* 步骤二：让所有 data-table 表格自身变得可以滚动 */
-      /* 这会同时作用于“核心指标解读”和“最新持仓组合”两个表格 */
       .data-table {
           display: block; /* 关键：将 table 的显示模式改为 block */
           width: 100%;
@@ -701,8 +866,6 @@
           -webkit-overflow-scrolling: touch; /* iOS上提供流畅滚动 */
       }
 
-      /* 步骤三：确保表格的单元格内容不换行，保持结构 */
-      /* 您已有的 white-space: nowrap; 是正确的，我们保留它 */
       .data-table th,
       .data-table td {
           white-space: nowrap;
@@ -716,10 +879,20 @@
       }
 
       /* 步骤五：处理调仓指引，使其垂直排列 */
-      /* 您已有的这个规则是正确的，我们保留它 */
       .adjustments-grid {
           grid-template-columns: 1fr; /* 在小屏幕上，调入调出列表垂直排列 */
           gap: 1.5rem;
+      }
+
+      /* 新增：适配市场概览卡片 */
+      .market-stats-grid {
+          grid-template-columns: 1fr; /* 指标垂直排列 */
+      }
+      .price-dist-grid {
+          grid-template-columns: repeat(3, 1fr); /* 每行3个 */
+      }
+      .stat-value {
+          font-size: 1.5rem;
       }
 
       /* 步骤六 (可选但推荐): 优化标题和正文的字体大小 */
@@ -731,6 +904,13 @@
       }
       .card-description {
           font-size: 0.9rem;
+      }
+  }
+
+  @media (max-width: 480px) {
+      /* 在更小的屏幕上进一步优化价格分布网格 */
+      .price-dist-grid {
+          grid-template-columns: repeat(2, 1fr); /* 每行2个 */
       }
   }
 </style>

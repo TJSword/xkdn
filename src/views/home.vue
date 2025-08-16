@@ -173,6 +173,14 @@
           cssClass: 'long-term',
           link: '/long-term'
       },
+      // {
+      //     id: 6,
+      //     title: '现金流策略',
+      //     description: '构建持续被动收入，打造你的第二份工资。',
+      //     icon: '💰',
+      //     cssClass: 'cash-flow-strategy', // 定义一个新的CSS类
+      //     link: '/cash-flow' // 指向我们新创建的页面路由
+      // },
       {
           id: 3,
           title: '可转债策略',
@@ -198,16 +206,16 @@
           cssClass: 'handy-tools',
           link: '/tools'
       },
+      // {
+      //     id: 6,
+      //     title: '老何的实盘',
+      //     description: '记录真实投资操作，分享市场实战经验。',
+      //     icon: '🚀',
+      //     cssClass: 'personal-ledger',
+      //     link: '/ledger'
+      // },
       {
           id: 6,
-          title: '老何的实盘',
-          description: '记录真实投资操作，分享市场实战经验。',
-          icon: '🚀',
-          cssClass: 'personal-ledger',
-          link: '/ledger'
-      },
-      {
-          id: 7, // 给一个不重复的ID
           title: '财富版图',
           description: '将您的资产目标具象化，一步步点亮全国版图。',
           icon: '🗺️',
@@ -215,7 +223,7 @@
           link: '/wealth-map' // 定义新的路由路径
       },
       {
-          id: 8,
+          id: 7,
           title: '关于本站',
           description: '了解建站初衷、开发者、会员服务与联系方式。',
           icon: '💡',
@@ -819,7 +827,13 @@
   .convertible-bond .card-icon {
       color: #add8e6;
   }
-
+  .cash-flow-strategy:hover {
+      box-shadow: 0 0 15px #e59866;
+      border-color: #e59866;
+  }
+  .cash-flow-strategy .card-icon {
+      color: #e59866;
+  }
   /* 页面底部会员信息的样式 */
   .user-actions-footer {
       text-align: center;
