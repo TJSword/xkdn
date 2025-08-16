@@ -54,6 +54,11 @@ export const constantRoutes = [
     meta: { requiresAuth: true }
   },
   {
+    path: '/cash-flow',
+    component: () => import('@/views/cash-flow.vue'),
+    meta: { requiresAuth: true }
+  },
+  {
     path: '/about',
     component: () => import('@/views/about.vue'),
     meta: { requiresAuth: true }

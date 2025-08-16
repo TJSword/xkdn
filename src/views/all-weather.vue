@@ -156,107 +156,107 @@
                   <th>纳斯达克</th>
                   <th>黄金</th>
                   <th>招商产业债</th>
-                  <th class="highlight-col">全天候收益</th>
+                  <th class="highlight-col">全天候策略</th>
                 </tr>
               </thead>
               <tbody>
                 <tr>
                   <td>2014</td>
-                  <td>45.50</td>
+                  <td>24.83</td>
                   <td>16.13</td>
                   <td>1.93</td>
                   <td>21.42</td>
-                  <td class="highlight-col">19.33</td>
+                  <td class="highlight-col">15.20</td>
                 </tr>
                 <tr>
                   <td>2015</td>
-                  <td>17.10</td>
+                  <td>52.74</td>
                   <td>17.19</td>
                   <td class="negative">-6.79</td>
                   <td>11.85</td>
-                  <td class="highlight-col">8.38</td>
+                  <td class="highlight-col">15.50</td>
                 </tr>
                 <tr>
                   <td>2016</td>
-                  <td>13.57</td>
+                  <td>0.29</td>
                   <td>10.89</td>
                   <td>17.47</td>
                   <td>4.17</td>
-                  <td class="highlight-col">11.38</td>
+                  <td class="highlight-col">8.73</td>
                 </tr>
                 <tr>
                   <td>2017</td>
-                  <td>51.37</td>
+                  <td>46.53</td>
                   <td>21.67</td>
                   <td>2.84</td>
                   <td>3.02</td>
-                  <td class="highlight-col">16.37</td>
+                  <td class="highlight-col">15.40</td>
                 </tr>
                 <tr>
                   <td>2018</td>
-                  <td class="negative">-21.10</td>
+                  <td class="negative">-16.40</td>
                   <td>3.84</td>
                   <td>3.49</td>
                   <td>8.64</td>
-                  <td class="highlight-col">0.19</td>
+                  <td class="highlight-col">1.13</td>
                 </tr>
                 <tr>
                   <td>2019</td>
-                  <td>40.68</td>
+                  <td>45.66</td>
                   <td>39.87</td>
                   <td>19.13</td>
                   <td>6.71</td>
-                  <td class="highlight-col">23.86</td>
+                  <td class="highlight-col">24.86</td>
                 </tr>
                 <tr>
                   <td>2020</td>
-                  <td>37.95</td>
+                  <td>43.28</td>
                   <td>34.37</td>
                   <td>13.90</td>
                   <td>4.17</td>
-                  <td class="highlight-col">19.89</td>
+                  <td class="highlight-col">20.95</td>
                 </tr>
                 <tr>
                   <td>2021</td>
-                  <td>8.91</td>
+                  <td>8.95</td>
                   <td>24.56</td>
                   <td class="negative">-4.78</td>
                   <td>6.50</td>
-                  <td class="highlight-col">7.21</td>
+                  <td class="highlight-col">7.22</td>
                 </tr>
                 <tr>
                   <td>2022</td>
-                  <td class="negative">-6.19</td>
+                  <td class="negative">-11.99</td>
                   <td class="negative">-28.23</td>
                   <td>9.07</td>
                   <td>2.59</td>
-                  <td class="highlight-col negative">-3.39</td>
+                  <td class="highlight-col negative">-4.55</td>
                 </tr>
                 <tr>
                   <td>2023</td>
-                  <td class="negative">-1.85</td>
+                  <td class="negative">-2.52</td>
                   <td>54.14</td>
                   <td>15.95</td>
                   <td>5.00</td>
-                  <td class="highlight-col">16.74</td>
+                  <td class="highlight-col">16.61</td>
                 </tr>
                 <tr>
                   <td>2024</td>
-                  <td>18.38</td>
+                  <td>7.54</td>
                   <td>24.57</td>
                   <td>25.96</td>
                   <td>4.15</td>
-                  <td class="highlight-col">17.62</td>
+                  <td class="highlight-col">15.46</td>
                 </tr>
               </tbody>
               <tfoot>
                 <tr>
                   <td>平均年化</td>
-                  <td>18.57</td>
+                  <td>18.08</td>
                   <td>19.91</td>
                   <td>8.92</td>
                   <td>7.11</td>
-                  <td class="highlight-col">12.51</td>
+                  <td class="highlight-col">12.41</td>
                 </tr>
               </tfoot>
             </table>
