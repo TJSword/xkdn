@@ -33,11 +33,11 @@ export const constantRoutes = [
     component: () => import('@/views/tools.vue'),
     meta: { requiresAuth: true }
   },
-  {
-    path: '/ledger',
-    component: () => import('@/views/ledger.vue'),
-    meta: { requiresAuth: true }
-  },
+  // {
+  //   path: '/ledger',
+  //   component: () => import('@/views/ledger.vue'),
+  //   meta: { requiresAuth: true }
+  // },
   {
     path: '/bonds',
     component: () => import('@/views/bonds.vue'),
@@ -88,9 +88,26 @@ router.beforeEach(async (to, from, next) => {
   // 从 Pinia store 获取 user store 实例
   const userStore: any = useUserStore()
 
-  // 1. 首次进入或刷新页面时，尝试获取用户信息
-  // userStore.fetchUserInfo() 这个 action 内部有逻辑防止重复请求
-  await userStore.fetchUserInfo()
+  try {
+    // 1. 首次进入或刷新页面时，尝试获取用户信息
+    // 如果 fetchUserInfo 内部的 _syncUserInfo 失败并抛出错误，
+    // catch 块会捕获它。
+    await userStore.fetchUserInfo()
+  } catch (error) {
+    // _syncUserInfo 失败时，store 内部已经调用了 logout() 清除了用户信息
+    console.error('在路由守卫中捕获到用户信息同步失败:', error)
+    // 此时用户状态已经是“未登录”，我们只需要决定是放行到白名单页面还是重定向到登录页
+    if (whiteList.includes(to.path)) {
+      // 如果目标是白名单页面（例如 /login），直接放行
+      return next()
+    } else {
+      // 否则，重定向到登录页
+      return next({ path: '/login', query: { redirect: to.fullPath } })
+    }
+  }
+
+  // ---- 下面的逻辑只有在 fetchUserInfo 成功后才会执行 ----
+
   // 优先处理 /admin 页面
   if (to.path === '/admin') {
     if (userStore.userInfo?.admin === true) {
@@ -99,9 +116,8 @@ router.beforeEach(async (to, from, next) => {
     } else {
       next({ name: 'NotFound' })
     }
-    return
+    return // 别忘了 return
   }
-
 
   // 2. 从 store 的 getter 中获取 VIP 状态
   const isVip = userStore.isVip
@@ -116,14 +132,13 @@ router.beforeEach(async (to, from, next) => {
       next()
     }
   } else {
-
     // 检查目标页面是否在白名单中
     if (whiteList.includes(to.path)) {
       // 在白名单中，直接放行
       next()
     } else {
       // 不在白名单中，说明是受保护页面，重定向到登录页
-      next({ path: '/login', query: { redirect: to.fullPath } }) // 可选：带上原路径，方便登录后跳回
+      next({ path: '/login', query: { redirect: to.fullPath } })
     }
   }
 })
