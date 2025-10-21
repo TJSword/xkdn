@@ -547,8 +547,9 @@
       color: #ffffff;
       min-height: 100vh;
       padding: 3rem 1rem;
+      /* --- REPLACE THE LINE BELOW --- */
       background: radial-gradient(circle at 15% 50%, #1a2a4a, transparent 40%),
-          radial-gradient(circle at 85% 50%, #4a1a2a, transparent 40%), #121212;
+          radial-gradient(circle at 85% 50%, #1a205a, transparent 40%), #121212;
   }
 
   .main-container {
