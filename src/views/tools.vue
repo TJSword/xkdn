@@ -36,7 +36,6 @@
                 </tr>
               </thead>
               <tbody>
-                <!-- MODIFICATION: Added data-label attributes for mobile view -->
                 <tr v-for="(asset) in portfolio" :key="asset.id">
                   <td data-label="资产名称"><input type="text" v-model="asset.name" placeholder="如: 沪深300ETF"></td>
                   <td data-label="当前持仓 (元)"><input type="number" v-model.number="asset.amount" min="0"></td>
@@ -54,15 +53,26 @@
               <label for="additional-investment">追加投资金额 (元):</label>
               <input type="number" id="additional-investment" v-model.number="additionalInvestment" placeholder="输入正数为加仓,负数为减仓">
             </div>
+
+            <!-- MODIFICATION: Added "Buy Only Mode" Checkbox -->
+            <div class="checkbox-group">
+              <input type="checkbox" id="buy-only-mode" v-model="buyOnlyMode">
+              <label for="buy-only-mode">仅买入模式 (不卖出资产)</label>
+            </div>
+
             <button class="calculate-btn" @click="calculateRebalance">开始计算</button>
           </div>
 
           <!-- 结果展示 -->
           <div v-if="calculationResult" class="result-container">
-            <h3 class="result-title">平衡方案建议</h3>
+            <h3 class="result-title">
+              平衡方案建议
+              <span class="mode-indicator">({{ calculationResult.mode }})</span>
+            </h3>
             <p class="result-summary">调整后总资产: <strong>{{ calculationResult.newTotal.toFixed(2) }} 元</strong></p>
             <ul class="result-list">
-              <li v-for="item in calculationResult.adjustments" :key="item.name">
+              <!-- MODIFICATION: Hide zero-adjustment items -->
+              <li v-for="item in calculationResult.adjustments" :key="item.name" v-show="item.adjustment > 0.01">
                 <strong>【{{ item.name }}】</strong>:
                 <span :class="item.action === '买入' ? 'buy-action' : 'sell-action'">
                   需{{ item.action }} <strong>{{ item.adjustment.toFixed(2) }}</strong> 元
@@ -154,6 +164,7 @@
   interface Result {
       newTotal: number
       adjustments: Adjustment[]
+      mode: '完全平衡' | '仅买入' // MODIFICATION: Added mode
   }
 
   // 复利计算器输入类型
@@ -175,6 +186,7 @@
   ])
   const additionalInvestment = ref<number>(1000)
   const calculationResult = ref<Result | null>(null)
+  const buyOnlyMode = ref<boolean>(false) // MODIFICATION: Add state for the checkbox
 
   // 复利计算器状态
   const compoundInputs = ref<CompoundInputs>({
@@ -203,6 +215,7 @@
   }
 
   const calculateRebalance = () => {
+      // --- 验证部分 (无变化) ---
       const totalTarget = portfolio.value.reduce((sum, asset) => sum + (asset.target || 0), 0)
       if (Math.abs(totalTarget - 100) > 0.01) {
           alert(`错误：计划比例总和必须为100%，当前为 ${totalTarget}%。`)
@@ -211,34 +224,107 @@
       }
 
       const currentTotal = portfolio.value.reduce((sum, asset) => sum + asset.amount, 0)
-      const newTotal = currentTotal + (additionalInvestment.value || 0)
 
-      if (newTotal < 0) {
-          alert('错误：减仓金额不能超过总资产。')
-          calculationResult.value = null
-          return
+      // MODIFICATION START: Replaced the entire "buyOnlyMode" logic
+      if (buyOnlyMode.value) {
+          // --- 新的、正确的“仅买入模式”逻辑 ---
+          if (additionalInvestment.value <= 0) {
+              alert('错误：“仅买入模式”下，追加投资金额必须为正数。')
+              calculationResult.value = null
+              return
+          }
+
+          const newTotal = currentTotal + additionalInvestment.value
+
+          // 1. 计算每个资产的资金缺口 (理想金额 - 当前金额)
+          const potentialBuys = portfolio.value
+              .map(asset => {
+                  const targetAmount = newTotal * (asset.target / 100)
+                  const gap = targetAmount - asset.amount
+                  return {
+                      ...asset,
+                      gap: gap > 0 ? gap : 0 // 只考虑正的缺口
+                  }
+              })
+              .filter(asset => asset.gap > 0) // 筛选出所有需要买入的资产
+
+          // 如果没有任何资产需要买入 (例如所有资产都已超配)
+          if (potentialBuys.length === 0) {
+              alert(
+                  '提示：所有资产均已达到或超过目标比例。追加的投资将按目标比例分配给所有资产，以维持平衡。'
+              )
+              // 在这种特殊情况下，按目标比例分配新资金
+              const adjustments: Adjustment[] = portfolio.value.map(asset => ({
+                  name: asset.name || '未命名资产',
+                  action: '买入',
+                  adjustment: additionalInvestment.value * (asset.target / 100)
+              }))
+              calculationResult.value = {
+                  newTotal,
+                  adjustments,
+                  mode: '仅买入'
+              }
+              return
+          }
+
+          // 2. 计算总的资金缺口
+          const totalGap = potentialBuys.reduce((sum, asset) => sum + asset.gap, 0)
+
+          // 3. 按缺口比例分配追加的投资额
+          const adjustments: Adjustment[] = portfolio.value.map(asset => {
+              const buyCandidate = potentialBuys.find(b => b.id === asset.id)
+              if (buyCandidate) {
+                  const buyAmount = additionalInvestment.value * (buyCandidate.gap / totalGap)
+                  return {
+                      name: asset.name || '未命名资产',
+                      action: '买入',
+                      adjustment: buyAmount
+                  }
+              } else {
+                  return {
+                      name: asset.name || '未命名资产',
+                      action: '持有',
+                      adjustment: 0
+                  }
+              }
+          })
+
+          calculationResult.value = {
+              newTotal,
+              adjustments,
+              mode: '仅买入'
+          }
+      } else {
+          // --- 完全平衡模式 (原始逻辑，无变化) ---
+          const newTotal = currentTotal + (additionalInvestment.value || 0)
+
+          if (newTotal < 0) {
+              alert('错误：减仓金额不能超过总资产。')
+              calculationResult.value = null
+              return
+          }
+
+          const adjustments: Adjustment[] = portfolio.value.map(asset => {
+              const targetAmount = newTotal * (asset.target / 100)
+              const adjustmentValue = targetAmount - asset.amount
+              let action: '买入' | '卖出' | '持有' = '持有'
+
+              if (adjustmentValue > 0.01) {
+                  action = '买入'
+              } else if (adjustmentValue < -0.01) {
+                  action = '卖出'
+              }
+              return {
+                  name: asset.name || '未命名资产',
+                  action,
+                  adjustment: Math.abs(adjustmentValue)
+              }
+          })
+
+          calculationResult.value = { newTotal, adjustments, mode: '完全平衡' }
       }
-
-      const adjustments: Adjustment[] = portfolio.value.map(asset => {
-          const targetAmount = newTotal * (asset.target / 100)
-          const adjustmentValue = targetAmount - asset.amount
-          let action: '买入' | '卖出' | '持有' = '持有'
-
-          if (adjustmentValue > 0.01) {
-              action = '买入'
-          } else if (adjustmentValue < -0.01) {
-              action = '卖出'
-          }
-          return {
-              name: asset.name || '未命名资产',
-              action,
-              adjustment: Math.abs(adjustmentValue)
-          }
-      })
-
-      calculationResult.value = { newTotal, adjustments }
+      // MODIFICATION END
   }
-
   // --- 复利计算器方法 ---
   const calculateCompoundInterest = () => {
       const { principal, rate, years, monthlyContribution } = compoundInputs.value
@@ -295,10 +381,10 @@
                   const interestVal = params[1].value
                   const totalVal = principalVal + interestVal
                   return `<strong>${year}</strong><br/>
-                                          累计本金: ${principalVal.toLocaleString()} 元<br/>
-                                          累计收益: ${interestVal.toLocaleString()} 元<br/>
-                                          <strong style="color: #8a2be2;">资产总计: ${totalVal.toLocaleString()} 元</strong>
-                                        `
+                                                累计本金: ${principalVal.toLocaleString()} 元<br/>
+                                                累计收益: ${interestVal.toLocaleString()} 元<br/>
+                                                <strong style="color: #8a2be2;">资产总计: ${totalVal.toLocaleString()} 元</strong>
+                                              `
               }
           },
           legend: {
@@ -342,7 +428,6 @@
                   stack: 'total',
                   emphasis: { focus: 'series' },
                   data: interestData,
-                  // MODIFICATION: Changed color to match theme, updated comment
                   itemStyle: { color: '#FFBF00' } // 使用主题色，代表增益
               }
           ]
@@ -596,6 +681,43 @@
       outline: none;
   }
 
+  /* MODIFICATION: Style for the new checkbox */
+  .checkbox-group {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      cursor: pointer;
+      user-select: none;
+  }
+  .checkbox-group input[type='checkbox'] {
+      cursor: pointer;
+      appearance: none;
+      -webkit-appearance: none;
+      width: 1.2em;
+      height: 1.2em;
+      border: 2px solid #8a2be2;
+      border-radius: 4px;
+      position: relative;
+      transition: background-color 0.2s;
+      vertical-align: middle;
+  }
+  .checkbox-group input[type='checkbox']:checked {
+      background-color: #8a2be2;
+  }
+  .checkbox-group input[type='checkbox']:checked::after {
+      content: '✔';
+      color: #fff;
+      font-size: 0.8em;
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+  }
+  .checkbox-group label {
+      color: #b0c4de;
+      font-size: 0.9rem;
+  }
+
   .calculate-btn {
       background-color: #8a2be2;
       color: #ffffff;
@@ -607,7 +729,7 @@
       cursor: pointer;
       transition: all 0.3s ease;
       box-shadow: 0 0 15px rgba(138, 43, 226, 0.3);
-      flex-grow: 1; /* 让按钮在flex容器中可以伸展 */
+      flex-grow: 1;
   }
   .calculate-btn:hover {
       transform: translateY(-2px);
@@ -649,11 +771,23 @@
   .sell-action {
       color: #dc3545;
   }
+  /* MODIFICATION: Style for mode indicator in results */
+  .mode-indicator {
+      display: inline-block;
+      font-size: 0.8rem;
+      font-weight: normal;
+      color: #b0c4de;
+      background-color: rgba(255, 255, 255, 0.1);
+      padding: 2px 8px;
+      border-radius: 4px;
+      margin-left: 0.5rem;
+      vertical-align: middle;
+  }
 
   /* 图表容器样式 */
   .chart-container {
       margin-top: 2rem;
-      height: 400px; /* 必须给图表一个明确的高度 */
+      height: 400px;
   }
 
   /* 待开发卡片样式 */
@@ -696,16 +830,15 @@
           font-size: 0.9rem;
       }
 
-      /* MODIFICATION: Responsive table styles start */
+      /* 响应式表格 */
       .table-container {
-          overflow-x: hidden; /* Hide horizontal scroll on mobile */
+          overflow-x: hidden;
       }
       .data-table {
-          min-width: 100%; /* Allow table to shrink */
-          border-collapse: separate; /* Required for border-radius on tr */
+          min-width: 100%;
+          border-collapse: separate;
           border-spacing: 0;
       }
-      /* Hide table headers, but not for screen readers */
       .data-table thead {
           border: none;
           clip: rect(0 0 0 0);
@@ -716,7 +849,6 @@
           position: absolute;
           width: 1px;
       }
-
       .data-table tr {
           display: block;
           border: 1px solid rgba(255, 255, 255, 0.1);
@@ -724,7 +856,6 @@
           margin-bottom: 1rem;
           padding: 0.5rem 1rem;
       }
-
       .data-table td {
           display: block;
           text-align: right;
@@ -733,12 +864,10 @@
           padding-left: 50%;
           border-bottom: 1px solid rgba(255, 255, 255, 0.08);
       }
-
       .data-table td:last-child {
           border-bottom: none;
           padding-top: 1rem;
       }
-
       .data-table td::before {
           content: attr(data-label);
           position: absolute;
@@ -751,15 +880,12 @@
           color: #b0c4de;
           font-size: 0.9em;
       }
-
       .data-table input[type='text'],
       .data-table input[type='number'] {
           width: 100%;
           text-align: right;
           padding: 0.5rem;
       }
-
-      /* Special styling for the action button cell */
       .data-table td[data-label='操作'] {
           padding-left: 0;
           text-align: center;
@@ -767,7 +893,6 @@
       .data-table td[data-label='操作']::before {
           content: none;
       }
-      /* MODIFICATION: Responsive table styles end */
 
       .calculator-inputs {
           grid-template-columns: 1fr;
@@ -778,9 +903,22 @@
       .calculation-zone {
           flex-direction: column;
           align-items: stretch;
-          gap: 1.5rem;
+          gap: 1rem;
       }
 
+      /* MODIFICATION: Mobile layout for checkbox and button */
+      .rebalance-calculator .input-group,
+      .rebalance-calculator .checkbox-group {
+          width: 100%;
+      }
+      .checkbox-group {
+          margin-bottom: 0.5rem;
+          justify-content: flex-start;
+      }
+      .rebalance-calculator .calculate-btn {
+          width: 100%;
+          max-width: none;
+      }
       .input-group {
           width: 100%;
           flex-direction: column;
@@ -788,11 +926,6 @@
           gap: 0.5rem;
       }
       .input-group input {
-          width: 100%;
-          max-width: none;
-      }
-
-      .calculate-btn {
           width: 100%;
           max-width: none;
       }
@@ -806,13 +939,13 @@
           margin-top: 1.5rem;
       }
   }
+
+  /* 隐藏数字输入框的上下箭头 */
   input::-webkit-outer-spin-button,
   input::-webkit-inner-spin-button {
       -webkit-appearance: none;
       margin: 0;
   }
-
-  /* 隐藏数字输入框的上下箭头 (适用于 Firefox) */
   input[type='number'] {
       -moz-appearance: textfield;
   }

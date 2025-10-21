@@ -64,6 +64,16 @@ export const constantRoutes = [
     meta: { requiresAuth: true }
   },
   {
+    path: '/market-compass',
+    component: () => import('@/views/market-compass.vue'),
+    meta: { requiresAuth: true }
+  },
+  // {
+  //   path: '/index-compass',
+  //   component: () => import('@/views/index-compass.vue'),
+  //   meta: { requiresAuth: true }
+  // },
+  {
     path: '/admin',
     component: () => import('@/views/admin.vue'),
     meta: { requiresAuth: true }
