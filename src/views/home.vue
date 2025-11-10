@@ -31,16 +31,17 @@
 
       <!-- 功能网格 -->
       <div class="features-grid">
-        <router-link v-for="card in allFeatureCards" :key="card.id" :to="card.link" :class="['strategy-card', card.cssClass]">
+        <div v-for="card in allFeatureCards" :key="card.id"
+          :class="['strategy-card', card.cssClass, { 'disabled-card': card.vipOnly && !userStore.isVip }]" @click="handleCardClick(card)">
           <div class="card-icon">{{ card.icon }}</div>
           <h2 class="card-title">{{ card.title }}</h2>
           <p class="card-description">{{ card.description }}</p>
-        </router-link>
+        </div>
       </div>
 
       <!-- 新增：页面底部的会员到期信息 -->
       <div class="user-actions-footer">
-        <span>👑 会员有效期至: {{ membershipExpiryDate }}</span>
+        <span>{{ membershipStatusText }}</span>
         <span class="separator">|</span>
         <div href="#" @click.prevent="openPasswordModal" class="action-link">修改密码</div>
       </div>
@@ -125,16 +126,49 @@
       </div>
     </Transition>
 
+    <Transition name="modal-fade">
+      <div v-if="isVipModalVisible" class="modal-backdrop" @click="closeVipModal">
+        <div class="modal-content vip-modal-content" @click.stop>
+          <div class="modal-header">
+            <h3>🚀 解锁 Pro 权限</h3>
+            <button class="modal-close-button" @click="closeVipModal">×</button>
+          </div>
+          <div class="modal-body">
+            <p class="vip-modal-desc">
+              升级 Pro 会员，解锁全站所有投资策略。
+            </p>
+
+            <div class="price-tag">
+              体验价 <span class="price-highlight">1元 / 周</span>
+            </div>
+
+            <p class="contact-prompt">
+              开通会员或咨询，请添加开发者微信：
+            </p>
+
+            <div class="wechat-box">
+              <span>lib-young</span>
+            </div>
+
+            <button class="vip-modal-button" @click="copyWeChatID">
+              一键复制微信，立即开通
+            </button>
+          </div>
+        </div>
+      </div>
+    </Transition>
   </div>
 </template>
 
 <script setup lang="ts">
   import { ref, computed, watch, nextTick, onMounted, onUnmounted } from 'vue'
+  import { useRouter } from 'vue-router'
   import app, { auth } from '@/lib/cloudbase'
   import * as echarts from 'echarts'
   import { useUserStore } from '@/store/user'
   const showMessage: any = inject('showMessage')
   const userStore: any = useUserStore()
+  const router = useRouter()
   // console.log(userStore.userInfo.admin)
 
   // --- 接口定义 ---
@@ -145,6 +179,7 @@
       icon: string
       cssClass: string
       link: string
+      vipOnly?: boolean
   }
   interface StarDataItem {
       day: string
@@ -171,7 +206,8 @@
           description: '关注长期价值投资，忽略短期市场波动。',
           icon: '⌛',
           cssClass: 'long-term',
-          link: '/long-term'
+          link: '/long-term',
+          vipOnly: true
       },
       // {
       //     id: 6,
@@ -187,7 +223,8 @@
           description: '基于三低轮动模型，每日动态捕捉交易机会。',
           icon: '🔄',
           cssClass: 'convertible-bond',
-          link: '/bonds'
+          link: '/bonds',
+          vipOnly: true
       },
       {
           id: 4,
@@ -195,7 +232,8 @@
           description: '日度跟踪微盘组合，纪律化调仓获取贝塔收益。',
           icon: '💎',
           cssClass: 'micro-cap',
-          link: '/micro-cap'
+          link: '/micro-cap',
+          vipOnly: true
       },
 
       // {
@@ -242,6 +280,32 @@
 
   // --- 会员状态 ---
   const membershipExpiryDate = ref('加载中...')
+  const isVipModalVisible = ref(false)
+  const openVipModal = () => {
+      isVipModalVisible.value = true
+  }
+  const closeVipModal = () => {
+      isVipModalVisible.value = false
+  }
+
+  // 创建一个跳转到“关于”页面的函数，给按钮使用
+  const copyWeChatID = async () => {
+      const wechatID = 'lib-young'
+      try {
+          // 使用 navigator.clipboard API 写入剪贴板
+          await navigator.clipboard.writeText(wechatID)
+          // 成功后给出提示
+          showMessage('微信号已复制到剪贴板！', 'success')
+          // 复制成功后可以自动关闭弹窗，体验更好
+          closeVipModal()
+      } catch (err) {
+          // 如果失败（例如在非安全环境下），给出错误提示
+          console.error('复制失败:', err)
+          showMessage('复制失败，请手动复制。', 'error')
+      }
+  }
+
+  // 【关键】修改 handleCardClick 函数
 
   // --- 市场温度计与数据处理 ---
   const rawHistoryData = ref<StarDataItem[]>([])
@@ -318,11 +382,15 @@
                   }
               } else {
                   // 处理云函数本身返回错误的情况
+                  console.log(router)
+                  router.push({ name: 'login' })
                   console.error('getMarketData 函数执行失败:', res.result?.error)
                   latestDate.value = '数据加载失败'
               }
           })
           .catch((err: any) => {
+              console.log(router)
+              router.push({ name: 'login' })
               console.error('调用 getMarketData 云函数失败:', err)
               latestDate.value = '数据加载失败'
           })
@@ -332,9 +400,18 @@
       isWelcomeModalVisible.value = false
   }
 
+  const handleCardClick = (card: FeatureCard) => {
+      if (card.vipOnly && !userStore.isVip) {
+          // 不再使用 showMessage，而是打开我们的新弹窗
+          openVipModal()
+      } else {
+          router.push(card.link)
+      }
+  }
+
   onMounted(async () => {
       // 现在我们并行获取会员信息和所有的市场数据
-      await Promise.all([getMembershipExpiry(), fetchMarketData()])
+      await fetchMarketData()
 
       // --- 您 onMounted 中的其余逻辑保持不变 ---
       if (window.history.state && window.history.state.newUser) {
@@ -411,17 +488,23 @@
       return `${Y}-${M}-${D} ${h}:${m}`
   }
 
-  const getMembershipExpiry = async () => {
-      try {
-          // 在这里替换为您的真实API调用
-          setTimeout(() => {
-              membershipExpiryDate.value = formatTimestamp(userStore.userInfo.vipExpiry)
-          }, 1000)
-      } catch (error) {
-          console.error('获取会员信息失败:', error)
-          membershipExpiryDate.value = '获取失败'
+  // 【新增】创建 computed 属性来动态显示会员状态
+  const membershipStatusText = computed(() => {
+      // 在用户信息加载完成前，显示加载状态
+      if (!userStore.userInfo) {
+          return '会员状态加载中...'
       }
-  }
+
+      // 如果用户是 VIP
+      if (userStore.isVip) {
+          // 返回格式化的到期时间
+          return `👑 会员有效期至: ${formatTimestamp(userStore.userInfo.vipExpiry)}`
+      } else {
+          // 如果用户不是 VIP，返回鼓励升级的文案
+          return '👑 升级会员，解锁全部特权'
+      }
+  })
+
   watch(isModalVisible, newValue => {
       if (newValue && processedMarketData.value.length > 0) {
           nextTick(() => {
@@ -745,10 +828,64 @@
       min-height: 150px;
       text-align: center;
   }
+  .disabled-card {
+      /* 关键：为伪元素定位做准备 */
+      position: relative;
+      cursor: not-allowed;
+      /* 我们不再使用 filter 和 opacity，因为覆盖层效果更好 */
+  }
 
-  .strategy-card:hover {
+  /* 创建一个覆盖在卡片上方的“毛玻璃”层 */
+  .disabled-card::after {
+      content: '🔒'; /* 直接使用 emoji 作为锁图标 */
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+
+      /* 覆盖层样式 */
+      background-color: rgba(0, 0, 0, 0.4);
+      backdrop-filter: blur(4px);
+      -webkit-backdrop-filter: blur(4px); /* 兼容 Safari */
+      border-radius: 12px; /* 与卡片圆角保持一致 */
+
+      /* 图标样式与居中 */
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      font-size: 2.5rem;
+      color: rgba(255, 255, 255, 0.7);
+
+      /* 动画效果 */
+      opacity: 0;
+      transition: opacity 0.3s ease;
+  }
+
+  /* 当鼠标悬浮在禁用的卡片上时，显示覆盖层 */
+  .disabled-card:hover::after {
+      opacity: 1;
+  }
+
+  /* 让卡片原有内容在覆盖层之下，并稍微变暗 */
+  .disabled-card .card-icon,
+  .disabled-card .card-title,
+  .disabled-card .card-description {
+      opacity: 0.5;
+      transition: opacity 0.3s ease;
+  }
+
+  /* 确保通用 hover 样式被修改 */
+  .strategy-card:not(.disabled-card):hover {
       transform: translateY(-8px) scale(1.03);
   }
+
+  /* 确保特定卡片的 hover 样式也被修改 */
+  .long-term:not(.disabled-card):hover {
+      box-shadow: 0 0 15px #ff4081;
+      border-color: #ff4081;
+  }
+
   .wealth-map:hover {
       box-shadow: 0 0 15px #ffd700; /* 金色光晕 */
       border-color: #ffd700;
@@ -1055,6 +1192,82 @@
       box-shadow: 0 0 15px #00aaff, 0 0 30px rgba(0, 170, 255, 0.5);
   }
 
+  .vip-modal-content {
+      max-width: 450px; /* 弹窗可以小一些 */
+      text-align: center;
+  }
+
+  .vip-modal-content .modal-body p {
+      color: #e0e0e0;
+      line-height: 1.7;
+      margin-bottom: 1rem;
+  }
+
+  /* 微信ID的展示框样式 */
+  .wechat-box {
+      background: rgba(0, 170, 255, 0.1);
+      border: 1px solid rgba(0, 170, 255, 0.3);
+      border-radius: 8px;
+      padding: 0.8rem 1rem;
+      margin: 1.5rem auto;
+      font-size: 1.2rem;
+      font-weight: bold;
+      letter-spacing: 1px;
+      color: #fff;
+      user-select: all; /* 让用户可以轻松选中并复制 */
+      width: fit-content;
+  }
+
+  /* 弹窗按钮样式 */
+  .vip-modal-button {
+      width: 100%;
+      padding: 0.8rem 1rem;
+      background: #00aaff;
+      border: none;
+      border-radius: 8px;
+      color: #ffffff;
+      font-size: 1rem;
+      font-weight: 700;
+      cursor: pointer;
+      margin-top: 1rem;
+      transition: transform 0.3s ease, box-shadow 0.3s ease;
+  }
+
+  .vip-modal-button:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 0 12px #00aaff;
+  }
+
+  .vip-modal-desc {
+      font-size: 1rem;
+      color: #e0e0e0;
+      margin-bottom: 1.5rem !important; /* 增加与价格标签的间距 */
+  }
+
+  /* 新增：价格标签样式 */
+  .price-tag {
+      background-color: rgba(255, 215, 0, 0.1); /* 淡金色背景 */
+      border: 1px solid rgba(255, 215, 0, 0.4); /* 金色边框 */
+      border-radius: 8px;
+      padding: 0.75rem;
+      margin: 0 auto 1.5rem auto;
+      color: #e0e0e0;
+      font-size: 0.9rem;
+      width: fit-content;
+  }
+
+  .price-highlight {
+      font-size: 1.2rem;
+      font-weight: bold;
+      color: #ffd700; /* 亮金色 */
+  }
+
+  /* 新增：联系提示文本样式 */
+  .contact-prompt {
+      font-size: 0.9rem;
+      color: #b0c4de; /* 使用次要文本颜色 */
+      margin-bottom: 0.8rem !important; /* 减小与微信框的间距 */
+  }
   /* ... 之后的响应式和其他样式都保持您原来的版本 ... */
   @media (max-width: 1024px) {
       .features-grid {

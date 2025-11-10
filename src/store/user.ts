@@ -157,13 +157,27 @@ export const useUserStore = defineStore('user', {
      * 退出登录
      */
     async logout() {
-      if (auth.currentUser) {
-        await auth.signOut()
+      try {
+        // 先调用 SDK 的登出方法，清除本地存储的凭证
+        await app.auth().signOut();
+      } catch (e) {
+        console.error("SDK 登出失败:", e);
+      } finally {
+        // 无论 SDK 是否成功，都必须重置 Pinia 的 state
+        this.userInfo = null
+        this.hasAttemptedLogin = false
+        // this.isVip = false; // 等等，重置所有用户相关状态
       }
-
-      // 清空 Pinia store 中的状态
-      this.userInfo = null
-      this.hasAttemptedLogin = false
     }
+
+    // async logout() {
+    //   if (auth.currentUser) {
+    //     await auth.signOut()
+    //   }
+
+    //   // 清空 Pinia store 中的状态
+    //   this.userInfo = null
+    //   this.hasAttemptedLogin = false
+    // }
   }
 })
