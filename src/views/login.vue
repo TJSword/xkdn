@@ -167,12 +167,12 @@
           })
 
           // 登录成功后的逻辑保持不变
-          if (userInfo.isVip) {
-              showMessage('登录成功', 'success', 3000)
-              router.push({ name: 'home' })
-          } else {
-              openExpiryModal()
-          }
+          // if (userInfo.isVip) {
+          showMessage('登录成功', 'success', 3000)
+          router.push({ name: 'home' })
+          // } else {
+          //     openExpiryModal()
+          // }
       } catch (error: any) {
           console.error('登录失败:', error)
           showMessage(error.message || '登录失败，请检查手机号或密码', 'error')

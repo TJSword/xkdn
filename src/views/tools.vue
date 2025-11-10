@@ -54,13 +54,21 @@
               <input type="number" id="additional-investment" v-model.number="additionalInvestment" placeholder="输入正数为加仓,负数为减仓">
             </div>
 
-            <!-- MODIFICATION: Added "Buy Only Mode" Checkbox -->
             <div class="checkbox-group">
               <input type="checkbox" id="buy-only-mode" v-model="buyOnlyMode">
               <label for="buy-only-mode">仅买入模式 (不卖出资产)</label>
             </div>
 
-            <button class="calculate-btn" @click="calculateRebalance">开始计算</button>
+            <div class="button-group">
+              <button class="calculate-btn" @click="calculateRebalance">开始计算</button>
+              <button class="calculate-btn secondary" @click="calculateMinimumInvestment">计算最小追加额</button>
+            </div>
+          </div>
+          <div v-if="minimumInvestmentResult" class="min-invest-result">
+            <span>💡 {{ minimumInvestmentResult.message }}</span>
+            <button v-if="minimumInvestmentResult.amount > 0" class="apply-btn" @click="applyMinimumInvestment">
+              应用此金额
+            </button>
           </div>
 
           <!-- 结果展示 -->
@@ -69,16 +77,47 @@
               平衡方案建议
               <span class="mode-indicator">({{ calculationResult.mode }})</span>
             </h3>
-            <p class="result-summary">调整后总资产: <strong>{{ calculationResult.newTotal.toFixed(2) }} 元</strong></p>
-            <ul class="result-list">
-              <!-- MODIFICATION: Hide zero-adjustment items -->
-              <li v-for="item in calculationResult.adjustments" :key="item.name" v-show="item.adjustment > 0.01">
-                <strong>【{{ item.name }}】</strong>:
-                <span :class="item.action === '买入' ? 'buy-action' : 'sell-action'">
-                  需{{ item.action }} <strong>{{ item.adjustment.toFixed(2) }}</strong> 元
-                </span>
-              </li>
-            </ul>
+            <p class="result-summary">
+              调整前总资产: <strong>{{ calculationResult.currentTotal.toFixed(2) }} 元</strong>
+              | 调整后总资产: <strong>{{ calculationResult.newTotal.toFixed(2) }} 元</strong>
+            </p>
+
+            <div class="table-container result-table-container">
+              <table class="result-table">
+                <thead>
+                  <tr>
+                    <th>资产名称</th>
+                    <th>当前比例</th>
+                    <th>相对偏离(调前)</th>
+                    <th>操作建议</th>
+                    <th>调整后比例</th>
+                    <th>相对偏离(调后)</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="item in calculationResult.adjustments" :key="item.name">
+                    <td data-label="资产名称">{{ item.name }}</td>
+                    <td data-label="当前比例">{{ item.currentProportion.toFixed(2) }}%</td>
+                    <!-- MODIFICATION: Changed to display relative deviation -->
+                    <td data-label="相对偏离(调前)"
+                      :class="{ 'positive-deviation': item.currentRelativeDeviation > 1, 'negative-deviation': item.currentRelativeDeviation < -1 }">
+                      {{ item.currentRelativeDeviation.toFixed(2) }}%
+                    </td>
+                    <td data-label="操作建议">
+                      <span v-if="item.action !== '持有'" :class="item.action === '买入' ? 'buy-action' : 'sell-action'">
+                        {{ item.action }} {{ item.adjustment.toFixed(2) }} 元
+                      </span>
+                      <span v-else class="hold-action">无需操作</span>
+                    </td>
+                    <td data-label="调整后比例">{{ item.newProportion.toFixed(2) }}%</td>
+                    <td data-label="相对偏离(调后)"
+                      :class="{ 'positive-deviation': item.newRelativeDeviation > 1, 'negative-deviation': item.newRelativeDeviation < -1 }">
+                      {{ item.newRelativeDeviation.toFixed(2) }}%
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
 
@@ -132,7 +171,7 @@
 </template>
 
 <script setup lang="ts">
-  import { ref, provide } from 'vue'
+  import { ref } from 'vue'
   import { use } from 'echarts/core'
   import { CanvasRenderer } from 'echarts/renderers'
   import { BarChart } from 'echarts/charts'
@@ -156,15 +195,25 @@
       amount: number
       target: number
   }
+  // MODIFICATION: Changed `currentDeviation` to `currentRelativeDeviation`
   interface Adjustment {
       name: string
       action: '买入' | '卖出' | '持有'
       adjustment: number
+      currentProportion: number
+      currentRelativeDeviation: number // Relative deviation: (current % - target %) / target %
+      newProportion: number
+      newRelativeDeviation: number // Relative deviation: (new % - target %) / target %
   }
   interface Result {
+      currentTotal: number
       newTotal: number
       adjustments: Adjustment[]
-      mode: '完全平衡' | '仅买入' // MODIFICATION: Added mode
+      mode: '完全平衡' | '仅买入'
+  }
+  interface MinInvestResult {
+      message: string
+      amount: number
   }
 
   // 复利计算器输入类型
@@ -186,7 +235,8 @@
   ])
   const additionalInvestment = ref<number>(1000)
   const calculationResult = ref<Result | null>(null)
-  const buyOnlyMode = ref<boolean>(false) // MODIFICATION: Add state for the checkbox
+  const buyOnlyMode = ref<boolean>(false)
+  const minimumInvestmentResult = ref<MinInvestResult | null>(null)
 
   // 复利计算器状态
   const compoundInputs = ref<CompoundInputs>({
@@ -214,8 +264,58 @@
       portfolio.value = portfolio.value.filter(asset => asset.id !== id)
   }
 
+  const calculateMinimumInvestment = () => {
+      calculationResult.value = null
+      const totalTarget = portfolio.value.reduce((sum, asset) => sum + (asset.target || 0), 0)
+      if (Math.abs(totalTarget - 100) > 0.01) {
+          alert(`错误：计划比例总和必须为100%，当前为 ${totalTarget}%。`)
+          minimumInvestmentResult.value = null
+          return
+      }
+
+      const currentTotal = portfolio.value.reduce((sum, asset) => sum + asset.amount, 0)
+      if (currentTotal === 0) {
+          minimumInvestmentResult.value = {
+              message: '当前总资产为0，无法计算最小追加额。',
+              amount: 0
+          }
+          return
+      }
+
+      let maxRequiredTotal = 0
+      for (const asset of portfolio.value) {
+          if (asset.target > 0) {
+              const requiredTotalForAsset = asset.amount / (asset.target / 100)
+              if (requiredTotalForAsset > maxRequiredTotal) {
+                  maxRequiredTotal = requiredTotalForAsset
+              }
+          }
+      }
+
+      const minInvestment = maxRequiredTotal - currentTotal
+
+      if (minInvestment <= 0.01) {
+          minimumInvestmentResult.value = {
+              message: '恭喜！您的投资组合已无需追加资金即可平衡。',
+              amount: 0
+          }
+      } else {
+          minimumInvestmentResult.value = {
+              message: `最少需追加 ${minInvestment.toFixed(2)} 元可完美平衡。`,
+              amount: minInvestment
+          }
+      }
+  }
+
+  const applyMinimumInvestment = () => {
+      if (minimumInvestmentResult.value && minimumInvestmentResult.value.amount > 0) {
+          additionalInvestment.value = parseFloat(minimumInvestmentResult.value.amount.toFixed(2))
+          minimumInvestmentResult.value = null
+      }
+  }
+
   const calculateRebalance = () => {
-      // --- 验证部分 (无变化) ---
+      minimumInvestmentResult.value = null
       const totalTarget = portfolio.value.reduce((sum, asset) => sum + (asset.target || 0), 0)
       if (Math.abs(totalTarget - 100) > 0.01) {
           alert(`错误：计划比例总和必须为100%，当前为 ${totalTarget}%。`)
@@ -224,87 +324,91 @@
       }
 
       const currentTotal = portfolio.value.reduce((sum, asset) => sum + asset.amount, 0)
+      const newTotal = currentTotal + (additionalInvestment.value || 0)
 
-      // MODIFICATION START: Replaced the entire "buyOnlyMode" logic
+      if (newTotal < 0) {
+          alert('错误：减仓金额不能超过总资产。')
+          calculationResult.value = null
+          return
+      }
+
+      // MODIFICATION: Changed calculation from absolute to relative deviation
+      const portfolioWithDetails = portfolio.value.map(asset => {
+          const currentProportion = currentTotal > 0 ? (asset.amount / currentTotal) * 100 : 0
+          const currentRelativeDeviation =
+              asset.target > 0 ? ((currentProportion - asset.target) / asset.target) * 100 : 0
+          return {
+              ...asset,
+              currentProportion,
+              currentRelativeDeviation
+          }
+      })
+
       if (buyOnlyMode.value) {
-          // --- 新的、正确的“仅买入模式”逻辑 ---
           if (additionalInvestment.value <= 0) {
               alert('错误：“仅买入模式”下，追加投资金额必须为正数。')
               calculationResult.value = null
               return
           }
 
-          const newTotal = currentTotal + additionalInvestment.value
-
-          // 1. 计算每个资产的资金缺口 (理想金额 - 当前金额)
-          const potentialBuys = portfolio.value
+          const potentialBuys = portfolioWithDetails
               .map(asset => {
                   const targetAmount = newTotal * (asset.target / 100)
                   const gap = targetAmount - asset.amount
-                  return {
-                      ...asset,
-                      gap: gap > 0 ? gap : 0 // 只考虑正的缺口
-                  }
+                  return { ...asset, gap: gap > 0 ? gap : 0 }
               })
-              .filter(asset => asset.gap > 0) // 筛选出所有需要买入的资产
+              .filter(asset => asset.gap > 0)
 
-          // 如果没有任何资产需要买入 (例如所有资产都已超配)
           if (potentialBuys.length === 0) {
               alert(
                   '提示：所有资产均已达到或超过目标比例。追加的投资将按目标比例分配给所有资产，以维持平衡。'
               )
-              // 在这种特殊情况下，按目标比例分配新资金
-              const adjustments: Adjustment[] = portfolio.value.map(asset => ({
-                  name: asset.name || '未命名资产',
-                  action: '买入',
-                  adjustment: additionalInvestment.value * (asset.target / 100)
-              }))
-              calculationResult.value = {
-                  newTotal,
-                  adjustments,
-                  mode: '仅买入'
-              }
-              return
-          }
-
-          // 2. 计算总的资金缺口
-          const totalGap = potentialBuys.reduce((sum, asset) => sum + asset.gap, 0)
-
-          // 3. 按缺口比例分配追加的投资额
-          const adjustments: Adjustment[] = portfolio.value.map(asset => {
-              const buyCandidate = potentialBuys.find(b => b.id === asset.id)
-              if (buyCandidate) {
-                  const buyAmount = additionalInvestment.value * (buyCandidate.gap / totalGap)
+              const adjustments: Adjustment[] = portfolioWithDetails.map(asset => {
+                  const adjustment = additionalInvestment.value * (asset.target / 100)
+                  const newAmount = asset.amount + adjustment
+                  const newProportion = newTotal > 0 ? (newAmount / newTotal) * 100 : 0
+                  const newRelativeDeviation =
+                      asset.target > 0 ? ((newProportion - asset.target) / asset.target) * 100 : 0
                   return {
                       name: asset.name || '未命名资产',
                       action: '买入',
-                      adjustment: buyAmount
+                      adjustment,
+                      currentProportion: asset.currentProportion,
+                      currentRelativeDeviation: asset.currentRelativeDeviation,
+                      newProportion,
+                      newRelativeDeviation
                   }
-              } else {
-                  return {
-                      name: asset.name || '未命名资产',
-                      action: '持有',
-                      adjustment: 0
-                  }
-              }
-          })
-
-          calculationResult.value = {
-              newTotal,
-              adjustments,
-              mode: '仅买入'
-          }
-      } else {
-          // --- 完全平衡模式 (原始逻辑，无变化) ---
-          const newTotal = currentTotal + (additionalInvestment.value || 0)
-
-          if (newTotal < 0) {
-              alert('错误：减仓金额不能超过总资产。')
-              calculationResult.value = null
+              })
+              calculationResult.value = { currentTotal, newTotal, adjustments, mode: '仅买入' }
               return
           }
 
-          const adjustments: Adjustment[] = portfolio.value.map(asset => {
+          const totalGap = potentialBuys.reduce((sum, asset) => sum + asset.gap, 0)
+
+          const adjustments: Adjustment[] = portfolioWithDetails.map(asset => {
+              const buyCandidate = potentialBuys.find(b => b.id === asset.id)
+              let adjustment = 0
+              if (buyCandidate && totalGap > 0) {
+                  adjustment = additionalInvestment.value * (buyCandidate.gap / totalGap)
+              }
+              const newAmount = asset.amount + adjustment
+              const newProportion = newTotal > 0 ? (newAmount / newTotal) * 100 : 0
+              const newRelativeDeviation =
+                  asset.target > 0 ? ((newProportion - asset.target) / asset.target) * 100 : 0
+              return {
+                  name: asset.name || '未命名资产',
+                  action: adjustment > 0.01 ? '买入' : '持有',
+                  adjustment,
+                  currentProportion: asset.currentProportion,
+                  currentRelativeDeviation: asset.currentRelativeDeviation,
+                  newProportion,
+                  newRelativeDeviation
+              }
+          })
+
+          calculationResult.value = { currentTotal, newTotal, adjustments, mode: '仅买入' }
+      } else {
+          const adjustments: Adjustment[] = portfolioWithDetails.map(asset => {
               const targetAmount = newTotal * (asset.target / 100)
               const adjustmentValue = targetAmount - asset.amount
               let action: '买入' | '卖出' | '持有' = '持有'
@@ -314,18 +418,26 @@
               } else if (adjustmentValue < -0.01) {
                   action = '卖出'
               }
+
+              const newAmount = asset.amount + adjustmentValue
+              const newProportion = newTotal > 0 ? (newAmount / newTotal) * 100 : 0
+              const newRelativeDeviation =
+                  asset.target > 0 ? ((newProportion - asset.target) / asset.target) * 100 : 0
+
               return {
                   name: asset.name || '未命名资产',
                   action,
-                  adjustment: Math.abs(adjustmentValue)
+                  adjustment: Math.abs(adjustmentValue),
+                  currentProportion: asset.currentProportion,
+                  currentRelativeDeviation: asset.currentRelativeDeviation,
+                  newProportion: isNaN(newProportion) ? asset.target : newProportion,
+                  newRelativeDeviation
               }
           })
-
-          calculationResult.value = { newTotal, adjustments, mode: '完全平衡' }
+          calculationResult.value = { currentTotal, newTotal, adjustments, mode: '完全平衡' }
       }
-      // MODIFICATION END
   }
-  // --- 复利计算器方法 ---
+
   const calculateCompoundInterest = () => {
       const { principal, rate, years, monthlyContribution } = compoundInputs.value
 
@@ -340,11 +452,8 @@
       const principalData: number[] = []
       const interestData: number[] = []
 
-      // 逐年计算数据
       for (let year = 1; year <= years; year++) {
           const totalMonths = year * 12
-
-          // 计算当前年度的总价值
           const fvOfPrincipal = principal * Math.pow(1 + monthlyRate, totalMonths)
           let fvOfAnnuity = 0
           if (monthlyRate > 0) {
@@ -354,18 +463,13 @@
               fvOfAnnuity = monthlyContribution * totalMonths
           }
           const finalValue = fvOfPrincipal + fvOfAnnuity
-
-          // 计算当前年度的总投入本金和总收益
           const totalPrincipal = principal + monthlyContribution * totalMonths
           const totalInterest = finalValue - totalPrincipal
-
-          // 存储数据
           xAxisData.push(`第 ${year} 年`)
           principalData.push(parseFloat(totalPrincipal.toFixed(2)))
           interestData.push(parseFloat(totalInterest.toFixed(2)))
       }
 
-      // 生成 ECharts 配置
       chartOption.value = {
           backgroundColor: 'transparent',
           tooltip: {
@@ -381,24 +485,13 @@
                   const interestVal = params[1].value
                   const totalVal = principalVal + interestVal
                   return `<strong>${year}</strong><br/>
-                                                累计本金: ${principalVal.toLocaleString()} 元<br/>
-                                                累计收益: ${interestVal.toLocaleString()} 元<br/>
-                                                <strong style="color: #8a2be2;">资产总计: ${totalVal.toLocaleString()} 元</strong>
-                                              `
+                            累计本金: ${principalVal.toLocaleString()} 元<br/>
+                            累计收益: ${interestVal.toLocaleString()} 元<br/>
+                            <strong style="color: #8a2be2;">资产总计: ${totalVal.toLocaleString()} 元</strong>`
               }
           },
-          legend: {
-              data: ['累计本金', '累计收益'],
-              textStyle: { color: '#b0c4de' },
-              top: '0%'
-          },
-          grid: {
-              left: '3%',
-              right: '4%',
-              bottom: '3%',
-              top: '16%',
-              containLabel: true
-          },
+          legend: { data: ['累计本金', '累计收益'], textStyle: { color: '#b0c4de' }, top: '0%' },
+          grid: { left: '3%', right: '4%', bottom: '3%', top: '16%', containLabel: true },
           xAxis: {
               type: 'category',
               data: xAxisData,
@@ -417,10 +510,10 @@
               {
                   name: '累计本金',
                   type: 'bar',
-                  stack: 'total', // 关键：堆叠
+                  stack: 'total',
                   emphasis: { focus: 'series' },
                   data: principalData,
-                  itemStyle: { color: '#465A7A' } // 深紫色
+                  itemStyle: { color: '#465A7A' }
               },
               {
                   name: '累计收益',
@@ -428,7 +521,7 @@
                   stack: 'total',
                   emphasis: { focus: 'series' },
                   data: interestData,
-                  itemStyle: { color: '#FFBF00' } // 使用主题色，代表增益
+                  itemStyle: { color: '#FFBF00' }
               }
           ]
       }
@@ -442,14 +535,17 @@
           opacity: 0;
           transform: translateY(20px);
       }
+
       to {
           opacity: 1;
           transform: translateY(0);
       }
   }
+
   /* 定义页面主题色 */
   :root {
-      --theme-color: #8a2be2; /* 蓝紫色 */
+      --theme-color: #8a2be2;
+      /* 蓝紫色 */
   }
 
   .page-wrapper {
@@ -483,6 +579,7 @@
       display: inline-block;
       margin-bottom: 1rem;
   }
+
   .back-button:hover {
       color: #8a2be2;
   }
@@ -496,11 +593,13 @@
       gap: 1rem;
       margin-bottom: 0.5rem;
   }
+
   .title-icon {
       font-size: 2.8rem;
       color: #8a2be2;
       text-shadow: 0 0 15px #8a2be2;
   }
+
   .subtitle {
       font-size: 1.1rem;
       color: #b0c4de;
@@ -524,15 +623,19 @@
       animation: fadeInUp 0.5s ease-out forwards;
       opacity: 0;
   }
+
   .content-card:hover {
       border-color: rgba(138, 43, 226, 0.5);
   }
+
   .tools-grid .content-card:nth-child(1) {
       animation-delay: 0.2s;
   }
+
   .tools-grid .content-card:nth-child(2) {
       animation-delay: 0.3s;
   }
+
   .tools-grid .content-card:nth-child(3) {
       animation-delay: 0.4s;
   }
@@ -545,6 +648,7 @@
       border-left: 4px solid #8a2be2;
       padding-left: 1rem;
   }
+
   .card-description {
       font-size: 0.95rem;
       color: #b0c4de;
@@ -556,23 +660,27 @@
   .table-container {
       overflow-x: auto;
   }
+
   .data-table {
       width: 100%;
       border-collapse: collapse;
       min-width: 600px;
   }
+
   .data-table th,
   .data-table td {
       padding: 0.5rem;
       text-align: center;
       vertical-align: middle;
   }
+
   .data-table th {
       color: #b0c4de;
       font-weight: normal;
       font-size: 0.8rem;
       padding-bottom: 1rem;
   }
+
   .data-table input[type='text'],
   .data-table input[type='number'] {
       width: 100%;
@@ -585,10 +693,12 @@
       text-align: center;
       box-sizing: border-box;
   }
+
   .data-table input:focus {
       border-color: #8a2be2;
       outline: none;
   }
+
   .delete-btn {
       background: none;
       border: none;
@@ -598,9 +708,11 @@
       transition: color 0.2s;
       line-height: 1;
   }
+
   .delete-btn:hover {
       color: #fff;
   }
+
   .add-asset-btn {
       margin-top: 1rem;
       margin-bottom: 1rem;
@@ -613,6 +725,7 @@
       transition: all 0.3s;
       align-self: flex-start;
   }
+
   .add-asset-btn:hover {
       background: rgba(138, 43, 226, 0.4);
       color: #fff;
@@ -631,9 +744,11 @@
       flex-direction: column;
       gap: 0.5rem;
   }
+
   .calculator-inputs .input-group label {
       text-align: left;
   }
+
   .calculator-inputs .input-group input {
       max-width: none;
       width: 100%;
@@ -641,7 +756,8 @@
 
   /* 通用计算区域 */
   .calculation-zone {
-      margin-top: auto; /* Push to the bottom */
+      margin-top: auto;
+      /* Push to the bottom */
       padding-top: 1.5rem;
       border-top: 1px solid rgba(255, 255, 255, 0.1);
       display: flex;
@@ -650,6 +766,7 @@
       gap: 1rem;
       flex-wrap: wrap;
   }
+
   /* 复利计算器按钮特殊布局 */
   .compound-calculator .calculation-zone {
       justify-content: center;
@@ -663,10 +780,12 @@
       align-items: center;
       gap: 0.5rem;
   }
+
   .input-group label {
       color: #b0c4de;
       font-size: 0.9rem;
   }
+
   .input-group input {
       background: rgba(0, 0, 0, 0.3);
       border: 1px solid rgba(255, 255, 255, 0.2);
@@ -676,12 +795,12 @@
       max-width: 180px;
       box-sizing: border-box;
   }
+
   .input-group input:focus {
       border-color: #8a2be2;
       outline: none;
   }
 
-  /* MODIFICATION: Style for the new checkbox */
   .checkbox-group {
       display: flex;
       align-items: center;
@@ -689,6 +808,7 @@
       cursor: pointer;
       user-select: none;
   }
+
   .checkbox-group input[type='checkbox'] {
       cursor: pointer;
       appearance: none;
@@ -701,9 +821,11 @@
       transition: background-color 0.2s;
       vertical-align: middle;
   }
+
   .checkbox-group input[type='checkbox']:checked {
       background-color: #8a2be2;
   }
+
   .checkbox-group input[type='checkbox']:checked::after {
       content: '✔';
       color: #fff;
@@ -713,9 +835,17 @@
       left: 50%;
       transform: translate(-50%, -50%);
   }
+
   .checkbox-group label {
       color: #b0c4de;
       font-size: 0.9rem;
+  }
+
+  .button-group {
+      display: flex;
+      gap: 1rem;
+      flex-grow: 1;
+      justify-content: flex-end;
   }
 
   .calculate-btn {
@@ -723,21 +853,59 @@
       color: #ffffff;
       border: none;
       border-radius: 8px;
-      padding: 0.8rem 2rem;
-      font-size: 1rem;
+      padding: 0.8rem 1.5rem;
+      font-size: 0.9rem;
       font-weight: bold;
       cursor: pointer;
       transition: all 0.3s ease;
       box-shadow: 0 0 15px rgba(138, 43, 226, 0.3);
-      flex-grow: 1;
   }
+
   .calculate-btn:hover {
       transform: translateY(-2px);
       box-shadow: 0 4px 20px rgba(138, 43, 226, 0.5);
   }
-  .rebalance-calculator .calculate-btn {
-      max-width: 200px;
-      flex-grow: 0;
+
+  .calculate-btn.secondary {
+      background-color: transparent;
+      border: 1px solid #8a2be2;
+      color: #8a2be2;
+      box-shadow: none;
+  }
+
+  .calculate-btn.secondary:hover {
+      background-color: rgba(138, 43, 226, 0.2);
+      color: #fff;
+      transform: translateY(-2px);
+  }
+
+  .min-invest-result {
+      margin-top: 1rem;
+      padding: 0.75rem 1rem;
+      background: rgba(138, 43, 226, 0.1);
+      border-left: 3px solid #8a2be2;
+      border-radius: 4px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.9rem;
+      color: #b0c4de;
+  }
+
+  .apply-btn {
+      background: none;
+      border: 1px solid #b0c4de;
+      color: #b0c4de;
+      border-radius: 4px;
+      padding: 0.25rem 0.75rem;
+      cursor: pointer;
+      transition: all 0.2s ease;
+  }
+
+  .apply-btn:hover {
+      background: #8a2be2;
+      border-color: #8a2be2;
+      color: #fff;
   }
 
   /* 结果区域 */
@@ -748,30 +916,33 @@
       border-radius: 8px;
       border-left: 3px solid #8a2be2;
   }
+
   .result-title {
       margin-top: 0;
       font-size: 1.2rem;
   }
+
   .result-summary {
       color: #b0c4de;
       margin-bottom: 1rem;
+      font-size: 0.9rem;
   }
-  .result-list {
-      list-style: none;
-      padding: 0;
-      margin: 0;
-      line-height: 1.8;
-  }
-  .result-list li {
-      margin-bottom: 0.5rem;
-  }
+
   .buy-action {
-      color: #28a745;
-  }
-  .sell-action {
       color: #dc3545;
+      font-weight: bold;
   }
-  /* MODIFICATION: Style for mode indicator in results */
+
+  .sell-action {
+      color: #28a745;
+      font-weight: bold;
+  }
+
+  .hold-action {
+      color: #b0c4de;
+      font-style: italic;
+  }
+
   .mode-indicator {
       display: inline-block;
       font-size: 0.8rem;
@@ -782,6 +953,41 @@
       border-radius: 4px;
       margin-left: 0.5rem;
       vertical-align: middle;
+  }
+
+  .result-table-container {
+      overflow-x: auto;
+  }
+
+  .result-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 1rem;
+      font-size: 0.9rem;
+  }
+
+  .result-table th,
+  .result-table td {
+      padding: 0.75rem 0.5rem;
+      text-align: center;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  }
+
+  .result-table th {
+      color: #b0c4de;
+      font-weight: normal;
+  }
+
+  .result-table tbody tr:last-child td {
+      border-bottom: none;
+  }
+
+  .positive-deviation {
+      color: #dc3545;
+  }
+
+  .negative-deviation {
+      color: #28a745;
   }
 
   /* 图表容器样式 */
@@ -797,6 +1003,7 @@
       overflow: hidden;
       cursor: not-allowed;
   }
+
   .status-tag {
       position: absolute;
       top: 1.5rem;
@@ -816,6 +1023,7 @@
       .page-wrapper {
           padding: 2rem 1rem;
       }
+
       .content-card {
           padding: 1.5rem 1rem;
       }
@@ -823,9 +1031,11 @@
       .main-title {
           font-size: 2rem;
       }
+
       .card-title {
           font-size: 1.25rem;
       }
+
       .card-description {
           font-size: 0.9rem;
       }
@@ -834,12 +1044,16 @@
       .table-container {
           overflow-x: hidden;
       }
-      .data-table {
+
+      .data-table,
+      .result-table {
           min-width: 100%;
           border-collapse: separate;
           border-spacing: 0;
       }
-      .data-table thead {
+
+      .data-table thead,
+      .result-table thead {
           border: none;
           clip: rect(0 0 0 0);
           height: 1px;
@@ -849,14 +1063,18 @@
           position: absolute;
           width: 1px;
       }
-      .data-table tr {
+
+      .data-table tr,
+      .result-table tr {
           display: block;
           border: 1px solid rgba(255, 255, 255, 0.1);
           border-radius: 8px;
           margin-bottom: 1rem;
           padding: 0.5rem 1rem;
       }
-      .data-table td {
+
+      .data-table td,
+      .result-table td {
           display: block;
           text-align: right;
           position: relative;
@@ -864,11 +1082,18 @@
           padding-left: 50%;
           border-bottom: 1px solid rgba(255, 255, 255, 0.08);
       }
-      .data-table td:last-child {
+
+      .data-table td:last-child,
+      .result-table td:last-child {
           border-bottom: none;
+      }
+
+      .data-table td:last-child {
           padding-top: 1rem;
       }
-      .data-table td::before {
+
+      .data-table td::before,
+      .result-table td::before {
           content: attr(data-label);
           position: absolute;
           left: 0;
@@ -880,16 +1105,19 @@
           color: #b0c4de;
           font-size: 0.9em;
       }
+
       .data-table input[type='text'],
       .data-table input[type='number'] {
           width: 100%;
           text-align: right;
           padding: 0.5rem;
       }
+
       .data-table td[data-label='操作'] {
           padding-left: 0;
           text-align: center;
       }
+
       .data-table td[data-label='操作']::before {
           content: none;
       }
@@ -906,25 +1134,28 @@
           gap: 1rem;
       }
 
-      /* MODIFICATION: Mobile layout for checkbox and button */
       .rebalance-calculator .input-group,
-      .rebalance-calculator .checkbox-group {
+      .rebalance-calculator .checkbox-group,
+      .rebalance-calculator .button-group {
           width: 100%;
       }
+
       .checkbox-group {
           margin-bottom: 0.5rem;
           justify-content: flex-start;
       }
-      .rebalance-calculator .calculate-btn {
-          width: 100%;
-          max-width: none;
+
+      .button-group {
+          flex-direction: column;
       }
+
       .input-group {
           width: 100%;
           flex-direction: column;
           align-items: flex-start;
           gap: 0.5rem;
       }
+
       .input-group input {
           width: 100%;
           max-width: none;
@@ -946,6 +1177,7 @@
       -webkit-appearance: none;
       margin: 0;
   }
+
   input[type='number'] {
       -moz-appearance: textfield;
   }
