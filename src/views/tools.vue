@@ -182,6 +182,7 @@
       LegendComponent
   } from 'echarts/components'
   import VChart from 'vue-echarts'
+  const showMessage: any = inject('showMessage')
 
   // 注册 ECharts 组件
   use([CanvasRenderer, BarChart, TitleComponent, TooltipComponent, GridComponent, LegendComponent])
@@ -268,7 +269,7 @@
       calculationResult.value = null
       const totalTarget = portfolio.value.reduce((sum, asset) => sum + (asset.target || 0), 0)
       if (Math.abs(totalTarget - 100) > 0.01) {
-          alert(`错误：计划比例总和必须为100%，当前为 ${totalTarget}%。`)
+          showMessage(`计划比例总和必须为100%，当前为 ${totalTarget}%。`, 'error')
           minimumInvestmentResult.value = null
           return
       }
@@ -318,7 +319,7 @@
       minimumInvestmentResult.value = null
       const totalTarget = portfolio.value.reduce((sum, asset) => sum + (asset.target || 0), 0)
       if (Math.abs(totalTarget - 100) > 0.01) {
-          alert(`错误：计划比例总和必须为100%，当前为 ${totalTarget}%。`)
+          showMessage(`计划比例总和必须为100%，当前为 ${totalTarget}%。`, 'error')
           calculationResult.value = null
           return
       }
@@ -327,7 +328,7 @@
       const newTotal = currentTotal + (additionalInvestment.value || 0)
 
       if (newTotal < 0) {
-          alert('错误：减仓金额不能超过总资产。')
+          showMessage('减仓金额不能超过总资产。', 'error')
           calculationResult.value = null
           return
       }
@@ -346,7 +347,7 @@
 
       if (buyOnlyMode.value) {
           if (additionalInvestment.value <= 0) {
-              alert('错误：“仅买入模式”下，追加投资金额必须为正数。')
+              showMessage('仅买入模式”下，追加投资金额必须为正数。', 'error')
               calculationResult.value = null
               return
           }
@@ -360,8 +361,9 @@
               .filter(asset => asset.gap > 0)
 
           if (potentialBuys.length === 0) {
-              alert(
-                  '提示：所有资产均已达到或超过目标比例。追加的投资将按目标比例分配给所有资产，以维持平衡。'
+              showMessage(
+                  '所有资产均已达到或超过目标比例。追加的投资将按目标比例分配给所有资产，以维持平衡。',
+                  'info'
               )
               const adjustments: Adjustment[] = portfolioWithDetails.map(asset => {
                   const adjustment = additionalInvestment.value * (asset.target / 100)
@@ -442,7 +444,7 @@
       const { principal, rate, years, monthlyContribution } = compoundInputs.value
 
       if (principal < 0 || rate < 0 || years <= 0 || monthlyContribution < 0) {
-          alert('错误：请输入有效的正数，且投资年限必须大于0。')
+          showMessage('请输入有效的正数，且投资年限必须大于0。', 'error')
           chartOption.value = null
           return
       }
@@ -485,9 +487,9 @@
                   const interestVal = params[1].value
                   const totalVal = principalVal + interestVal
                   return `<strong>${year}</strong><br/>
-                            累计本金: ${principalVal.toLocaleString()} 元<br/>
-                            累计收益: ${interestVal.toLocaleString()} 元<br/>
-                            <strong style="color: #8a2be2;">资产总计: ${totalVal.toLocaleString()} 元</strong>`
+                                              累计本金: ${principalVal.toLocaleString()} 元<br/>
+                                              累计收益: ${interestVal.toLocaleString()} 元<br/>
+                                              <strong style="color: #8a2be2;">资产总计: ${totalVal.toLocaleString()} 元</strong>`
               }
           },
           legend: { data: ['累计本金', '累计收益'], textStyle: { color: '#b0c4de' }, top: '0%' },
