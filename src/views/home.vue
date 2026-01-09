@@ -226,6 +226,7 @@
           link: '/bonds',
           vipOnly: true
       },
+
       {
           id: 4,
           title: '微盘股策略',
@@ -233,6 +234,16 @@
           icon: '💎',
           cssClass: 'micro-cap',
           link: '/micro-cap',
+          vipOnly: true
+      },
+      // 在 allFeatureCards 数组中修改/添加这个对象
+      {
+          id: 9,
+          title: '动量策略',
+          description: '依据动量模型，轮动持有最强资产，进攻性强。',
+          icon: '⚡', //
+          cssClass: 'momentum-strategy', // 对应下方的新CSS
+          link: '/momentum',
           vipOnly: true
       },
 
@@ -970,7 +981,16 @@
   .micro-cap .card-icon {
       color: #f0e68c;
   }
+  /* --- 修改：ETF动量策略的卡片样式 (熔岩橙色系) --- */
+  .momentum-strategy:not(.disabled-card):hover {
+      /* 悬停时的光晕，改为橙红色 */
+      box-shadow: 0 0 15px #ff5722;
+      border-color: #ff5722;
+  }
 
+  .momentum-strategy .card-icon {
+      color: #ff5722; /* 图标颜色 */
+  }
   .convertible-bond:hover {
       box-shadow: 0 0 15px #add8e6;
       border-color: #add8e6;

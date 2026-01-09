@@ -72,8 +72,8 @@
                 <tr>
                   <td>A股资产</td>
                   <td>20%</td>
-                  <td>中证红利质量ETF</td>
-                  <td>159209</td>
+                  <td>自由现金流ETF</td>
+                  <td>159201</td>
 
                 </tr>
                 <tr>
@@ -113,8 +113,8 @@
                 <tr>
                   <td>A股资产</td>
                   <td>20%</td>
-                  <td>华夏中证红利质量ETF联接A</td>
-                  <td>016440</td>
+                  <td>华夏国证自由现金流ETF发起式联接A</td>
+                  <td>023917</td>
 
                 </tr>
                 <tr>
@@ -152,111 +152,111 @@
               <thead>
                 <tr>
                   <th>年份</th>
-                  <th>红利质量</th>
+                  <th>自由现金流</th>
                   <th>纳斯达克</th>
-                  <th>黄金</th>
-                  <th>招商产业债</th>
+                  <th>&nbsp;&nbsp;黄&nbsp;&nbsp;金&nbsp;&nbsp;</th>
+                  <th>30年国债</th>
                   <th class="highlight-col">全天候策略</th>
                 </tr>
               </thead>
               <tbody>
                 <tr>
                   <td>2014</td>
-                  <td>24.83</td>
+                  <td>56.78</td>
                   <td>16.13</td>
                   <td>1.93</td>
-                  <td>21.42</td>
-                  <td class="highlight-col">15.20</td>
+                  <td>20.5</td>
+                  <td class="highlight-col">21.31</td>
                 </tr>
                 <tr>
                   <td>2015</td>
-                  <td>52.74</td>
+                  <td>16.71</td>
                   <td>17.19</td>
                   <td class="negative">-6.79</td>
-                  <td>11.85</td>
-                  <td class="highlight-col">15.50</td>
+                  <td>12.40</td>
+                  <td class="highlight-col">8.46</td>
                 </tr>
                 <tr>
                   <td>2016</td>
-                  <td>0.29</td>
+                  <td class="negative">-1.74</td>
                   <td>10.89</td>
                   <td>17.47</td>
-                  <td>4.17</td>
-                  <td class="highlight-col">8.73</td>
+                  <td>4.30</td>
+                  <td class="highlight-col">8.36</td>
                 </tr>
                 <tr>
                   <td>2017</td>
-                  <td>46.53</td>
+                  <td>32.06</td>
                   <td>21.67</td>
                   <td>2.84</td>
-                  <td>3.02</td>
-                  <td class="highlight-col">15.40</td>
+                  <td class="negative">-9.40</td>
+                  <td class="highlight-col">8.78</td>
                 </tr>
                 <tr>
                   <td>2018</td>
-                  <td class="negative">-16.40</td>
+                  <td class="negative">-14.73</td>
                   <td>3.84</td>
                   <td>3.49</td>
-                  <td>8.64</td>
-                  <td class="highlight-col">1.13</td>
+                  <td>15.4</td>
+                  <td class="highlight-col">3.49</td>
                 </tr>
                 <tr>
                   <td>2019</td>
-                  <td>45.66</td>
+                  <td>17.69</td>
                   <td>39.87</td>
                   <td>19.13</td>
-                  <td>6.71</td>
-                  <td class="highlight-col">24.86</td>
+                  <td>4.00</td>
+                  <td class="highlight-col">18.45</td>
                 </tr>
                 <tr>
                   <td>2020</td>
-                  <td>43.28</td>
+                  <td>13.05</td>
                   <td>34.37</td>
                   <td>13.90</td>
-                  <td>4.17</td>
-                  <td class="highlight-col">20.95</td>
+                  <td>3.30</td>
+                  <td class="highlight-col">14.64</td>
                 </tr>
                 <tr>
                   <td>2021</td>
-                  <td>8.95</td>
+                  <td>49.15</td>
                   <td>24.56</td>
                   <td class="negative">-4.78</td>
-                  <td>6.50</td>
-                  <td class="highlight-col">7.22</td>
+                  <td>9.70</td>
+                  <td class="highlight-col">16.22</td>
                 </tr>
                 <tr>
                   <td>2022</td>
-                  <td class="negative">-11.99</td>
+                  <td>5.95</td>
                   <td class="negative">-28.23</td>
                   <td>9.07</td>
-                  <td>2.59</td>
-                  <td class="highlight-col negative">-4.55</td>
+                  <td>5.60</td>
+                  <td class="highlight-col negative">-0.06</td>
                 </tr>
                 <tr>
                   <td>2023</td>
-                  <td class="negative">-2.52</td>
+                  <td>28.92</td>
                   <td>54.14</td>
                   <td>15.95</td>
-                  <td>5.00</td>
-                  <td class="highlight-col">16.61</td>
+                  <td>9.50</td>
+                  <td class="highlight-col">24.25</td>
                 </tr>
                 <tr>
                   <td>2024</td>
-                  <td>7.54</td>
+                  <td>32.44</td>
                   <td>24.57</td>
                   <td>25.96</td>
-                  <td>4.15</td>
-                  <td class="highlight-col">15.46</td>
+                  <td>12.90</td>
+                  <td class="highlight-col">23.06</td>
                 </tr>
               </tbody>
               <tfoot>
                 <tr>
                   <td>平均年化</td>
-                  <td>18.08</td>
+                  <td>21.48</td>
                   <td>19.91</td>
                   <td>8.92</td>
-                  <td>7.11</td>
-                  <td class="highlight-col">12.41</td>
+                  <td>8.02</td>
+                  <td class="highlight-col">13.36</td>
                 </tr>
               </tfoot>
             </table>
@@ -265,7 +265,6 @@
           <div class="backtest-notes">
             <h3 class="notes-title">回测说明</h3>
             <ul>
-              <li><strong>债券替代：</strong>由于历史数据限制，回测中使用了“招商产业债”来近似模拟超长期国债的表现。虽然久期略有差异，但其走势和相关性在一定程度上可以反映长债的特点，因此回测结果仍具有较高的参考价值。</li>
               <li><strong>再平衡方式：</strong>本回测采用的是【年度再平衡】策略。实践中，若采用基于阈值的动态再平衡策略（如当任一资产偏离目标权重超过特定比例时触发），理论上可能捕获更多市场机会，或可获得微弱的超额收益。</li>
             </ul>
           </div>

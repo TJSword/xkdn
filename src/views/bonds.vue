@@ -166,6 +166,23 @@
                   <td>{{ (parseFloat(item.conv_prem) * 100).toFixed(2) }}%</td>
                   <td>{{ parseFloat(item.remain_size).toFixed(2) }}</td>
                 </tr>
+                <tr v-if="portfolioAverages" class="summary-row">
+                  <td style="color: #add8e6; font-weight: bold;">
+                    &ensp; &ensp;--
+                  </td>
+                  <td style="color: #add8e6; font-weight: bold;">
+                    组合均值
+                  </td>
+                  <td style="color: #fff; font-weight: bold;">
+                    {{ portfolioAverages.price }}
+                  </td>
+                  <td style="color: #fff; font-weight: bold;">
+                    {{ portfolioAverages.prem }}
+                  </td>
+                  <td style="color: #fff; font-weight: bold;">
+                    {{ portfolioAverages.size }}
+                  </td>
+                </tr>
               </tbody>
             </table>
           </div>
@@ -313,6 +330,32 @@
       strategyData.value.adjustments.filter((item: any) => item.action === '调出')
   )
 
+  // --- 新增：计算持仓组合的平均值 ---
+  const portfolioAverages = computed(() => {
+      const list = strategyData.value?.latest_portfolio || []
+      if (list.length === 0) return null
+
+      let totalClose = 0
+      let totalPrem = 0
+      let totalSize = 0
+
+      list.forEach((item: any) => {
+          totalClose += parseFloat(item.close)
+          totalPrem += parseFloat(item.conv_prem)
+          totalSize += parseFloat(item.remain_size)
+      })
+
+      const count = list.length
+
+      return {
+          price: (totalClose / count).toFixed(2),
+          // 溢价率原始数据是小数 (如 0.25)，显示时需要 * 100
+          prem: ((totalPrem / count) * 100).toFixed(2) + '%',
+          // 规模也可以算平均值
+          size: (totalSize / count).toFixed(2)
+      }
+  })
+
   // --- 控制FAQ展开 ---
   const openFaqIndex = ref<number | null>(0)
   const toggleFaq = (index: number) => {
@@ -323,12 +366,12 @@
       {
           question: '我如何才能参与“可转债策略”？',
           answer: `我们所有的策略操作，都在交易日的下午2:30之后执行，以贴近收盘价，确保操作的有效性。\n
-                                                              首次参与\n
-                                                              如果您是第一次参与本策略，请根据最新持仓列表，然后将您计划投入的资金，对列表中的所有品种进行等权重买入，即可完成初始建仓。\n
-                                                              后续调仓\n
-                                                              完成建仓后，您无需进行任何复杂的分析。每个交易日，您只需严格遵循我们发布的组合调仓指引进行操作即可。该指引会直接、明确地列出当天需要卖出和买入的具体品种。
-                                                              \n参与前提：\n
-                                            在进行任何交易前，请务必确保您的A股证券账户已成功开通“可转换债券”的交易权限（通常要求2年交易经验及连续20日日均10万资产）。详情请咨询您的开户券商。`
+                                                                                    首次参与\n
+                                                                                    如果您是第一次参与本策略，请根据最新持仓列表，然后将您计划投入的资金，对列表中的所有品种进行等权重买入，即可完成初始建仓。\n
+                                                                                    后续调仓\n
+                                                                                    完成建仓后，您无需进行任何复杂的分析。每个交易日，您只需严格遵循我们发布的组合调仓指引进行操作即可。该指引会直接、明确地列出当天需要卖出和买入的具体品种。
+                                                                                    \n参与前提：\n
+                                                                  在进行任何交易前，请务必确保您的A股证券账户已成功开通“可转换债券”的交易权限（通常要求2年交易经验及连续20日日均10万资产）。详情请咨询您的开户券商。`
       },
       {
           question: '可转债是什么？它为什么适合普通人投资？',

@@ -49,6 +49,11 @@ export const constantRoutes = [
     meta: { requiresAuth: true }
   },
   {
+    path: '/momentum',
+    component: () => import('@/views/momentum.vue'),
+    meta: { requiresAuth: true }
+  },
+  {
     path: '/wealth-map',
     component: () => import('@/views/wealth-map.vue'),
     meta: { requiresAuth: true }
