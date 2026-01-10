@@ -142,9 +142,9 @@
 
         <!-- ==================== 新增卡片：年度业绩回测 ==================== -->
         <div class="content-card">
-          <h2 class="card-title">年度业绩回测 (2014-2024)</h2>
+          <h2 class="card-title">年度业绩回测 (2014-2025)</h2>
           <p class="card-description">
-            下表展示了在过去十年间，全天候策略各组成部分及整体的年度收益率(%)表现。这有助于我们理解在不同市场年份中，各类资产如何相互作用，共同平滑了组合的整体波动。
+            下表展示了在过去12年间，全天候策略各组成部分及整体的年度收益率(%)表现。这有助于我们理解在不同市场年份中，各类资产如何相互作用，共同平滑了组合的整体波动。
           </p>
 
           <div class="table-container">
@@ -153,8 +153,8 @@
                 <tr>
                   <th>年份</th>
                   <th>自由现金流</th>
-                  <th>纳斯达克</th>
-                  <th>&nbsp;&nbsp;黄&nbsp;&nbsp;金&nbsp;&nbsp;</th>
+                  <th>纳斯达克100</th>
+                  <th>&nbsp;&nbsp;&nbsp;&nbsp;黄&nbsp;&nbsp;金&nbsp;&nbsp;&nbsp;&nbsp;</th>
                   <th>30年国债</th>
                   <th class="highlight-col">全天候策略</th>
                 </tr>
@@ -248,15 +248,23 @@
                   <td>12.90</td>
                   <td class="highlight-col">23.06</td>
                 </tr>
+                <tr>
+                  <td>2025</td>
+                  <td>17.85</td>
+                  <td>16.38</td>
+                  <td>56.86</td>
+                  <td class="negative">-5.98</td>
+                  <td class="highlight-col">22.11</td>
+                </tr>
               </tbody>
               <tfoot>
                 <tr>
                   <td>平均年化</td>
-                  <td>21.48</td>
-                  <td>19.91</td>
-                  <td>8.92</td>
-                  <td>8.02</td>
-                  <td class="highlight-col">13.36</td>
+                  <td>21.18</td>
+                  <td>19.62</td>
+                  <td>12.92</td>
+                  <td>6.85</td>
+                  <td class="highlight-col">14.09</td>
                 </tr>
               </tfoot>
             </table>
