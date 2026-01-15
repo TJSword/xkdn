@@ -168,7 +168,15 @@ export const useUserStore = defineStore('user', {
         this.hasAttemptedLogin = false
         // this.isVip = false; // 等等，重置所有用户相关状态
       }
-    }
+    },
+    /**
+     * 【新增】强制刷新用户信息（用于支付成功后更新VIP状态）
+     */
+    async refreshUserInfo() {
+      // 直接调用内部同步方法，无视 hasAttemptedLogin 标记
+      // 云函数 loginOrRegister 会根据当前 TCB 登录态返回最新的数据库信息
+      return await this._syncUserInfo()
+    },
 
     // async logout() {
     //   if (auth.currentUser) {

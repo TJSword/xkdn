@@ -49,7 +49,7 @@
             <!-- <li><strong>核心权益：</strong>会员可享受所有策略模型的每日数据更新、历史回测查看以及未来所有新增功能的使用权。</li> -->
           </ul>
         </div>
-        <div class="content-card cost-card">
+        <!-- <div class="content-card cost-card">
           <h2 class="card-title">费用说明与承诺</h2>
           <p class="card-description">
             为了覆盖服务器、数据接口等基础运营成本，本站目前采用象征性的收费模式，定价为 <strong>1元/周</strong>。
@@ -60,7 +60,7 @@
           <p class="card-description">
             如果未来 2元/周 的费用依然无法覆盖基本开销，我将选择关闭网站，而不是进一步提高价格来增加用户的负担。感谢您的理解与支持。
           </p>
-        </div>
+        </div> -->
 
         <!-- 卡片三：如何续费与加入交流群 -->
         <div class="content-card contact-card">
