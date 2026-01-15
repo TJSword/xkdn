@@ -1,13 +1,11 @@
 <template>
   <div class="home-page-wrapper">
     <div class="main-container">
-      <!-- 标题和副标题 -->
       <h1 class="main-title">想亏都难</h1>
       <p class="subtitle">
         戒掉情绪交易 从这里开始
       </p>
 
-      <!-- 市场温度计 -->
       <div class="market-thermometer-container clickable" @click="openModal" title="点击查看详细图表">
         <div class="thermometer-header">
           <h2 class="section-title">
@@ -29,7 +27,6 @@
         </div>
       </div>
 
-      <!-- 功能网格 -->
       <div class="features-grid">
         <div v-for="card in allFeatureCards" :key="card.id"
           :class="['strategy-card', card.cssClass, { 'disabled-card': card.vipOnly && !userStore.isVip }]" @click="handleCardClick(card)">
@@ -39,16 +36,19 @@
         </div>
       </div>
 
-      <!-- 新增：页面底部的会员到期信息 -->
       <div class="user-actions-footer">
         <span>{{ membershipStatusText }}</span>
-        <span class="separator">|</span>
-        <div href="#" @click.prevent="openPasswordModal" class="action-link">修改密码</div>
+        <span class="separator status-separator">|</span>
+        <div class="actions-wrapper">
+          <div href="#" @click.prevent="openRechargeModal" class="action-link">会员充值</div>
+          <span class="separator">|</span>
+          <div href="#" @click.prevent="openPasswordModal" class="action-link">修改密码</div>
+          <span class="separator">|</span>
+          <div href="#" @click.prevent="copyWeChatID" class="action-link">加入交流群</div>
+        </div>
       </div>
-
     </div>
 
-    <!-- 模态框 -->
     <Transition name="modal-fade">
       <div v-if="isModalVisible" class="modal-backdrop" @click="closeModal">
         <div class="modal-content" @click.stop>
@@ -62,12 +62,11 @@
         </div>
       </div>
     </Transition>
-    <!-- ======== 新增：网站介绍欢迎弹窗 ======== -->
+
     <Transition name="modal-fade">
       <div v-if="isWelcomeModalVisible" class="modal-backdrop" @click="closeWelcomeModal">
         <div class="modal-content welcome-modal-content" @click.stop>
 
-          <!-- 这是你要替换到 home.vue 中 isWelcomeModalVisible 控制的那个弹窗里的内容 -->
           <div class="modal-header">
             <h3>🎉 欢迎！很高兴与你相遇</h3>
             <button class="modal-close-button" @click="closeWelcomeModal">×</button>
@@ -157,15 +156,64 @@
         </div>
       </div>
     </Transition>
+
+    <Transition name="modal-fade">
+      <div v-if="isRechargeModalVisible" class="modal-backdrop" @click="closeRechargeModal">
+        <div class="modal-content recharge-modal-content" @click.stop>
+          <div class="modal-header">
+            <h3>💎 会员充值</h3>
+            <button class="modal-close-button" @click="closeRechargeModal">×</button>
+          </div>
+          <div class="modal-body">
+            <p class="recharge-desc">支持支付宝扫码，支付成功后自动延期。</p>
+
+            <div class="plans-grid">
+              <div v-for="plan in rechargePlans" :key="plan.id"
+                :class="['plan-item', { 'active': selectedPlan.id === plan.id, 'recommend': plan.isRecommend }]" @click="selectPlan(plan)">
+                <div v-if="plan.tag" class="plan-tag">{{ plan.tag }}</div>
+                <div class="plan-name">{{ plan.name }}</div>
+                <div class="plan-price">
+                  <span class="currency">¥</span>
+                  <span class="num">{{ plan.price }}</span>
+                </div>
+                <div class="plan-duration">{{ plan.durationLabel }}</div>
+              </div>
+            </div>
+
+            <div class="amount-display">
+              <span class="label">实付金额:</span>
+              <span class="price">¥ {{ selectedPlan.price.toFixed(2) }}</span>
+            </div>
+
+            <div class="payment-area">
+              <button v-if="!paymentQrCode" class="submit-btn ali-pay-btn" @click="handleGeneratePayment" :disabled="isGeneratingQr">
+                {{ isGeneratingQr ? '正在生成...' : '生成支付宝付款码' }}
+              </button>
+
+              <div v-else class="qr-code-container">
+                <p class="scan-tip">请使用支付宝扫一扫</p>
+                <div class="qr-img-wrapper">
+                  <img :src="paymentQrCode" alt="支付二维码" />
+                </div>
+                <p class="expire-tip">二维码有效期 5 分钟</p>
+                <button class="text-btn" @click="resetRecharge">重新选择套餐</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </Transition>
+
   </div>
 </template>
 
 <script setup lang="ts">
-  import { ref, computed, watch, nextTick, onMounted, onUnmounted } from 'vue'
+  import { ref, reactive, computed, watch, nextTick, onMounted, onUnmounted, inject } from 'vue'
   import { useRouter } from 'vue-router'
   import app, { auth } from '@/lib/cloudbase'
   import * as echarts from 'echarts'
   import { useUserStore } from '@/store/user'
+
   const showMessage: any = inject('showMessage')
   const userStore: any = useUserStore()
   const router = useRouter()
@@ -209,14 +257,6 @@
           link: '/long-term',
           vipOnly: true
       },
-      // {
-      //     id: 6,
-      //     title: '现金流策略',
-      //     description: '构建持续被动收入，打造你的第二份工资。',
-      //     icon: '💰',
-      //     cssClass: 'cash-flow-strategy', // 定义一个新的CSS类
-      //     link: '/cash-flow' // 指向我们新创建的页面路由
-      // },
       {
           id: 3,
           title: '可转债策略',
@@ -236,25 +276,15 @@
           link: '/micro-cap',
           vipOnly: true
       },
-      // 在 allFeatureCards 数组中修改/添加这个对象
       {
           id: 9,
           title: '动量策略',
           description: '依据动量模型，轮动持有最强资产，进攻性强。',
-          icon: '⚡', //
-          cssClass: 'momentum-strategy', // 对应下方的新CSS
+          icon: '⚡',
+          cssClass: 'momentum-strategy',
           link: '/momentum',
           vipOnly: true
       },
-
-      // {
-      //     id: 5, // 确保ID不重复
-      //     title: '市场罗盘',
-      //     description: '宏观指标一览，助您洞察市场全局，把握投资脉搏。',
-      //     icon: '🧭',
-      //     cssClass: 'market-compass', // 我们将为此添加样式
-      //     link: '/market-compass' // 定义新页面的路由
-      // },
       {
           id: 3,
           title: '投资小工具',
@@ -263,21 +293,13 @@
           cssClass: 'handy-tools',
           link: '/tools'
       },
-      // {
-      //     id: 6,
-      //     title: '老何的实盘',
-      //     description: '记录真实投资操作，分享市场实战经验。',
-      //     icon: '🚀',
-      //     cssClass: 'personal-ledger',
-      //     link: '/ledger'
-      // },
       {
           id: 7,
           title: '财富版图',
           description: '将您的资产目标具象化，一步步点亮全国版图。',
           icon: '🗺️',
-          cssClass: 'wealth-map', // 定义一个新的CSS类
-          link: '/wealth-map' // 定义新的路由路径
+          cssClass: 'wealth-map',
+          link: '/wealth-map'
       },
       {
           id: 8,
@@ -285,7 +307,7 @@
           description: '了解建站初衷、开发者、会员服务与联系方式。',
           icon: '💡',
           cssClass: 'about-us',
-          link: '/about' // 特殊 link 表示它不跳转，而是触发弹窗
+          link: '/about'
       }
   ])
 
@@ -316,8 +338,6 @@
       }
   }
 
-  // 【关键】修改 handleCardClick 函数
-
   // --- 市场温度计与数据处理 ---
   const rawHistoryData = ref<StarDataItem[]>([])
   const processedMarketData = ref<ProcessedDataItem[]>([])
@@ -328,10 +348,6 @@
   const latestTemperature = ref(0)
   const latestDate = ref('加载中...')
   let pollingInterval: number | null = null
-
-  /**
-   * [异步] 获取会员到期时间 (示例)
-   */
 
   function processDataWithLinearMapping() {
       const data = rawHistoryData.value
@@ -414,12 +430,205 @@
   const handleCardClick = (card: FeatureCard) => {
       if (card.vipOnly && !userStore.isVip) {
           // 不再使用 showMessage，而是打开我们的新弹窗
-          openVipModal()
+          openRechargeModal()
       } else {
           router.push(card.link)
       }
   }
 
+  // -----------------------------------------------------
+  // ======== 新增逻辑：会员充值功能 ========
+  // -----------------------------------------------------
+  const isRechargeModalVisible = ref(false)
+  const isGeneratingQr = ref(false)
+  const paymentQrCode = ref('')
+  let pollTimer: any | null = null
+  const currentOutTradeNo = ref('')
+
+  // 定义套餐数据
+  const rechargePlans = [
+      {
+          id: 'month',
+          name: '尝鲜月卡',
+          price: 6.8,
+          days: 30,
+          durationLabel: '1个月',
+          tag: '',
+          isRecommend: false
+      },
+      {
+          id: 'quarter',
+          name: '进阶季卡',
+          price: 18.8,
+          days: 90,
+          durationLabel: '3个月',
+          tag: '',
+          isRecommend: false
+      },
+      {
+          id: 'half',
+          name: '实战半年',
+          price: 28.8,
+          days: 180,
+          durationLabel: '6个月',
+          tag: '',
+          isRecommend: false
+      },
+      {
+          id: 'year',
+          name: '尊享年卡',
+          price: 48.8,
+          days: 365,
+          durationLabel: '12个月',
+          tag: '',
+          isRecommend: true
+      },
+      {
+          id: 'year2',
+          name: '长期主义',
+          price: 88.8,
+          days: 730,
+          durationLabel: '24个月',
+          tag: '',
+          isRecommend: false
+      },
+      {
+          id: 'year3',
+          name: '穿越牛熊',
+          price: 118.8,
+          days: 1095,
+          durationLabel: '36个月',
+          tag: '',
+          isRecommend: false
+      }
+  ]
+
+  // 默认选中年卡
+  const selectedPlan = ref(rechargePlans[3])
+
+  const selectPlan = (plan: any) => {
+      if (paymentQrCode.value) {
+          // 如果已经生成了二维码，切换套餐需要重置
+          paymentQrCode.value = ''
+          stopPolling()
+      }
+      selectedPlan.value = plan
+  }
+
+  const openRechargeModal = () => {
+      isRechargeModalVisible.value = true
+      // 每次打开重置为默认推荐（年卡）
+      selectedPlan.value = rechargePlans[3]
+      paymentQrCode.value = ''
+  }
+
+  const closeRechargeModal = () => {
+      stopPolling()
+      isRechargeModalVisible.value = false
+  }
+
+  const stopPolling = () => {
+      if (pollTimer) {
+          clearInterval(pollTimer)
+          pollTimer = null
+      }
+  }
+
+  const resetRecharge = () => {
+      stopPolling()
+      paymentQrCode.value = ''
+      isGeneratingQr.value = false
+  }
+
+  // 修改后的支付发起函数
+  const handleGeneratePayment = async () => {
+      if (isGeneratingQr.value) return
+
+      // 1. 用户ID检查
+      const realUserId = userStore.userInfo?._id || userStore.userInfo?.id
+      if (!realUserId) {
+          showMessage('无法获取用户ID，请尝试重新登录', 'error')
+          return
+      }
+
+      isGeneratingQr.value = true
+
+      try {
+          showMessage('正在创建支付宝订单...', 'info')
+
+          // 2. 发送选中的套餐数据（天数 days 和 金额 totalAmount）
+          const requestData = {
+              planId: selectedPlan.value.id, // 例如 'year', 'month'
+              userId: realUserId
+          }
+
+          const res = await app.callFunction({
+              name: 'createAlipayOrder',
+              data: requestData
+          })
+
+          const result = res.result
+
+          if (result && result.success) {
+              const { qrCodeBase64, outTradeNo } = result.data
+
+              paymentQrCode.value = qrCodeBase64
+              currentOutTradeNo.value = outTradeNo
+
+              showMessage('订单创建成功，请扫码支付', 'success')
+
+              stopPolling()
+              pollTimer = setInterval(() => {
+                  checkPaymentStatus()
+              }, 3000)
+          } else {
+              throw new Error(result?.message || '生成订单失败')
+          }
+      } catch (error: any) {
+          console.error('支付下单失败:', error)
+          showMessage(error.message || '支付服务暂不可用，请稍后再试', 'error')
+      } finally {
+          isGeneratingQr.value = false
+      }
+  }
+  // -----------------------------------------------------
+  // 新增：检查支付状态函数
+  const checkPaymentStatus = async () => {
+      if (!currentOutTradeNo.value) return
+
+      try {
+          // 调用刚才新建的 checkAlipayStatus 云函数
+          const res = await app.callFunction({
+              name: 'checkAlipayStatus',
+              data: { outTradeNo: currentOutTradeNo.value }
+          })
+
+          const result = res.result
+          if (result && result.success) {
+              if (result.status === 'SUCCESS') {
+                  // --- 支付成功逻辑 ---
+                  stopPolling() // 1. 停止轮询
+                  showMessage('🎉 支付成功！会员已到账', 'success')
+
+                  // 2. 关闭充值弹窗
+                  closeRechargeModal()
+
+                  // 3. 刷新用户信息 (非常重要，否则看不到会员状态变化)
+                  // 假设 userStore 有一个 getUerInfo 或 refresh 方法
+                  // await userStore.getUserInfo()
+                  // 如果没有专门的方法，可以重新加载页面或者手动更新 store 状态
+                  await userStore.refreshUserInfo()
+                  // setTimeout(() => {
+                  //     window.location.reload() // 简单粗暴刷新页面，或者调用获取用户信息的接口
+                  // }, 1500)
+              }
+              // 如果是 PENDING，什么都不做，继续等下一次轮询
+          }
+      } catch (err) {
+          console.error('查询订单状态失败', err)
+          // 查询失败不一定要停止轮询，可能是网络波动
+      }
+  }
   onMounted(async () => {
       // 现在我们并行获取会员信息和所有的市场数据
       await fetchMarketData()
@@ -441,6 +650,7 @@
       if (myChart) {
           myChart.dispose()
       }
+      stopPolling()
   })
 
   watch(latestStar, newStar => {
@@ -651,6 +861,7 @@
           opacity: 0;
           transform: translateY(20px);
       }
+
       to {
           opacity: 1;
           transform: translateY(0);
@@ -839,6 +1050,7 @@
       min-height: 150px;
       text-align: center;
   }
+
   .disabled-card {
       /* 关键：为伪元素定位做准备 */
       position: relative;
@@ -848,7 +1060,8 @@
 
   /* 创建一个覆盖在卡片上方的“毛玻璃”层 */
   .disabled-card::after {
-      content: '🔒'; /* 直接使用 emoji 作为锁图标 */
+      content: '🔒';
+      /* 直接使用 emoji 作为锁图标 */
       position: absolute;
       top: 0;
       left: 0;
@@ -858,8 +1071,10 @@
       /* 覆盖层样式 */
       background-color: rgba(0, 0, 0, 0.4);
       backdrop-filter: blur(4px);
-      -webkit-backdrop-filter: blur(4px); /* 兼容 Safari */
-      border-radius: 12px; /* 与卡片圆角保持一致 */
+      -webkit-backdrop-filter: blur(4px);
+      /* 兼容 Safari */
+      border-radius: 12px;
+      /* 与卡片圆角保持一致 */
 
       /* 图标样式与居中 */
       display: flex;
@@ -898,12 +1113,15 @@
   }
 
   .wealth-map:hover {
-      box-shadow: 0 0 15px #ffd700; /* 金色光晕 */
+      box-shadow: 0 0 15px #ffd700;
+      /* 金色光晕 */
       border-color: #ffd700;
   }
+
   .wealth-map .card-icon {
       color: #ffd700;
   }
+
   .about-us:hover {
       box-shadow: 0 0 15px #ffc107;
       border-color: #ffc107;
@@ -912,10 +1130,13 @@
   .about-us .card-icon {
       color: #ffc107;
   }
+
   .market-compass:hover {
-      box-shadow: 0 0 15px #39cccc; /* 一种青色光晕 */
+      box-shadow: 0 0 15px #39cccc;
+      /* 一种青色光晕 */
       border-color: #39cccc;
   }
+
   .market-compass .card-icon {
       color: #39cccc;
   }
@@ -981,6 +1202,7 @@
   .micro-cap .card-icon {
       color: #f0e68c;
   }
+
   /* --- 修改：ETF动量策略的卡片样式 (熔岩橙色系) --- */
   .momentum-strategy:not(.disabled-card):hover {
       /* 悬停时的光晕，改为橙红色 */
@@ -989,8 +1211,10 @@
   }
 
   .momentum-strategy .card-icon {
-      color: #ff5722; /* 图标颜色 */
+      color: #ff5722;
+      /* 图标颜色 */
   }
+
   .convertible-bond:hover {
       box-shadow: 0 0 15px #add8e6;
       border-color: #add8e6;
@@ -999,45 +1223,63 @@
   .convertible-bond .card-icon {
       color: #add8e6;
   }
+
   .cash-flow-strategy:hover {
       box-shadow: 0 0 15px #e59866;
       border-color: #e59866;
   }
+
   .cash-flow-strategy .card-icon {
       color: #e59866;
   }
+
   /* 页面底部会员信息的样式 */
   .user-actions-footer {
       text-align: center;
-      margin-top: 3rem; /* 与上方网格保持足够距离 */
-      color: #8392a5; /* 使用一种柔和、不刺眼的颜色 */
+      margin-top: 3rem;
+      /* 与上方网格保持足够距离 */
+      color: #8392a5;
+      /* 使用一种柔和、不刺眼的颜色 */
       font-size: 0.9rem;
       font-weight: 500;
       display: flex;
       justify-content: center;
       align-items: center;
-      gap: 0.8rem; /* 在各项之间创建一些空间 */
+      gap: 0.8rem;
+      /* 在各项之间创建一些空间 */
       /* 应用加载动画, 延迟0.8秒 */
       animation: fadeInUp 0.5s ease-out 0.8s forwards;
       opacity: 0;
   }
 
+  .actions-wrapper {
+      display: flex;
+      align-items: center;
+      gap: 0.8rem;
+  }
+
   .user-actions-footer .separator {
-      color: rgba(131, 146, 165, 0.5); /* 分隔符颜色更淡一些 */
+      color: rgba(131, 146, 165, 0.5);
+      /* 分隔符颜色更淡一些 */
   }
 
   .user-actions-footer .action-link {
-      color: #8392a5; /* 链接颜色与普通文本一致 */
+      color: #8392a5;
+      /* 链接颜色与普通文本一致 */
       padding-top: 1px;
-      border-bottom: 1px solid transparent; /* 准备一个透明的下划线，用于悬停效果 */
+      border-bottom: 1px solid transparent;
+      /* 准备一个透明的下划线，用于悬停效果 */
       cursor: pointer;
-      transition: all 0.3s ease; /* 平滑过渡效果 */
+      transition: all 0.3s ease;
+      /* 平滑过渡效果 */
   }
 
   /* 鼠标悬停时，链接才变得突出 */
   .user-actions-footer .action-link:hover {
-      color: #00aaff; /* 悬停时变为高亮色 */
-      border-bottom-color: #00aaff; /* 显示下划线 */
+      color: #00aaff;
+      /* 悬停时变为高亮色 */
+      border-bottom-color: #00aaff;
+      /* 显示下划线 */
       /* 修改：添加辉光效果 */
       text-shadow: 0 0 8px rgba(0, 170, 255, 0.7);
   }
@@ -1116,6 +1358,7 @@
   .modal-fade-leave-to .modal-content {
       transform: scale(0.95);
   }
+
   .password-modal-content {
       /* 新增：应用与登录页一致的玻璃拟态效果 */
       background: rgba(255, 255, 255, 0.08);
@@ -1126,7 +1369,8 @@
 
       /* 修改：减小最大宽度，使其更协调 */
       max-width: 450px !important;
-      width: 90%; /* 确保在小屏幕上不会过宽 */
+      width: 90%;
+      /* 确保在小屏幕上不会过宽 */
 
       /* 修改：调整内边距和圆角，使其更精致 */
       padding: 2.5rem;
@@ -1136,25 +1380,29 @@
   /* --- 弹窗头部样式 --- */
   .password-modal-content .modal-header {
       padding-bottom: 1.2rem;
-      margin-bottom: 2rem; /* 增加与表单的距离 */
-      text-align: center; /* 让标题居中 */
+      margin-bottom: 2rem;
+      /* 增加与表单的距离 */
+      text-align: center;
+      /* 让标题居中 */
       border-bottom: 1px solid rgba(255, 255, 255, 0.2);
   }
 
   .password-modal-content .modal-header h3 {
-      font-size: 1.5rem; /* 适当增大标题字号 */
+      font-size: 1.5rem;
+      /* 适当增大标题字号 */
       font-weight: 700;
   }
 
   /* 隐藏默认的关闭按钮，因为头部已经居中，不再需要它在角落 */
   .password-modal-content .modal-close-button {
-      display: none;
+      /* display: none; */
   }
 
   /* --- 弹窗内表单的样式 --- */
   .password-modal-content .form-group {
       position: relative;
-      margin-bottom: 2.2rem; /* 增加输入框之间的垂直间距 */
+      margin-bottom: 2.2rem;
+      /* 增加输入框之间的垂直间距 */
   }
 
   /* 复用登录页的输入框和标签样式，确保统一 */
@@ -1198,7 +1446,8 @@
       padding: 1rem;
       background: #00aaff;
       border: none;
-      border-radius: 10px; /* 圆角与容器协调 */
+      border-radius: 10px;
+      /* 圆角与容器协调 */
       color: #ffffff;
       font-size: 1.2rem;
       font-weight: 700;
@@ -1213,7 +1462,8 @@
   }
 
   .vip-modal-content {
-      max-width: 450px; /* 弹窗可以小一些 */
+      max-width: 450px;
+      /* 弹窗可以小一些 */
       text-align: center;
   }
 
@@ -1234,7 +1484,8 @@
       font-weight: bold;
       letter-spacing: 1px;
       color: #fff;
-      user-select: all; /* 让用户可以轻松选中并复制 */
+      user-select: all;
+      /* 让用户可以轻松选中并复制 */
       width: fit-content;
   }
 
@@ -1261,13 +1512,16 @@
   .vip-modal-desc {
       font-size: 1rem;
       color: #e0e0e0;
-      margin-bottom: 1.5rem !important; /* 增加与价格标签的间距 */
+      margin-bottom: 1.5rem !important;
+      /* 增加与价格标签的间距 */
   }
 
   /* 新增：价格标签样式 */
   .price-tag {
-      background-color: rgba(255, 215, 0, 0.1); /* 淡金色背景 */
-      border: 1px solid rgba(255, 215, 0, 0.4); /* 金色边框 */
+      background-color: rgba(255, 215, 0, 0.1);
+      /* 淡金色背景 */
+      border: 1px solid rgba(255, 215, 0, 0.4);
+      /* 金色边框 */
       border-radius: 8px;
       padding: 0.75rem;
       margin: 0 auto 1.5rem auto;
@@ -1279,15 +1533,197 @@
   .price-highlight {
       font-size: 1.2rem;
       font-weight: bold;
-      color: #ffd700; /* 亮金色 */
+      color: #ffd700;
+      /* 亮金色 */
   }
 
   /* 新增：联系提示文本样式 */
   .contact-prompt {
       font-size: 0.9rem;
-      color: #b0c4de; /* 使用次要文本颜色 */
-      margin-bottom: 0.8rem !important; /* 减小与微信框的间距 */
+      color: #b0c4de;
+      /* 使用次要文本颜色 */
+      margin-bottom: 0.8rem !important;
+      /* 减小与微信框的间距 */
   }
+
+  /* ------------------------------------------- */
+  /* ======== 新增：会员充值弹窗样式 ======== */
+  /* ------------------------------------------- */
+  .recharge-modal-content {
+      max-width: 450px !important;
+      text-align: center;
+      /* 玻璃拟态效果 */
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      backdrop-filter: blur(15px);
+      -webkit-backdrop-filter: blur(15px);
+      box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+      border-radius: 20px;
+      padding: 2rem;
+  }
+
+  .recharge-desc {
+      color: #b0c4de;
+      font-size: 0.9rem;
+      margin-bottom: 1.5rem;
+  }
+
+  .recharge-form {
+      margin-bottom: 1.5rem;
+      background: rgba(0, 0, 0, 0.2);
+      padding: 1rem;
+      border-radius: 10px;
+  }
+
+  .form-label {
+      display: block;
+      color: #e0e0e0;
+      margin-bottom: 0.8rem;
+      font-size: 1rem;
+  }
+
+  .number-input-group {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 1rem;
+  }
+
+  .week-input {
+      width: 60px;
+      text-align: center;
+      background: transparent;
+      border: none;
+      border-bottom: 2px solid #00aaff;
+      color: #fff;
+      font-size: 1.5rem;
+      font-weight: bold;
+  }
+
+  /* 去掉输入框的小箭头 */
+  .week-input::-webkit-inner-spin-button,
+  .week-input::-webkit-outer-spin-button {
+      -webkit-appearance: none;
+      margin: 0;
+  }
+
+  .control-btn {
+      background: rgba(255, 255, 255, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      color: #fff;
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      cursor: pointer;
+      font-size: 1.2rem;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      transition: all 0.2s;
+  }
+
+  .control-btn:hover:not(:disabled) {
+      background: #00aaff;
+      border-color: #00aaff;
+  }
+
+  .control-btn:disabled {
+      opacity: 0.3;
+      cursor: not-allowed;
+  }
+
+  .amount-display {
+      margin-bottom: 2rem;
+      font-size: 1.2rem;
+  }
+
+  .amount-display .label {
+      color: #e0e0e0;
+      margin-right: 0.5rem;
+  }
+
+  .amount-display .price {
+      color: #ffd700;
+      font-size: 1.8rem;
+      font-weight: bold;
+  }
+
+  .ali-pay-btn {
+      background: #1677ff;
+      /* 支付宝蓝 */
+      margin-top: 0;
+      width: 100%;
+      padding: 0.8rem;
+      border-radius: 8px;
+      border: none;
+      color: #fff;
+      font-weight: bold;
+      font-size: 1.1rem;
+      cursor: pointer;
+      transition: transform 0.2s;
+  }
+
+  .ali-pay-btn:hover:not(:disabled) {
+      transform: translateY(-2px);
+      background: #4096ff;
+      box-shadow: 0 4px 12px rgba(22, 119, 255, 0.4);
+  }
+
+  .ali-pay-btn:disabled {
+      background: #4a5568;
+      cursor: wait;
+  }
+
+  .qr-code-container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      animation: fadeInUp 0.3s ease-out;
+  }
+
+  .qr-img-wrapper {
+      background: #fff;
+      padding: 10px;
+      border-radius: 8px;
+      margin: 10px 0;
+      width: 180px;
+      height: 180px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+  }
+
+  .qr-img-wrapper img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+  }
+
+  .scan-tip {
+      color: #00aaff;
+      font-weight: bold;
+      margin-bottom: 0.5rem;
+  }
+
+  .expire-tip {
+      font-size: 0.8rem;
+      color: #8392a5;
+      margin-bottom: 1rem;
+  }
+
+  .text-btn {
+      background: none;
+      border: none;
+      color: #b0c4de;
+      text-decoration: underline;
+      cursor: pointer;
+      font-size: 0.9rem;
+  }
+
+  .text-btn:hover {
+      color: #fff;
+  }
+
   /* ... 之后的响应式和其他样式都保持您原来的版本 ... */
   @media (max-width: 1024px) {
       .features-grid {
@@ -1336,33 +1772,43 @@
       .membership-footer {
           margin-top: 2rem;
       }
+
       .modal-content {
           padding: 1.2rem 1rem;
       }
 
       /* --- 新增：进一步减小图表高度 --- */
       .echart-container {
-          height: 300px; /* 在最小屏幕上可以再小一点 */
+          height: 300px;
+          /* 在最小屏幕上可以再小一点 */
       }
 
       /* --- 新增：适配欢迎弹窗的特定内容 --- */
       .welcome-modal-body h4 {
-          font-size: 1.05rem; /* 减小欢迎弹窗内的小标题字号 */
+          font-size: 1.05rem;
+          /* 减小欢迎弹窗内的小标题字号 */
       }
+
       .welcome-modal-body ul {
-          padding-left: 0.5rem; /* 减小列表的左内边距 */
+          padding-left: 0.5rem;
+          /* 减小列表的左内边距 */
       }
+
       .welcome-modal-body li {
-          font-size: 0.9rem; /* 减小列表项字号 */
+          font-size: 0.9rem;
+          /* 减小列表项字号 */
       }
+
       .welcome-modal-button {
-          width: 100%; /* 让“开始探索”按钮撑满宽度，更易点击 */
+          width: 100%;
+          /* 让“开始探索”按钮撑满宽度，更易点击 */
           padding: 0.9rem;
       }
   }
 
   .welcome-modal-content {
-      max-width: 600px; /* 可以比图表弹窗窄一些 */
+      max-width: 600px;
+      /* 可以比图表弹窗窄一些 */
   }
 
   .welcome-modal-body {
@@ -1424,6 +1870,7 @@
       transform: translateY(-3px);
       box-shadow: 0 0 12px #00aaff;
   }
+
   .welcome-modal-body .highlight-box {
       background: rgba(0, 170, 255, 0.1);
       border: 1px solid rgba(0, 170, 255, 0.3);
@@ -1434,10 +1881,6 @@
       line-height: 1.6;
       color: #fff;
   }
-
-  /* ==================================================== */
-  /* ========   RESPONSIVE STYLES (Tablet & Mobile)  ======== */
-  /* ==================================================== */
 
   @media (max-width: 1024px) {
       .main-container {
@@ -1490,6 +1933,7 @@
       .echart-container {
           height: 400px;
       }
+
       .modal-content {
           width: 80%;
           padding: 1.5rem 1.2rem;
@@ -1504,11 +1948,13 @@
       .echart-container {
           height: 350px;
       }
+
       .user-profile-bar {
           flex-direction: column;
           gap: 1rem;
           padding: 1rem;
       }
+
       .password-modal-content {
           padding: 2rem 1.5rem;
       }
@@ -1534,6 +1980,7 @@
       .home-page-wrapper {
           padding: 1.5rem 1rem;
       }
+
       .main-container {
           padding: 0;
       }
@@ -1556,6 +2003,7 @@
           justify-content: center;
           gap: 0.25rem;
       }
+
       .thermometer-desc {
           text-align: center;
           margin-top: 0.1rem;
@@ -1611,6 +2059,7 @@
       .echart-container {
           height: 350px;
       }
+
       .user-actions-footer {
           flex-direction: column;
           gap: 0.5rem;
@@ -1618,7 +2067,152 @@
       }
 
       .user-actions-footer .separator {
+          /* display: none; */
+      }
+
+      .user-actions-footer {
+          flex-direction: column; /* 整体依然垂直，让“会员状态”在第一行 */
+          gap: 0.8rem; /* 增加一点行间距 */
+          margin-top: 2.5rem;
+      }
+
+      /* 只隐藏第一行的那个竖线（状态和按钮中间的） */
+      .user-actions-footer .status-separator {
           display: none;
+      }
+
+      /* 注意：删掉或注释掉原代码中的 .user-actions-footer .separator { display: none; } */
+      /* 因为我们需要让按钮中间的竖线显示出来 */
+
+      /* 确保按钮组也是横向排列（虽然默认就是 flex-row，但写上更保险） */
+      .actions-wrapper {
+          display: flex;
+          flex-direction: row;
+          justify-content: center;
+          gap: 0.8rem;
+      }
+  }
+
+  /* 套餐选择网格 */
+  .plans-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      margin-bottom: 20px;
+  }
+
+  /* 针对最后两个大套餐，让它们在小屏下占据更多空间，或者直接流式布局 */
+  /* 这里我们为了简单，用 flex wrap 或者保持 grid */
+  /* .plans-grid {
+                                    display: flex;
+                                    flex-wrap: wrap;
+                                    justify-content: space-between;
+                                } */
+
+  .plan-item {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 10px;
+      padding: 10px 5px;
+      text-align: center;
+      cursor: pointer;
+      position: relative;
+      transition: all 0.3s ease;
+      margin-bottom: 10px;
+  }
+
+  .plan-item:hover {
+      background: rgba(255, 255, 255, 0.1);
+  }
+
+  /* 选中状态 */
+  .plan-item.active {
+      border-color: #ffd700;
+      background: rgba(255, 215, 0, 0.15);
+      box-shadow: 0 0 10px rgba(255, 215, 0, 0.2);
+  }
+
+  /* 推荐样式 */
+  .plan-item.recommend {
+      border-color: #ff4081;
+  }
+  .plan-item.recommend.active {
+      background: rgba(255, 64, 129, 0.15);
+      box-shadow: 0 0 10px rgba(255, 64, 129, 0.3);
+  }
+
+  /* 标签 */
+  .plan-tag {
+      position: absolute;
+      top: -8px;
+      right: -5px;
+      background: #ff4081;
+      color: white;
+      font-size: 0.7rem;
+      padding: 2px 6px;
+      border-radius: 4px;
+      transform: scale(0.9);
+  }
+  .plan-item.active .plan-tag {
+      background: #ff4081;
+  }
+  .plan-item.active.active .plan-tag {
+      /* 如果选中了非推荐的但有tag的 */
+      background: #ffd700;
+      color: #000;
+  }
+  .plan-item.recommend .plan-tag {
+      background: #ff4081;
+  }
+
+  .plan-name {
+      font-size: 0.9rem;
+      color: #e0e0e0;
+      margin-bottom: 5px;
+  }
+
+  .plan-price {
+      color: #ffd700;
+      margin-bottom: 5px;
+  }
+
+  .plan-price .currency {
+      font-size: 0.8rem;
+  }
+
+  .plan-price .num {
+      font-size: 1.4rem;
+      font-weight: bold;
+  }
+
+  .plan-duration {
+      font-size: 0.8rem;
+      color: #8392a5;
+  }
+
+  /* 调整原来的样式 */
+  .recharge-modal-content {
+      max-width: 500px !important; /* 稍微宽一点放套餐 */
+  }
+
+  @media (max-width: 576px) {
+      .plans-grid {
+          /* 移动端强制：一行2个 */
+          grid-template-columns: repeat(2, 1fr);
+          gap: 10px;
+      }
+
+      /* 让最后一个（2年卡）在手机上占满一行，显得霸气 */
+      /* .plan-item:last-child {
+                                                  width: 100%;
+                                                  display: flex;
+                                                  justify-content: space-between;
+                                                  align-items: center;
+                                                  padding: 0 20px;
+                                                  height: 60px;
+                                              } */
+      .recharge-modal-content {
+          padding: 1.5rem 1rem;
       }
   }
 </style>

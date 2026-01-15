@@ -97,8 +97,8 @@
                 <p class="info-text">{{ selectedUser.membershipExpiry }}</p>
               </div>
               <div class="form-group">
-                <label for="weeks-input">输入续费周数:</label>
-                <input id="weeks-input" type="number" v-model.number="weeksToAdd" class="form-input" placeholder="例如: 4" min="1" />
+                <label for="weeks-input">输入续费天数:</label>
+                <input id="weeks-input" type="number" v-model.number="daysToAdd" class="form-input" placeholder="例如: 30" min="1" />
               </div>
               <div class="form-group" v-if="newExpiryDate">
                 <label>新的到期时间:</label>
@@ -108,7 +108,7 @@
           </div>
           <div class="modal-footer">
             <button class="button-secondary" @click="closeModal">取消</button>
-            <button class="button-primary" @click="confirmRenewal" :disabled="!weeksToAdd || weeksToAdd <= 0">确认续费</button>
+            <button class="button-primary" @click="confirmRenewal" :disabled="!daysToAdd || daysToAdd <= 0">确认续费</button>
           </div>
         </div>
       </div>
@@ -226,7 +226,7 @@
   // --- 模态框逻辑 ---
   const isModalVisible = ref(false)
   const selectedUser = ref<User | null>(null)
-  const weeksToAdd = ref<number | null>(null)
+  const daysToAdd = ref<number | null>(null)
 
   const openRenewalModal = (user: User) => {
       selectedUser.value = user
@@ -236,11 +236,11 @@
   const closeModal = () => {
       isModalVisible.value = false
       selectedUser.value = null
-      weeksToAdd.value = null
+      daysToAdd.value = null
   }
 
   const newExpiryDate = computed(() => {
-      if (!selectedUser.value || !weeksToAdd.value || weeksToAdd.value <= 0) return ''
+      if (!selectedUser.value || !daysToAdd.value || daysToAdd.value <= 0) return ''
 
       // 确定计算的起始日期
       const isNewUserOrExpired =
@@ -251,7 +251,7 @@
           : new Date(selectedUser.value.membershipExpiry)
 
       // 增加周数 (setDate 会自动处理月份和年份的进位)
-      startDate.setDate(startDate.getDate() + weeksToAdd.value * 7)
+      startDate.setDate(startDate.getDate() + daysToAdd.value)
 
       // 格式化为 YYYY-MM-DD HH:mm
       const year = startDate.getFullYear()
@@ -265,14 +265,14 @@
 
   // **修改**: 确认续费逻辑，适配您的调用风格
   const confirmRenewal = () => {
-      if (!selectedUser.value || !weeksToAdd.value || weeksToAdd.value <= 0) return
+      if (!selectedUser.value || !daysToAdd.value || daysToAdd.value <= 0) return
 
       app.callFunction({
           name: 'renewMembership',
           parse: true,
           data: {
               userId: selectedUser.value.id,
-              weeksToAdd: weeksToAdd.value
+              daysToAdd: daysToAdd.value
           }
       })
           .then((res: any) => {
@@ -593,7 +593,7 @@
 
       /* 步骤二：确保表格可以滚动，并优化单元格内容 */
       /* .table-wrapper {
-                    } */
+                              } */
       .table-wrapper::-webkit-scrollbar {
           height: 6px;
       }
