@@ -163,7 +163,8 @@
                   totalUsers.value = res.result.data.total
               } else {
                   // 处理云函数返回的业务错误
-                  showMessage('获取用户失败', 'error')
+                  console.log(res)
+                  showMessage(res.result.message, 'error')
                   users.value = []
                   totalUsers.value = 0
               }
@@ -593,7 +594,7 @@
 
       /* 步骤二：确保表格可以滚动，并优化单元格内容 */
       /* .table-wrapper {
-                              } */
+                                      } */
       .table-wrapper::-webkit-scrollbar {
           height: 6px;
       }

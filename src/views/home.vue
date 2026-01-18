@@ -28,12 +28,14 @@
       </div>
 
       <div class="features-grid">
-        <div v-for="card in allFeatureCards" :key="card.id"
-          :class="['strategy-card', card.cssClass, { 'disabled-card': card.vipOnly && !userStore.isVip }]" @click="handleCardClick(card)">
-          <div class="card-icon">{{ card.icon }}</div>
-          <h2 class="card-title">{{ card.title }}</h2>
-          <p class="card-description">{{ card.description }}</p>
-        </div>
+        <template v-for="card in allFeatureCards" :key="card.id">
+          <div v-if="!card.adminOnly || (userStore.userInfo && userStore.userInfo.admin)"
+            :class="['strategy-card', card.cssClass, { 'disabled-card': card.vipOnly && !userStore.isVip }]" @click="handleCardClick(card)">
+            <div class="card-icon">{{ card.icon }}</div>
+            <h2 class="card-title">{{ card.title }}</h2>
+            <p class="card-description">{{ card.description }}</p>
+          </div>
+        </template>
       </div>
 
       <div class="user-actions-footer">
@@ -228,6 +230,7 @@
       cssClass: string
       link: string
       vipOnly?: boolean
+      adminOnly?: boolean
   }
   interface StarDataItem {
       day: string
@@ -268,6 +271,15 @@
       },
 
       {
+          id: 9,
+          title: '动量策略',
+          description: '依据动量模型，轮动持有最强资产，进攻性强。',
+          icon: '⚡',
+          cssClass: 'momentum-strategy',
+          link: '/momentum',
+          vipOnly: true
+      },
+      {
           id: 4,
           title: '微盘股策略',
           description: '日度跟踪微盘组合，纪律化调仓获取贝塔收益。',
@@ -277,12 +289,21 @@
           vipOnly: true
       },
       {
-          id: 9,
-          title: '动量策略',
-          description: '依据动量模型，轮动持有最强资产，进攻性强。',
-          icon: '⚡',
-          cssClass: 'momentum-strategy',
-          link: '/momentum',
+          id: 99, // 使用一个特殊的ID
+          title: '微盘股调仓',
+          description: '监控持仓明细、市值分布及每日资金再平衡。',
+          icon: '⚖️',
+          cssClass: 'micro-cap-admin', // 对应下面的CSS类名
+          link: '/micro-cap-adjustment', // 对应新页面的路由
+          adminOnly: true // 标记为仅管理员
+      },
+      {
+          id: 10,
+          title: '组合实验室',
+          description: '自定义策略配比，回测组合相关性与风险收益特征。',
+          icon: '⚗️', // 使用烧瓶图标，代表实验室
+          cssClass: 'portfolio-lab', // 对应下面的 CSS
+          link: '/portfolio-analysis', // 记得在 router 中注册这个路由
           vipOnly: true
       },
       {
@@ -293,14 +314,14 @@
           cssClass: 'handy-tools',
           link: '/tools'
       },
-      {
-          id: 7,
-          title: '财富版图',
-          description: '将您的资产目标具象化，一步步点亮全国版图。',
-          icon: '🗺️',
-          cssClass: 'wealth-map',
-          link: '/wealth-map'
-      },
+      // {
+      //     id: 7,
+      //     title: '财富版图',
+      //     description: '将您的资产目标具象化，一步步点亮全国版图。',
+      //     icon: '🗺️',
+      //     cssClass: 'wealth-map',
+      //     link: '/wealth-map'
+      // },
       {
           id: 8,
           title: '关于本站',
@@ -1184,6 +1205,16 @@
   .personal-ledger .card-icon {
       color: #00c497;
   }
+  /* 选项 A 样式 */
+  /* 选项 B 样式 */
+  .portfolio-lab:not(.disabled-card):hover {
+      /* 深邃的蓝紫光晕 */
+      box-shadow: 0 0 15px #6366f1;
+      border-color: #6366f1;
+  }
+  .portfolio-lab .card-icon {
+      color: #6366f1;
+  }
 
   .handy-tools:hover {
       box-shadow: 0 0 15px #8a2be2;
@@ -1215,6 +1246,22 @@
       /* 图标颜色 */
   }
 
+  .micro-cap-admin {
+      /* 背景改为深紫色渐变，区别于关于我们的黄色 */
+      /* background: linear-gradient(145deg, rgba(157, 78, 221, 0.08), rgba(0, 0, 0, 0.3));
+                              border: 1px solid rgba(157, 78, 221, 0.2); */
+  }
+
+  .micro-cap-admin:not(.disabled-card):hover {
+      /* 悬停时：显示香槟金色的边框和光晕，低调奢华 */
+      border-color: #d4af37;
+      box-shadow: 0 0 15px rgba(212, 175, 55, 0.3);
+      transform: translateY(-8px) scale(1.03);
+  }
+
+  .micro-cap-admin .card-icon {
+      color: #d4af37; /* 香槟金图标 */
+  }
   .convertible-bond:hover {
       box-shadow: 0 0 15px #add8e6;
       border-color: #add8e6;
@@ -2104,10 +2151,10 @@
   /* 针对最后两个大套餐，让它们在小屏下占据更多空间，或者直接流式布局 */
   /* 这里我们为了简单，用 flex wrap 或者保持 grid */
   /* .plans-grid {
-                                    display: flex;
-                                    flex-wrap: wrap;
-                                    justify-content: space-between;
-                                } */
+                                                                            display: flex;
+                                                                            flex-wrap: wrap;
+                                                                            justify-content: space-between;
+                                                                        } */
 
   .plan-item {
       background: rgba(255, 255, 255, 0.05);
@@ -2204,13 +2251,13 @@
 
       /* 让最后一个（2年卡）在手机上占满一行，显得霸气 */
       /* .plan-item:last-child {
-                                                  width: 100%;
-                                                  display: flex;
-                                                  justify-content: space-between;
-                                                  align-items: center;
-                                                  padding: 0 20px;
-                                                  height: 60px;
-                                              } */
+                                                                                          width: 100%;
+                                                                                          display: flex;
+                                                                                          justify-content: space-between;
+                                                                                          align-items: center;
+                                                                                          padding: 0 20px;
+                                                                                          height: 60px;
+                                                                                      } */
       .recharge-modal-content {
           padding: 1.5rem 1rem;
       }

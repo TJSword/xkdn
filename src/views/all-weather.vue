@@ -141,7 +141,7 @@
         </div>
 
         <!-- ==================== 新增卡片：年度业绩回测 ==================== -->
-        <div class="content-card">
+        <!-- <div class="content-card">
           <h2 class="card-title">年度业绩回测 (2014-2025)</h2>
           <p class="card-description">
             下表展示了在过去12年间，全天候策略各组成部分及整体的年度收益率(%)表现。这有助于我们理解在不同市场年份中，各类资产如何相互作用，共同平滑了组合的整体波动。
@@ -276,7 +276,7 @@
               <li><strong>再平衡方式：</strong>本回测采用的是【年度再平衡】策略。实践中，若采用基于阈值的动态再平衡策略（如当任一资产偏离目标权重超过特定比例时触发），理论上可能捕获更多市场机会，或可获得微弱的超额收益。</li>
             </ul>
           </div>
-        </div>
+        </div> -->
         <!-- ===================================================================== -->
 
         <!-- 历史业绩与收益曲线 (原卡片) -->
@@ -297,12 +297,138 @@
           </p>
           <div ref="performanceChartContainer" class="echart-container"></div>
         </div> -->
+        <div class="content-card">
+          <div class="card-header-row">
+            <h2 class="card-title no-margin">全天候策略 vs 沪深300全收益</h2>
+            <span class="period-badge">回测周期: 2016-01-04 至 2025-12-31</span>
+          </div>
+
+          <div ref="chartContainer" class="echart-container"></div>
+
+          <div class="stats-bar">
+            <div class="stat-item">
+              <div class="stat-label">总收益</div>
+              <div class="stat-value highlight">284.68%</div>
+            </div>
+            <div class="stat-item">
+              <div class="stat-label">年化收益</div>
+              <div class="stat-value">14.86%</div>
+            </div>
+            <div class="stat-item">
+              <div class="stat-label">波动率</div>
+              <div class="stat-value">7.69%</div>
+            </div>
+            <div class="stat-item">
+              <div class="stat-label">夏普比率</div>
+              <div class="stat-value">1.673</div>
+            </div>
+            <div class="stat-item">
+              <div class="stat-label">最大回撤</div>
+              <div class="stat-value negative">-9.47%</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="content-card">
+          <h2 class="card-title">策略月度/年度收益表</h2>
+          <div class="table-container heatmap-container">
+            <table class="heatmap-table">
+              <thead>
+                <tr>
+                  <th>年份</th>
+                  <th v-for="m in 12" :key="m">{{ m }}月</th>
+                  <th>年度</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="yearData in monthlyReturns" :key="yearData.year">
+                  <td class="year-col">{{ yearData.year }}</td>
+                  <td v-for="(val, idx) in yearData.months" :key="idx" :style="getHeatmapStyle(val)" class="cell-val">
+                    {{ val !== null ? val + '%' : '' }}
+                  </td>
+                  <td class="year-total" :style="getHeatmapStyle(yearData.total)">
+                    {{ yearData.total }}%
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="content-card">
+          <h2 class="card-title">深度风险分析</h2>
+
+          <div class="risk-summary-grid">
+            <div class="risk-box">
+              <div class="risk-label">卡玛比率 (Calmar)</div>
+              <div class="risk-main-val">1.569</div>
+              <div class="risk-sub-val">年化收益 / 最大回撤</div>
+            </div>
+            <div class="risk-box">
+              <div class="risk-label">盈利 / 总月数</div>
+              <div class="risk-main-val"> 89/ 120</div>
+              <div class="risk-sub-val">月度胜率: 74.2%</div>
+            </div>
+            <div class="risk-box">
+              <div class="risk-label">索提诺比率</div>
+              <div class="risk-main-val">2.523</div>
+              <div class="risk-sub-val">反映策略的抗跌能力</div>
+            </div>
+          </div>
+
+          <h3 class="sub-title">回撤深度分布 (频率统计)</h3>
+          <div class="table-container dist-table-container">
+            <div class="dist-table-inner">
+              <div class="dist-header-row">
+                <div class="dist-col" v-for="item in drawdownDist" :key="item.range">{{ item.range }}</div>
+              </div>
+              <div class="dist-bar-row">
+                <div class="dist-col" v-for="item in drawdownDist" :key="item.range">
+                  <div class="dist-block teal-theme" :style="{ opacity: item.count > 0 ? 1 : 0.6 }">
+                    {{ item.count }}
+                  </div>
+                </div>
+              </div>
+              <div class="dist-label-row">
+                <div class="dist-col">次数</div>
+              </div>
+            </div>
+          </div>
+
+          <h3 class="sub-title" style="margin-top: 2rem;">历史重大回撤明细 (Top 5)</h3>
+          <div class="table-container">
+            <table class="risk-table">
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>开始日期</th>
+                  <th>谷底日期</th>
+                  <th>恢复日期</th>
+                  <th>最大回撤</th>
+                  <th>回撤期(天)</th>
+                  <th>修复期(天)</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="(item, index) in topDrawdowns" :key="index">
+                  <td>{{ index + 1 }}</td>
+                  <td>{{ item.start }}</td>
+                  <td>{{ item.trough }}</td>
+                  <td>{{ item.end }}</td>
+                  <td>{{ item.maxDd }}%</td>
+                  <td>{{ item.ddDays }}</td>
+                  <td>{{ item.recDays }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
 
         <!-- 动态再平衡 (无变化) -->
         <div class="content-card">
           <h2 class="card-title">动态再平衡 (Rebalancing)</h2>
           <p class="card-description">
-            由于市场波动，各类资产的比例会偏离初始目标。再平衡是指定期（如每半年或一年）或按比例（如偏离15%）将投资组合恢复到目标配置的操作。这是确保策略长期有效的核心纪律。
+            由于市场波动，各类资产的比例会偏离初始目标。再平衡是指定期（如每半年或一年）或按比例（如偏离30%）将投资组合恢复到目标配置的操作。这是确保策略长期有效的核心纪律。
           </p>
           <div class="rebalance-cta-box">
             <router-link to="/tools" class="rebalance-cta">
@@ -338,6 +464,7 @@
   import { ref, onMounted, watch } from 'vue'
   import * as echarts from 'echarts'
   import app from '@/lib/cloudbase'
+  import axios from 'axios'
   // 1. 新增：加载状态，提升用户体验
   const isLoading = ref(true)
   // --- 控制Tabs和FAQ (无变化) ---
@@ -345,6 +472,231 @@
   const openFaqIndex = ref<number | null>(0)
   const toggleFaq = (index: number) => {
       openFaqIndex.value = openFaqIndex.value === index ? null : index
+  }
+  // --- 2. 收益热力图数据 (这里用模拟数据，你可以替换为真实全天候数据) ---
+  const monthlyReturns: any = ref([])
+  const generateMockData = () => {
+      // 示例数据：全天候策略通常波动较小，胜率高
+      const years = [
+          {
+              year: 2025,
+              months: [1.45, 0.47, 1.25, 2.92, 1.12, 1.5, 0.97, 1.48, 4.56, 4.99, -0.07, 0.81],
+              total: 23.54
+          },
+          {
+              year: 2024,
+              months: [3.15, 3.62, 3.52, 0.25, 2.32, 1.76, 0.54, 0.41, 4.94, 1.04, 0.57, 2.27],
+              total: 27.16
+          },
+          {
+              year: 2023,
+              months: [4.07, 0.37, 5.36, 2.16, 0.89, 2.62, 2.58, -0.11, -1.59, 0.39, 3.41, 2.26],
+              total: 24.6
+          },
+          {
+              year: 2022,
+              months: [-3.33, 2.75, 1.88, -2.14, 0.86, -1.23, 1.02, 0.35, -2.51, 0.43, 3.34, -2.17],
+              total: -1.01
+          },
+          {
+              year: 2021,
+              months: [-0.07, -0.17, 1.41, 3.36, 2.38, 0, 3.2, 5.71, -2.73, 0.25, 0.88, 2],
+              total: 17.17
+          },
+          {
+              year: 2020,
+              months: [1.44, 0.37, -1.72, 4.5, 1.53, 2.05, 5.82, 1.95, -3.42, -0.91, 2.33, 2.81],
+              total: 17.68
+          },
+          {
+              year: 2019,
+              months: [2.98, 2.42, 1.43, -0.37, -1.72, 4.97, 1.14, 2.93, -1, -0.41, 0.74, 3.41],
+              total: 17.58
+          },
+          {
+              year: 2018,
+              months: [3.88, -1.42, -1.52, 0.82, 1.54, -0.2, 1.59, -0.72, 0.35, -1.73, 0.67, -0.19],
+              total: 2.96
+          },
+          {
+              year: 2017,
+              months: [1.5, 2.68, 0.47, 0.94, 0.44, 0.02, 1.75, 0.45, -0.17, 1.01, 0.87, 0.15],
+              total: 10.55
+          },
+          {
+              year: 2016,
+              months: [-3.67, 2.92, 3.64, -0.39, -0.73, 3.21, 4.02, 0.53, 0.86, 0.2, -0.97, -1.96],
+              total: 7.58
+          }
+      ]
+      monthlyReturns.value = years
+  }
+
+  const getHeatmapStyle = (value: number | null) => {
+      if (value === null || value === undefined) return {}
+      if (value === 0) return { backgroundColor: 'transparent' }
+      if (value > 0) {
+          const opacity = Math.min(Math.abs(value) / 5, 1) // 全天候波动小，分母设小一点让颜色更明显
+          return {
+              backgroundColor: `rgba(255, 87, 34, ${0.15 + opacity * 0.7})`,
+              color: '#fff',
+              fontWeight: value > 5 ? 'bold' : 'normal'
+          }
+      } else {
+          const opacity = Math.min(Math.abs(value) / 5, 1)
+          return {
+              backgroundColor: `rgba(0, 196, 151, ${0.15 + opacity * 0.7})`,
+              color: '#fff',
+              fontWeight: value < -5 ? 'bold' : 'normal'
+          }
+      }
+  }
+
+  // --- 3. 风险数据 (示例数据) ---
+  const drawdownDist = ref([
+      { range: '0% ~ 2%', count: 143 },
+      { range: '2% ~ 4%', count: 13 },
+      { range: '4% ~ 6%', count: 8 },
+      { range: '6% ~ 8%', count: 0 },
+      { range: '8% ~ 10%', count: 1 },
+      { range: '> 10%', count: 0 }
+  ])
+
+  const topDrawdowns = ref([
+      {
+          start: '2020-02-21',
+          trough: '2020-03-23',
+          end: '2020-05-08',
+          maxDd: -9.47,
+          ddDays: 31,
+          recDays: 46
+      },
+      {
+          start: '2020-09-01',
+          trough: '2020-09-24',
+          end: '2020-12-21',
+          maxDd: -5.68,
+          ddDays: 23,
+          recDays: 88
+      },
+      {
+          start: '2016-11-09',
+          trough: '2016-12-20',
+          end: '2017-02-24',
+          maxDd: -5.24,
+          ddDays: 41,
+          recDays: 66
+      },
+      {
+          start: '2021-09-09',
+          trough: '2021-10-13',
+          end: '2022-03-29',
+          maxDd: -5.21,
+          ddDays: 34,
+          recDays: 167
+      },
+      {
+          start: '2018-01-26',
+          trough: '2018-02-09',
+          end: '2018-07-24',
+          maxDd: -5.15,
+          ddDays: 14,
+          recDays: 165
+      },
+      {
+          start: '2022-04-19',
+          trough: '2022-07-15',
+          end: '2023-01-20',
+          maxDd: -5.06,
+          ddDays: 87,
+          recDays: 189
+      },
+      {
+          start: '2025-02-14',
+          trough: '2025-04-08',
+          end: '2025-04-18',
+          maxDd: -4.65,
+          ddDays: 53,
+          recDays: 10
+      },
+      {
+          start: '2015-12-31',
+          trough: '2016-01-28',
+          end: '2016-02-24',
+          maxDd: -4.64,
+          ddDays: 28,
+          recDays: 27
+      },
+      {
+          start: '2019-04-08',
+          trough: '2019-05-23',
+          end: '2019-06-20',
+          maxDd: -4.36,
+          ddDays: 45,
+          recDays: 28
+      },
+      {
+          start: '2019-09-05',
+          trough: '2019-11-12',
+          end: '2019-12-26',
+          maxDd: -3.9,
+          ddDays: 68,
+          recDays: 44
+      }
+  ])
+
+  // --- 4. ECharts 图表逻辑 ---
+  const chartContainer = ref<HTMLElement | null>(null)
+  let myChart: echarts.ECharts | null = null
+
+  const initChart = (xAxisData: any, strategyData: any, benchmarkData: any) => {
+      if (!chartContainer.value) return
+      myChart = echarts.init(chartContainer.value)
+
+      // 模拟 100 个数据点
+
+      const option = {
+          backgroundColor: 'transparent',
+          tooltip: { trigger: 'axis' },
+          grid: { top: '10%', left: '3%', right: '4%', bottom: '15%', containLabel: true },
+          legend: {
+              data: ['全天候策略', '沪深300全收益'],
+              textStyle: { color: '#b0c4de' },
+              bottom: 0
+          },
+          xAxis: {
+              type: 'category',
+              data: xAxisData,
+              axisLine: { lineStyle: { color: '#8392A5' } }
+          },
+          yAxis: {
+              type: 'value',
+              splitLine: { lineStyle: { color: 'rgba(255,255,255,0.1)' } },
+              axisLabel: { color: '#8392A5' },
+              scale: true // 不从0开始
+          },
+          series: [
+              {
+                  name: '全天候策略',
+                  type: 'line',
+                  data: strategyData,
+                  itemStyle: { color: '#00aaff' }, // 保持橙色主题
+                  showSymbol: false,
+                  lineStyle: { width: 3 },
+                  smooth: true
+              },
+              {
+                  name: '沪深300全收益',
+                  type: 'line',
+                  data: benchmarkData,
+                  itemStyle: { color: '#00bcd4' },
+                  showSymbol: false,
+                  lineStyle: { width: 1, type: 'dashed' },
+                  smooth: true
+              }
+          ]
+      }
+      myChart.setOption(option)
   }
   const faqList = ref([
       {
@@ -357,7 +709,7 @@
       },
       {
           question: '我应该多久进行一次再平衡？',
-          answer: '没有绝对的答案。常见的做法是基于时间的（如每季度、每半年或每年）或基于阈值的（当任一资产类别偏离其目标权重超过某个百分比，如15%时）。对于普通投资者，每年检查一次是合理的起点。'
+          answer: '没有绝对的答案。常见的做法是基于时间的（如每季度、每半年或每年）或基于阈值的（当任一资产类别偏离其目标权重超过某个百分比，如30%时）。对于普通投资者，每年检查一次是合理的起点。'
       },
       {
           question: '全天候策略适合我吗？',
@@ -371,168 +723,19 @@
 
   // ==================== 修改后：ECharts 图表逻辑 ====================
 
-  // 1. 新增：控制图表视图的响应式变量，默认为 'rate' (收益率)
-  const performanceViewMode = ref<'rate' | 'amount'>('rate')
-
-  // 2. 新增：假设的初始本金，用于计算收益金额
-  const initialPrincipal = 10000
-
-  // 3. 图表容器引用和实例
-  const performanceChartContainer = ref<HTMLElement | null>(null)
-  let performanceChart: echarts.ECharts | null = null
-
-  // 4. 模拟的历史业绩数据 (日期, 策略累计净值)
-  const performanceData = ref([
-      { date: '2022-01-01', strategy: 1.0 },
-      { date: '2022-02-01', strategy: 1.01 },
-      { date: '2022-03-01', strategy: 0.99 },
-      { date: '2022-04-01', strategy: 1.02 },
-      { date: '2022-05-01', strategy: 1.03 },
-      { date: '2022-06-01', strategy: 1.05 },
-      { date: '2022-07-01', strategy: 1.04 },
-      { date: '2022-08-01', strategy: 1.06 },
-      { date: '2022-09-01', strategy: 1.05 },
-      { date: '2022-10-01', strategy: 1.07 },
-      { date: '2022-11-01', strategy: 1.09 },
-      { date: '2022-12-01', strategy: 1.1 },
-      { date: '2023-01-01', strategy: 1.12 },
-      { date: '2023-02-01', strategy: 1.11 },
-      { date: '2023-03-01', strategy: 1.13 },
-      { date: '2023-04-01', strategy: 1.15 },
-      { date: '2023-05-01', strategy: 1.14 },
-      { date: '2023-06-01', strategy: 1.16 }
-  ])
-  const fetchPerformanceData = async (strategyId: string) => {
-      isLoading.value = true
-      try {
-          const res = await app.callFunction({
-              name: 'getSingleStrategyPerformance',
-              data: {
-                  strategy_id: strategyId
-              },
-              parse: true
-          })
-
-          if (res.result && res.result.success) {
-              // 将获取到的数据赋值给 performanceData
-              performanceData.value = res.result.data
-              console.log(`成功获取策略 [${strategyId}] 的数据:`, performanceData.value)
-
-              // 数据回来后，立即更新图表
-              updatePerformanceChart()
-          } else {
-              throw new Error(res.result.message || '从云端获取数据失败')
-          }
-      } catch (error) {
-          console.error('fetchPerformanceData 失败:', error)
-          // 在这里可以显示错误提示
-      } finally {
-          isLoading.value = false
-      }
+  const getlocalData = () => {
+      axios.get('./static/allWeatherData.json').then(res => {
+          const data = res.data
+          initChart(data.dateList, data.strategyData, data.hs300)
+      })
   }
-  /**
-   * 更新或初始化业绩图表的核心函数
-   */
-  const updatePerformanceChart = () => {
-      if (!performanceChartContainer.value) return
-
-      // 如果图表实例不存在，则初始化
-      if (!performanceChart) {
-          performanceChart = echarts.init(performanceChartContainer.value, 'dark')
-      }
-
-      let seriesData: number[]
-      let yAxisFormatter: string
-      let tooltipFormatter: (params: any) => string
-      let seriesName: string
-
-      // 根据当前视图模式，准备不同的数据和格式化配置
-      if (performanceViewMode.value === 'rate') {
-          seriesName = '累计收益率'
-          seriesData = performanceData.value.map(item => (item.strategy - 1) * 100)
-          yAxisFormatter = '{value}%'
-          tooltipFormatter = (params: any) =>
-              `<strong>${params[0].name}</strong><br/>${params[0].marker} ${
-                  params[0].seriesName
-              }: <strong>${params[0].value.toFixed(2)}%</strong>`
-      } else {
-          // 'amount'
-          seriesName = '累计收益金额'
-          seriesData = performanceData.value.map(item => item.strategy * initialPrincipal)
-          yAxisFormatter = '{value} 元'
-          tooltipFormatter = (params: any) =>
-              `<strong>${params[0].name}</strong><br/>${params[0].marker} ${
-                  params[0].seriesName
-              }: <strong>${params[0].value.toFixed(2)} 元</strong>`
-      }
-
-      const option: echarts.EChartsOption = {
-          backgroundColor: 'transparent',
-          tooltip: { trigger: 'axis', formatter: tooltipFormatter },
-          legend: { data: [seriesName], textStyle: { color: '#ccc' }, bottom: 0 },
-          grid: { left: '3%', right: '4%', bottom: '15%', containLabel: true },
-          xAxis: {
-              type: 'category',
-              boundaryGap: false,
-              data: performanceData.value.map(item => item.date),
-              axisLine: { lineStyle: { color: '#8392A5' } }
-          },
-          yAxis: {
-              type: 'value',
-              axisLabel: { formatter: yAxisFormatter, color: '#ccc' },
-              splitLine: { lineStyle: { color: 'rgba(255, 255, 255, 0.1)' } }
-          },
-          series: [
-              {
-                  name: seriesName,
-                  type: 'line',
-                  smooth: true,
-                  showSymbol: false,
-                  data: seriesData,
-                  itemStyle: { color: '#00aaff' },
-                  lineStyle: { width: 3 },
-                  areaStyle: {
-                      // 添加渐变区域填充
-                      color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-                          {
-                              offset: 0,
-                              color: 'rgba(0, 170, 255, 0.3)'
-                          },
-                          {
-                              offset: 1,
-                              color: 'rgba(0, 170, 255, 0)'
-                          }
-                      ])
-                  }
-              }
-          ]
-      }
-
-      // 使用 setOption 更新图表
-      performanceChart.setOption(option, true) // true 表示不与之前的 option 合并
-  }
-
-  // 侦听视图模式的变化，并更新图表
-  watch(performanceViewMode, () => {
-      updatePerformanceChart()
-  })
+  getlocalData()
 
   // 在组件挂载后，首次初始化图表
   onMounted(() => {
-      // 在这里决定要请求哪个策略的数据
-      // 在一个真实的Vue Router应用中，您会从路由参数中获取这个ID
-      // 例如: const route = useRoute(); const strategyId = route.params.id;
+      generateMockData()
 
-      // 此处我们硬编码一个ID作为示例
-      // const currentStrategyId = 'allWeather' // <-- 对于不同页面，修改这里即可
-
-      // 页面挂载后，调用方法从云端获取数据
-      // fetchPerformanceData(currentStrategyId)
-
-      // 监听窗口大小变化的事件可以保留
-      window.addEventListener('resize', () => {
-          performanceChart?.resize()
-      })
+      window.addEventListener('resize', () => myChart?.resize())
   })
 </script>
 
@@ -661,7 +864,8 @@
       display: flex;
       justify-content: space-between;
       align-items: center;
-      margin-bottom: 1rem;
+      margin-bottom: 1.5rem;
+      gap: 1rem;
   }
   .card-title.no-border {
       border-left: none;
@@ -698,6 +902,14 @@
       color: #b0c4de;
       line-height: 1.7;
       margin-bottom: 1rem;
+  }
+  .period-badge {
+      font-size: 0.8rem;
+      color: #8392a5;
+      background: rgba(0, 0, 0, 0.3);
+      padding: 0.3rem 0.8rem;
+      border-radius: 4px;
+      border: 1px solid rgba(255, 255, 255, 0.05);
   }
   .idea-list {
       list-style-type: '✔ ';
@@ -910,6 +1122,169 @@
       height: 350px;
       margin-top: 1rem;
   }
+  .stats-bar {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      background: rgba(0, 0, 0, 0.2);
+      margin-top: 1rem;
+      padding: 1rem;
+      border-radius: 8px;
+      text-align: center;
+      gap: 1rem;
+  }
+  .stat-label {
+      color: #8392a5;
+      font-size: 0.8rem;
+      margin-bottom: 0.3rem;
+  }
+  .stat-value {
+      font-size: 1.1rem;
+      font-weight: bold;
+      color: #fff;
+  }
+  .stat-value.highlight {
+      color: #00aaff; /* 重点高亮色 */
+  }
+  .stat-value.negative {
+      color: #00c497; /* 绿色代表回撤/跌 */
+  }
+
+  /* 2. 热力图 (Heatmap) */
+  .heatmap-container {
+      overflow-x: auto;
+  }
+  .heatmap-table {
+      width: 100%;
+      border-collapse: collapse;
+      table-layout: fixed;
+      min-width: 800px; /* 确保在手机上可以横向滚动 */
+  }
+  .heatmap-table th {
+      padding: 0.8rem 0.2rem;
+      font-size: 0.85rem;
+      color: #fff;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      white-space: nowrap;
+  }
+  .heatmap-table td {
+      padding: 0.6rem 0.2rem;
+      text-align: center;
+      font-size: 0.85rem;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+  }
+  .year-col {
+      font-weight: bold;
+      background: rgba(255, 255, 255, 0.02);
+  }
+  .year-total {
+      font-weight: bold;
+      color: #fff;
+  }
+
+  /* 3. 风险分析网格 (Risk Grid) */
+  .risk-summary-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1.5rem;
+      margin-bottom: 2rem;
+  }
+  .risk-box {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      padding: 1.5rem 1rem;
+      border-radius: 8px;
+      text-align: center;
+  }
+  .risk-label {
+      font-size: 0.85rem;
+      color: #8392a5;
+      margin-bottom: 0.5rem;
+  }
+  .risk-main-val {
+      font-size: 1.4rem;
+      font-weight: bold;
+      color: #00aaff;
+      margin-bottom: 0.3rem;
+  }
+  .risk-sub-val {
+      font-size: 0.8rem;
+      color: #b0c4de;
+  }
+
+  /* 4. 分布图与风险表 */
+  .sub-title {
+      font-size: 1.1rem;
+      color: #fff;
+      margin-bottom: 1.2rem;
+      font-weight: bold;
+  }
+  .dist-table-container {
+      margin-bottom: 1.5rem;
+      overflow-x: auto;
+  }
+  .dist-table-inner {
+      min-width: 600px;
+  }
+  .dist-header-row,
+  .dist-bar-row,
+  .dist-label-row {
+      display: flex;
+      width: 100%;
+  }
+  .dist-col {
+      flex: 1;
+      text-align: center;
+      padding: 0.5rem;
+      font-size: 0.8rem;
+      color: #8392a5;
+      border-right: 1px solid rgba(255, 255, 255, 0.05);
+  }
+  .dist-bar-row {
+      height: 40px;
+      align-items: center;
+      background: rgba(0, 0, 0, 0.2);
+  }
+  .dist-block.teal-theme {
+      background: linear-gradient(145deg, #3a7593, #00aaff);
+      color: #fff;
+      font-weight: bold;
+      padding: 0.3rem 0;
+      border-radius: 4px;
+      margin: 0 4px;
+  }
+  .risk-table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 700px;
+  }
+  .risk-table th {
+      background: rgba(0, 0, 0, 0.2);
+      color: #fff;
+      font-weight: bold;
+      padding: 0.8rem;
+      text-align: center;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      white-space: nowrap;
+  }
+  .risk-table td {
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      padding: 0.8rem;
+      text-align: center;
+      color: #b0c4de;
+      font-size: 0.9rem;
+      white-space: nowrap;
+  }
+  .risk-table .negative {
+      color: #00c497;
+  }
+  .card-header-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1.5rem;
+      flex-wrap: wrap;
+      gap: 1rem;
+  }
 
   /* 响应式 */
   /* ... 您现有的所有 CSS 样式代码 ... */
@@ -1039,6 +1414,20 @@
           display: block;
           width: 100%;
           text-align: center;
+      }
+      .stats-bar {
+          grid-template-columns: repeat(2, 1fr); /* 手机上两列显示 */
+      }
+      .risk-summary-grid {
+          grid-template-columns: 1fr; /* 手机上单列显示 */
+          gap: 1rem;
+      }
+      .card-header-row {
+          flex-direction: column;
+          align-items: flex-start;
+      }
+      .card-title.no-margin {
+          margin-bottom: 0.5rem;
       }
   }
 </style>

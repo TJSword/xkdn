@@ -213,25 +213,133 @@
 
           </div>
         </div>
-        <!-- 历史业绩与收益曲线卡片 -->
-        <!-- <div class="content-card">
-          <div class="card-header-with-toggle">
-            <h2 class="card-title no-border">历史业绩</h2>
-            <div class="view-toggle-container">
-              <button :class="['toggle-button', { active: performanceViewMode === 'rate' }]" @click="performanceViewMode = 'rate'">
-                累计收益率
-              </button>
-              <button :class="['toggle-button', { active: performanceViewMode === 'amount' }]" @click="performanceViewMode = 'amount'">
-                累计收益金额
-              </button>
+
+        <div class="content-card">
+          <div class="card-header-row">
+            <h2 class="card-title no-margin">可转债策略 vs 可转债等权指数</h2>
+            <span class="period-badge">回测周期: 2018-01-02 至 2025-12-31</span>
+          </div>
+
+          <div ref="chartContainer" class="echart-container"></div>
+
+          <div class="stats-bar">
+            <div class="stat-item">
+              <div class="stat-label">总收益</div>
+              <div class="stat-value-small highlight">1362.54%</div>
+            </div>
+            <div class="stat-item">
+              <div class="stat-label">年化收益</div>
+              <div class="stat-value-small">41.22%</div>
+            </div>
+            <div class="stat-item">
+              <div class="stat-label">波动率</div>
+              <div class="stat-value-small">18.58%</div>
+            </div>
+            <div class="stat-item">
+              <div class="stat-label">夏普比率</div>
+              <div class="stat-value-small">2.11</div>
+            </div>
+            <div class="stat-item">
+              <div class="stat-label">最大回撤</div>
+              <div class="stat-value-small negative">-16.75%</div>
             </div>
           </div>
-          <p class="card-description">
-            下图展示了可转债策略的模拟累计收益曲线。可见其波动小于纯股策略，但长期回报优于纯债策略。数据为模拟，不代表真实收益。
-          </p>
-          <div ref="performanceChartContainer" class="echart-container"></div>
-        </div> -->
+        </div>
 
+        <div class="content-card">
+          <h2 class="card-title">策略月度/年度收益表</h2>
+          <div class="table-container heatmap-container">
+            <table class="heatmap-table">
+              <thead>
+                <tr>
+                  <th>年份</th>
+                  <th v-for="m in 12" :key="m">{{ m }}月</th>
+                  <th>年度</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="yearData in monthlyReturns" :key="yearData.year">
+                  <td class="year-col">{{ yearData.year }}</td>
+                  <td v-for="(val, idx) in yearData.months" :key="idx" :style="getHeatmapStyle(val)" class="cell-val">
+                    {{ val !== null ? val + '%' : '' }}
+                  </td>
+                  <td class="year-total" :style="getHeatmapStyle(yearData.total)">
+                    {{ yearData.total }}%
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="content-card">
+          <h2 class="card-title">深度风险分析</h2>
+
+          <div class="risk-summary-grid">
+            <div class="risk-box">
+              <div class="risk-label">卡玛比率 (Calmar)</div>
+              <div class="risk-main-val">2.46</div>
+              <div class="risk-sub-val">年化收益 / 最大回撤</div>
+            </div>
+            <div class="risk-box">
+              <div class="risk-label">盈利 / 总月数</div>
+              <div class="risk-main-val"> 71 / 96</div>
+              <div class="risk-sub-val">月度胜率: 74.0%</div>
+            </div>
+            <div class="risk-box">
+              <div class="risk-label">索提诺比率</div>
+              <div class="risk-main-val">3.75</div>
+              <div class="risk-sub-val">反映策略的抗跌能力</div>
+            </div>
+          </div>
+
+          <h3 class="card-subtitle" style="margin-top: 0;">回撤深度分布 (频率统计)</h3>
+          <div class="table-container dist-table-container">
+            <div class="dist-table-inner">
+              <div class="dist-header-row">
+                <div class="dist-col" v-for="item in drawdownDist" :key="item.range">{{ item.range }}</div>
+              </div>
+              <div class="dist-bar-row">
+                <div class="dist-col" v-for="item in drawdownDist" :key="item.range">
+                  <div class="dist-block blue-theme" :style="{ opacity: item.count > 0 ? 1 : 0.6 }">
+                    {{ item.count }}
+                  </div>
+                </div>
+              </div>
+              <div class="dist-label-row">
+                <div class="dist-col">次数</div>
+              </div>
+            </div>
+          </div>
+
+          <h3 class="card-subtitle">历史重大回撤明细 (Top 5)</h3>
+          <div class="table-container">
+            <table class="risk-table">
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>开始日期</th>
+                  <th>谷底日期</th>
+                  <th>恢复日期</th>
+                  <th>最大回撤</th>
+                  <th>回撤期(天)</th>
+                  <th>修复期(天)</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="(item, index) in topDrawdowns" :key="index">
+                  <td>{{ index + 1 }}</td>
+                  <td>{{ item.start }}</td>
+                  <td>{{ item.trough }}</td>
+                  <td>{{ item.end }}</td>
+                  <td>{{ item.maxDd }}%</td>
+                  <td>{{ item.ddDays }}</td>
+                  <td>{{ item.recDays }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
         <!-- FAQ -->
         <div class="content-card">
           <h2 class="card-title">常见问题 (FAQ)</h2>
@@ -257,6 +365,7 @@
   import { ref, onMounted, watch, computed } from 'vue'
   import * as echarts from 'echarts'
   import app, { auth } from '@/lib/cloudbase'
+  import axios from 'axios'
   const getStrategyData = () => {
       app.callFunction({
           name: 'getBondPortfolio',
@@ -366,12 +475,12 @@
       {
           question: '我如何才能参与“可转债策略”？',
           answer: `我们所有的策略操作，都在交易日的下午2:30之后执行，以贴近收盘价，确保操作的有效性。\n
-                                                                                    首次参与\n
-                                                                                    如果您是第一次参与本策略，请根据最新持仓列表，然后将您计划投入的资金，对列表中的所有品种进行等权重买入，即可完成初始建仓。\n
-                                                                                    后续调仓\n
-                                                                                    完成建仓后，您无需进行任何复杂的分析。每个交易日，您只需严格遵循我们发布的组合调仓指引进行操作即可。该指引会直接、明确地列出当天需要卖出和买入的具体品种。
-                                                                                    \n参与前提：\n
-                                                                  在进行任何交易前，请务必确保您的A股证券账户已成功开通“可转换债券”的交易权限（通常要求2年交易经验及连续20日日均10万资产）。详情请咨询您的开户券商。`
+                                                                                                                                                                      首次参与\n
+                                                                                                                                                                      如果您是第一次参与本策略，请根据最新持仓列表，然后将您计划投入的资金，对列表中的所有品种进行等权重买入，即可完成初始建仓。\n
+                                                                                                                                                                      后续调仓\n
+                                                                                                                                                                      完成建仓后，您无需进行任何复杂的分析。每个交易日，您只需严格遵循我们发布的组合调仓指引进行操作即可。该指引会直接、明确地列出当天需要卖出和买入的具体品种。
+                                                                                                                                                                      \n参与前提：\n
+                                                                                                                                                    在进行任何交易前，请务必确保您的A股证券账户已成功开通“可转换债券”的交易权限（通常要求2年交易经验及连续20日日均10万资产）。详情请咨询您的开户券商。`
       },
       {
           question: '可转债是什么？它为什么适合普通人投资？',
@@ -391,113 +500,235 @@
       }
   ])
 
-  // --- ECharts 图表逻辑 ---
-  const performanceViewMode = ref<'rate' | 'amount'>('rate')
-  const initialPrincipal = 10000
-  const performanceChartContainer = ref<HTMLElement | null>(null)
-  let performanceChart: echarts.ECharts | null = null
+  // 1. 热力图数据 (模拟)
+  const monthlyReturns: any = ref([])
+  const generateMockHeatmap = () => {
+      // 模拟转债策略数据：收益比纯债高，比股票稳
+      monthlyReturns.value = [
+          {
+              year: 2025,
+              months: [4.6, 3.2, 3.4, 3.1, 2.9, 4.5, 2.5, 3.8, 4.7, 0.6, 1, 0.8],
+              total: 41.1
+          },
+          {
+              year: 2024,
+              months: [-8.6, 3.2, 4.7, 6.5, 4.5, -3.6, -1.7, -1.6, 9.5, 6.7, 2.5, 1],
+              total: 24.1
+          },
+          {
+              year: 2023,
+              months: [3.9, 3.9, 1.3, -2, -1.8, 4.2, 3.5, -1.2, -0.1, -2.8, 2.9, -0.3],
+              total: 11.7
+          },
+          {
+              year: 2022,
+              months: [3.6, 3.9, -1.5, 6.4, 8.4, 5.3, 3.3, -0.7, -3.3, 1.9, 3.3, -3],
+              total: 30.6
+          },
+          {
+              year: 2021,
+              months: [-6.6, 9.4, 5.9, 1.9, 5.8, 2.4, 6.7, 6.2, -1.2, 5.7, 15.1, 1.2],
+              total: 64.7
+          },
+          {
+              year: 2020,
+              months: [1.2, 7.1, 32.3, 3.8, -2.4, 2.9, 15.5, 4.9, -2, 36.5, 3.1, -5.6],
+              total: 135.8
+          },
+          {
+              year: 2019,
+              months: [3.7, 8.5, 11.2, 3.7, -3.9, 1.7, 1.7, 3, 2.9, 2.3, 2.4, 7.3],
+              total: 53.8
+          },
+          {
+              year: 2018,
+              months: [0.8, 1.4, 1.8, 0.1, 0.2, -3, 2.2, -3.9, -0.8, -4.9, 4.7, -2.4],
+              total: -4.2
+          }
+      ]
+  }
 
-  // 模拟的历史业绩数据 (为可转债策略调整了适中的波动性)
-  const performanceData = ref([
-      { date: '2022-01-01', strategy: 1.0 },
-      { date: '2022-02-01', strategy: 1.02 },
-      { date: '2022-03-01', strategy: 0.98 },
-      { date: '2022-04-01', strategy: 1.04 },
-      { date: '2022-05-01', strategy: 1.03 },
-      { date: '2022-06-01', strategy: 1.08 },
-      { date: '2022-07-01', strategy: 1.07 },
-      { date: '2022-08-01', strategy: 1.1 },
-      { date: '2022-09-01', strategy: 1.08 },
-      { date: '2022-10-01', strategy: 1.12 },
-      { date: '2022-11-01', strategy: 1.15 },
-      { date: '2022-12-01', strategy: 1.14 },
-      { date: '2023-01-01', strategy: 1.18 },
-      { date: '2023-02-01', strategy: 1.17 },
-      { date: '2023-03-01', strategy: 1.22 },
-      { date: '2023-04-01', strategy: 1.25 },
-      { date: '2023-05-01', strategy: 1.23 },
-      { date: '2023-06-01', strategy: 1.28 }
+  // 热力图样式：使用红绿配色，但透明度逻辑保持一致
+  const getHeatmapStyle = (value: number | null) => {
+      if (value === null || value === undefined) return {}
+      if (value === 0) return { backgroundColor: 'transparent' }
+      if (value > 0) {
+          const opacity = Math.min(Math.abs(value) / 8, 1)
+          return {
+              backgroundColor: `rgba(217, 83, 79, ${0.15 + opacity * 0.7})`, // 红色
+              color: '#fff',
+              fontWeight: value > 5 ? 'bold' : 'normal'
+          }
+      } else {
+          const opacity = Math.min(Math.abs(value) / 8, 1)
+          return {
+              backgroundColor: `rgba(92, 184, 92, ${0.15 + opacity * 0.7})`, // 绿色
+              color: '#fff',
+              fontWeight: value < -5 ? 'bold' : 'normal'
+          }
+      }
+  }
+
+  // 2. 风险分布数据 (模拟)
+  const drawdownDist = ref([
+      { range: '0% ~ 5%', count: 115 },
+      { range: '5% ~ 10%', count: 14 },
+      { range: '10% ~ 15%', count: 2 },
+      { range: '15% ~ 20%', count: 3 },
+      { range: '> 20%', count: 0 }
   ])
 
-  const updatePerformanceChart = () => {
-      if (!performanceChartContainer.value) return
-      if (!performanceChart) {
-          performanceChart = echarts.init(performanceChartContainer.value, 'dark')
+  const topDrawdowns = ref([
+      {
+          start: '2018-05-22',
+          trough: '2018-10-18',
+          end: '2019-03-05',
+          maxDd: -16.7,
+          ddDays: 149,
+          recDays: 138
+      },
+      {
+          start: '2023-07-31',
+          trough: '2024-02-07',
+          end: '2024-04-02',
+          maxDd: -15.5,
+          ddDays: 191,
+          recDays: 55
+      },
+      {
+          start: '2020-10-27',
+          trough: '2021-02-08',
+          end: '2021-03-15',
+          maxDd: -15.5,
+          ddDays: 104,
+          recDays: 35
+      },
+      {
+          start: '2024-05-20',
+          trough: '2024-09-18',
+          end: '2024-09-30',
+          maxDd: -11.9,
+          ddDays: 121,
+          recDays: 12
+      },
+      {
+          start: '2019-04-25',
+          trough: '2019-06-06',
+          end: '2019-08-20',
+          maxDd: -10.4,
+          ddDays: 42,
+          recDays: 75
+      },
+      {
+          start: '2020-01-16',
+          trough: '2020-02-03',
+          end: '2020-02-07',
+          maxDd: -8.7,
+          ddDays: 18,
+          recDays: 4
+      },
+      {
+          start: '2024-10-08',
+          trough: '2024-10-11',
+          end: '2024-10-28',
+          maxDd: -8.5,
+          ddDays: 3,
+          recDays: 17
+      },
+      {
+          start: '2020-04-01',
+          trough: '2020-04-13',
+          end: '2020-04-21',
+          maxDd: -8.2,
+          ddDays: 12,
+          recDays: 8
+      },
+      {
+          start: '2022-08-23',
+          trough: '2022-10-10',
+          end: '2023-02-02',
+          maxDd: -8,
+          ddDays: 48,
+          recDays: 115
+      },
+      {
+          start: '2022-03-01',
+          trough: '2022-03-09',
+          end: '2022-03-23',
+          maxDd: -7.2,
+          ddDays: 8,
+          recDays: 14
       }
+  ])
 
-      let seriesData: number[]
-      let yAxisFormatter: string
-      let tooltipFormatter: (params: any) => string
-      let seriesName: string
+  // 3. ECharts 图表初始化
+  const chartContainer = ref<HTMLElement | null>(null)
+  let myChart: echarts.ECharts | null = null
 
-      if (performanceViewMode.value === 'rate') {
-          seriesName = '累计收益率'
-          seriesData = performanceData.value.map(item => (item.strategy - 1) * 100)
-          yAxisFormatter = '{value}%'
-          tooltipFormatter = (params: any) =>
-              `<strong>${params[0].name}</strong><br/>${params[0].marker} ${
-                  params[0].seriesName
-              }: <strong>${params[0].value.toFixed(2)}%</strong>`
-      } else {
-          seriesName = '累计收益金额'
-          seriesData = performanceData.value.map(item => item.strategy * initialPrincipal)
-          yAxisFormatter = '{value} 元'
-          tooltipFormatter = (params: any) =>
-              `<strong>${params[0].name}</strong><br/>${params[0].marker} ${
-                  params[0].seriesName
-              }: <strong>${params[0].value.toFixed(2)} 元</strong>`
-      }
+  const initChart = (xAxisData: any, strategyData: any, benchmarkData: any) => {
+      if (!chartContainer.value) return
+      myChart = echarts.init(chartContainer.value)
 
-      const option: echarts.EChartsOption = {
+      const option = {
           backgroundColor: 'transparent',
-          tooltip: { trigger: 'axis', formatter: tooltipFormatter },
-          legend: { data: [seriesName], textStyle: { color: '#ccc' }, bottom: 0 },
-          grid: { left: '3%', right: '4%', bottom: '15%', containLabel: true },
+          tooltip: { trigger: 'axis' },
+          grid: { top: '10%', left: '3%', right: '4%', bottom: '15%', containLabel: true },
+          legend: {
+              data: ['可转债策略', '可转债等权指数'],
+              textStyle: { color: '#b0c4de' },
+              bottom: 0
+          },
           xAxis: {
               type: 'category',
-              boundaryGap: false,
-              data: performanceData.value.map(item => item.date),
+              data: xAxisData,
               axisLine: { lineStyle: { color: '#8392A5' } }
           },
           yAxis: {
               type: 'value',
-              axisLabel: { formatter: yAxisFormatter, color: '#ccc' },
-              splitLine: { lineStyle: { color: 'rgba(255, 255, 255, 0.1)' } }
+              splitLine: { lineStyle: { color: 'rgba(255,255,255,0.1)' } },
+              axisLabel: { color: '#8392A5' },
+              scale: true
           },
           series: [
               {
-                  name: seriesName,
+                  name: '可转债策略',
                   type: 'line',
-                  smooth: true,
+                  data: strategyData,
+                  // 使用页面主题色 淡蓝色
+                  itemStyle: { color: '#add8e6' },
                   showSymbol: false,
-                  data: seriesData,
-                  itemStyle: { color: '#add8e6' }, // 主题色
-                  lineStyle: { width: 3 },
+                  lineStyle: { width: 2 },
                   areaStyle: {
                       color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-                          {
-                              offset: 0,
-                              color: 'rgba(173, 216, 230, 0.3)' // 主题色渐变
-                          },
-                          {
-                              offset: 1,
-                              color: 'rgba(173, 216, 230, 0)'
-                          }
+                          { offset: 0, color: 'rgba(173, 216, 230, 0.3)' },
+                          { offset: 1, color: 'rgba(173, 216, 230, 0)' }
                       ])
                   }
+              },
+              {
+                  name: '可转债等权指数',
+                  type: 'line',
+                  data: benchmarkData,
+                  itemStyle: { color: '#6c757d' }, // 灰色作为基准
+                  showSymbol: false,
+                  lineStyle: { width: 1, type: 'dashed' }
               }
           ]
       }
-
-      performanceChart.setOption(option, true)
+      myChart.setOption(option)
   }
 
-  watch(performanceViewMode, () => {
-      updatePerformanceChart()
-  })
-
+  const getlocalData = () => {
+      axios.get('./static/bondData.json').then(res => {
+          const data = res.data
+          initChart(data.dateList, data.strategyData, data.equalWeight)
+      })
+  }
+  getlocalData()
   onMounted(() => {
-      updatePerformanceChart()
+      generateMockHeatmap()
+
+      window.addEventListener('resize', () => myChart?.resize())
   })
 </script>
 
@@ -896,6 +1127,191 @@
   /* ========      可转债策略页面移动端适配      ======== */
   /* ======================================================= */
 
+  /* 1. 通用辅助 */
+  .card-header-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1.5rem;
+      flex-wrap: wrap;
+      gap: 1rem;
+  }
+  .card-title.no-margin {
+      margin-bottom: 0;
+  }
+  .period-badge {
+      font-size: 0.8rem;
+      color: #8392a5;
+      background: rgba(0, 0, 0, 0.3);
+      padding: 0.3rem 0.8rem;
+      border-radius: 4px;
+      border: 1px solid rgba(255, 255, 255, 0.05);
+  }
+
+  /* 2. 统计条 (Stats Bar) */
+  .stats-bar {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      background: rgba(0, 0, 0, 0.2);
+      margin-top: 1rem;
+      padding: 1rem;
+      padding-top: 0.6rem;
+      border-radius: 8px;
+      text-align: center;
+      gap: 1rem;
+  }
+  .stats-bar .stat-item {
+      background: transparent;
+      padding: 0;
+  }
+  .stat-label {
+      color: #8392a5;
+      font-size: 0.8rem;
+      margin-bottom: 0.3rem;
+  }
+  .stat-item .stat-value-small {
+      font-size: 1.1rem;
+      font-weight: bold;
+      /* color: #fff; */
+  }
+  .stat-item .stat-value-small.highlight {
+      color: #add8e6; /* 主题色：淡蓝 */
+  }
+  .stat-value-small.negative {
+      color: #5cb85c; /* 绿色代表回撤 */
+  }
+
+  /* 3. 热力图 (Heatmap) */
+  .heatmap-container {
+      overflow-x: auto;
+  }
+  .heatmap-table {
+      width: 100%;
+      border-collapse: collapse;
+      table-layout: fixed;
+      min-width: 800px;
+  }
+  .heatmap-table th {
+      padding: 0.8rem 0.2rem;
+      font-size: 0.85rem;
+      color: #fff;
+      /* 使用淡蓝色半透明背景作为表头 */
+      background: rgba(173, 216, 230, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      white-space: nowrap;
+  }
+  .heatmap-table td {
+      padding: 0.6rem 0.2rem;
+      text-align: center;
+      font-size: 0.85rem;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+  }
+  .year-col {
+      font-weight: bold;
+      background: rgba(255, 255, 255, 0.02);
+  }
+  .year-total {
+      font-weight: bold;
+      color: #fff;
+  }
+
+  /* 4. 风险分析网格 (Risk Grid) */
+  .risk-summary-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1.5rem;
+      margin-bottom: 2rem;
+  }
+  .risk-box {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      padding: 1.5rem 1rem;
+      border-radius: 8px;
+      text-align: center;
+  }
+  .risk-label {
+      font-size: 0.85rem;
+      color: #8392a5;
+      margin-bottom: 0.5rem;
+  }
+  .risk-main-val {
+      font-size: 1.4rem;
+      font-weight: bold;
+      color: #add8e6; /* 主题色：淡蓝 */
+      margin-bottom: 0.3rem;
+  }
+  .risk-sub-val {
+      font-size: 0.8rem;
+      color: #b0c4de;
+  }
+
+  /* 5. 分布图与风险表 */
+  .dist-table-container {
+      margin-bottom: 1.5rem;
+      overflow-x: auto;
+  }
+  .dist-table-inner {
+      min-width: 600px;
+  }
+  .dist-header-row,
+  .dist-bar-row,
+  .dist-label-row {
+      display: flex;
+      width: 100%;
+  }
+  .dist-col {
+      flex: 1;
+      text-align: center;
+      padding: 0.5rem;
+      font-size: 0.8rem;
+      color: #8392a5;
+      border-right: 1px solid rgba(255, 255, 255, 0.05);
+  }
+  .dist-col:last-child {
+      border-right: none;
+  }
+  .dist-bar-row {
+      height: 40px;
+      align-items: center;
+      background: rgba(0, 0, 0, 0.2);
+  }
+  /* 蓝色主题的柱状条 */
+  .dist-block.blue-theme {
+      background: linear-gradient(145deg, #5bc0de, #add8e6);
+      color: #121212; /* 浅色背景用深色字 */
+      font-weight: bold;
+      padding: 0.3rem 0;
+      border-radius: 4px;
+      margin: 0 4px;
+      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+  }
+
+  .risk-table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 700px;
+  }
+  .risk-table th {
+      background: rgba(0, 0, 0, 0.2);
+      color: #fff;
+      font-weight: bold;
+      padding: 0.8rem;
+      text-align: center;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      white-space: nowrap;
+  }
+  .risk-table td {
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      padding: 0.8rem;
+      text-align: center;
+      color: #b0c4de;
+      font-size: 0.9rem;
+      white-space: nowrap;
+  }
+  .risk-table .negative {
+      color: #5cb85c;
+  }
+
   @media (max-width: 768px) {
       /* 步骤一：修正卡片的收缩行为，防止被内部表格撑开 */
       .content-card {
@@ -949,6 +1365,17 @@
       }
       .card-description {
           font-size: 0.9rem;
+      }
+      .stats-bar {
+          grid-template-columns: repeat(2, 1fr);
+      }
+      .risk-summary-grid {
+          grid-template-columns: 1fr;
+          gap: 1rem;
+      }
+      .card-header-row {
+          flex-direction: column;
+          align-items: flex-start;
       }
   }
 
