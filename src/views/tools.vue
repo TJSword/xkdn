@@ -158,6 +158,42 @@
           </div>
         </div>
 
+        <div class="content-card fire-calculator">
+          <h2 class="card-title">资产耗尽模拟 (FIRE计算器)</h2>
+          <p class="card-description">计算在考虑通货膨胀和每年支出的情况下，您的现有资产能支撑多久。</p>
+
+          <div class="calculator-inputs">
+            <div class="input-group">
+              <label>当前总资产 (元):</label>
+              <input type="number" v-model.number="fireInputs.totalAssets" min="0">
+            </div>
+            <div class="input-group">
+              <label>预期年化收益率 (%):</label>
+              <input type="number" v-model.number="fireInputs.returnRate" placeholder="如: 4">
+            </div>
+            <div class="input-group">
+              <label>首年年度支出 (元):</label>
+              <input type="number" v-model.number="fireInputs.annualExpense" min="0">
+            </div>
+            <div class="input-group">
+              <label>预估通货膨胀率 (%):</label>
+              <input type="number" v-model.number="fireInputs.inflationRate" placeholder="近10年的平均通胀率为:1.44">
+            </div>
+          </div>
+
+          <div class="calculation-zone">
+            <button class="calculate-btn" @click="calculateFire">开始模拟</button>
+          </div>
+
+          <div v-if="fireResultText" class="min-invest-result" style="margin-top: 1rem;">
+            <span>💡 {{ fireResultText }}</span>
+          </div>
+
+          <div v-if="fireChartOption" class="chart-container">
+            <v-chart class="chart" :option="fireChartOption" autoresize />
+          </div>
+        </div>
+
         <!-- 其他工具卡片 (示例) -->
         <div class="content-card coming-soon">
           <h2 class="card-title">定投计算器</h2>
@@ -487,9 +523,9 @@
                   const interestVal = params[1].value
                   const totalVal = principalVal + interestVal
                   return `<strong>${year}</strong><br/>
-                                              累计本金: ${principalVal.toLocaleString()} 元<br/>
-                                              累计收益: ${interestVal.toLocaleString()} 元<br/>
-                                              <strong style="color: #8a2be2;">资产总计: ${totalVal.toLocaleString()} 元</strong>`
+                                                          累计本金: ${principalVal.toLocaleString()} 元<br/>
+                                                          累计收益: ${interestVal.toLocaleString()} 元<br/>
+                                                          <strong style="color: #8a2be2;">资产总计: ${totalVal.toLocaleString()} 元</strong>`
               }
           },
           legend: { data: ['累计本金', '累计收益'], textStyle: { color: '#b0c4de' }, top: '0%' },
@@ -524,6 +560,149 @@
                   emphasis: { focus: 'series' },
                   data: interestData,
                   itemStyle: { color: '#FFBF00' }
+              }
+          ]
+      }
+  }
+
+  interface FireInputs {
+      totalAssets: number
+      returnRate: number
+      annualExpense: number
+      inflationRate: number
+  }
+  // FIRE计算器状态
+  const fireInputs = ref<FireInputs>({
+      totalAssets: 1000000, // 默认100万
+      returnRate: 4.0, // 默认4%理财收益
+      annualExpense: 100000, // 默认一年花10万
+      inflationRate: 1.44 // 默认3%通胀
+  })
+  const fireChartOption = ref<any | null>(null)
+  const fireResultText = ref<string>('')
+  const calculateFire = () => {
+      const { totalAssets, returnRate, annualExpense, inflationRate } = fireInputs.value
+
+      if (totalAssets <= 0 || annualExpense <= 0) {
+          showMessage('请输入有效的资产和支出金额', 'error')
+          return
+      }
+
+      const xAxisData: string[] = []
+      const assetsData: number[] = []
+      const expenseData: number[] = []
+
+      let currentAssets = totalAssets
+      let currentExpense = annualExpense
+      let year = 0
+      const maxYears = 80 // 限制最大计算80年，防止死循环或图表过长
+
+      // 初始状态 (第0年)
+      xAxisData.push(`第 ${year} 年`)
+      assetsData.push(parseFloat(currentAssets.toFixed(2)))
+      expenseData.push(parseFloat(currentExpense.toFixed(2)))
+
+      // 循环模拟每年的变化
+      while (currentAssets > 0 && year < maxYears) {
+          year++
+
+          // 1. 资产增值
+          const investmentIncome = currentAssets * (returnRate / 100)
+          // 2. 资产减去支出 (假设支出是在年末扣除，或者你可以理解为年初扣除，这里采用简化模型：资产先增值再扣款)
+          // 如果想要更严谨（例如每月扣款），公式会复杂点，这里按年粗算
+          currentAssets = currentAssets + investmentIncome - currentExpense
+
+          // 3. 支出随通胀增加（为下一年做准备）
+          currentExpense = currentExpense * (1 + inflationRate / 100)
+
+          // 记录数据
+          xAxisData.push(`第 ${year} 年`)
+          // 如果资产小于0，记为0
+          assetsData.push(parseFloat(Math.max(0, currentAssets).toFixed(2)))
+          expenseData.push(parseFloat(currentExpense.toFixed(2)))
+      }
+
+      // 生成结论文本
+      if (currentAssets > 0 && year === maxYears) {
+          fireResultText.value = `恭喜！在模拟的 ${maxYears} 年中，您的资产持续增长或未耗尽，实现了财务永动。`
+      } else {
+          fireResultText.value = `按照当前模型，您的资产将在第 ${year} 年耗尽。`
+      }
+
+      // 配置 ECharts
+      fireChartOption.value = {
+          backgroundColor: 'transparent',
+          tooltip: {
+              trigger: 'axis',
+              axisPointer: { type: 'cross' },
+              backgroundColor: 'rgba(18, 18, 18, 0.9)',
+              borderColor: '#ff4081',
+              textStyle: { color: '#fff' }
+          },
+          legend: {
+              data: ['剩余资产', '当年支出'],
+              textStyle: { color: '#b0c4de' },
+              top: '0%'
+          },
+          grid: { left: '3%', right: '4%', bottom: '3%', top: '16%', containLabel: true },
+          xAxis: {
+              type: 'category',
+              data: xAxisData,
+              axisLine: { lineStyle: { color: '#b0c4de' } },
+              axisLabel: { color: '#b0c4de' }
+          },
+          yAxis: [
+              {
+                  type: 'value',
+                  name: '剩余资产',
+                  position: 'left',
+                  nameTextStyle: { color: '#465A7A' },
+                  axisLine: { show: true, lineStyle: { color: '#465A7A' } },
+                  splitLine: { lineStyle: { color: 'rgba(255, 255, 255, 0.1)' } },
+                  axisLabel: { color: '#b0c4de' }
+              },
+              {
+                  type: 'value',
+                  name: '当年支出',
+                  position: 'right',
+                  nameTextStyle: { color: '#ff4081' },
+                  axisLine: { show: true, lineStyle: { color: '#ff4081' } },
+                  splitLine: { show: false },
+                  axisLabel: { color: '#ff4081' }
+              }
+          ],
+          series: [
+              {
+                  name: '剩余资产',
+                  type: 'line',
+                  smooth: true,
+                  showSymbol: false,
+                  areaStyle: {
+                      color: {
+                          type: 'linear',
+                          x: 0,
+                          y: 0,
+                          x2: 0,
+                          y2: 1,
+                          colorStops: [
+                              { offset: 0, color: 'rgba(70, 90, 122, 0.8)' },
+                              { offset: 1, color: 'rgba(70, 90, 122, 0.1)' }
+                          ]
+                      }
+                  },
+                  itemStyle: { color: '#465A7A' },
+                  data: assetsData,
+                  yAxisIndex: 0
+              },
+              {
+                  name: '当年支出',
+                  type: 'line',
+                  smooth: true,
+                  showSymbol: false,
+                  lineStyle: { type: 'dashed' },
+                  itemStyle: { color: '#ff4081' },
+                  data: expenseData,
+                  yAxisIndex: 1
               }
           ]
       }

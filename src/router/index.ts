@@ -33,11 +33,6 @@ export const constantRoutes = [
     component: () => import('@/views/tools.vue'),
     meta: { requiresAuth: true }
   },
-  // {
-  //   path: '/ledger',
-  //   component: () => import('@/views/ledger.vue'),
-  //   meta: { requiresAuth: true }
-  // },
   {
     path: '/bonds',
     component: () => import('@/views/bonds.vue'),
@@ -53,34 +48,26 @@ export const constantRoutes = [
     component: () => import('@/views/momentum.vue'),
     meta: { requiresAuth: true }
   },
-  {
-    path: '/wealth-map',
-    component: () => import('@/views/wealth-map.vue'),
-    meta: { requiresAuth: true }
-  },
-  {
-    path: '/cash-flow',
-    component: () => import('@/views/cash-flow.vue'),
-    meta: { requiresAuth: true }
-  },
+
+
   {
     path: '/about',
     component: () => import('@/views/about.vue'),
     meta: { requiresAuth: true }
   },
   {
-    path: '/market-compass',
-    component: () => import('@/views/market-compass.vue'),
+    path: '/portfolio-analysis',
+    component: () => import('@/views/portfolio-analysis.vue'),
     meta: { requiresAuth: true }
   },
-  // {
-  //   path: '/index-compass',
-  //   component: () => import('@/views/index-compass.vue'),
-  //   meta: { requiresAuth: true }
-  // },
   {
     path: '/admin',
     component: () => import('@/views/admin.vue'),
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/micro-cap-adjustment',
+    component: () => import('@/views/micro-cap-adjustment.vue'),
     meta: { requiresAuth: true }
   },
   // 404页面必须放在最后
@@ -101,6 +88,8 @@ const whiteList = ['/login']
 
 // 新增：为非 VIP 用户定义登录后可以访问的页面列表
 const nonVipAccessibleRoutes = ['/home', '/all-weather', '/tools', '/wealth-map', '/about']; // 示例列表
+
+const adminRoutes = ['/admin', '/micro-cap-adjustment'];
 
 router.beforeEach(async (to, from, next) => {
   const userStore = useUserStore();
@@ -155,37 +144,38 @@ router.beforeEach(async (to, from, next) => {
 });
 
 // 权限检查辅助函数 (这个函数不需要改变)
+// 权限检查辅助函数
 function checkPermissions(to: any, userStore: any, next: any) {
-  const isAdminRoute = to.path === '/admin';
+  // const isAdminRoute = ... (保持不变)
+  const isAdminRoute = adminRoutes.includes(to.path);
   const isVip = userStore.isVip;
   const userInfo = userStore.userInfo;
 
-  // 1. 管理员权限检查 (最高优先级)
+  // 1. 管理员权限检查 (保持不变)
   if (isAdminRoute) {
     if (userInfo?.admin === true) {
-      next(); // 是管理员，放行
+      next();
     } else {
-      next({ name: 'NotFound' }); // 不是管理员，跳转到 404
+      // 这里触发跳转到 NotFound，会再次进入这个函数，所以下面必须放行 NotFound
+      next({ name: 'NotFound' });
     }
-    return; // 结束检查
+    return;
   }
 
-  // 2. VIP 权限检查
+  // 2. VIP 权限检查 (保持不变)
   if (isVip) {
-    // VIP 用户可以访问所有非管理员页面，直接放行
     next();
   } else {
     // --- 非 VIP 用户的权限检查 ---
 
-
-    if (nonVipAccessibleRoutes.includes(to.path)) {
-      next(); // 目标页面在非VIP可访问列表里，放行
+    // 【修改点在这里】
+    // 逻辑：如果是白名单页面，或者 目标页面本身就是 404 页面，则放行
+    if (nonVipAccessibleRoutes.includes(to.path) || to.name === 'NotFound') {
+      next();
     } else {
-      // 试图访问VIP专属页面，跳转到 404
+      // 否则跳转到 404
       next({ name: 'NotFound' });
     }
   }
 }
-
-
 export default router

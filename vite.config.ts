@@ -72,7 +72,7 @@ export default defineConfig(({ command, mode }: ConfigEnv): UserConfig => {
     build: {
       // 取消计算文件大小,加快打包速度
       reportCompressedSize: false,
-
+      sourcemap: false,
       // 静态资源文件分类打包
       rollupOptions: {
         output: {
