@@ -205,12 +205,12 @@
                 <thead>
                   <tr>
                     <th class="sticky-col-header">相关度</th>
-                    <th v-for="name in selectedStrategyNames" :key="name">{{ name }}</th>
+                    <th v-for="stat in individualStats" :key="stat.name">{{ stat.name }}</th>
                   </tr>
                 </thead>
                 <tbody>
                   <tr v-for="(row, rIndex) in correlationMatrix" :key="rIndex">
-                    <td class="row-header sticky-col">{{ selectedStrategyNames[rIndex] }}</td>
+                    <td class="row-header sticky-col">{{ individualStats[rIndex]?.name }}</td>
                     <td v-for="(val, cIndex) in row" :key="cIndex" :style="getCorrelationStyle(val)" style="text-align: center;">
                       {{ val.toFixed(2) }}
                     </td>
@@ -883,7 +883,7 @@
           totalReturn: (totalReturn * 100).toFixed(2),
           annualizedReturn: (annualizedReturn * 100).toFixed(2),
           volatility: (volatility * 100).toFixed(2),
-          sharpe: sharpe.toFixed(2),
+          sharpe: sharpe.toFixed(3),
           maxDrawdown: (maxDd * 100).toFixed(2),
           calmar: calmar.toFixed(2)
       }
@@ -1590,8 +1590,8 @@
   }
 
   /* ============================================
-                                                                                           📱 移动端适配 (Media Queries)
-                                                                                           ============================================ */
+                                                                                                 📱 移动端适配 (Media Queries)
+                                                                                                 ============================================ */
   @media (max-width: 768px) {
       .page-wrapper {
           padding: 1.5rem 0.8rem;
@@ -1634,12 +1634,6 @@
           margin-bottom: 1rem;
       }
 
-      /* 表格适配 */
-      .table-container {
-          /* margin: 0 -0.5rem; */
-          /* padding: 0 0.5rem; */
-          /* width: calc(100% + 1rem); */
-      }
       table {
           font-size: 0.8rem;
           min-width: auto;
