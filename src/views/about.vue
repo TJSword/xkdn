@@ -44,7 +44,7 @@
             本站并未开设在线充值入口，因为复杂的审批流程可能会影响网站的纯粹性。我们采用一种更简单直接的方式：
           </p>
           <ul class="idea-list">
-            <li><strong>新用户福利：</strong>首次登录，系统将自动赠送您 <strong>7天全功能VIP体验</strong>。</li>
+            <li><strong>新用户福利：</strong>首次登录，系统将自动赠送您 <strong>1天全功能VIP体验</strong>。</li>
             <li><strong>会员到期：</strong>体验期结束后，您将无法访问受保护的策略页面。</li>
             <!-- <li><strong>核心权益：</strong>会员可享受所有策略模型的每日数据更新、历史回测查看以及未来所有新增功能的使用权。</li> -->
           </ul>

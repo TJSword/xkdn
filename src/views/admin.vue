@@ -2,7 +2,6 @@
   <div class="page-wrapper">
     <div class="main-container">
 
-      <!-- 1. 页面标题 (已分离) -->
       <div class="page-header">
         <router-link to="/home" class="back-button">
           ← 返回主页
@@ -17,27 +16,36 @@
         </p>
       </div>
 
-      <!-- 2. 内容网格 -->
       <div class="content-grid">
 
-        <!-- 用户数据列表卡片 -->
         <div class="content-card">
           <div class="card-header-with-toggle">
             <h2 class="card-title no-border">用户数据列表</h2>
-            <!-- 手机号筛选输入框 -->
-            <div class="filter-container">
-              <input type="text" v-model="searchPhone" placeholder="按手机号筛选..." class="search-input" />
+
+            <div class="filter-group">
+              <label class="checkbox-label">
+                <input type="checkbox" v-model="onlyActive" class="filter-checkbox" />
+                <span>仅显示生效会员</span>
+              </label>
+
+              <div class="filter-container">
+                <input type="text" v-model="searchPhone" placeholder="按手机号筛选..." class="search-input" />
+              </div>
             </div>
           </div>
 
-          <!-- 用户信息表格 -->
           <div class="table-wrapper">
             <table class="portfolio-table">
               <thead>
                 <tr>
                   <th>用户ID</th>
                   <th>手机号</th>
-                  <th>会员到期日</th>
+                  <th class="sortable-header" @click="toggleSort">
+                    会员到期日
+                    <span class="sort-icon" v-if="sortOrder === 'asc'">↑</span>
+                    <span class="sort-icon" v-else-if="sortOrder === 'desc'">↓</span>
+                    <span class="sort-icon" v-else>↕</span>
+                  </th>
                   <th class="text-center">操作</th>
                 </tr>
               </thead>
@@ -51,7 +59,7 @@
                   <td>{{ user.membershipExpiry }}</td>
                   <td class="text-center">
                     <button class="action-button" @click="openRenewalModal(user)">
-                      续费
+                      续费/调整
                     </button>
                   </td>
                 </tr>
@@ -59,18 +67,18 @@
             </table>
           </div>
 
-          <!-- 分页控件 -->
           <div class="pagination-controls" v-if="totalPages > 0">
-            <span class="total-count">共 {{ totalUsers  }} 条</span>
+            <span class="total-count">共 {{ totalUsers }} 条</span>
             <div class="pagination-buttons">
               <button @click="prevPage" :disabled="currentPage === 1" class="pagination-button">
+                &lt;
               </button>
               <button v-for="page in totalPages" :key="page" @click="goToPage(page)"
                 :class="['pagination-button', { active: currentPage === page }]">
                 {{ page }}
               </button>
               <button @click="nextPage" :disabled="currentPage === totalPages" class="pagination-button">
-                >
+                &gt;
               </button>
             </div>
           </div>
@@ -78,12 +86,11 @@
       </div>
     </div>
 
-    <!-- 续费模态框 (已修复样式) -->
     <Transition name="modal-fade">
       <div v-if="isModalVisible" class="modal-backdrop" @click="closeModal">
         <div class="modal-content" @click.stop>
           <div class="modal-header">
-            <h3>会员续费</h3>
+            <h3>会员时长调整</h3>
             <button class="modal-close-button" @click="closeModal">×</button>
           </div>
           <div class="modal-body">
@@ -97,18 +104,20 @@
                 <p class="info-text">{{ selectedUser.membershipExpiry }}</p>
               </div>
               <div class="form-group">
-                <label for="weeks-input">输入续费天数:</label>
-                <input id="weeks-input" type="number" v-model.number="daysToAdd" class="form-input" placeholder="例如: 30" min="1" />
+                <label for="weeks-input">调整天数 (正数增加，负数扣减):</label>
+                <input id="weeks-input" type="number" v-model.number="daysToAdd" class="form-input" placeholder="例如: 30 或 -7" />
               </div>
               <div class="form-group" v-if="newExpiryDate">
-                <label>新的到期时间:</label>
+                <label>调整后到期时间:</label>
                 <p class="info-text highlight">{{ newExpiryDate }}</p>
               </div>
             </div>
           </div>
           <div class="modal-footer">
             <button class="button-secondary" @click="closeModal">取消</button>
-            <button class="button-primary" @click="confirmRenewal" :disabled="!daysToAdd || daysToAdd <= 0">确认续费</button>
+            <button class="button-primary" @click="confirmRenewal" :disabled="!daysToAdd || daysToAdd === 0">
+              确认调整
+            </button>
           </div>
         </div>
       </div>
@@ -117,14 +126,15 @@
 </template>
 
 <script setup lang="ts">
-  import { ref, computed, watch, onMounted } from 'vue'
-  import app from '@/lib/cloudbase' // **修改**: 明确从您的库中导入 app 实例
+  import { ref, computed, watch, onMounted, inject } from 'vue'
+  import app from '@/lib/cloudbase'
+
   const showMessage: any = inject('showMessage')
-  // --- TypeScript 接口定义 (id 修改为 string 以匹配数据库 _id) ---
+
   interface User {
       id: string
       phone: string
-      membershipExpiry: string // 格式: YYYY-MM-DD
+      membershipExpiry: string
   }
 
   // --- 响应式数据 ---
@@ -132,45 +142,45 @@
   const searchPhone = ref('')
   const isLoading = ref(true)
 
+  // 新增：筛选和排序状态
+  const onlyActive = ref(false) // 仅显示会员
+  const sortOrder = ref<'asc' | 'desc' | ''>('') // 排序方向：升序、降序、无
+
   // --- 分页状态 ---
   const currentPage = ref(1)
   const itemsPerPage = ref(8)
   const totalUsers = ref(0)
-  let debounceTimer: any = null // 用于存储 setTimeout 的 ID
-  // --- 分页计算 ---
+  let debounceTimer: any = null
+
   const totalPages = computed(() => Math.ceil(totalUsers.value / itemsPerPage.value))
 
-  // --- 云函数调用逻辑 (已适配您的项目风格) ---
-
-  /**
-   * @description: 从后端获取用户数据
-   */
+  // --- 核心：获取数据 ---
   const fetchUsers = () => {
       isLoading.value = true
       app.callFunction({
           name: 'getUsers',
-          parse: true, // 按照您的习惯添加
+          parse: true,
           data: {
               searchPhone: searchPhone.value,
               page: currentPage.value,
-              limit: itemsPerPage.value
+              limit: itemsPerPage.value,
+              // 新增传参
+              onlyActive: onlyActive.value,
+              sortOrder: sortOrder.value
           }
       })
           .then((res: any) => {
-              // 确保云函数执行成功并返回了数据
               if (res.result && res.result.success) {
                   users.value = res.result.data.users
                   totalUsers.value = res.result.data.total
               } else {
-                  // 处理云函数返回的业务错误
                   console.log(res)
-                  showMessage(res.result.message, 'error')
+                  showMessage(res.result.message || '获取失败', 'error')
                   users.value = []
                   totalUsers.value = 0
               }
           })
           .catch((err: any) => {
-              // 处理网络或云函数执行本身的错误
               showMessage('网络错误，无法加载用户数据', 'error')
               users.value = []
               totalUsers.value = 0
@@ -180,49 +190,59 @@
           })
   }
 
-  // --- 组件挂载时首次加载数据 ---
+  // --- 排序逻辑 ---
+  const toggleSort = () => {
+      // 切换顺序：空 -> 降序 (最近到期) -> 升序 (最远到期) -> 空
+      if (sortOrder.value === '') {
+          sortOrder.value = 'desc'
+      } else if (sortOrder.value === 'desc') {
+          sortOrder.value = 'asc'
+      } else {
+          sortOrder.value = ''
+      }
+      // 重置到第一页并查询
+      currentPage.value = 1
+      fetchUsers()
+  }
+
+  // --- 生命周期 ---
   onMounted(() => {
       fetchUsers()
   })
 
-  // --- 监听搜索和分页变化，重新获取数据 ---
-  watch(searchPhone, (newValue, oldValue) => {
-      // 清除上一次的计时器，防止在输入过程中触发
-      clearTimeout(debounceTimer)
+  // --- 监听器 ---
 
-      // 启动一个新的计时器，500毫秒后执行
+  // 监听仅看会员开关
+  watch(onlyActive, () => {
+      currentPage.value = 1
+      fetchUsers()
+  })
+
+  // 监听搜索输入
+  watch(searchPhone, newValue => {
+      clearTimeout(debounceTimer)
       debounceTimer = setTimeout(() => {
-          // 核心逻辑：
-          // 只有当搜索词真正发生变化时，才进行操作。
-          // 搜索时，我们总是希望从第一页开始查看结果。
-          // 将页码重置为 1 会自动触发下面的另一个 watch 来获取数据，代码更简洁。
           if (currentPage.value !== 1) {
               currentPage.value = 1
           } else {
-              // 如果当前已经在第一页，页码不会变化，无法触发watch，所以需要手动调用
               fetchUsers()
           }
-      }, 500) // 500毫秒的延迟，用户停止输入半秒后触发搜索
+      }, 500)
   })
-  watch(
-      currentPage,
-      () => {
-          fetchUsers()
-      },
-      { immediate: false }
-  )
-  // --- 分页方法 (保持不变) ---
+
+  // 监听页码
+  watch(currentPage, () => {
+      fetchUsers()
+  })
+
+  // --- 分页方法 ---
   const goToPage = (page: number) => {
       if (page >= 1 && page <= totalPages.value) {
           currentPage.value = page
       }
   }
-  const prevPage = () => {
-      goToPage(currentPage.value - 1)
-  }
-  const nextPage = () => {
-      goToPage(currentPage.value + 1)
-  }
+  const prevPage = () => goToPage(currentPage.value - 1)
+  const nextPage = () => goToPage(currentPage.value + 1)
 
   // --- 模态框逻辑 ---
   const isModalVisible = ref(false)
@@ -241,20 +261,21 @@
   }
 
   const newExpiryDate = computed(() => {
-      if (!selectedUser.value || !daysToAdd.value || daysToAdd.value <= 0) return ''
+      if (!selectedUser.value || daysToAdd.value === null || daysToAdd.value === 0) return ''
 
-      // 确定计算的起始日期
       const isNewUserOrExpired =
           selectedUser.value.membershipExpiry === '未设置' ||
           new Date(selectedUser.value.membershipExpiry) < new Date()
+
+      // 如果是扣减时间（负数），通常是基于当前有效时间扣减
+      // 如果用户已过期，baseDate 为 now；如果未过期，baseDate 为 expiry
       const startDate = isNewUserOrExpired
           ? new Date()
           : new Date(selectedUser.value.membershipExpiry)
 
-      // 增加周数 (setDate 会自动处理月份和年份的进位)
+      // 核心计算（JS Date 自动处理负数）
       startDate.setDate(startDate.getDate() + daysToAdd.value)
 
-      // 格式化为 YYYY-MM-DD HH:mm
       const year = startDate.getFullYear()
       const month = (startDate.getMonth() + 1).toString().padStart(2, '0')
       const day = startDate.getDate().toString().padStart(2, '0')
@@ -264,36 +285,35 @@
       return `${year}-${month}-${day} ${hours}:${minutes}`
   })
 
-  // **修改**: 确认续费逻辑，适配您的调用风格
   const confirmRenewal = () => {
-      if (!selectedUser.value || !daysToAdd.value || daysToAdd.value <= 0) return
+      if (!selectedUser.value || !daysToAdd.value) return
 
       app.callFunction({
           name: 'renewMembership',
           parse: true,
           data: {
               userId: selectedUser.value.id,
-              daysToAdd: daysToAdd.value
+              daysToAdd: daysToAdd.value // 支持负数
           }
       })
           .then((res: any) => {
               if (res.result && res.result.success) {
-                  showMessage('续费成功！', 'success')
+                  showMessage('操作成功！', 'success')
                   closeModal()
-                  // **关键**: 续费成功后，刷新当前页的用户列表
                   fetchUsers()
               } else {
-                  showMessage('续费失败', 'error')
+                  showMessage(res.result.message || '操作失败', 'error')
               }
           })
           .catch((err: any) => {
-              console.error('调用云函数 renewMembership 失败:', err)
-              showMessage('网络错误，续费操作失败', 'error')
+              console.error(err)
+              showMessage('网络错误，操作失败', 'error')
           })
   }
 </script>
 
 <style scoped>
+  /* 基础动画 */
   @keyframes fadeInUp {
       from {
           opacity: 0;
@@ -304,7 +324,8 @@
           transform: translateY(0);
       }
   }
-  /* 恢复为更通用的页面布局 */
+
+  /* 页面容器 */
   .page-wrapper {
       font-family: 'Noto Sans SC', sans-serif;
       background-color: #121212;
@@ -320,13 +341,12 @@
       margin: 0 auto;
   }
 
+  /* 头部样式 */
   .page-header {
       text-align: center;
       margin-bottom: 3rem;
       animation: fadeInUp 0.5s ease-out forwards;
-      opacity: 0;
   }
-
   .back-button {
       color: #b0c4de;
       text-decoration: none;
@@ -338,7 +358,6 @@
   .back-button:hover {
       color: #00aaff;
   }
-
   .main-title {
       font-size: 2.5rem;
       font-weight: 700;
@@ -358,12 +377,11 @@
       color: #b0c4de;
   }
 
-  /* 内容网格和卡片 */
+  /* 卡片样式 */
   .content-grid {
       display: grid;
       gap: 1.5rem;
   }
-
   .content-card {
       background: rgba(255, 255, 255, 0.05);
       border: 1px solid rgba(255, 255, 255, 0.1);
@@ -371,23 +389,42 @@
       padding: 1.5rem 2rem;
       backdrop-filter: blur(10px);
       animation: fadeInUp 0.5s ease-out forwards;
-      animation-delay: 0.2s; /* 添加延迟，让它在标题之后出现 */
+      animation-delay: 0.2s;
       opacity: 0;
   }
 
+  /* 筛选区域样式 (Modified) */
   .card-header-with-toggle {
       display: flex;
       justify-content: space-between;
       align-items: center;
       margin-bottom: 1.5rem;
+      flex-wrap: wrap; /* 允许换行 */
+      gap: 1rem;
   }
   .card-title.no-border {
-      border-left: none;
-      padding-left: 0;
-      margin: 0;
       font-size: 1.4rem;
+      margin: 0;
   }
-
+  .filter-group {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+  }
+  .checkbox-label {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      color: #b0c4de;
+      font-size: 0.9rem;
+      cursor: pointer;
+      user-select: none;
+  }
+  .filter-checkbox {
+      cursor: pointer;
+      width: 16px;
+      height: 16px;
+  }
   .search-input {
       background-color: rgba(0, 0, 0, 0.3);
       border: 1px solid rgba(255, 255, 255, 0.2);
@@ -395,8 +432,10 @@
       padding: 0.5rem 1rem;
       color: #fff;
       font-size: 0.9rem;
+      min-width: 200px;
   }
 
+  /* 表格样式 */
   .table-wrapper {
       overflow-x: auto;
   }
@@ -414,6 +453,21 @@
       color: #ffffff;
       font-weight: bold;
   }
+  /* 排序表头样式 */
+  .sortable-header {
+      cursor: pointer;
+      user-select: none;
+      transition: color 0.2s;
+  }
+  .sortable-header:hover {
+      color: #00aaff;
+  }
+  .sort-icon {
+      margin-left: 4px;
+      font-size: 0.8em;
+      color: #00aaff;
+  }
+
   .portfolio-table td {
       color: #b0c4de;
       vertical-align: middle;
@@ -428,7 +482,6 @@
       padding: 2rem;
       color: #888;
   }
-
   .action-button {
       background-color: #00aaff;
       color: white;
@@ -436,9 +489,10 @@
       border-radius: 6px;
       padding: 0.4rem 1rem;
       cursor: pointer;
+      font-size: 0.9rem;
   }
 
-  /* 分页控件 */
+  /* 分页样式 */
   .pagination-controls {
       display: flex;
       justify-content: space-between;
@@ -532,7 +586,6 @@
       color: #00aaff;
       font-weight: bold;
   }
-  /* 已修复：确保输入框不会因 padding 溢出 */
   .modal-form .form-input {
       width: 100%;
       background-color: rgba(0, 0, 0, 0.3);
@@ -541,7 +594,7 @@
       padding: 0.75rem 1rem;
       color: #fff;
       font-size: 1rem;
-      box-sizing: border-box; /* 关键修复 */
+      box-sizing: border-box;
   }
   .modal-footer {
       display: flex;
@@ -581,20 +634,12 @@
   .modal-fade-leave-to {
       opacity: 0;
   }
-  /* ======================================================= */
-  /* ========      用户管理页面移动端适配      ======== */
-  /* ======================================================= */
 
+  /* 移动端适配 */
   @media (max-width: 768px) {
-      /* 步骤一：修正卡片的收缩行为，防止被内部表格撑开 */
       .content-card {
-          min-width: 0;
-          padding: 1.5rem 1rem; /* 减小卡片内边距 */
+          padding: 1.5rem 1rem;
       }
-
-      /* 步骤二：确保表格可以滚动，并优化单元格内容 */
-      /* .table-wrapper {
-                                      } */
       .table-wrapper::-webkit-scrollbar {
           height: 6px;
       }
@@ -604,71 +649,66 @@
       }
       .portfolio-table th,
       .portfolio-table td {
-          white-space: nowrap; /* 确保单元格内容不换行 */
+          white-space: nowrap;
           padding: 0.8rem;
       }
 
-      /* 步骤三：调整卡片头部的布局，让搜索框换行 */
       .card-header-with-toggle {
-          flex-direction: column; /* 垂直堆叠 */
-          align-items: flex-start; /* 左对齐 */
-          gap: 1rem;
+          flex-direction: column;
+          align-items: flex-start;
+      }
+      .filter-group {
+          width: 100%;
+          flex-direction: column;
+          align-items: flex-start;
       }
       .search-input {
-          width: 100%; /* 让搜索框撑满宽度 */
+          width: 100%;
           box-sizing: border-box;
       }
 
-      /* 步骤四：优化分页控件的布局 */
       .pagination-controls {
-          flex-direction: column; /* 垂直堆叠 */
-          align-items: center; /* 居中对齐 */
+          flex-direction: column;
           gap: 1rem;
       }
       .pagination-buttons {
-          /* 让按钮容器可以在需要时换行 */
           flex-wrap: wrap;
           justify-content: center;
       }
 
       .modal-content {
-          padding: 1.5rem 1.2rem; /* 稍微调整内边距，让上下空间更足 */
-          max-height: 90vh; /* 新增：限制最大高度 */
-          overflow-y: auto; /* 新增：当内容超长时，弹窗内部可以滚动 */
+          padding: 1.5rem 1.2rem;
+          max-height: 90vh;
+          overflow-y: auto;
           width: 78%;
       }
       .modal-header h3 {
           font-size: 1.2rem;
       }
-
-      /* --- 新增：适配弹窗表单内部 --- */
       .modal-form .form-group {
-          margin-bottom: 1.5rem; /* 稍微增大表单项之间的间距 */
+          margin-bottom: 1.5rem;
       }
       .modal-form label {
-          font-size: 0.9rem; /* 统一标签字号 */
+          font-size: 0.9rem;
       }
       .modal-form .info-text {
-          font-size: 1.05rem; /* 让信息文本更突出一点 */
-      }
-      .modal-form .form-input {
-          padding: 0.9rem; /* 增大输入框内边距，方便点击和输入 */
           font-size: 1.05rem;
       }
-
+      .modal-form .form-input {
+          padding: 0.9rem;
+          font-size: 1.05rem;
+      }
       .modal-footer {
           flex-direction: column-reverse;
           gap: 0.8rem;
-          margin-top: 2rem; /* 增大与表单的间距 */
+          margin-top: 2rem;
           padding-top: 1.2rem;
       }
       .button-secondary,
       .button-primary {
           width: 100%;
-          padding: 0.9rem; /* 统一增大按钮内边距 */
+          padding: 0.9rem;
       }
-
-      /* 其他通用微调 */
       .main-title {
           font-size: 2rem;
       }

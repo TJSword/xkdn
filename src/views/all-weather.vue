@@ -308,19 +308,19 @@
           <div class="stats-bar">
             <div class="stat-item">
               <div class="stat-label">总收益</div>
-              <div class="stat-value highlight">284.68%</div>
+              <div class="stat-value highlight">290.59%</div>
             </div>
             <div class="stat-item">
               <div class="stat-label">年化收益</div>
-              <div class="stat-value">14.86%</div>
+              <div class="stat-value">15.05%</div>
             </div>
             <div class="stat-item">
               <div class="stat-label">波动率</div>
-              <div class="stat-value">7.69%</div>
+              <div class="stat-value">7.67%</div>
             </div>
             <div class="stat-item">
               <div class="stat-label">夏普比率</div>
-              <div class="stat-value">1.673</div>
+              <div class="stat-value">1.701</div>
             </div>
             <div class="stat-item">
               <div class="stat-label">最大回撤</div>
@@ -361,7 +361,7 @@
           <div class="risk-summary-grid">
             <div class="risk-box">
               <div class="risk-label">卡玛比率 (Calmar)</div>
-              <div class="risk-main-val">1.569</div>
+              <div class="risk-main-val">1.588</div>
               <div class="risk-sub-val">年化收益 / 最大回撤</div>
             </div>
             <div class="risk-box">
@@ -371,7 +371,7 @@
             </div>
             <div class="risk-box">
               <div class="risk-label">索提诺比率</div>
-              <div class="risk-main-val">2.523</div>
+              <div class="risk-main-val">2.543</div>
               <div class="risk-sub-val">反映策略的抗跌能力</div>
             </div>
           </div>
@@ -412,12 +412,12 @@
               <tbody>
                 <tr v-for="(item, index) in topDrawdowns" :key="index">
                   <td>{{ index + 1 }}</td>
-                  <td>{{ item.start }}</td>
-                  <td>{{ item.trough }}</td>
-                  <td>{{ item.end }}</td>
-                  <td>{{ item.maxDd }}%</td>
+                  <td>{{ item.startDate }}</td>
+                  <td>{{ item.troughDate }}</td>
+                  <td>{{ item.endDate }}</td>
+                  <td>{{ item.drawdown }}%</td>
                   <td>{{ item.ddDays }}</td>
-                  <td>{{ item.recDays }}</td>
+                  <td>{{ item.fixDays }}</td>
                 </tr>
               </tbody>
             </table>
@@ -480,53 +480,183 @@
       const years = [
           {
               year: 2025,
-              months: [1.45, 0.47, 1.25, 2.92, 1.12, 1.5, 0.97, 1.48, 4.56, 4.99, -0.07, 0.81],
-              total: 23.54
+              months: [
+                  '1.45',
+                  '0.47',
+                  '1.25',
+                  '2.92',
+                  '1.12',
+                  '1.50',
+                  '0.97',
+                  '1.48',
+                  '4.56',
+                  '4.99',
+                  '-0.07',
+                  '0.81'
+              ],
+              total: '23.53'
           },
           {
               year: 2024,
-              months: [3.15, 3.62, 3.52, 0.25, 2.32, 1.76, 0.54, 0.41, 4.94, 1.04, 0.57, 2.27],
-              total: 27.16
+              months: [
+                  '3.15',
+                  '3.62',
+                  '3.52',
+                  '0.25',
+                  '2.32',
+                  '1.76',
+                  '0.54',
+                  '0.41',
+                  '4.94',
+                  '1.04',
+                  '0.57',
+                  '2.27'
+              ],
+              total: '27.15'
           },
           {
               year: 2023,
-              months: [4.07, 0.37, 5.36, 2.16, 0.89, 2.62, 2.58, -0.11, -1.59, 0.39, 3.41, 2.26],
-              total: 24.6
+              months: [
+                  '4.07',
+                  '0.37',
+                  '5.36',
+                  '2.16',
+                  '0.89',
+                  '2.62',
+                  '2.58',
+                  '-0.11',
+                  '-1.59',
+                  '0.39',
+                  '3.41',
+                  '2.26'
+              ],
+              total: '24.61'
           },
           {
               year: 2022,
-              months: [-3.33, 2.75, 1.88, -2.14, 0.86, -1.23, 1.02, 0.35, -2.51, 0.43, 3.34, -2.17],
-              total: -1.01
+              months: [
+                  '-3.33',
+                  '2.75',
+                  '1.88',
+                  '-2.14',
+                  '0.86',
+                  '-1.23',
+                  '1.02',
+                  '0.35',
+                  '-2.51',
+                  '0.43',
+                  '3.34',
+                  '-2.17'
+              ],
+              total: '-1.01'
           },
           {
               year: 2021,
-              months: [-0.07, -0.17, 1.41, 3.36, 2.38, 0, 3.2, 5.71, -2.73, 0.25, 0.88, 2],
-              total: 17.17
+              months: [
+                  '-0.07',
+                  '-0.17',
+                  '1.40',
+                  '3.36',
+                  '2.38',
+                  '-0.00',
+                  '3.20',
+                  '5.71',
+                  '-2.73',
+                  '0.25',
+                  '0.88',
+                  '2.00'
+              ],
+              total: '17.17'
           },
           {
               year: 2020,
-              months: [1.44, 0.37, -1.72, 4.5, 1.53, 2.05, 5.82, 1.95, -3.42, -0.91, 2.33, 2.81],
-              total: 17.68
+              months: [
+                  '1.44',
+                  '0.37',
+                  '-1.72',
+                  '4.50',
+                  '1.53',
+                  '2.05',
+                  '5.82',
+                  '1.95',
+                  '-3.42',
+                  '-0.91',
+                  '2.33',
+                  '2.81'
+              ],
+              total: '17.68'
           },
           {
               year: 2019,
-              months: [2.98, 2.42, 1.43, -0.37, -1.72, 4.97, 1.14, 2.93, -1, -0.41, 0.74, 3.41],
-              total: 17.58
+              months: [
+                  '2.98',
+                  '2.42',
+                  '1.43',
+                  '-0.37',
+                  '-1.72',
+                  '4.97',
+                  '1.14',
+                  '2.93',
+                  '-1.00',
+                  '-0.41',
+                  '0.75',
+                  '3.41'
+              ],
+              total: '17.58'
           },
           {
               year: 2018,
-              months: [3.88, -1.42, -1.52, 0.82, 1.54, -0.2, 1.59, -0.72, 0.35, -1.73, 0.67, -0.19],
-              total: 2.96
+              months: [
+                  '3.88',
+                  '-1.42',
+                  '-1.52',
+                  '0.82',
+                  '1.54',
+                  '-0.20',
+                  '1.59',
+                  '-0.72',
+                  '0.35',
+                  '-1.73',
+                  '0.67',
+                  '-0.19'
+              ],
+              total: '2.97'
           },
           {
               year: 2017,
-              months: [1.5, 2.68, 0.47, 0.94, 0.44, 0.02, 1.75, 0.45, -0.17, 1.01, 0.87, 0.15],
-              total: 10.55
+              months: [
+                  '1.50',
+                  '2.68',
+                  '0.47',
+                  '0.94',
+                  '0.44',
+                  '0.02',
+                  '1.75',
+                  '0.45',
+                  '-0.17',
+                  '1.01',
+                  '0.87',
+                  '0.15'
+              ],
+              total: '10.55'
           },
           {
               year: 2016,
-              months: [-3.67, 2.92, 3.64, -0.39, -0.73, 3.21, 4.02, 0.53, 0.86, 0.2, -0.97, -1.96],
-              total: 7.58
+              months: [
+                  '-2.19',
+                  '2.91',
+                  '3.64',
+                  '-0.40',
+                  '-0.73',
+                  '3.21',
+                  '4.02',
+                  '0.53',
+                  '0.86',
+                  '0.20',
+                  '-0.97',
+                  '-1.96'
+              ],
+              total: '9.23'
           }
       ]
       monthlyReturns.value = years
@@ -564,84 +694,94 @@
 
   const topDrawdowns = ref([
       {
-          start: '2020-02-21',
-          trough: '2020-03-23',
-          end: '2020-05-08',
-          maxDd: -9.47,
+          startDate: '2020-02-21',
+          troughDate: '2020-03-23',
+          endDate: '2020-05-08',
+          drawdown: '-9.47',
+          rawDd: -0.09473478175768257,
           ddDays: 31,
-          recDays: 46
+          fixDays: 46
       },
       {
-          start: '2020-09-01',
-          trough: '2020-09-24',
-          end: '2020-12-21',
-          maxDd: -5.68,
+          startDate: '2020-09-01',
+          troughDate: '2020-09-24',
+          endDate: '2020-12-21',
+          drawdown: '-5.68',
+          rawDd: -0.05680696088567768,
           ddDays: 23,
-          recDays: 88
+          fixDays: 88
       },
       {
-          start: '2016-11-09',
-          trough: '2016-12-20',
-          end: '2017-02-24',
-          maxDd: -5.24,
+          startDate: '2016-11-09',
+          troughDate: '2016-12-20',
+          endDate: '2017-02-24',
+          drawdown: '-5.24',
+          rawDd: -0.052419603049676064,
           ddDays: 41,
-          recDays: 66
+          fixDays: 66
       },
       {
-          start: '2021-09-09',
-          trough: '2021-10-13',
-          end: '2022-03-29',
-          maxDd: -5.21,
+          startDate: '2021-09-09',
+          troughDate: '2021-10-13',
+          endDate: '2022-03-29',
+          drawdown: '-5.21',
+          rawDd: -0.052068787047254365,
           ddDays: 34,
-          recDays: 167
+          fixDays: 167
       },
       {
-          start: '2018-01-26',
-          trough: '2018-02-09',
-          end: '2018-07-24',
-          maxDd: -5.15,
+          startDate: '2018-01-26',
+          troughDate: '2018-02-09',
+          endDate: '2018-07-24',
+          drawdown: '-5.15',
+          rawDd: -0.051452177278579495,
           ddDays: 14,
-          recDays: 165
+          fixDays: 165
       },
       {
-          start: '2022-04-19',
-          trough: '2022-07-15',
-          end: '2023-01-20',
-          maxDd: -5.06,
+          startDate: '2022-04-19',
+          troughDate: '2022-07-15',
+          endDate: '2023-01-20',
+          drawdown: '-5.06',
+          rawDd: -0.05059082579509889,
           ddDays: 87,
-          recDays: 189
+          fixDays: 189
       },
       {
-          start: '2025-02-14',
-          trough: '2025-04-08',
-          end: '2025-04-18',
-          maxDd: -4.65,
+          startDate: '2025-02-14',
+          troughDate: '2025-04-08',
+          endDate: '2025-04-18',
+          drawdown: '-4.65',
+          rawDd: -0.046461579325458045,
           ddDays: 53,
-          recDays: 10
+          fixDays: 10
       },
       {
-          start: '2015-12-31',
-          trough: '2016-01-28',
-          end: '2016-02-24',
-          maxDd: -4.64,
-          ddDays: 28,
-          recDays: 27
-      },
-      {
-          start: '2019-04-08',
-          trough: '2019-05-23',
-          end: '2019-06-20',
-          maxDd: -4.36,
+          startDate: '2019-04-08',
+          troughDate: '2019-05-23',
+          endDate: '2019-06-20',
+          drawdown: '-4.36',
+          rawDd: -0.04363572122604,
           ddDays: 45,
-          recDays: 28
+          fixDays: 28
       },
       {
-          start: '2019-09-05',
-          trough: '2019-11-12',
-          end: '2019-12-26',
-          maxDd: -3.9,
+          startDate: '2016-01-06',
+          troughDate: '2016-01-28',
+          endDate: '2016-02-19',
+          drawdown: '-4.07',
+          rawDd: -0.04071259425129061,
+          ddDays: 22,
+          fixDays: 22
+      },
+      {
+          startDate: '2019-09-05',
+          troughDate: '2019-11-12',
+          endDate: '2019-12-26',
+          drawdown: '-3.90',
+          rawDd: -0.03903651045620864,
           ddDays: 68,
-          recDays: 44
+          fixDays: 44
       }
   ])
 

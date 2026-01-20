@@ -141,19 +141,19 @@
           <div class="stats-bar">
             <div class="stat-item">
               <div class="stat-label">总收益</div>
-              <div class="stat-value highlight">45555.11%</div>
+              <div class="stat-value highlight">45341.53%</div>
             </div>
             <div class="stat-item">
               <div class="stat-label">年化收益</div>
-              <div class="stat-value">60.10%</div>
+              <div class="stat-value">62.35%</div>
             </div>
             <div class="stat-item">
               <div class="stat-label">波动率</div>
-              <div class="stat-value">29.02%</div>
+              <div class="stat-value">28.91%</div>
             </div>
             <div class="stat-item">
               <div class="stat-label">夏普比率</div>
-              <div class="stat-value">2.002</div>
+              <div class="stat-value">2.087</div>
             </div>
             <div class="stat-item">
               <div class="stat-label">最大回撤</div>
@@ -194,17 +194,17 @@
           <div class="risk-summary-grid">
             <div class="risk-box">
               <div class="risk-label">卡玛比率 (Calmar)</div>
-              <div class="risk-main-val">1.180</div>
+              <div class="risk-main-val">1.224</div>
               <div class="risk-sub-val">年化收益 / 最大回撤</div>
             </div>
             <div class="risk-box">
-              <div class="risk-label"> 月度胜率: 63.5%</div>
-              <div class="risk-main-val">99 / 156</div>
+              <div class="risk-label"> 月度胜率: 69.2%</div>
+              <div class="risk-main-val">108 / 156</div>
               <div class="risk-sub-val">盈利月数 / 总月数</div>
             </div>
             <div class="risk-box">
               <div class="risk-label">盈亏比</div>
-              <div class="risk-main-val">0.927</div>
+              <div class="risk-main-val">0.928</div>
               <div class="risk-sub-val">日均盈利 / 日均亏损</div>
             </div>
           </div>
@@ -245,12 +245,12 @@
               <tbody>
                 <tr v-for="(item, index) in topDrawdowns" :key="index">
                   <td>{{ index + 1 }}</td>
-                  <td>{{ item.start }}</td>
-                  <td>{{ item.trough }}</td>
-                  <td>{{ item.end }}</td>
-                  <td class="negative">{{ item.maxDd }}%</td>
+                  <td>{{ item.startDate }}</td>
+                  <td>{{ item.troughDate }}</td>
+                  <td>{{ item.endDate }}</td>
+                  <td>{{ item.drawdown }}%</td>
                   <td>{{ item.ddDays }}</td>
-                  <td>{{ item.recDays }}</td>
+                  <td>{{ item.fixDays }}</td>
                 </tr>
               </tbody>
             </table>
@@ -491,72 +491,241 @@
   const monthlyReturns = ref([
       {
           year: 2025,
-          months: [-0.1, 12.9, -1.8, 0.4, 10.3, 10.3, 7.7, 1.2, 5.5, 7.7, 5.1, -2.3],
-          total: 72.1
+          months: [
+              '-0.05',
+              '12.88',
+              '-1.80',
+              '0.40',
+              '10.27',
+              '10.27',
+              '7.67',
+              '1.23',
+              '5.46',
+              '7.72',
+              '5.10',
+              '-2.26'
+          ],
+          total: '72.04'
       },
       {
           year: 2024,
-          months: [0.2, -4.9, 17.1, 0.3, 1.5, -11, 10.6, 4.7, 26, 15.6, 12.4, -9.7],
-          total: 73.1
+          months: [
+              '0.18',
+              '-4.90',
+              '17.12',
+              '0.29',
+              '1.52',
+              '-10.97',
+              '10.58',
+              '4.66',
+              '26.03',
+              '15.62',
+              '12.36',
+              '-9.70'
+          ],
+          total: '73.06'
       },
       {
           year: 2023,
-          months: [0, 5, -4.1, 0.1, 4.2, 5.9, 10.5, 1.6, 3.4, 2.5, 6.9, 1.8],
-          total: 44.1
+          months: [
+              '-0.00',
+              '5.02',
+              '-4.07',
+              '0.07',
+              '4.24',
+              '5.93',
+              '10.51',
+              '1.59',
+              '3.36',
+              '2.53',
+              '6.92',
+              '1.77'
+          ],
+          total: '44.12'
       },
       {
           year: 2022,
-          months: [0, 9.2, 5.6, -0.7, 13.3, 6.2, 10.1, 2.9, -6.1, 5.2, 12.2, -5.2],
-          total: 63.9
+          months: [
+              '0.04',
+              '9.15',
+              '5.58',
+              '-0.72',
+              '13.34',
+              '6.19',
+              '10.11',
+              '2.86',
+              '-6.13',
+              '5.19',
+              '12.20',
+              '-5.17'
+          ],
+          total: '63.92'
       },
       {
           year: 2021,
-          months: [0.2, 9.5, 8.8, -0.2, 10.5, 5.3, -1.3, 8.9, 0, -2.9, 12.7, 8.7],
-          total: 77.2
+          months: [
+              '0.24',
+              '9.49',
+              '8.78',
+              '-0.18',
+              '10.52',
+              '5.29',
+              '-1.31',
+              '8.85',
+              '0.01',
+              '-2.89',
+              '12.70',
+              '8.68'
+          ],
+          total: '77.21'
       },
       {
           year: 2020,
-          months: [0.2, 15.3, 3.8, -0.5, 3.3, 2.7, 11.2, 8.6, -3.6, 0.2, 5.9, -7.9],
-          total: 44.2
+          months: [
+              '0.20',
+              '15.34',
+              '3.81',
+              '-0.48',
+              '3.26',
+              '2.71',
+              '11.22',
+              '8.62',
+              '-3.57',
+              '0.17',
+              '5.92',
+              '-7.90'
+          ],
+          total: '44.15'
       },
       {
           year: 2019,
-          months: [0, 23.1, 13.5, 0.6, 6.4, 5, 1.8, -2.5, 3.3, 3, -2.9, 9],
-          total: 75.6
+          months: [
+              '-0.02',
+              '23.15',
+              '13.47',
+              '0.61',
+              '6.42',
+              '5.01',
+              '1.79',
+              '-2.49',
+              '3.29',
+              '3.00',
+              '-2.93',
+              '9.04'
+          ],
+          total: '75.57'
       },
       {
           year: 2018,
-          months: [0, -7.3, 13.6, -0.1, 2, -12.8, 6, -6.7, 2.2, -1.6, 13.3, -3.5],
-          total: 1.8
+          months: [
+              '0.04',
+              '-7.32',
+              '13.57',
+              '-0.10',
+              '2.03',
+              '-12.79',
+              '5.97',
+              '-6.67',
+              '2.16',
+              '-1.56',
+              '13.35',
+              '-3.50'
+          ],
+          total: '1.83'
       },
       {
           year: 2017,
-          months: [0.2, 4.6, -6.3, -0.3, -7.6, 2.5, -7.5, 12.6, 0.5, 0.1, -6.9, -2.8],
-          total: -12.1
+          months: [
+              '0.20',
+              '4.61',
+              '-6.32',
+              '-0.30',
+              '-7.62',
+              '2.52',
+              '-7.48',
+              '12.64',
+              '0.52',
+              '0.12',
+              '-6.91',
+              '-2.84'
+          ],
+          total: '-12.04'
       },
       {
           year: 2016,
-          months: [-1.5, 1.8, 29, -0.2, -1.2, 7.2, -1.9, 8.7, 6.4, 4.3, 6.4, 4.2],
-          total: 79.5
+          months: [
+              '-1.48',
+              '1.78',
+              '29.00',
+              '-0.16',
+              '-1.20',
+              '7.19',
+              '-1.93',
+              '8.70',
+              '6.42',
+              '4.32',
+              '6.43',
+              '4.18'
+          ],
+          total: '79.47'
       },
       {
           year: 2015,
-          months: [0.2, 8.3, 27.7, 0, 44.2, -2, -15.2, -5.8, 1.8, 29.9, 23.9, 20.9],
-          total: 209.6
+          months: [
+              '0.20',
+              '8.26',
+              '27.69',
+              '-0.04',
+              '44.18',
+              '-2.01',
+              '-15.22',
+              '-5.77',
+              '1.82',
+              '29.94',
+              '23.85',
+              '20.89'
+          ],
+          total: '209.56'
       },
       {
           year: 2014,
-          months: [-0.5, 6.7, 1.8, -0.4, 5.4, 9.6, 12.6, 11.6, 20.8, 2, 5.8, -13.2],
-          total: 76.8
+          months: [
+              '-0.47',
+              '6.66',
+              '1.83',
+              '-0.38',
+              '5.43',
+              '9.57',
+              '12.58',
+              '11.62',
+              '20.81',
+              '2.01',
+              '5.76',
+              '-13.22'
+          ],
+          total: '76.82'
       },
       {
           year: 2013,
-          months: [0.3, 7.1, -3.8, -0.3, 19.1, -12.8, 14.3, 11.1, 6.8, 0.2, 14.2, -1.1],
-          total: 64.1
+          months: [
+              '0.00',
+              '7.09',
+              '-3.85',
+              '-0.28',
+              '19.13',
+              '-12.81',
+              '14.25',
+              '11.10',
+              '6.80',
+              '0.21',
+              '14.21',
+              '-1.12'
+          ],
+          total: '63.62'
       }
   ])
 
-  const getHeatmapStyle = (value: number | null) => {
+  const getHeatmapStyle = (value: any) => {
       if (value === null || value === undefined) return {}
       if (value === 0) return { backgroundColor: 'transparent' }
       if (value > 0) {
@@ -593,84 +762,94 @@
   ])
   const topDrawdowns = ref([
       {
-          start: '2015-06-12',
-          trough: '2015-07-08',
-          end: '2015-11-24',
-          maxDd: -50.9,
+          startDate: '2015-06-12',
+          troughDate: '2015-07-08',
+          endDate: '2015-11-24',
+          drawdown: '-50.92',
+          rawDd: -0.5092435194746736,
           ddDays: 26,
-          recDays: 139
+          fixDays: 139
       },
       {
-          start: '2017-03-20',
-          trough: '2018-10-18',
-          end: '2019-02-25',
-          maxDd: -33.9,
+          startDate: '2017-03-20',
+          troughDate: '2018-10-18',
+          endDate: '2019-02-25',
+          drawdown: '-33.91',
+          rawDd: -0.3390770332197848,
           ddDays: 577,
-          recDays: 130
+          fixDays: 130
       },
       {
-          start: '2024-01-31',
-          trough: '2024-02-07',
-          end: '2024-02-27',
-          maxDd: -33.7,
+          startDate: '2024-01-31',
+          troughDate: '2024-02-07',
+          endDate: '2024-02-27',
+          drawdown: '-33.73',
+          rawDd: -0.33725746954900077,
           ddDays: 7,
-          recDays: 20
+          fixDays: 20
       },
       {
-          start: '2024-05-17',
-          trough: '2024-06-06',
-          end: '2024-09-24',
-          maxDd: -21.2,
+          startDate: '2024-05-17',
+          troughDate: '2024-06-06',
+          endDate: '2024-09-24',
+          drawdown: '-21.18',
+          rawDd: -0.21177939390773315,
           ddDays: 20,
-          recDays: 110
+          fixDays: 110
       },
       {
-          start: '2024-12-12',
-          trough: '2025-01-02',
-          end: '2025-03-18',
-          maxDd: -18.1,
+          startDate: '2024-12-12',
+          troughDate: '2025-01-02',
+          endDate: '2025-03-18',
+          drawdown: '-18.07',
+          rawDd: -0.18069585108981195,
           ddDays: 21,
-          recDays: 75
+          fixDays: 75
       },
       {
-          start: '2020-09-08',
-          trough: '2021-02-08',
-          end: '2021-03-01',
-          maxDd: -17.1,
+          startDate: '2020-09-08',
+          troughDate: '2021-02-08',
+          endDate: '2021-03-01',
+          drawdown: '-17.12',
+          rawDd: -0.17118920909998162,
           ddDays: 153,
-          recDays: 21
+          fixDays: 21
       },
       {
-          start: '2016-02-24',
-          trough: '2016-02-29',
-          end: '2016-03-18',
-          maxDd: -15.5,
+          startDate: '2016-02-24',
+          troughDate: '2016-02-29',
+          endDate: '2016-03-18',
+          drawdown: '-15.48',
+          rawDd: -0.15476190476190474,
           ddDays: 5,
-          recDays: 18
+          fixDays: 18
       },
       {
-          start: '2014-11-28',
-          trough: '2014-12-23',
-          end: '2015-03-09',
-          maxDd: -14.9,
+          startDate: '2014-11-28',
+          troughDate: '2014-12-23',
+          endDate: '2015-03-09',
+          drawdown: '-14.94',
+          rawDd: -0.14941677189467428,
           ddDays: 25,
-          recDays: 76
+          fixDays: 76
       },
       {
-          start: '2016-05-05',
-          trough: '2016-05-18',
-          end: '2016-06-28',
-          maxDd: -14.4,
+          startDate: '2016-05-05',
+          troughDate: '2016-05-18',
+          endDate: '2016-06-28',
+          drawdown: '-14.42',
+          rawDd: -0.14424527862902423,
           ddDays: 13,
-          recDays: 41
+          fixDays: 41
       },
       {
-          start: '2013-05-30',
-          trough: '2013-06-25',
-          end: '2013-08-01',
-          maxDd: -13.2,
+          startDate: '2013-05-30',
+          troughDate: '2013-06-25',
+          endDate: '2013-08-01',
+          drawdown: '-13.22',
+          rawDd: -0.13217296487973187,
           ddDays: 26,
-          recDays: 37
+          fixDays: 37
       }
   ])
   const openFaqIndex = ref<number | null>(0)
@@ -716,8 +895,8 @@
 
 <style scoped>
   /* =========================================
-                                                                  全局与基础样式 (Theme: #f0e68c / Khaki)
-                                                                  ========================================= */
+                                                                                  全局与基础样式 (Theme: #f0e68c / Khaki)
+                                                                                  ========================================= */
   :global(body),
   :global(html) {
       overflow-x: hidden;
@@ -866,8 +1045,8 @@
   }
 
   /* =========================================
-                                                                                                                                                             新增模块样式：最新持仓与调仓
-                                                                                                                                                             ========================================= */
+                                                                                                                                                                             新增模块样式：最新持仓与调仓
+                                                                                                                                                                             ========================================= */
   .card-subtitle {
       font-size: 1.1rem;
       font-weight: bold;
@@ -884,25 +1063,25 @@
   }
 
   /* .data-table {
-                                                                                                  width: 100%;
-                                                                                                  border-collapse: collapse;
-                                                                                                  min-width: 600px;
-                                                                                                  table-layout: fixed;
-                                                                                              }
+                                                                                                                  width: 100%;
+                                                                                                                  border-collapse: collapse;
+                                                                                                                  min-width: 600px;
+                                                                                                                  table-layout: fixed;
+                                                                                                              }
 
-                                                                                              .data-table th,
-                                                                                              .data-table td {
-                                                                                                  padding: 0.8rem 1rem;
-                                                                                                  text-align: left;
-                                                                                                  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-                                                                                              }
+                                                                                                              .data-table th,
+                                                                                                              .data-table td {
+                                                                                                                  padding: 0.8rem 1rem;
+                                                                                                                  text-align: left;
+                                                                                                                  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+                                                                                                              }
 
-                                                                                              .data-table th {
-                                                                                                  color: #ffffff;
-                                                                                                  font-weight: bold;
-                                                                                                  border-bottom: 2px solid rgba(255, 255, 255, 0.1);
-                                                                                                  white-space: nowrap;
-                                                                                              } */
+                                                                                                              .data-table th {
+                                                                                                                  color: #ffffff;
+                                                                                                                  font-weight: bold;
+                                                                                                                  border-bottom: 2px solid rgba(255, 255, 255, 0.1);
+                                                                                                                  white-space: nowrap;
+                                                                                                              } */
 
   .data-table {
       width: 100%;
@@ -1006,8 +1185,8 @@
   }
 
   /* =========================================
-                                                                                                                                                             新增模块样式：图表与统计 (Charts & Stats)
-                                                                                                                                                             ========================================= */
+                                                                                                                                                                             新增模块样式：图表与统计 (Charts & Stats)
+                                                                                                                                                                             ========================================= */
   .card-header-row {
       display: flex;
       justify-content: space-between;
@@ -1063,8 +1242,8 @@
   }
 
   /* =========================================
-                                                                                                                                                             新增模块样式：热力图 (Heatmap)
-                                                                                                                                                             ========================================= */
+                                                                                                                                                                             新增模块样式：热力图 (Heatmap)
+                                                                                                                                                                             ========================================= */
   .heatmap-container {
       overflow-x: auto;
   }
@@ -1087,7 +1266,7 @@
   .heatmap-table td {
       padding: 0.6rem 0.2rem;
       text-align: center;
-      font-size: 0.85rem;
+      font-size: 0.8rem;
       border: 1px solid rgba(255, 255, 255, 0.1);
   }
 
@@ -1103,8 +1282,8 @@
   }
 
   /* =========================================
-                                                                                                                                                             新增模块样式：风险分析
-                                                                                                                                                             ========================================= */
+                                                                                                                                                                             新增模块样式：风险分析
+                                                                                                                                                                             ========================================= */
   .risk-summary-grid {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
@@ -1181,8 +1360,8 @@
   }
 
   /* =========================================
-                                                                                                                                                             FAQ 样式
-                                                                                                                                                             ========================================= */
+                                                                                                                                                                             FAQ 样式
+                                                                                                                                                                             ========================================= */
   .faq-container {
       display: flex;
       flex-direction: column;
@@ -1239,8 +1418,8 @@
       }
   }
   /* =========================================
-                                                                           移动端适配 (最终修正版)
-                                                                           ========================================= */
+                                                                                           移动端适配 (最终修正版)
+                                                                                           ========================================= */
   @media (max-width: 768px) {
       /* 1. 核心修复：给所有滚动容器添加渐变遮罩，增加高级感 */
       .table-container,

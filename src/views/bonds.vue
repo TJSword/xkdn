@@ -225,11 +225,11 @@
           <div class="stats-bar">
             <div class="stat-item">
               <div class="stat-label">总收益</div>
-              <div class="stat-value-small highlight">1362.54%</div>
+              <div class="stat-value-small highlight">1364.00%</div>
             </div>
             <div class="stat-item">
               <div class="stat-label">年化收益</div>
-              <div class="stat-value-small">41.22%</div>
+              <div class="stat-value-small">41.27%</div>
             </div>
             <div class="stat-item">
               <div class="stat-label">波动率</div>
@@ -237,7 +237,7 @@
             </div>
             <div class="stat-item">
               <div class="stat-label">夏普比率</div>
-              <div class="stat-value-small">2.11</div>
+              <div class="stat-value-small">2.113</div>
             </div>
             <div class="stat-item">
               <div class="stat-label">最大回撤</div>
@@ -278,7 +278,7 @@
           <div class="risk-summary-grid">
             <div class="risk-box">
               <div class="risk-label">卡玛比率 (Calmar)</div>
-              <div class="risk-main-val">2.46</div>
+              <div class="risk-main-val">2.464</div>
               <div class="risk-sub-val">年化收益 / 最大回撤</div>
             </div>
             <div class="risk-box">
@@ -288,7 +288,7 @@
             </div>
             <div class="risk-box">
               <div class="risk-label">索提诺比率</div>
-              <div class="risk-main-val">3.75</div>
+              <div class="risk-main-val">3.752</div>
               <div class="risk-sub-val">反映策略的抗跌能力</div>
             </div>
           </div>
@@ -329,12 +329,12 @@
               <tbody>
                 <tr v-for="(item, index) in topDrawdowns" :key="index">
                   <td>{{ index + 1 }}</td>
-                  <td>{{ item.start }}</td>
-                  <td>{{ item.trough }}</td>
-                  <td>{{ item.end }}</td>
-                  <td>{{ item.maxDd }}%</td>
+                  <td>{{ item.startDate }}</td>
+                  <td>{{ item.troughDate }}</td>
+                  <td>{{ item.endDate }}</td>
+                  <td>{{ item.drawdown }}%</td>
                   <td>{{ item.ddDays }}</td>
-                  <td>{{ item.recDays }}</td>
+                  <td>{{ item.fixDays }}</td>
                 </tr>
               </tbody>
             </table>
@@ -475,12 +475,12 @@
       {
           question: '我如何才能参与“可转债策略”？',
           answer: `我们所有的策略操作，都在交易日的下午2:30之后执行，以贴近收盘价，确保操作的有效性。\n
-                                                                                                                                                                      首次参与\n
-                                                                                                                                                                      如果您是第一次参与本策略，请根据最新持仓列表，然后将您计划投入的资金，对列表中的所有品种进行等权重买入，即可完成初始建仓。\n
-                                                                                                                                                                      后续调仓\n
-                                                                                                                                                                      完成建仓后，您无需进行任何复杂的分析。每个交易日，您只需严格遵循我们发布的组合调仓指引进行操作即可。该指引会直接、明确地列出当天需要卖出和买入的具体品种。
-                                                                                                                                                                      \n参与前提：\n
-                                                                                                                                                    在进行任何交易前，请务必确保您的A股证券账户已成功开通“可转换债券”的交易权限（通常要求2年交易经验及连续20日日均10万资产）。详情请咨询您的开户券商。`
+                                                                                                                                                                                    首次参与\n
+                                                                                                                                                                                    如果您是第一次参与本策略，请根据最新持仓列表，然后将您计划投入的资金，对列表中的所有品种进行等权重买入，即可完成初始建仓。\n
+                                                                                                                                                                                    后续调仓\n
+                                                                                                                                                                                    完成建仓后，您无需进行任何复杂的分析。每个交易日，您只需严格遵循我们发布的组合调仓指引进行操作即可。该指引会直接、明确地列出当天需要卖出和买入的具体品种。
+                                                                                                                                                                                    \n参与前提：\n
+                                                                                                                                                                  在进行任何交易前，请务必确保您的A股证券账户已成功开通“可转换债券”的交易权限（通常要求2年交易经验及连续20日日均10万资产）。详情请咨询您的开户券商。`
       },
       {
           question: '可转债是什么？它为什么适合普通人投资？',
@@ -507,43 +507,147 @@
       monthlyReturns.value = [
           {
               year: 2025,
-              months: [4.6, 3.2, 3.4, 3.1, 2.9, 4.5, 2.5, 3.8, 4.7, 0.6, 1, 0.8],
-              total: 41.1
+              months: [
+                  '4.56',
+                  '3.20',
+                  '3.44',
+                  '3.14',
+                  '2.90',
+                  '4.48',
+                  '2.46',
+                  '3.77',
+                  '4.68',
+                  '0.62',
+                  '1.01',
+                  '0.80'
+              ],
+              total: '41.13'
           },
           {
               year: 2024,
-              months: [-8.6, 3.2, 4.7, 6.5, 4.5, -3.6, -1.7, -1.6, 9.5, 6.7, 2.5, 1],
-              total: 24.1
+              months: [
+                  '-8.58',
+                  '3.24',
+                  '4.69',
+                  '6.51',
+                  '4.50',
+                  '-3.57',
+                  '-1.72',
+                  '-1.59',
+                  '9.52',
+                  '6.71',
+                  '2.52',
+                  '0.98'
+              ],
+              total: '24.10'
           },
           {
               year: 2023,
-              months: [3.9, 3.9, 1.3, -2, -1.8, 4.2, 3.5, -1.2, -0.1, -2.8, 2.9, -0.3],
-              total: 11.7
+              months: [
+                  '3.94',
+                  '3.85',
+                  '1.30',
+                  '-1.96',
+                  '-1.84',
+                  '4.23',
+                  '3.51',
+                  '-1.18',
+                  '-0.13',
+                  '-2.83',
+                  '2.93',
+                  '-0.31'
+              ],
+              total: '11.72'
           },
           {
               year: 2022,
-              months: [3.6, 3.9, -1.5, 6.4, 8.4, 5.3, 3.3, -0.7, -3.3, 1.9, 3.3, -3],
-              total: 30.6
+              months: [
+                  '3.57',
+                  '3.93',
+                  '-1.48',
+                  '6.35',
+                  '8.44',
+                  '5.30',
+                  '3.32',
+                  '-0.68',
+                  '-3.28',
+                  '1.91',
+                  '3.34',
+                  '-2.96'
+              ],
+              total: '30.63'
           },
           {
               year: 2021,
-              months: [-6.6, 9.4, 5.9, 1.9, 5.8, 2.4, 6.7, 6.2, -1.2, 5.7, 15.1, 1.2],
-              total: 64.7
+              months: [
+                  '-6.58',
+                  '9.39',
+                  '5.92',
+                  '1.87',
+                  '5.76',
+                  '2.38',
+                  '6.68',
+                  '6.24',
+                  '-1.20',
+                  '5.73',
+                  '15.08',
+                  '1.24'
+              ],
+              total: '64.69'
           },
           {
               year: 2020,
-              months: [1.2, 7.1, 32.3, 3.8, -2.4, 2.9, 15.5, 4.9, -2, 36.5, 3.1, -5.6],
-              total: 135.8
+              months: [
+                  '1.21',
+                  '7.15',
+                  '32.28',
+                  '3.76',
+                  '-2.44',
+                  '2.88',
+                  '15.54',
+                  '4.91',
+                  '-1.98',
+                  '36.53',
+                  '3.10',
+                  '-5.63'
+              ],
+              total: '135.79'
           },
           {
               year: 2019,
-              months: [3.7, 8.5, 11.2, 3.7, -3.9, 1.7, 1.7, 3, 2.9, 2.3, 2.4, 7.3],
-              total: 53.8
+              months: [
+                  '3.72',
+                  '8.47',
+                  '11.24',
+                  '3.69',
+                  '-3.92',
+                  '1.74',
+                  '1.74',
+                  '2.99',
+                  '2.92',
+                  '2.27',
+                  '2.44',
+                  '7.33'
+              ],
+              total: '53.82'
           },
           {
               year: 2018,
-              months: [0.8, 1.4, 1.8, 0.1, 0.2, -3, 2.2, -3.9, -0.8, -4.9, 4.7, -2.4],
-              total: -4.2
+              months: [
+                  '0.88',
+                  '1.41',
+                  '1.82',
+                  '0.09',
+                  '0.15',
+                  '-2.95',
+                  '2.18',
+                  '-3.91',
+                  '-0.79',
+                  '-4.92',
+                  '4.67',
+                  '-2.38'
+              ],
+              total: '-4.10'
           }
       ]
   }
@@ -571,7 +675,7 @@
 
   // 2. 风险分布数据 (模拟)
   const drawdownDist = ref([
-      { range: '0% ~ 5%', count: 115 },
+      { range: '0% ~ 5%', count: 121 },
       { range: '5% ~ 10%', count: 14 },
       { range: '10% ~ 15%', count: 2 },
       { range: '15% ~ 20%', count: 3 },
@@ -580,84 +684,94 @@
 
   const topDrawdowns = ref([
       {
-          start: '2018-05-22',
-          trough: '2018-10-18',
-          end: '2019-03-05',
-          maxDd: -16.7,
+          startDate: '2018-05-22',
+          troughDate: '2018-10-18',
+          endDate: '2019-03-05',
+          drawdown: '-16.75',
+          rawDd: -0.16747043133873923,
           ddDays: 149,
-          recDays: 138
+          fixDays: 138
       },
       {
-          start: '2023-07-31',
-          trough: '2024-02-07',
-          end: '2024-04-02',
-          maxDd: -15.5,
+          startDate: '2023-07-31',
+          troughDate: '2024-02-07',
+          endDate: '2024-04-02',
+          drawdown: '-15.54',
+          rawDd: -0.15535339480558163,
           ddDays: 191,
-          recDays: 55
+          fixDays: 55
       },
       {
-          start: '2020-10-27',
-          trough: '2021-02-08',
-          end: '2021-03-15',
-          maxDd: -15.5,
+          startDate: '2020-10-27',
+          troughDate: '2021-02-08',
+          endDate: '2021-03-15',
+          drawdown: '-15.48',
+          rawDd: -0.15480315462777958,
           ddDays: 104,
-          recDays: 35
+          fixDays: 35
       },
       {
-          start: '2024-05-20',
-          trough: '2024-09-18',
-          end: '2024-09-30',
-          maxDd: -11.9,
+          startDate: '2024-05-20',
+          troughDate: '2024-09-18',
+          endDate: '2024-09-30',
+          drawdown: '-11.92',
+          rawDd: -0.11915678716913425,
           ddDays: 121,
-          recDays: 12
+          fixDays: 12
       },
       {
-          start: '2019-04-25',
-          trough: '2019-06-06',
-          end: '2019-08-20',
-          maxDd: -10.4,
+          startDate: '2019-04-25',
+          troughDate: '2019-06-06',
+          endDate: '2019-08-20',
+          drawdown: '-10.44',
+          rawDd: -0.10437604854262365,
           ddDays: 42,
-          recDays: 75
+          fixDays: 75
       },
       {
-          start: '2020-01-16',
-          trough: '2020-02-03',
-          end: '2020-02-07',
-          maxDd: -8.7,
+          startDate: '2020-01-16',
+          troughDate: '2020-02-03',
+          endDate: '2020-02-07',
+          drawdown: '-8.70',
+          rawDd: -0.08702254257281214,
           ddDays: 18,
-          recDays: 4
+          fixDays: 4
       },
       {
-          start: '2024-10-08',
-          trough: '2024-10-11',
-          end: '2024-10-28',
-          maxDd: -8.5,
+          startDate: '2024-10-08',
+          troughDate: '2024-10-11',
+          endDate: '2024-10-28',
+          drawdown: '-8.52',
+          rawDd: -0.08521015071409754,
           ddDays: 3,
-          recDays: 17
+          fixDays: 17
       },
       {
-          start: '2020-04-01',
-          trough: '2020-04-13',
-          end: '2020-04-21',
-          maxDd: -8.2,
+          startDate: '2020-04-01',
+          troughDate: '2020-04-13',
+          endDate: '2020-04-21',
+          drawdown: '-8.15',
+          rawDd: -0.08153249828858997,
           ddDays: 12,
-          recDays: 8
+          fixDays: 8
       },
       {
-          start: '2022-08-23',
-          trough: '2022-10-10',
-          end: '2023-02-02',
-          maxDd: -8,
+          startDate: '2022-08-23',
+          troughDate: '2022-10-10',
+          endDate: '2023-02-02',
+          drawdown: '-7.95',
+          rawDd: -0.07954310214542383,
           ddDays: 48,
-          recDays: 115
+          fixDays: 115
       },
       {
-          start: '2022-03-01',
-          trough: '2022-03-09',
-          end: '2022-03-23',
-          maxDd: -7.2,
+          startDate: '2022-03-01',
+          troughDate: '2022-03-09',
+          endDate: '2022-03-23',
+          drawdown: '-7.20',
+          rawDd: -0.072048597105471,
           ddDays: 8,
-          recDays: 14
+          fixDays: 14
       }
   ])
 
@@ -1203,7 +1317,7 @@
   .heatmap-table td {
       padding: 0.6rem 0.2rem;
       text-align: center;
-      font-size: 0.85rem;
+      font-size: 0.8rem;
       border: 1px solid rgba(255, 255, 255, 0.1);
   }
   .year-col {
