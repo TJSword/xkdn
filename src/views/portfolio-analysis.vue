@@ -602,10 +602,12 @@
       // 6. Top 10 回撤 & 回撤分布
       const { drawdowns, distribution } = calculateDrawdownAnalysis(portfolioCurve, calcDateList)
       top10Drawdowns.value = drawdowns
+      console.log(drawdowns)
       drawdownDistribution.value = distribution
 
       // 7. 月度/年度收益
       monthlyReturns.value = calculateMonthlyReturns(portfolioCurve, calcDateList)
+      console.log(monthlyReturns.value)
 
       // 保存数据给图表
       chartData.value = {
@@ -885,7 +887,7 @@
           volatility: (volatility * 100).toFixed(2),
           sharpe: sharpe.toFixed(3),
           maxDrawdown: (maxDd * 100).toFixed(2),
-          calmar: calmar.toFixed(2)
+          calmar: calmar.toFixed(3)
       }
   }
 
@@ -926,14 +928,23 @@
       let troughDate = peakDate
       let cycleActive = false
 
+      // 设定一个极小的阈值，防止浮点数计算误差导致的 0 被误判
+      // 0.0001 代表 0.01%，实际上等于统计所有“非平盘”的回撤
+      const THRESHOLD = 0.00001
+
       for (let i = 1; i < prices.length; i++) {
           const price = prices[i]
+
+          // 创新高（或持平）
           if (price >= peak) {
-              // 创新高，结算前一次回撤
-              if (cycleActive && Math.abs(maxDdInCycle) > 0.005) {
+              // 结算前一次回撤
+              // 修改点1：阈值改为 THRESHOLD (接近0)，不再过滤 1% 以下的小回撤
+              if (cycleActive && Math.abs(maxDdInCycle) > THRESHOLD) {
                   const startD = new Date(currentDdStart)
                   const troughD = new Date(troughDate)
                   const endD = new Date(dates[i])
+
+                  // 计算天数
                   const ddDays = Math.floor(
                       (troughD.getTime() - startD.getTime()) / (1000 * 3600 * 24)
                   )
@@ -951,13 +962,19 @@
                       fixDays: fixDays
                   })
               }
+              // 重置状态
               cycleActive = false
               peak = price
               peakDate = dates[i]
               maxDdInCycle = 0
           } else {
+              // 处于回撤中
               cycleActive = true
-              currentDdStart = peakDate
+              // 逻辑微调：确保回撤开始日期准确指向峰值日
+              if (currentDdStart !== peakDate) {
+                  currentDdStart = peakDate
+              }
+
               const dd = (price - peak) / peak
               if (dd < maxDdInCycle) {
                   maxDdInCycle = dd
@@ -965,8 +982,9 @@
               }
           }
       }
-      // 处理未恢复的回撤
-      if (cycleActive && Math.abs(maxDdInCycle) > 0.005) {
+
+      // 处理当前尚未修复的回撤 (Active Drawdown)
+      if (cycleActive && Math.abs(maxDdInCycle) > THRESHOLD) {
           const startD = new Date(currentDdStart)
           const troughD = new Date(troughDate)
           const ddDays = Math.floor((troughD.getTime() - startD.getTime()) / (1000 * 3600 * 24))
@@ -974,7 +992,7 @@
           ddEvents.push({
               startDate: currentDdStart,
               troughDate: troughDate,
-              endDate: '回测截止',
+              endDate: '未修复',
               drawdown: (maxDdInCycle * 100).toFixed(2),
               rawDd: maxDdInCycle,
               ddDays: ddDays,
@@ -982,65 +1000,62 @@
           })
       }
 
-      ddEvents.sort((a, b) => a.rawDd - b.rawDd)
-      const top10 = ddEvents.slice(0, 10)
-      // 1. 先算出所有单日回撤数据
-      const dailyDrawdowns = []
-      let p = prices[0]
-      let maxAbsDd = 0 // 记录历史最大回撤绝对值(%)，用于动态定标尺
+      // Top 10 列表 (按深度排序)
+      const top10 = [...ddEvents].sort((a, b) => a.rawDd - b.rawDd).slice(0, 10)
 
-      for (const pr of prices) {
-          if (pr > p) p = pr
-          const dd = (pr - p) / p
-          const ddAbs = Math.abs(dd) * 100 // 转为百分比
-          dailyDrawdowns.push(ddAbs)
-          if (ddAbs > maxAbsDd) maxAbsDd = ddAbs
-      }
+      // ==========================================================
+      // 📊 分布统计 (Distribution)
+      // ==========================================================
 
-      // 2. 动态计算步长 (Step)
-      // 规则：
-      // 最大回撤 < 10% -> 步长 2% (0-2, 2-4, 4-6, 6-8, >8)
-      // 最大回撤 < 25% -> 步长 5% (0-5, 5-10, 10-15, 15-20, >20)
-      // 最大回撤 >= 25% -> 步长 10% (0-10, 10-20, 20-30, 30-40, >40)
+      // 提取所有回撤事件的绝对深度 (%)
+      const eventDepths = ddEvents.map(e => Math.abs(e.rawDd) * 100)
+
+      // 获取历史最大回撤值，用于动态定标尺
+      const maxAbsDd = eventDepths.length > 0 ? Math.max(...eventDepths) : 0
+
+      // 动态步长 (Step)
       let step = 2
-      if (maxAbsDd > 10 && maxAbsDd <= 25) step = 5
-      else if (maxAbsDd > 25) step = 10
+      if (maxAbsDd > 10 && maxAbsDd <= 30) step = 5
+      else if (maxAbsDd > 30) step = 10
 
-      // 3. 定义区间边界 [step, 2*step, 3*step, 4*step]
+      // 定义区间边界 [step, 2*step, 3*step, 4*step]
       const limits = [step, step * 2, step * 3, step * 4]
 
-      // 4. 统计落入各桶的次数 (5个桶：4个区间 + 1个溢出)
+      // 统计各区间的频次
       const buckets = [0, 0, 0, 0, 0]
+      const totalEvents = eventDepths.length || 1
 
-      dailyDrawdowns.forEach(val => {
-          if (val < limits[0]) buckets[0]++
-          else if (val < limits[1]) buckets[1]++
+      eventDepths.forEach(val => {
+          if (val < limits[0]) buckets[0]++ // 0 ~ Step (例如 0~2%)
+          else if (val < limits[1]) buckets[1]++ // Step ~ 2*Step
           else if (val < limits[2]) buckets[2]++
           else if (val < limits[3]) buckets[3]++
           else buckets[4]++
       })
 
-      const total = dailyDrawdowns.length || 1
-
-      // 5. 生成最终数据结构
+      // 修改点2：第一个区间的 Label 改为 "0% ~ ..."
       const distribution = [
-          { range: `0% ~ ${limits[0]}%`, count: buckets[0], percent: (buckets[0] / total) * 100 },
+          {
+              range: `0% ~ ${limits[0]}%`,
+              count: buckets[0],
+              percent: (buckets[0] / totalEvents) * 100
+          },
           {
               range: `${limits[0]}% ~ ${limits[1]}%`,
               count: buckets[1],
-              percent: (buckets[1] / total) * 100
+              percent: (buckets[1] / totalEvents) * 100
           },
           {
               range: `${limits[1]}% ~ ${limits[2]}%`,
               count: buckets[2],
-              percent: (buckets[2] / total) * 100
+              percent: (buckets[2] / totalEvents) * 100
           },
           {
               range: `${limits[2]}% ~ ${limits[3]}%`,
               count: buckets[3],
-              percent: (buckets[3] / total) * 100
+              percent: (buckets[3] / totalEvents) * 100
           },
-          { range: `> ${limits[3]}%`, count: buckets[4], percent: (buckets[4] / total) * 100 }
+          { range: `> ${limits[3]}%`, count: buckets[4], percent: (buckets[4] / totalEvents) * 100 }
       ]
 
       return { drawdowns: top10, distribution }
@@ -1590,8 +1605,8 @@
   }
 
   /* ============================================
-                                                                                                 📱 移动端适配 (Media Queries)
-                                                                                                 ============================================ */
+                                                                                                                       📱 移动端适配 (Media Queries)
+                                                                                                                       ============================================ */
   @media (max-width: 768px) {
       .page-wrapper {
           padding: 1.5rem 0.8rem;

@@ -87,7 +87,7 @@
             </ul>
 
             <p class="highlight-box">
-              我们已为您自动开启了 <strong>7天全功能VIP体验</strong>！<br>
+              我们已为您自动开启了 <strong>1天全功能VIP体验</strong>！<br>
               如果想加入交流群或充值会员，可以点击首页的“关于本站”卡片。
             </p>
 
@@ -167,30 +167,21 @@
             <button class="modal-close-button" @click="closeRechargeModal">×</button>
           </div>
           <div class="modal-body">
-            <p class="recharge-desc">支持支付宝扫码，支付成功后自动延期。</p>
-
-            <div class="plans-grid">
-              <div v-for="plan in rechargePlans" :key="plan.id"
-                :class="['plan-item', { 'active': selectedPlan.id === plan.id, 'recommend': plan.isRecommend }]" @click="selectPlan(plan)">
-                <div v-if="plan.tag" class="plan-tag">{{ plan.tag }}</div>
-                <div class="plan-name">{{ plan.name }}</div>
-                <div class="plan-price">
-                  <span class="currency">¥</span>
-                  <span class="num">{{ plan.price }}</span>
-                </div>
-                <div class="plan-duration">{{ plan.durationLabel }}</div>
-              </div>
-            </div>
-
-            <div class="amount-display">
-              <span class="label">实付金额:</span>
-              <span class="price">¥ {{ selectedPlan.price.toFixed(2) }}</span>
+            <div class="recharge-header">
+              <p class="recharge-title">
+                开通 <span class="plan-name-highlight">{{ selectedPlan.name }}</span>
+              </p>
+              <p class="recharge-price">
+                实付金额: <span class="price-highlight">¥ {{ selectedPlan.price }}</span>
+              </p>
             </div>
 
             <div class="payment-area">
-              <button v-if="!paymentQrCode" class="submit-btn ali-pay-btn" @click="handleGeneratePayment" :disabled="isGeneratingQr">
-                {{ isGeneratingQr ? '正在生成...' : '生成支付宝付款码' }}
-              </button>
+
+              <div v-if="!paymentQrCode" class="loading-state">
+                <div class="spinner"></div>
+                <p>正在生成支付宝订单...</p>
+              </div>
 
               <div v-else class="qr-code-container">
                 <p class="scan-tip">请使用支付宝扫一扫</p>
@@ -198,7 +189,10 @@
                   <img :src="paymentQrCode" alt="支付二维码" />
                 </div>
                 <p class="expire-tip">二维码有效期 5 分钟</p>
-                <button class="text-btn" @click="resetRecharge">重新选择套餐</button>
+
+                <button class="text-btn" @click="paymentQrCode=''; handleGeneratePayment()">
+                  刷新二维码
+                </button>
               </div>
             </div>
           </div>
@@ -469,63 +463,16 @@
   // 定义套餐数据
   const rechargePlans = [
       {
-          id: 'month',
-          name: '尝鲜月卡',
-          price: 6.8,
-          days: 30,
-          durationLabel: '1个月',
-          tag: '',
-          isRecommend: false
-      },
-      {
-          id: 'quarter',
-          name: '进阶季卡',
-          price: 18.8,
-          days: 90,
-          durationLabel: '3个月',
-          tag: '',
-          isRecommend: false
-      },
-      {
-          id: 'half',
-          name: '实战半年',
-          price: 28.8,
-          days: 180,
-          durationLabel: '6个月',
-          tag: '',
-          isRecommend: false
-      },
-      {
           id: 'year',
-          name: '尊享年卡',
-          price: 48.8,
+          name: '实战年卡',
+          price: 365,
           days: 365,
-          durationLabel: '12个月',
-          tag: '',
-          isRecommend: true
-      },
-      {
-          id: 'year2',
-          name: '长期主义',
-          price: 88.8,
-          days: 730,
-          durationLabel: '24个月',
-          tag: '',
-          isRecommend: false
-      },
-      {
-          id: 'year3',
-          name: '穿越牛熊',
-          price: 118.8,
-          days: 1095,
-          durationLabel: '36个月',
-          tag: '',
           isRecommend: false
       }
   ]
 
   // 默认选中年卡
-  const selectedPlan = ref(rechargePlans[3])
+  const selectedPlan = ref(rechargePlans[0])
 
   const selectPlan = (plan: any) => {
       if (paymentQrCode.value) {
@@ -535,12 +482,20 @@
       }
       selectedPlan.value = plan
   }
-
   const openRechargeModal = () => {
       isRechargeModalVisible.value = true
-      // 每次打开重置为默认推荐（年卡）
-      selectedPlan.value = rechargePlans[3]
+
+      // 确保选中第一个（也是唯一的）套餐
+      selectedPlan.value = rechargePlans[0]
+
+      // 清空旧二维码
       paymentQrCode.value = ''
+
+      // 【核心修改】直接自动触发支付生成逻辑！
+      // 建议加一个小延迟，防止弹窗还没渲染完就请求，体验更好
+      setTimeout(() => {
+          handleGeneratePayment()
+      }, 300)
   }
 
   const closeRechargeModal = () => {
@@ -563,7 +518,7 @@
 
   // 修改后的支付发起函数
   const handleGeneratePayment = async () => {
-      if (isGeneratingQr.value) return
+      if (isGeneratingQr.value || paymentQrCode.value) return
 
       // 1. 用户ID检查
       const realUserId = userStore.userInfo?._id || userStore.userInfo?.id
@@ -1249,7 +1204,7 @@
   .micro-cap-admin {
       /* 背景改为深紫色渐变，区别于关于我们的黄色 */
       /* background: linear-gradient(145deg, rgba(157, 78, 221, 0.08), rgba(0, 0, 0, 0.3));
-                              border: 1px solid rgba(157, 78, 221, 0.2); */
+                                                            border: 1px solid rgba(157, 78, 221, 0.2); */
   }
 
   .micro-cap-admin:not(.disabled-card):hover {
@@ -2142,19 +2097,18 @@
 
   /* 套餐选择网格 */
   .plans-grid {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 10px;
+      display: flex;
+      justify-content: center; /* 居中 */
       margin-bottom: 20px;
   }
 
   /* 针对最后两个大套餐，让它们在小屏下占据更多空间，或者直接流式布局 */
   /* 这里我们为了简单，用 flex wrap 或者保持 grid */
   /* .plans-grid {
-                                                                            display: flex;
-                                                                            flex-wrap: wrap;
-                                                                            justify-content: space-between;
-                                                                        } */
+                                display: flex;
+                                flex-wrap: wrap;
+                                justify-content: space-between;
+                            } */
 
   .plan-item {
       background: rgba(255, 255, 255, 0.05);
@@ -2166,6 +2120,8 @@
       position: relative;
       transition: all 0.3s ease;
       margin-bottom: 10px;
+      width: 100%; /* 或者设置一个固定宽度，比如 280px */
+      max-width: 300px;
   }
 
   .plan-item:hover {
@@ -2241,6 +2197,57 @@
   .recharge-modal-content {
       max-width: 500px !important; /* 稍微宽一点放套餐 */
   }
+  /* 头部简明信息 */
+  .recharge-header {
+      text-align: center;
+      margin-bottom: 2rem;
+  }
+
+  .recharge-title {
+      font-size: 1.1rem;
+      color: #e0e0e0;
+      margin-bottom: 0.5rem;
+  }
+  .plan-name-highlight {
+      color: #00aaff;
+      font-weight: bold;
+      font-size: 1.2rem;
+      margin: 0 4px;
+  }
+
+  .price-highlight {
+      color: #ffd700;
+      font-size: 1.5rem;
+      font-weight: bold;
+      margin-left: 5px;
+  }
+
+  /* 加载状态容器 */
+  .loading-state {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 200px; /* 占位高度，防止弹窗忽大忽小 */
+      color: #8392a5;
+  }
+
+  /* 一个简单的纯CSS旋转加载圈 */
+  .spinner {
+      width: 40px;
+      height: 40px;
+      border: 3px solid rgba(255, 255, 255, 0.1);
+      border-radius: 50%;
+      border-top-color: #00aaff;
+      animation: spin 1s ease-in-out infinite;
+      margin-bottom: 1rem;
+  }
+
+  @keyframes spin {
+      to {
+          transform: rotate(360deg);
+      }
+  }
 
   @media (max-width: 576px) {
       .plans-grid {
@@ -2251,13 +2258,13 @@
 
       /* 让最后一个（2年卡）在手机上占满一行，显得霸气 */
       /* .plan-item:last-child {
-                                                                                          width: 100%;
-                                                                                          display: flex;
-                                                                                          justify-content: space-between;
-                                                                                          align-items: center;
-                                                                                          padding: 0 20px;
-                                                                                          height: 60px;
-                                                                                      } */
+                                                                                                                        width: 100%;
+                                                                                                                        display: flex;
+                                                                                                                        justify-content: space-between;
+                                                                                                                        align-items: center;
+                                                                                                                        padding: 0 20px;
+                                                                                                                        height: 60px;
+                                                                                                                    } */
       .recharge-modal-content {
           padding: 1.5rem 1rem;
       }
