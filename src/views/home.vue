@@ -245,19 +245,19 @@
           cssClass: 'all-weather',
           link: '/all-weather'
       },
-      {
-          id: 2,
-          title: '长钱策略',
-          description: '关注长期价值投资，忽略短期市场波动。',
-          icon: '⌛',
-          cssClass: 'long-term',
-          link: '/long-term',
-          vipOnly: true
-      },
+      // {
+      //     id: 2,
+      //     title: '长钱策略',
+      //     description: '关注长期价值投资，忽略短期市场波动。',
+      //     icon: '⌛',
+      //     cssClass: 'long-term',
+      //     link: '/long-term',
+      //     vipOnly: true
+      // },
       {
           id: 3,
           title: '可转债策略',
-          description: '基于三低轮动模型，每日动态捕捉交易机会。',
+          description: '基于多因子轮动模型，每日动态捕捉交易机会。',
           icon: '🔄',
           cssClass: 'convertible-bond',
           link: '/bonds',
@@ -308,14 +308,14 @@
           cssClass: 'handy-tools',
           link: '/tools'
       },
-      // {
-      //     id: 7,
-      //     title: '财富版图',
-      //     description: '将您的资产目标具象化，一步步点亮全国版图。',
-      //     icon: '🗺️',
-      //     cssClass: 'wealth-map',
-      //     link: '/wealth-map'
-      // },
+      {
+          id: 7,
+          title: '财富版图',
+          description: '将您的资产目标具象化，一步步点亮全国版图。',
+          icon: '🗺️',
+          cssClass: 'wealth-map',
+          link: '/wealth-map'
+      },
       {
           id: 8,
           title: '关于本站',
@@ -1204,7 +1204,7 @@
   .micro-cap-admin {
       /* 背景改为深紫色渐变，区别于关于我们的黄色 */
       /* background: linear-gradient(145deg, rgba(157, 78, 221, 0.08), rgba(0, 0, 0, 0.3));
-                                                            border: 1px solid rgba(157, 78, 221, 0.2); */
+                                                              border: 1px solid rgba(157, 78, 221, 0.2); */
   }
 
   .micro-cap-admin:not(.disabled-card):hover {
@@ -2105,10 +2105,10 @@
   /* 针对最后两个大套餐，让它们在小屏下占据更多空间，或者直接流式布局 */
   /* 这里我们为了简单，用 flex wrap 或者保持 grid */
   /* .plans-grid {
-                                display: flex;
-                                flex-wrap: wrap;
-                                justify-content: space-between;
-                            } */
+                                  display: flex;
+                                  flex-wrap: wrap;
+                                  justify-content: space-between;
+                              } */
 
   .plan-item {
       background: rgba(255, 255, 255, 0.05);
@@ -2258,13 +2258,13 @@
 
       /* 让最后一个（2年卡）在手机上占满一行，显得霸气 */
       /* .plan-item:last-child {
-                                                                                                                        width: 100%;
-                                                                                                                        display: flex;
-                                                                                                                        justify-content: space-between;
-                                                                                                                        align-items: center;
-                                                                                                                        padding: 0 20px;
-                                                                                                                        height: 60px;
-                                                                                                                    } */
+                                                                                                                          width: 100%;
+                                                                                                                          display: flex;
+                                                                                                                          justify-content: space-between;
+                                                                                                                          align-items: center;
+                                                                                                                          padding: 0 20px;
+                                                                                                                          height: 60px;
+                                                                                                                      } */
       .recharge-modal-content {
           padding: 1.5rem 1rem;
       }
