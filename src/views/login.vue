@@ -218,7 +218,7 @@
               verificationCode: formData.verificationCode
           })
 
-          showMessage('首次注册,送七天付费体验~', 'success', 5000)
+          showMessage('首次注册,送1天付费体验~', 'success', 5000)
           router.push({ name: 'home', state: { newUser: true } })
           console.log('模拟注册成功:', { phoneNumber, password })
       } catch (error: any) {

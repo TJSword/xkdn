@@ -265,7 +265,7 @@
 
   // 再平衡计算器状态
   const portfolio = ref<Asset[]>([
-      { id: 1, name: '红利质量', amount: 6000, target: 20 },
+      { id: 1, name: '自由现金流', amount: 6000, target: 20 },
       { id: 2, name: '纳指100', amount: 3000, target: 20 },
       { id: 3, name: '超长债', amount: 1000, target: 30 },
       { id: 4, name: '黄金', amount: 1000, target: 30 }
@@ -523,9 +523,9 @@
                   const interestVal = params[1].value
                   const totalVal = principalVal + interestVal
                   return `<strong>${year}</strong><br/>
-                                                          累计本金: ${principalVal.toLocaleString()} 元<br/>
-                                                          累计收益: ${interestVal.toLocaleString()} 元<br/>
-                                                          <strong style="color: #8a2be2;">资产总计: ${totalVal.toLocaleString()} 元</strong>`
+                                                            累计本金: ${principalVal.toLocaleString()} 元<br/>
+                                                            累计收益: ${interestVal.toLocaleString()} 元<br/>
+                                                            <strong style="color: #8a2be2;">资产总计: ${totalVal.toLocaleString()} 元</strong>`
               }
           },
           legend: { data: ['累计本金', '累计收益'], textStyle: { color: '#b0c4de' }, top: '0%' },

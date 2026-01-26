@@ -169,17 +169,29 @@
               <thead>
                 <tr>
                   <th style="width: 50px">序号</th>
-                  <th>代码</th>
+                  <th @click="handleSort('code')" class="sortable-th">
+                    代码 <span class="sort-icon" :class="getSortClass('code')"></span>
+                  </th>
                   <th>名称</th>
-                  <th>现价</th>
-                  <th>总市值</th>
-                  <th>计划金额</th>
-                  <th>仓位占比</th>
-                  <th>计划股数</th>
+                  <th @click="handleSort('price')" class="sortable-th">
+                    现价 <span class="sort-icon" :class="getSortClass('price')"></span>
+                  </th>
+                  <th @click="handleSort('mkt_cap')" class="sortable-th">
+                    总市值 <span class="sort-icon" :class="getSortClass('mkt_cap')"></span>
+                  </th>
+                  <th @click="handleSort('plan_amount')" class="sortable-th">
+                    计划金额 <span class="sort-icon" :class="getSortClass('plan_amount')"></span>
+                  </th>
+                  <th @click="handleSort('weight')" class="sortable-th">
+                    仓位占比 <span class="sort-icon" :class="getSortClass('weight')"></span>
+                  </th>
+                  <th @click="handleSort('plan_shares')" class="sortable-th">
+                    计划股数 <span class="sort-icon" :class="getSortClass('plan_shares')"></span>
+                  </th>
                 </tr>
               </thead>
               <tbody>
-                <tr v-for="(item, index) in strategyData.holdings" :key="item.code" :class="{ 'suspended-row': item.is_suspended }">
+                <tr v-for="(item, index) in sortedHoldings" :key="item.code" :class="{ 'suspended-row': item.is_suspended }">
                   <td>{{ index + 1 }}</td>
                   <td>
                     {{ item.code }}
@@ -234,6 +246,18 @@
       holdings: [] as any[],
       adjustments: [] as any[]
   })
+  // 排序状态：sortKey 对应字段名, sortOrder 为 1(升序) 或 -1(降序)
+  const sortKey = ref('')
+  const sortOrder = ref(1)
+
+  const handleSort = (key: string) => {
+      if (sortKey.value === key) {
+          sortOrder.value *= -1 // 点击同一列切换正反序
+      } else {
+          sortKey.value = key
+          sortOrder.value = 1
+      }
+  }
 
   // --- 权限拦截 ---
   onMounted(() => {
@@ -383,6 +407,44 @@
           const shares = Number(item.plan_shares) || 0
           return sum + price * shares
       }, 0)
+  })
+  const getSortClass = (key: string) => {
+      return {
+          active: sortKey.value === key,
+          desc: sortKey.value === key && sortOrder.value === -1,
+          asc: sortKey.value === key && sortOrder.value === 1
+      }
+  }
+
+  const sortedHoldings = computed(() => {
+      const list = [...strategyData.value.holdings]
+      if (!sortKey.value) return list
+
+      return list.sort((a, b) => {
+          let valA, valB
+
+          // 针对你要求的三个字段进行逻辑映射
+          if (sortKey.value === 'plan_amount') {
+              // 1. 计划金额排序：price * plan_shares
+              valA = (a.price || 0) * (a.plan_shares || 0)
+              valB = (b.price || 0) * (b.plan_shares || 0)
+          } else if (sortKey.value === 'plan_shares') {
+              // 2. 计划股数排序：直接取字段
+              valA = a.plan_shares || 0
+              valB = b.plan_shares || 0
+          } else if (sortKey.value === 'weight') {
+              // 3. 仓位占比排序：逻辑同计划金额（因为总价值一致，金额大占比必大）
+              valA = (a.price || 0) * (a.plan_shares || 0)
+              valB = (b.price || 0) * (b.plan_shares || 0)
+          } else {
+              // 其他字段排序 (代码、市值等)
+              valA = a[sortKey.value]
+              valB = b[sortKey.value]
+          }
+
+          if (valA === valB) return 0
+          return valA > valB ? sortOrder.value : -sortOrder.value
+      })
   })
 
   // --- 工具函数 ---
@@ -834,9 +896,9 @@
   }
 
   /* ============================================
-     📱 移动端适配 (Media Queries) - 终极修复版
-     请直接替换原有的 media query 代码
-     ============================================ */
+                                                     📱 移动端适配 (Media Queries) - 终极修复版
+                                                     请直接替换原有的 media query 代码
+                                                     ============================================ */
   @media (max-width: 768px) {
       /* --- 1. 全局容器修复 (消灭右侧白条) --- */
       .page-wrapper {
@@ -979,6 +1041,55 @@
 
       .update-time-badge {
           font-size: 12px;
+      }
+  }
+  /* 表头基础样式 */
+  .sortable-th {
+      cursor: pointer;
+      position: relative;
+      transition: all 0.2s ease;
+      white-space: nowrap; /* 确保文字图标不换行 */
+  }
+
+  /* 悬浮时文字变色 */
+  .sortable-th:hover {
+      color: #ffd700 !important;
+  }
+
+  /* 排序图标 - 基础状态（隐藏） */
+  .sort-icon {
+      display: inline-block;
+      width: 0;
+      height: 0;
+      margin-left: 4px;
+      border-left: 4px solid transparent;
+      border-right: 4px solid transparent;
+      border-bottom: 6px solid #ffd700; /* 使用金色 */
+
+      opacity: 0; /* 默认不显示 */
+      transform: translateY(-2px);
+      transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.2s ease;
+  }
+
+  /* 激活状态 */
+  .sort-icon.active {
+      opacity: 0.8;
+  }
+
+  /* 升序：三角向上（默认） */
+  .sort-icon.asc {
+      transform: translateY(-2px) rotate(0deg);
+  }
+
+  /* 降序：三角向下旋转 */
+  .sort-icon.desc {
+      transform: translateY(-1px) rotate(180deg);
+  }
+
+  /* 适配移动端，稍微加宽一点点击感 */
+  @media (max-width: 768px) {
+      .sortable-th {
+          padding-right: 15px !important;
       }
   }
 </style>

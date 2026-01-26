@@ -23,11 +23,11 @@ export const constantRoutes = [
     component: () => import('@/views/all-weather.vue'),
     meta: { requiresAuth: true }
   },
-  {
-    path: '/long-term',
-    component: () => import('@/views/long-term.vue'),
-    meta: { requiresAuth: true }
-  },
+  // {
+  //   path: '/long-term',
+  //   component: () => import('@/views/long-term.vue'),
+  //   meta: { requiresAuth: true }
+  // },
   {
     path: '/tools',
     component: () => import('@/views/tools.vue'),
@@ -47,7 +47,12 @@ export const constantRoutes = [
     path: '/momentum',
     component: () => import('@/views/momentum.vue'),
     meta: { requiresAuth: true }
+  }, {
+    path: '/wealth-map',
+    component: () => import('@/views/wealth-map.vue'),
+    meta: { requiresAuth: true }
   },
+
 
 
   {
