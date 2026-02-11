@@ -395,7 +395,7 @@
             </div>
           </div>
 
-          <h3 class="sub-title" style="margin-top: 2rem;">历史重大回撤明细 (Top 5)</h3>
+          <h3 class="sub-title" style="margin-top: 2rem;">历史重大回撤明细 (Top 10)</h3>
           <div class="table-container">
             <table class="risk-table">
               <thead>
