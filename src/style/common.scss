@@ -101,3 +101,15 @@ html {
   /* 第一个颜色是滑块颜色，第二个是轨道颜色 */
   scrollbar-color: #444 #1e1e1e;
 }
+
+/* 针对 Chrome, Safari, Edge, Opera */
+input[type=number]::-webkit-outer-spin-button,
+input[type=number]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+/* 针对 Firefox */
+input[type=number] {
+  -moz-appearance: textfield;
+}

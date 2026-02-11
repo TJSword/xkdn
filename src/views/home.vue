@@ -282,15 +282,15 @@
           link: '/micro-cap',
           vipOnly: true
       },
-      {
-          id: 99, // 使用一个特殊的ID
-          title: '微盘股调仓',
-          description: '监控持仓明细、市值分布及每日资金再平衡。',
-          icon: '⚖️',
-          cssClass: 'micro-cap-admin', // 对应下面的CSS类名
-          link: '/micro-cap-adjustment', // 对应新页面的路由
-          adminOnly: true // 标记为仅管理员
-      },
+      // {
+      //     id: 99, // 使用一个特殊的ID
+      //     title: '微盘股调仓',
+      //     description: '监控持仓明细、市值分布及每日资金再平衡。',
+      //     icon: '⚖️',
+      //     cssClass: 'micro-cap-admin', // 对应下面的CSS类名
+      //     link: '/micro-cap-adjustment', // 对应新页面的路由
+      //     adminOnly: true // 标记为仅管理员
+      // },
       {
           id: 10,
           title: '组合实验室',
@@ -605,6 +605,50 @@
           // 查询失败不一定要停止轮询，可能是网络波动
       }
   }
+
+  // --- 🎹 键盘彩蛋逻辑 (Secret Codes) ---
+  let keyBuffer = '' // 用于存储最近按下的键
+
+  // 定义秘籍映射表：代码 -> 路由路径
+  const secretCodes: Record<string, string> = {
+      cb: '/cb', // cb = Convertible Bond (惊蛰)
+      mc: '/mc', // mc = Micro Cap (微盘)
+      zz: '/admin'
+  }
+
+  const handleSecretKeydown = (e: KeyboardEvent) => {
+      // 1. 安全守卫：如果不是管理员，或者没有用户信息，直接忽略
+      if (!userStore.userInfo?.admin) return
+
+      // 2. 防误触：如果用户正在输入框(Input/Textarea)里打字，不触发秘籍
+      const target = e.target as HTMLElement
+      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') return
+
+      // 3. 记录按键：只记录单个字母按键，并转为小写
+      if (e.key.length === 1 && /[a-zA-Z]/.test(e.key)) {
+          keyBuffer += e.key.toLowerCase()
+          console.log(keyBuffer)
+          // 保持缓存区短小精悍，只保留最后 5 个字符即可
+          // (因为你的指令只有2位，保留5位足够容错)
+          if (keyBuffer.length > 3) {
+              keyBuffer = keyBuffer.slice(-3)
+          }
+
+          // 4. 匹配检测
+          for (const [code, path] of Object.entries(secretCodes)) {
+              if (keyBuffer.endsWith(code)) {
+                  // 匹配成功！
+                  showMessage(`🚀 识别指令 [${code}]，正在跳转...`, 'success')
+                  router.push(path)
+
+                  // 清空缓存，防止连续误触发 (比如 cbcb)
+                  keyBuffer = ''
+                  break
+              }
+          }
+      }
+  }
+
   onMounted(async () => {
       // 现在我们并行获取会员信息和所有的市场数据
       await fetchMarketData()
@@ -618,6 +662,8 @@
           const newState = { ...window.history.state, newUser: false }
           window.history.replaceState(newState, '')
       }
+      // 注册键盘监听
+      window.addEventListener('keydown', handleSecretKeydown)
   })
   onUnmounted(() => {
       if (pollingInterval) {
@@ -627,6 +673,9 @@
           myChart.dispose()
       }
       stopPolling()
+
+      // 移除键盘监听
+      window.removeEventListener('keydown', handleSecretKeydown)
   })
 
   watch(latestStar, newStar => {
@@ -1204,7 +1253,7 @@
   .micro-cap-admin {
       /* 背景改为深紫色渐变，区别于关于我们的黄色 */
       /* background: linear-gradient(145deg, rgba(157, 78, 221, 0.08), rgba(0, 0, 0, 0.3));
-                                                              border: 1px solid rgba(157, 78, 221, 0.2); */
+                                                                                                                border: 1px solid rgba(157, 78, 221, 0.2); */
   }
 
   .micro-cap-admin:not(.disabled-card):hover {
@@ -2105,10 +2154,10 @@
   /* 针对最后两个大套餐，让它们在小屏下占据更多空间，或者直接流式布局 */
   /* 这里我们为了简单，用 flex wrap 或者保持 grid */
   /* .plans-grid {
-                                  display: flex;
-                                  flex-wrap: wrap;
-                                  justify-content: space-between;
-                              } */
+                                                                                    display: flex;
+                                                                                    flex-wrap: wrap;
+                                                                                    justify-content: space-between;
+                                                                                } */
 
   .plan-item {
       background: rgba(255, 255, 255, 0.05);
@@ -2258,13 +2307,13 @@
 
       /* 让最后一个（2年卡）在手机上占满一行，显得霸气 */
       /* .plan-item:last-child {
-                                                                                                                          width: 100%;
-                                                                                                                          display: flex;
-                                                                                                                          justify-content: space-between;
-                                                                                                                          align-items: center;
-                                                                                                                          padding: 0 20px;
-                                                                                                                          height: 60px;
-                                                                                                                      } */
+                                                                                                                                                                            width: 100%;
+                                                                                                                                                                            display: flex;
+                                                                                                                                                                            justify-content: space-between;
+                                                                                                                                                                            align-items: center;
+                                                                                                                                                                            padding: 0 20px;
+                                                                                                                                                                            height: 60px;
+                                                                                                                                                                        } */
       .recharge-modal-content {
           padding: 1.5rem 1rem;
       }

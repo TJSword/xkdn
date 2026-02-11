@@ -93,7 +93,7 @@
           </p>
           <ul class="idea-list">
             <li><b>三低核心：</b> 以低价格、低溢价率、低剩余规模为核心筛选标准，构建具备高安全边际和强向上弹性的初始投资池。</li>
-            <li><b>每日轮动：</b> 模型于每个交易日下午2:30重新评估全市场可转债，卖出价值减弱的品种，换入新的价值洼地。</li>
+            <li><b>每日轮动：</b> 模型于每个交易日下午2:40重新评估全市场可转债，卖出价值减弱的品种，换入新的价值洼地。</li>
             <li><b>纪律执行：</b> 严格遵循模型信号进行交易，完全摒除人性中的贪婪与恐惧。追求长期稳健的复利增长。</li>
             <li><b>风险分散：</b> 始终保持持有5只不同可转债的组合，有效分散单一公司的基本面风险和流动性风险。</li>
           </ul>
@@ -142,7 +142,7 @@
         <div class="content-card">
           <h2 class="card-title">最新持仓与调仓建议</h2>
           <p class="card-description">
-            根据模型于 {{ formattedDate }} 14:30 生成的最新组合与操作建议。请结合自身情况参考。
+            根据模型于 {{ formattedDate }} 14:40 生成的最新组合与操作建议。请结合自身情况参考。
           </p>
 
           <!-- 最新持仓组合 -->
@@ -162,9 +162,9 @@
                 <tr v-for="item in strategyData.latest_portfolio" :key="item.code">
                   <td>{{ item.code }}</td>
                   <td>{{ item.name }}</td>
-                  <td>{{ parseFloat(item.close).toFixed(2) }}</td>
-                  <td>{{ (parseFloat(item.conv_prem) * 100).toFixed(2) }}%</td>
-                  <td>{{ parseFloat(item.remain_size).toFixed(2) }}</td>
+                  <td>{{ parseFloat(item.price).toFixed(2) }}</td>
+                  <td>{{ (parseFloat(item.premium) * 100).toFixed(2) }}%</td>
+                  <td>{{ parseFloat(item.scale).toFixed(2) }}</td>
                 </tr>
                 <tr v-if="portfolioAverages" class="summary-row">
                   <td style="color: #add8e6; font-weight: bold;">
@@ -312,7 +312,7 @@
             </div>
           </div>
 
-          <h3 class="card-subtitle">历史重大回撤明细 (Top 5)</h3>
+          <h3 class="card-subtitle">历史重大回撤明细 (Top 10)</h3>
           <div class="table-container">
             <table class="risk-table">
               <thead>
@@ -449,9 +449,9 @@
       let totalSize = 0
 
       list.forEach((item: any) => {
-          totalClose += parseFloat(item.close)
-          totalPrem += parseFloat(item.conv_prem)
-          totalSize += parseFloat(item.remain_size)
+          totalClose += parseFloat(item.price)
+          totalPrem += parseFloat(item.premium)
+          totalSize += parseFloat(item.scale)
       })
 
       const count = list.length
@@ -474,13 +474,13 @@
   const faqList = ref([
       {
           question: '我如何才能参与“可转债策略”？',
-          answer: `我们所有的策略操作，都在交易日的下午2:30之后执行，以贴近收盘价，确保操作的有效性。\n
-                                                                                                                                                                                    首次参与\n
-                                                                                                                                                                                    如果您是第一次参与本策略，请根据最新持仓列表，然后将您计划投入的资金，对列表中的所有品种进行等权重买入，即可完成初始建仓。\n
-                                                                                                                                                                                    后续调仓\n
-                                                                                                                                                                                    完成建仓后，您无需进行任何复杂的分析。每个交易日，您只需严格遵循我们发布的组合调仓指引进行操作即可。该指引会直接、明确地列出当天需要卖出和买入的具体品种。
-                                                                                                                                                                                    \n参与前提：\n
-                                                                                                                                                                  在进行任何交易前，请务必确保您的A股证券账户已成功开通“可转换债券”的交易权限（通常要求2年交易经验及连续20日日均10万资产）。详情请咨询您的开户券商。`
+          answer: `我们所有的策略操作，都在交易日的下午2:40之后执行，以贴近收盘价，确保操作的有效性。\n
+                                                                                                                                                                                              首次参与\n
+                                                                                                                                                                                              如果您是第一次参与本策略，请根据最新持仓列表，然后将您计划投入的资金，对列表中的所有品种进行等权重买入，即可完成初始建仓。\n
+                                                                                                                                                                                              后续调仓\n
+                                                                                                                                                                                              完成建仓后，您无需进行任何复杂的分析。每个交易日，您只需严格遵循我们发布的组合调仓指引进行操作即可。该指引会直接、明确地列出当天需要卖出和买入的具体品种。
+                                                                                                                                                                                              \n参与前提：\n
+                                                                                                                                                                            在进行任何交易前，请务必确保您的A股证券账户已成功开通“可转换债券”的交易权限（通常要求2年交易经验及连续20日日均10万资产）。详情请咨询您的开户券商。`
       },
       {
           question: '可转债是什么？它为什么适合普通人投资？',

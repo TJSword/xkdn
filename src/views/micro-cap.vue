@@ -45,28 +45,38 @@
             <div class="calc-left">
               <div class="input-wrapper">
                 <span class="currency-symbol">¥</span>
-                <input type="number" v-model="inputAmount" class="compact-input" placeholder="计划投入金额" @keyup.enter="handleCalculate" />
+                <input type="number" v-model="inputAmount" class="compact-input" placeholder="计划投入" @keyup.enter="handleCalculate" />
               </div>
               <button class="calc-btn-compact" @click="handleCalculate">
                 计算
               </button>
+              <button class="calc-btn-compact outline" @click="openHoldingsModal">
+                我的持仓
+              </button>
             </div>
 
-            <div v-if="hasCalculated" class="calc-summary-inline">
-              <div class="summary-tag">
-                <span class="label">计划买入</span>
-                <span class="value highlight">{{ calcSummary.totalPlanned.toFixed(0) }}</span>
+            <div v-if="hasCalculated" class="calc-right-group">
+
+              <div class="stats-row">
+                <div class="summary-tag">
+                  <span class="label">计划买入</span>
+                  <span class="value highlight">{{ calcSummary.totalPlanned.toFixed(0) }}</span>
+                </div>
+                <div class="summary-tag">
+                  <span class="label">利用率</span>
+                  <span class="value" :class="{'warn': parseFloat(calcSummary.utilization) < 95}">
+                    {{ calcSummary.utilization }}
+                  </span>
+                </div>
+                <div class="summary-tag">
+                  <span class="label">结余</span>
+                  <span class="value">{{ (Number(inputAmount) - calcSummary.totalPlanned).toFixed(0) }}</span>
+                </div>
               </div>
-              <div class="summary-tag">
-                <span class="label">利用率</span>
-                <span class="value" :class="{'warn': parseFloat(calcSummary.utilization) < 95}">
-                  {{ calcSummary.utilization }}
-                </span>
-              </div>
-              <div class="summary-tag">
-                <span class="label">结余</span>
-                <span class="value">{{ (Number(inputAmount) - calcSummary.totalPlanned).toFixed(0) }}</span>
-              </div>
+
+              <button class="apply-result-btn" @click="requestApplyPlan">
+                录入此结果
+              </button>
             </div>
           </div>
 
@@ -105,29 +115,45 @@
             </table>
           </div>
 
-          <h3 class="card-subtitle" style="margin-top: 2rem;">组合调仓指引</h3>
-          <div class="adjustments-grid">
-            <div class="adjustment-block">
-              <h4 class="adjustment-title sell">⬇️ 建议调出</h4>
-              <ul class="adjustment-list">
-                <li v-for="item in sellList" :key="item.code" class="adjustment-item">
-                  <span>{{ item.name }} ({{ item.code }})</span>
-                  <span class="action-badge sell">卖出</span>
-                </li>
-                <li v-if="sellList.length == 0" class="adjustment-item-empty">今日无调出建议</li>
-              </ul>
+          <template v-if="hasCalculated">
+            <h3 class="card-subtitle" style="margin-top: 2rem;">组合调仓指引</h3>
+            <div class="adjustments-grid">
+              <div class="adjustment-block">
+                <h4 class="adjustment-title sell">⬇️ 建议调出</h4>
+                <ul class="adjustment-list">
+                  <li v-for="item in sellList" :key="item.code" class="adjustment-item">
+                    <div class="item-left">
+                      <span class="stock-name">{{ item.name }}</span>
+                      <span class="code-tiny">{{ item.code }}</span>
+                    </div>
+                    <div class="adj-right">
+                      <span v-if="item.shares" class="shares-badge">{{ item.shares }}股</span>
+                      <span class="action-badge" :class="item.subType">{{ item.action }}</span>
+                    </div>
+                  </li>
+                  <li v-if="sellList.length == 0" class="adjustment-item-empty">今日无调出建议</li>
+                </ul>
+              </div>
+
+              <div class="adjustment-block">
+                <h4 class="adjustment-title buy">⬆️ 建议调入</h4>
+                <ul class="adjustment-list">
+                  <li v-for="item in buyList" :key="item.code" class="adjustment-item">
+                    <div class="item-left">
+                      <span class="stock-name">{{ item.name }}</span>
+                      <span class="code-tiny">{{ item.code }}</span>
+                    </div>
+                    <div class="adj-right">
+                      <span v-if="item.shares" class="shares-badge">{{ item.shares }}股</span>
+                      <span class="action-badge" :class="item.subType">{{ item.action }}</span>
+                    </div>
+                  </li>
+                  <li v-if="buyList.length === 0" class="adjustment-item-empty">今日无调入建议</li>
+                </ul>
+              </div>
             </div>
-            <div class="adjustment-block">
-              <h4 class="adjustment-title buy">⬆️ 建议调入</h4>
-              <ul class="adjustment-list">
-                <li v-for="item in buyList" :key="item.code" class="adjustment-item">
-                  <span>{{ item.name }} ({{ item.code }})</span>
-                  <span class="action-badge buy">买入</span>
-                </li>
-                <li v-if="buyList.length === 0" class="adjustment-item-empty">今日无调入建议</li>
-              </ul>
-            </div>
-          </div>
+          </template>
+
         </div>
 
         <div class="content-card">
@@ -275,11 +301,66 @@
       </div>
     </div>
   </div>
+  <div v-if="showHoldingsModal" class="modal-overlay" @click.self="closeHoldingsModal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>我的当前持仓</h3>
+        <span class="close-icon" @click="closeHoldingsModal">×</span>
+      </div>
+
+      <div class="modal-body">
+        <div v-for="(row, index) in editingHoldings" :key="index" class="holding-row">
+          <div class="input-group">
+            <input type="text" v-model="row.code" maxlength="6" placeholder="代码 (6位)" @input="handleCodeInput(row)"
+              class="modal-input code" />
+          </div>
+          <div class="stock-name-display">{{ row.name || '---' }}</div>
+          <div class="input-group">
+            <input type="number" v-model.number="row.shares" placeholder="股数" class="modal-input shares" />
+          </div>
+          <button class="delete-btn" @click="removeHoldingRow(index)">🗑️</button>
+        </div>
+
+        <button class="add-row-btn" @click="addHoldingRow">
+          + 添加股票
+        </button>
+      </div>
+
+      <div class="modal-footer">
+        <button class="modal-btn cancel" @click="closeHoldingsModal">取消</button>
+        <button class="modal-btn save" @click="saveHoldings">保存持仓</button>
+      </div>
+    </div>
+  </div>
+
+  <div v-if="showConfirmModal" class="modal-overlay" @click.self="showConfirmModal = false">
+    <div class="modal-content confirm-dialog">
+      <div class="modal-header no-border">
+        <h3 class="confirm-title">确认更新</h3>
+      </div>
+
+      <div class="modal-body text-center">
+        <p class="confirm-text">
+          是否将当前的 <strong>计算结果</strong> 更新为您的最新持仓？
+        </p>
+        <p class="confirm-subtext">
+          更新后，下次计算将基于这个新持仓进行建议。
+        </p>
+      </div>
+
+      <div class="modal-footer center-footer">
+        <button class="modal-btn cancel" @click="showConfirmModal = false">取消</button>
+        <button class="modal-btn confirm-primary" @click="executeApplyPlan">确定更新</button>
+      </div>
+    </div>
+  </div>
 </template>
 
 <script setup lang="ts">
-  import { ref, onMounted, nextTick } from 'vue'
+  import { ref, onMounted, nextTick, watch } from 'vue'
   import * as echarts from 'echarts'
+  import { useUserStore } from '@/store/user'
+  const userStore = useUserStore()
   // 引入云开发 SDK (请确保路径与您项目一致，通常是 @/lib/cloudbase 或类似的)
   import app from '@/lib/cloudbase'
   import axios from 'axios'
@@ -295,6 +376,154 @@
       msg: ''
   })
 
+  // 1. [新增] 定义全市场股票映射
+  const allStockMap = ref<Record<string, string>>({})
+
+  // 2. [新增] 获取映射关系的函数
+  const fetchStockMap = async () => {
+      try {
+          // 假设文件放在 public/static/stock_map.json
+          // 注意：根据你的部署环境，路径可能是 './static/...' 或 '/static/...'
+          const res = await axios.get('./static/stock_map.json')
+          if (res.data) {
+              allStockMap.value = res.data
+          }
+      } catch (err) {
+          console.error('无法加载股票代码映射表', err)
+      }
+  }
+
+  const showHoldingsModal = ref(false)
+  // 用户真实的持仓数据 (模拟从云端获取)
+  const userHoldings = ref<any[]>([])
+
+  watch(
+      () => userStore.userInfo,
+      newVal => {
+          if (newVal && newVal.holdings) {
+              // 深拷贝一份，防止直接修改 store 数据
+              userHoldings.value = JSON.parse(JSON.stringify(newVal.holdings))
+          }
+      },
+      { immediate: true, deep: true }
+  )
+  const editingHoldings = ref<any[]>([])
+  // 2. [新增] 弹窗相关逻辑
+  const openHoldingsModal = () => {
+      // 1. 深拷贝当前持仓数据
+      editingHoldings.value = JSON.parse(JSON.stringify(userHoldings.value))
+
+      // 2. 【核心修改】只在这里进行排序
+      // 这样只会影响“我的持仓”弹窗里的显示顺序
+      // 不会影响主页面的策略排名，也不会影响计算逻辑
+      editingHoldings.value.sort((a: any, b: any) => {
+          const codeA = a.code ? String(a.code) : ''
+          const codeB = b.code ? String(b.code) : ''
+          // localeCompare 可以保证 "00" 开头的排在 "60" 开头的前面
+          return codeA.localeCompare(codeB)
+      })
+
+      // 3. 如果是空的，默认加一行
+      if (editingHoldings.value.length === 0) {
+          addHoldingRow()
+      }
+
+      // 4. 显示弹窗
+      showHoldingsModal.value = true
+  }
+
+  const closeHoldingsModal = () => {
+      showHoldingsModal.value = false
+  }
+
+  const addHoldingRow = () => {
+      editingHoldings.value.push({ code: '', name: '', shares: '' })
+  }
+
+  const removeHoldingRow = (index: number) => {
+      editingHoldings.value.splice(index, 1)
+  }
+
+  // 简单的本地查找名称逻辑
+  const handleCodeInput = (row: any) => {
+      // 仅当输入达到 6 位时才查询
+      if (row.code && row.code.length === 6) {
+          const code = row.code
+
+          // 优先 1: 查全市场映射表
+          if (allStockMap.value[code]) {
+              row.name = allStockMap.value[code]
+          }
+          // 优先 2: 查当前策略列表 (兜底，万一JSON没更新)
+          else {
+              const foundInStrategy = latestPortfolio.value.find((s: any) => s.code === code)
+              if (foundInStrategy) {
+                  row.name = foundInStrategy.name
+              } else {
+                  row.name = '未知/新股'
+              }
+          }
+      } else {
+          // 输入不足6位，清空名字
+          row.name = ''
+      }
+  }
+
+  const saveHoldings = async () => {
+      // 1. 过滤无效数据
+      const validHoldings = editingHoldings.value.filter(
+          (h: any) => h.code.length === 6 && h.shares > 0
+      )
+
+      try {
+          // 2. 【改这里】不再直接调云函数，而是调用 Store 的 action
+          await userStore.updateHoldings(validHoldings)
+
+          showMessage('持仓保存成功', 'success')
+          closeHoldingsModal()
+
+          // 3. 重新触发策略计算（因为 store 更新了，watch 会自动更新 userHoldings，这里只需要重新计算建议）
+          if (hasCalculated.value) {
+              handleCalculate()
+          }
+      } catch (err: any) {
+          console.error(err)
+          showMessage(err.message || '保存失败', 'error')
+      }
+  }
+  // 修改为 async 函数，因为涉及到云端保存
+  const applyPlanToHoldings = async () => {
+      if (!hasCalculated.value) return
+
+      const newHoldings: any[] = []
+
+      // 1. 遍历计算结果，构建新的持仓数组
+      allocationData.value.forEach((val: any, code: string) => {
+          if (val.shares > 0) {
+              const stockInfo = latestPortfolio.value.find((s: any) => s.code === code)
+              newHoldings.push({
+                  code: code,
+                  name: stockInfo ? stockInfo.name : '未知',
+                  shares: val.shares
+              })
+          }
+      })
+
+      // 2. 【核心修改】调用 Store 的方法保存到云端
+      try {
+          await userStore.updateHoldings(newHoldings)
+
+          showMessage('已将目标组合录入为当前持仓！', 'success')
+
+          // 3. 保存成功后，重新触发一下计算
+          // 此时“当前持仓”和“目标持仓”应该是一致的，
+          // 所以下方的“调仓建议”应该会变为空（或显示无操作），这是符合逻辑的。
+          handleCalculate()
+      } catch (err: any) {
+          console.error(err)
+          showMessage(err.message || '录入失败', 'error')
+      }
+  }
   // 计算最小起投门槛 (最高价股票的1手 * 10)
   const minThreshold = computed(() => {
       if (!latestPortfolio.value || latestPortfolio.value.length === 0) return 0
@@ -379,6 +608,76 @@
           msg: '计算完成'
       }
       hasCalculated.value = true
+
+      // 1. 执行原有的瀑布流分配算法 (保持你原本的代码不变)
+      // ... (你原来的 for 循环计算 sharesToBuy) ...
+      // 假设现在 allocationData.value 已经有了 { '600xxx': { shares: 1000 ... } }
+
+      // 2. [新增] 生成动态调仓建议 (Diff 算法)
+      const newBuyList: any[] = []
+      const newSellList: any[] = []
+
+      // 获取所有涉及的股票代码 (策略中的 + 持仓中的)
+      const allCodes = new Set([
+          ...latestPortfolio.value.map((s: any) => s.code),
+          ...userHoldings.value.map((h: any) => h.code)
+      ])
+
+      allCodes.forEach(code => {
+          // 目标持仓
+          const targetData = allocationData.value.get(code)
+          const targetShares = targetData ? targetData.shares : 0
+
+          // 当前持仓
+          const currentData = userHoldings.value.find((h: any) => h.code === code)
+          const currentShares = currentData ? currentData.shares : 0
+
+          // 股票名称查找
+          let stockName = currentData?.name
+          if (!stockName) {
+              const s = latestPortfolio.value.find((item: any) => item.code === code)
+              stockName = s ? s.name : code
+          }
+
+          const diff = targetShares - currentShares
+
+          if (diff > 0) {
+              // --- 买入侧 ---
+              // 0 -> 有：全新买入 (4字)
+              // 有 -> 更多：增持 (2字)
+              const isNewEntry = currentShares === 0
+              newBuyList.push({
+                  code,
+                  name: stockName,
+                  action: isNewEntry ? '全新买入' : '增持',
+                  subType: isNewEntry ? 'new-buy' : 'add-buy', // 样式标记
+                  shares: diff
+              })
+          } else if (diff < 0) {
+              // --- 卖出侧 ---
+              // 有 -> 0：全部卖出 (4字)
+              // 更多 -> 少：减持 (2字)
+              const isClearance = targetShares === 0
+              newSellList.push({
+                  code,
+                  name: stockName,
+                  action: isClearance ? '全部卖出' : '减持',
+                  subType: isClearance ? 'clear-sell' : 'cut-sell', // 样式标记
+                  shares: Math.abs(diff)
+              })
+          }
+      })
+
+      // 排序优化：把“全部卖出”和“全新买入”这些大动作排在最前面，防止漏看
+      newSellList.sort((a, b) => (a.subType === 'clear-sell' ? -1 : 1))
+      newBuyList.sort((a, b) => (a.subType === 'new-buy' ? -1 : 1))
+
+      // 覆盖原本从云端获取的静态建议
+      buyList.value = newBuyList
+      sellList.value = newSellList
+
+      // ... (更新 calcSummary 等状态) ...
+      hasCalculated.value = true
   }
 
   // ... (保留原有的 fetchStrategyData, chart 等逻辑)
@@ -411,22 +710,22 @@
               const adj = data.adjustments || []
 
               // 过滤出买入 (action: 'buy')
-              buyList.value = adj
-                  .filter((item: any) => item.action === 'buy')
-                  .map((item: any) => ({
-                      code: item.code,
-                      name: item.name,
-                      action: '买入' // 用于前端显示文字
-                  }))
+              // buyList.value = adj
+              //     .filter((item: any) => item.action === 'buy')
+              //     .map((item: any) => ({
+              //         code: item.code,
+              //         name: item.name,
+              //         action: '买入' // 用于前端显示文字
+              //     }))
 
-              // 过滤出卖出 (action: 'sell')
-              sellList.value = adj
-                  .filter((item: any) => item.action === 'sell')
-                  .map((item: any) => ({
-                      code: item.code,
-                      name: item.name,
-                      action: '卖出' // 用于前端显示文字
-                  }))
+              // // 过滤出卖出 (action: 'sell')
+              // sellList.value = adj
+              //     .filter((item: any) => item.action === 'sell')
+              //     .map((item: any) => ({
+              //         code: item.code,
+              //         name: item.name,
+              //         action: '卖出' // 用于前端显示文字
+              //     }))
           } else {
               console.warn('未获取到有效数据:', res.result.msg)
               formattedDate.value = '暂无数据'
@@ -885,18 +1184,65 @@
 
   // --- 生命周期 ---
   onMounted(() => {
-      fetchStrategyData() // 1. 获取真实数据
+      fetchStrategyData()
+      fetchStockMap()
       nextTick(() => {
           // 2. 初始化图表
           window.addEventListener('resize', () => myChart?.resize())
       })
   })
+
+  // [新增] 控制确认弹窗显示
+  const showConfirmModal = ref(false)
+
+  // 1. [修改] 点击“录入此结果”按钮时触发的函数
+  const requestApplyPlan = () => {
+      // 先检查登录，没登录直接拦截，不弹确认框
+      if (!userStore.isLoggedIn) {
+          showMessage('请先登录后保存数据', 'warning')
+          return
+      }
+
+      if (!hasCalculated.value) return
+
+      // 打开确认弹窗
+      showConfirmModal.value = true
+  }
+
+  // 2. [修改] 真正的执行函数 (原 applyPlanToHoldings 改名或修改内容)
+  const executeApplyPlan = async () => {
+      // 关闭弹窗
+      showConfirmModal.value = false
+
+      const newHoldings: any[] = []
+
+      // ... 原有的构建 newHoldings 逻辑 ...
+      allocationData.value.forEach((val: any, code: string) => {
+          if (val.shares > 0) {
+              const stockInfo = latestPortfolio.value.find((s: any) => s.code === code)
+              newHoldings.push({
+                  code: code,
+                  name: stockInfo ? stockInfo.name : '未知',
+                  shares: val.shares
+              })
+          }
+      })
+
+      try {
+          await userStore.updateHoldings(newHoldings)
+          showMessage('已将目标组合录入为当前持仓！', 'success')
+          handleCalculate() // 重新计算以刷新界面
+      } catch (err: any) {
+          console.error(err)
+          showMessage(err.message || '录入失败', 'error')
+      }
+  }
 </script>
 
 <style scoped>
   /* =========================================
-                                                                                  全局与基础样式 (Theme: #f0e68c / Khaki)
-                                                                                  ========================================= */
+                                                                                                                                                                                                                                          全局与基础样式 (Theme: #f0e68c / Khaki)
+                                                                                                                                                                                                                                          ========================================= */
   :global(body),
   :global(html) {
       overflow-x: hidden;
@@ -1045,8 +1391,8 @@
   }
 
   /* =========================================
-                                                                                                                                                                             新增模块样式：最新持仓与调仓
-                                                                                                                                                                             ========================================= */
+                                                                                                                                                                                                                                                                                                                                     新增模块样式：最新持仓与调仓
+                                                                                                                                                                                                                                                                                                                                     ========================================= */
   .card-subtitle {
       font-size: 1.1rem;
       font-weight: bold;
@@ -1063,25 +1409,25 @@
   }
 
   /* .data-table {
-                                                                                                                  width: 100%;
-                                                                                                                  border-collapse: collapse;
-                                                                                                                  min-width: 600px;
-                                                                                                                  table-layout: fixed;
-                                                                                                              }
+                                                                                                                                                                                                                                                                          width: 100%;
+                                                                                                                                                                                                                                                                          border-collapse: collapse;
+                                                                                                                                                                                                                                                                          min-width: 600px;
+                                                                                                                                                                                                                                                                          table-layout: fixed;
+                                                                                                                                                                                                                                                                      }
 
-                                                                                                              .data-table th,
-                                                                                                              .data-table td {
-                                                                                                                  padding: 0.8rem 1rem;
-                                                                                                                  text-align: left;
-                                                                                                                  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-                                                                                                              }
+                                                                                                                                                                                                                                                                      .data-table th,
+                                                                                                                                                                                                                                                                      .data-table td {
+                                                                                                                                                                                                                                                                          padding: 0.8rem 1rem;
+                                                                                                                                                                                                                                                                          text-align: left;
+                                                                                                                                                                                                                                                                          border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+                                                                                                                                                                                                                                                                      }
 
-                                                                                                              .data-table th {
-                                                                                                                  color: #ffffff;
-                                                                                                                  font-weight: bold;
-                                                                                                                  border-bottom: 2px solid rgba(255, 255, 255, 0.1);
-                                                                                                                  white-space: nowrap;
-                                                                                                              } */
+                                                                                                                                                                                                                                                                      .data-table th {
+                                                                                                                                                                                                                                                                          color: #ffffff;
+                                                                                                                                                                                                                                                                          font-weight: bold;
+                                                                                                                                                                                                                                                                          border-bottom: 2px solid rgba(255, 255, 255, 0.1);
+                                                                                                                                                                                                                                                                          white-space: nowrap;
+                                                                                                                                                                                                                                                                      } */
 
   .data-table {
       width: 100%;
@@ -1185,8 +1531,8 @@
   }
 
   /* =========================================
-                                                                                                                                                                             新增模块样式：图表与统计 (Charts & Stats)
-                                                                                                                                                                             ========================================= */
+                                                                                                                                                                                                                                                                                                                                     新增模块样式：图表与统计 (Charts & Stats)
+                                                                                                                                                                                                                                                                                                                                     ========================================= */
   .card-header-row {
       display: flex;
       justify-content: space-between;
@@ -1242,8 +1588,8 @@
   }
 
   /* =========================================
-                                                                                                                                                                             新增模块样式：热力图 (Heatmap)
-                                                                                                                                                                             ========================================= */
+                                                                                                                                                                                                                                                                                                                                     新增模块样式：热力图 (Heatmap)
+                                                                                                                                                                                                                                                                                                                                     ========================================= */
   .heatmap-container {
       overflow-x: auto;
   }
@@ -1282,8 +1628,8 @@
   }
 
   /* =========================================
-                                                                                                                                                                             新增模块样式：风险分析
-                                                                                                                                                                             ========================================= */
+                                                                                                                                                                                                                                                                                                                                     新增模块样式：风险分析
+                                                                                                                                                                                                                                                                                                                                     ========================================= */
   .risk-summary-grid {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
@@ -1360,8 +1706,8 @@
   }
 
   /* =========================================
-                                                                                                                                                                             FAQ 样式
-                                                                                                                                                                             ========================================= */
+                                                                                                                                                                                                                                                                                                                                     FAQ 样式
+                                                                                                                                                                                                                                                                                                                                     ========================================= */
   .faq-container {
       display: flex;
       flex-direction: column;
@@ -1418,8 +1764,8 @@
       }
   }
   /* =========================================
-                                                                                           移动端适配 (最终修正版)
-                                                                                           ========================================= */
+                                                                                                                                                                                                                                                   移动端适配 (最终修正版)
+                                                                                                                                                                                                                                                   ========================================= */
   @media (max-width: 768px) {
       /* 1. 核心修复：给所有滚动容器添加渐变遮罩，增加高级感 */
       .table-container,
@@ -1648,6 +1994,486 @@
       }
       .calc-summary-inline {
           justify-content: space-between;
+      }
+  }
+
+  /* --- 新增按钮样式 --- */
+  .calc-btn-compact.outline {
+      background: transparent;
+      border: 1px solid #f0e68c;
+      color: #f0e68c;
+      margin-left: 0.5rem;
+  }
+  .calc-btn-compact.outline:hover {
+      background: rgba(240, 230, 140, 0.1);
+  }
+
+  .action-text-btn {
+      background: none;
+      border: none;
+      color: #00c497; /* Green */
+      font-size: 0.85rem;
+      cursor: pointer;
+      text-decoration: underline;
+      padding: 0;
+  }
+
+  /* --- 调仓列表右侧样式 --- */
+  .adj-right {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+  }
+  .shares-badge {
+      font-size: 0.8rem;
+      color: #fff;
+      font-weight: bold;
+  }
+
+  /* --- Modal 弹窗样式 --- */
+  .modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background: rgba(0, 0, 0, 0.8);
+      backdrop-filter: blur(5px);
+      z-index: 999;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+  }
+
+  .modal-content {
+      background: #1e1e1e;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 12px;
+      width: 100%;
+      max-width: 500px;
+      display: flex;
+      flex-direction: column;
+      max-height: 80vh; /* 防止太高 */
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+      animation: fadeInUp 0.3s ease-out;
+  }
+
+  .modal-header {
+      padding: 1rem 1.5rem;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+  }
+  .modal-header h3 {
+      margin: 0;
+      color: #f0e68c;
+      font-size: 1.2rem;
+  }
+  .close-icon {
+      font-size: 1.5rem;
+      cursor: pointer;
+      color: #8392a5;
+  }
+
+  .modal-body {
+      padding: 1rem;
+      overflow-y: auto;
+      flex: 1;
+  }
+
+  .holding-row {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      margin-bottom: 0.8rem;
+  }
+
+  /* 输入框组 */
+  .input-group {
+      position: relative;
+  }
+
+  .modal-input {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      color: #fff;
+      padding: 0.6rem;
+      border-radius: 6px;
+      font-size: 0.95rem;
+      outline: none;
+  }
+  .modal-input:focus {
+      border-color: #f0e68c;
+  }
+  .modal-input.code {
+      width: 90px;
+      text-align: center;
+  }
+  .modal-input.shares {
+      width: 80px;
+      text-align: center;
+  }
+
+  .stock-name-display {
+      flex: 1;
+      color: #b0c4de;
+      font-size: 0.9rem;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      text-align: center;
+  }
+
+  .delete-btn {
+      background: none;
+      border: none;
+      cursor: pointer;
+      font-size: 1rem;
+      padding: 0 0.5rem;
+  }
+
+  .add-row-btn {
+      width: 100%;
+      padding: 0.8rem;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px dashed rgba(255, 255, 255, 0.2);
+      color: #8392a5;
+      border-radius: 6px;
+      cursor: pointer;
+      margin-top: 0.5rem;
+  }
+  .add-row-btn:hover {
+      background: rgba(255, 255, 255, 0.1);
+      color: #fff;
+  }
+
+  .modal-footer {
+      padding: 1rem;
+      border-top: 1px solid rgba(255, 255, 255, 0.1);
+      display: flex;
+      justify-content: flex-end;
+      gap: 1rem;
+  }
+
+  .modal-btn {
+      padding: 0.6rem 1.2rem;
+      border-radius: 6px;
+      border: none;
+      cursor: pointer;
+      font-weight: bold;
+  }
+  .modal-btn.cancel {
+      background: transparent;
+      color: #8392a5;
+  }
+  .modal-btn.save {
+      background: #f0e68c;
+      color: #121212;
+  }
+
+  /* 移动端适配 */
+  @media (max-width: 480px) {
+      .holding-row {
+          gap: 0.3rem;
+      }
+      .modal-input.code {
+          width: 70px;
+          padding: 0.5rem 0.2rem;
+          font-size: 0.85rem;
+      }
+      .modal-input.shares {
+          width: 60px;
+          padding: 0.5rem 0.2rem;
+          font-size: 0.85rem;
+      }
+      .stock-name-display {
+          font-size: 0.8rem;
+      }
+
+      /* 调整工具栏按钮，防止挤压 */
+      .calc-left {
+          width: 100%;
+          justify-content: space-between;
+      }
+      .compact-input {
+          width: 100px; /* 进一步缩小输入框 */
+      }
+  }
+
+  /* --- 工具栏整体容器 --- */
+  .calculator-toolbar {
+      background: rgba(0, 0, 0, 0.4);
+      border: 1px solid rgba(240, 230, 140, 0.2);
+      border-radius: 8px;
+      padding: 0.8rem 1rem;
+      margin-bottom: 1.5rem;
+
+      /* 核心布局：两端对齐，允许换行 */
+      display: flex;
+      justify-content: space-between;
+      align-items: center; /* 垂直居中 */
+      flex-wrap: wrap;
+      gap: 1rem;
+  }
+
+  /* --- 左侧操作区 --- */
+  .calc-left {
+      display: flex;
+      align-items: center;
+      gap: 0.8rem;
+      /* 移动端如果太窄，左侧也不要压缩太厉害 */
+      flex-shrink: 0;
+  }
+
+  /* --- 右侧组合区 (统计 + 按钮) --- */
+  .calc-right-group {
+      display: flex;
+      align-items: center;
+      gap: 1.5rem;
+      /* 让右侧在空间不足时自动换行或是占满一行 */
+      flex-wrap: wrap;
+      justify-content: flex-end;
+  }
+
+  /* 统计数据行 */
+  .stats-row {
+      display: flex;
+      gap: 1.5rem;
+  }
+
+  .summary-tag {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start; /* 保持左对齐 */
+      line-height: 1.2;
+  }
+
+  /* --- [新增] 录入结果按钮样式 --- */
+  .apply-result-btn {
+      background: rgba(0, 196, 151, 0.15); /* 淡绿色背景 */
+      color: #00c497;
+      border: 1px solid rgba(0, 196, 151, 0.3);
+      padding: 0.4rem 0.8rem;
+      border-radius: 4px;
+      font-size: 0.85rem;
+      cursor: pointer;
+      transition: all 0.3s;
+      white-space: nowrap; /* 防止文字换行 */
+      display: flex;
+      align-items: center;
+      gap: 4px;
+  }
+  .apply-result-btn:hover {
+      background: rgba(0, 196, 151, 0.25);
+      transform: translateY(-1px);
+  }
+
+  /* --- 移动端适配 (重点) --- */
+  @media (max-width: 700px) {
+      .calculator-toolbar {
+          /* 移动端改为纵向排列，左侧在上，右侧在下 */
+          flex-direction: column;
+          align-items: stretch; /* 拉伸填满宽度 */
+          gap: 1.2rem;
+      }
+
+      .calc-left {
+          width: 100%;
+          justify-content: space-between; /* 按钮和输入框分散对齐 */
+      }
+
+      /* 输入框稍微缩短一点，给按钮留位置 */
+      .compact-input {
+          width: 90px;
+      }
+
+      .calc-right-group {
+          width: 100%;
+          justify-content: space-between; /* 统计和按钮分散对齐 */
+          border-top: 1px solid rgba(255, 255, 255, 0.1); /* 加个顶部分割线 */
+          padding-top: 1rem;
+      }
+
+      .stats-row {
+          gap: 1rem; /* 缩小间距 */
+      }
+      .modal-content {
+          width: 85%;
+      }
+  }
+
+  /* 针对超小屏幕 (iPhone SE 等) 的微调 */
+  @media (max-width: 380px) {
+      .calc-right-group {
+          flex-direction: column;
+          align-items: flex-start;
+          gap: 1rem;
+      }
+      .apply-result-btn {
+          width: 100%;
+          justify-content: center;
+      }
+  }
+
+  /* --- 调仓列表项内部布局 --- */
+  .adjustment-item {
+      /* 确保 Flex 布局两端对齐 */
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      /* ...原有的背景色等样式保持... */
+  }
+
+  /* 左侧：名字+代码 */
+  .item-left {
+      display: flex;
+      align-items: baseline; /* 基线对齐，让文字底部对齐 */
+      gap: 6px; /* 名字和代码的间距 */
+      overflow: hidden; /* 防止过长溢出 */
+  }
+
+  .stock-name {
+      font-weight: 500;
+      white-space: nowrap;
+  }
+
+  /* [新增] 股票代码的小字样式 */
+  .code-tiny {
+      font-size: 0.8rem;
+      color: #bec9d8; /* 灰色 */
+      font-family: 'Roboto Mono', monospace; /* 等宽字体更像代码 */
+      opacity: 0.8;
+  }
+
+  /* 移动端适配：如果屏幕特别小，允许名字和代码换行，或者缩小间距 */
+  @media (max-width: 360px) {
+      .item-left {
+          flex-direction: column; /* 名字和代码上下排列 */
+          align-items: flex-start;
+          gap: 0;
+      }
+      .code-tiny {
+          font-size: 0.75rem;
+      }
+  }
+  /* --- 确认弹窗专用样式 --- */
+  .confirm-dialog {
+      max-width: 360px; /* 小巧一点 */
+
+      border: 1px solid rgba(255, 255, 255, 0.1);
+  }
+
+  .modal-header.no-border {
+      border-bottom: none;
+      padding-bottom: 0;
+      justify-content: center;
+      padding-top: 1.5rem;
+  }
+
+  .confirm-title {
+      color: #fff; /* 普通白色标题 */
+      font-size: 1.2rem;
+      margin: 0;
+  }
+
+  .modal-body.text-center {
+      text-align: center;
+      padding: 1rem 1.5rem;
+  }
+
+  .confirm-text {
+      font-size: 1rem;
+      color: #b0c4de;
+      margin-bottom: 0.5rem;
+      line-height: 1.6;
+  }
+
+  .confirm-text strong {
+      color: #f0e68c; /* 重点文字用主题黄高亮 */
+  }
+
+  .confirm-subtext {
+      font-size: 0.85rem;
+      color: #909399; /* 弱化辅助文字 */
+  }
+
+  .modal-footer.center-footer {
+      justify-content: center;
+      border-top: none;
+      padding-top: 0;
+      padding-bottom: 1.5rem;
+      gap: 1rem;
+  }
+
+  /* [修改] 确认按钮样式：用主题色，不用红色 */
+  .modal-btn.confirm-primary {
+      background: #f0e68c;
+      color: #121212;
+      padding: 0.6rem 1.5rem;
+  }
+  .modal-btn.confirm-primary:hover {
+      background: #d4c550;
+  }
+
+  /* ... 原有的 .action-badge 基础样式保持不变 ... */
+  .action-badge {
+      padding: 0.2rem 0.6rem;
+      border-radius: 4px;
+      font-size: 0.8rem;
+      font-weight: bold;
+      color: #fff;
+      min-width: 3em; /* 保证徽标宽度一致 */
+      text-align: center;
+  }
+
+  /* 基础徽标样式 */
+  .action-badge {
+      padding: 0.25rem 0.5rem; /* 稍微调整内边距 */
+      border-radius: 4px;
+      font-size: 0.8rem;
+      font-weight: bold;
+      color: #fff;
+      text-align: center;
+      display: inline-block;
+      min-width: 4em; /* 稍微宽一点以容纳4个字 */
+  }
+
+  /* --- 1. 全新买入 (New Buy) - 4字，视觉最强 --- */
+  .action-badge.new-buy {
+      background-color: rgba(0, 196, 151, 0.6); /* 亮绿实心 */
+      box-shadow: 0 2px 6px rgba(0, 196, 151, 0.4); /* 发光投影 */
+      font-weight: 800; /* 特别加粗 */
+      border: 1px solid rgba(0, 196, 151, 0.4);
+  }
+
+  /* --- 2. 增持 (Add Buy) - 2字，视觉稍弱 --- */
+  .action-badge.add-buy {
+      background-color: transparent;
+      color: #00c497;
+      border: 1px solid rgba(0, 196, 151, 0.6);
+  }
+
+  /* --- 3. 全部卖出 (Clear Sell) - 4字，视觉最强 --- */
+  .action-badge.clear-sell {
+      background-color: rgba(255, 87, 34, 0.6); /* 亮红实心 */
+      box-shadow: 0 2px 6px rgba(255, 87, 34, 0.4); /* 发光投影 */
+      font-weight: 800; /* 特别加粗 */
+      border: 1px solid rgba(255, 87, 34, 0.4);
+  }
+
+  /* --- 4. 减持 (Cut Sell) - 2字，视觉稍弱 --- */
+  .action-badge.cut-sell {
+      background-color: transparent;
+      color: #ff5722;
+      border: 1px solid rgba(255, 87, 34, 0.6);
+  }
+
+  /* 移动端微调：防止4个字把布局挤坏 */
+  @media (max-width: 360px) {
+      .action-badge {
+          font-size: 0.75rem; /* 字体稍微改小 */
+          padding: 0.2rem 0.3rem;
       }
   }
 </style>

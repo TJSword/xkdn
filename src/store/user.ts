@@ -123,7 +123,7 @@ export const useUserStore = defineStore('user', {
       if (!auth.currentUser) {
         throw new Error("用户未登录，无法修改密码。")
       }
-      const sudoRes = await auth.sudo({
+      const sudoRes: any = await auth.sudo({
         password: currentPassword,
       });
       await auth.setPassword({
@@ -187,5 +187,28 @@ export const useUserStore = defineStore('user', {
     //   this.userInfo = null
     //   this.hasAttemptedLogin = false
     // }
+
+    /**
+   * 【新增】更新用户持仓
+   * @param {Array} holdings - 清洗后的持仓数组
+   */
+    async updateHoldings(holdings: any) {
+      // 1. 调用你刚才写的云函数 'updateUserHoldings'
+      const res = await app.callFunction({
+        name: 'updateUserHoldings',
+        data: { holdings }
+      })
+
+      if (res.result.success) {
+        // 2. 【关键】云端更新成功后，手动更新本地 store 中的 userInfo
+        // 这样你的所有页面都能立即看到最新的持仓，而不用重新拉取用户信息
+        if (this.userInfo) {
+          this.userInfo.holdings = res.result.data
+        }
+        return res.result
+      } else {
+        throw new Error(res.result.msg || '更新失败')
+      }
+    }
   }
 })

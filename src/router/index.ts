@@ -52,9 +52,6 @@ export const constantRoutes = [
     component: () => import('@/views/wealth-map.vue'),
     meta: { requiresAuth: true }
   },
-
-
-
   {
     path: '/about',
     component: () => import('@/views/about.vue'),
@@ -71,8 +68,13 @@ export const constantRoutes = [
     meta: { requiresAuth: true }
   },
   {
-    path: '/micro-cap-adjustment',
-    component: () => import('@/views/micro-cap-adjustment.vue'),
+    path: '/mc',
+    component: () => import('@/views/mc.vue'),
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/cb',
+    component: () => import('@/views/cb.vue'),
     meta: { requiresAuth: true }
   },
   // 404页面必须放在最后
@@ -94,7 +96,7 @@ const whiteList = ['/login']
 // 新增：为非 VIP 用户定义登录后可以访问的页面列表
 const nonVipAccessibleRoutes = ['/home', '/all-weather', '/tools', '/wealth-map', '/about']; // 示例列表
 
-const adminRoutes = ['/admin', '/micro-cap-adjustment'];
+const adminRoutes = ['/admin', '/mc', '/cb'];
 
 router.beforeEach(async (to, from, next) => {
   const userStore = useUserStore();
