@@ -19,15 +19,18 @@
 
         <div class="content-card control-panel">
           <div class="panel-section config-section">
-            <div class="section-label">
-              <span class="icon">⚙️</span> 明日计划资金
+            <div class="section-label" style="display: flex; justify-content: space-between; align-items: center;">
+              <span><span class="icon">⚙️</span> 明日计划资金</span>
+              <button class="text-icon-btn" @click="openCookieModal" title="设置雪球Cookie">
+                🍪 设置 Cookie
+              </button>
             </div>
             <div class="input-group">
               <span class="currency">¥</span>
               <input type="number" v-model.number="planAmount" class="amount-input" step="10000" placeholder="输入金额">
-              <button class="save-btn" :disabled="isSaving || planAmount === savedAmount" @click="savePlanAmount"
+              <button class="save-btn" :disabled="isSavingAmount || planAmount === savedAmount" @click="savePlanAmount"
                 :title="planAmount === savedAmount ? '已保存' : '点击保存到服务器'">
-                {{ isSaving ? '...' : (planAmount === savedAmount ? '已保存' : '保存') }}
+                {{ isSavingAmount ? '...' : (planAmount === savedAmount ? '已保存' : '保存') }}
               </button>
             </div>
             <div class="tip-text" v-if="planAmount !== savedAmount">
@@ -222,6 +225,24 @@
 
       </div>
     </div>
+    <div class="modal-overlay" v-if="showCookieModal" @click.self="closeCookieModal">
+      <div class="modal-card">
+        <div class="modal-header">
+          <h3 class="modal-title">🍪 更新雪球 Cookie</h3>
+          <button class="close-btn" @click="closeCookieModal">×</button>
+        </div>
+        <div class="modal-body">
+          <p class="modal-desc">当获取数据提示 400 鉴权失败时，请在此更新抓取到的最新 Cookie。</p>
+          <textarea v-model="xueqiuCookie" class="cookie-textarea" placeholder="请在此粘贴雪球网页版请求头中的完整 Cookie..."></textarea>
+        </div>
+        <div class="modal-footer">
+          <button class="cancel-btn" @click="closeCookieModal">取消</button>
+          <button class="confirm-btn" :disabled="isSavingCookie || xueqiuCookie === savedCookie" @click="saveCookieData">
+            {{ isSavingCookie ? '保存中...' : '保存更新' }}
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -238,7 +259,13 @@
   // --- 状态定义 ---
   const planAmount = ref(0)
   const savedAmount = ref(0)
-  const isSaving = ref(false)
+  const isSavingAmount = ref(false)
+
+  // Cookie 弹窗相关状态
+  const showCookieModal = ref(false)
+  const xueqiuCookie = ref('')
+  const savedCookie = ref('')
+  const isSavingCookie = ref(false) // Cookie保存状态
 
   const strategyData = ref({
       date: '20260115',
@@ -275,12 +302,15 @@
 
           const result = res.result
           if (result.success) {
-              const { plan_amount, latest_record } = result.data
+              const { plan_amount, xueqiu_cookie, latest_record } = result.data
 
-              // 1. 设置资金回显
-              // 同时更新 savedAmount (基准值) 和 planAmount (输入框值)
-              savedAmount.value = plan_amount
-              planAmount.value = plan_amount
+              // 设置资金回显
+              savedAmount.value = plan_amount || 0
+              planAmount.value = plan_amount || 0
+
+              // 设置 Cookie 回显
+              savedCookie.value = xueqiu_cookie || ''
+              xueqiuCookie.value = xueqiu_cookie || ''
 
               // 2. 设置策略数据
               if (latest_record) {
@@ -318,42 +348,65 @@
       return isoString.replace('T', ' ').substring(0, 16)
   }
 
-  // --- 保存配置逻辑 (真实对接云函数) ---
+  // --- 弹窗控制 ---
+  const openCookieModal = () => {
+      xueqiuCookie.value = savedCookie.value // 每次打开重置为已保存的值
+      showCookieModal.value = true
+  }
+
+  const closeCookieModal = () => {
+      showCookieModal.value = false
+  }
+
+  // --- 1. 保存计划资金 ---
   const savePlanAmount = async () => {
-      // 1. 基础校验
       if (planAmount.value <= 0) {
           showMessage('金额必须大于 0', 'warning')
           return
       }
-
-      // 2. 开启 Loading 状态
-      isSaving.value = true
-
+      isSavingAmount.value = true
       try {
-          // 3. 调用云函数 'updatePlanAmount'
           const res = await app.callFunction({
-              name: 'updatePlanAmount',
-              data: {
-                  amount: planAmount.value
-              }
+              name: 'updatePlanAmount', // 原来的云函数
+              data: { amount: planAmount.value }
           })
-
-          const result = res.result
-          if (result.success) {
-              // 4. 保存成功：更新本地状态
+          if (res.result.success) {
               savedAmount.value = planAmount.value
-              showMessage('✅ 配置已保存，下次调仓时生效', 'success')
+              showMessage('✅ 资金配置已保存', 'success')
           } else {
-              // 业务逻辑错误
-              showMessage(result.msg || '保存失败', 'error')
+              showMessage(res.result.msg || '保存失败', 'error')
           }
       } catch (err: any) {
-          // 5. 网络或系统错误处理
-          console.error('保存配置失败', err)
           showMessage('网络错误，保存失败', 'error')
       } finally {
-          // 6. 关闭 Loading
-          isSaving.value = false
+          isSavingAmount.value = false
+      }
+  }
+
+  // --- 2. 保存雪球 Cookie ---
+  const saveCookieData = async () => {
+      if (!xueqiuCookie.value.trim()) {
+          showMessage('Cookie 不能为空', 'warning')
+          return
+      }
+      isSavingCookie.value = true
+      try {
+          // 这里调用一个新的云函数接口，后续你需要创建或修改它
+          const res = await app.callFunction({
+              name: 'updatePlanAmount', // 建议单独弄个云函数保存 Cookie
+              data: { cookie: xueqiuCookie.value }
+          })
+          if (res.result.success) {
+              savedCookie.value = xueqiuCookie.value
+              showMessage('✅ Cookie 更新成功', 'success')
+              closeCookieModal() // 保存成功后自动关弹窗
+          } else {
+              showMessage(res.result.msg || '保存失败', 'error')
+          }
+      } catch (err: any) {
+          showMessage('网络错误，保存失败', 'error')
+      } finally {
+          isSavingCookie.value = false
       }
   }
   // --- 计算属性 ---
@@ -896,9 +949,9 @@
   }
 
   /* ============================================
-                                                           📱 移动端适配 (Media Queries) - 终极修复版
-                                                           请直接替换原有的 media query 代码
-                                                           ============================================ */
+                                                                       📱 移动端适配 (Media Queries) - 终极修复版
+                                                                       请直接替换原有的 media query 代码
+                                                                       ============================================ */
   @media (max-width: 768px) {
       /* --- 1. 全局容器修复 (消灭右侧白条) --- */
       .page-wrapper {
@@ -1090,6 +1143,167 @@
   @media (max-width: 768px) {
       .sortable-th {
           padding-right: 15px !important;
+      }
+  }
+
+  /* === 新增：触发弹窗的小按钮 === */
+  .text-icon-btn {
+      background: transparent;
+      border: 1px solid rgba(255, 215, 0, 0.3);
+      color: #ffd700;
+      padding: 2px 8px;
+      font-size: 0.8rem;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+  }
+  .text-icon-btn:hover {
+      background: rgba(255, 215, 0, 0.1);
+      border-color: #ffd700;
+  }
+
+  /* === 新增：Cookie 弹窗样式 === */
+  .modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background: rgba(0, 0, 0, 0.75);
+      backdrop-filter: blur(5px);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 1000;
+      animation: fadeIn 0.2s ease-out;
+  }
+
+  .modal-card {
+      background: #1a1a1a;
+      border: 1px solid rgba(255, 215, 0, 0.2);
+      border-radius: 12px;
+      width: 90%;
+      max-width: 500px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.8);
+      overflow: hidden;
+      transform: translateY(0);
+      animation: slideIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 1rem 1.5rem;
+      background: rgba(255, 255, 255, 0.03);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  }
+  .modal-title {
+      margin: 0;
+      font-size: 1.1rem;
+      color: #ffd700;
+  }
+  .close-btn {
+      background: transparent;
+      border: none;
+      color: #888;
+      font-size: 1.5rem;
+      line-height: 1;
+      cursor: pointer;
+      transition: color 0.2s;
+  }
+  .close-btn:hover {
+      color: #fff;
+  }
+
+  .modal-body {
+      padding: 1.5rem;
+  }
+  .modal-desc {
+      font-size: 0.85rem;
+      color: #b0c4de;
+      margin-top: 0;
+      margin-bottom: 1rem;
+  }
+  .cookie-textarea {
+      width: 100%;
+      height: 120px;
+      background: rgba(0, 0, 0, 0.3);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 6px;
+      color: #2ecc71; /* 换个护眼的代码绿 */
+      font-family: monospace;
+      font-size: 0.85rem;
+      padding: 10px;
+      resize: none;
+      box-sizing: border-box;
+      outline: none;
+      transition: border-color 0.3s;
+      word-break: break-all;
+  }
+  .cookie-textarea:focus {
+      border-color: #ffd700;
+  }
+
+  .modal-footer {
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+      padding: 1rem 1.5rem;
+      background: rgba(0, 0, 0, 0.2);
+      border-top: 1px solid rgba(255, 255, 255, 0.05);
+  }
+  .cancel-btn,
+  .confirm-btn {
+      padding: 8px 16px;
+      border-radius: 4px;
+      font-size: 0.9rem;
+      font-weight: bold;
+      cursor: pointer;
+      transition: all 0.2s;
+  }
+  .cancel-btn {
+      background: transparent;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      color: #b0c4de;
+  }
+  .cancel-btn:hover {
+      background: rgba(255, 255, 255, 0.05);
+      color: #fff;
+  }
+  .confirm-btn {
+      background: #ffd700;
+      border: none;
+      color: #121212;
+  }
+  .confirm-btn:hover:not(:disabled) {
+      background: #ffecb3;
+  }
+  .confirm-btn:disabled {
+      background: #555;
+      color: #888;
+      cursor: not-allowed;
+  }
+
+  @keyframes fadeIn {
+      from {
+          opacity: 0;
+      }
+      to {
+          opacity: 1;
+      }
+  }
+  @keyframes slideIn {
+      from {
+          transform: translateY(20px);
+          opacity: 0;
+      }
+      to {
+          transform: translateY(0);
+          opacity: 1;
       }
   }
 </style>

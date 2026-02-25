@@ -344,6 +344,14 @@
           selected: true,
           color: '#f0e68c',
           url: './static/microCapData.json'
+      },
+      {
+          id: 'jinghong',
+          name: '惊鸿策略',
+          weight: 0, // 建议初始设为 0，防止总权重直接超过 100% 导致报错
+          selected: false, // 建议初始不选中，由用户手动勾选
+          color: '#ff4081', // 🎨 推荐色：荧光玫红。在深色背景极具穿透力，且与蓝/橙/黄形成完美互补。
+          url: './static/jinghongData.json'
       }
   ])
 
@@ -1379,8 +1387,8 @@
   }
   .number-input-wrapper .unit {
       position: absolute;
-      right: 2px;
-      top: 5px;
+      right: 0px;
+      top: 7px;
       color: #888;
       font-size: 0.7rem;
   }
@@ -1605,8 +1613,8 @@
   }
 
   /* ============================================
-                                                                                                                       📱 移动端适配 (Media Queries)
-                                                                                                                       ============================================ */
+                                                                                                                                     📱 移动端适配 (Media Queries)
+                                                                                                                                     ============================================ */
   @media (max-width: 768px) {
       .page-wrapper {
           padding: 1.5rem 0.8rem;
