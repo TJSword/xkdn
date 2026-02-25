@@ -531,7 +531,7 @@
       return Math.ceil(maxPrice * 100 * 10)
   })
 
-  // 执行计算 (完全复刻您的算法)
+  // 执行计算 (修复保底1手分配的瀑布流算法)
   const handleCalculate = () => {
       const stocks = latestPortfolio.value
       const totalFunds = Number(inputAmount.value)
@@ -550,16 +550,24 @@
       }
 
       // 2. 算法初始化
-      // 假设资金利用率为 100% (或者您可以像原代码那样设置一个比例，这里默认全额利用)
       const fundsForAllocation = totalFunds
       let remainingFunds = fundsForAllocation
       const tempMap = new Map()
       let totalAllocated = 0
 
+      // [核心修复] 预计算后续股票保底1手所需的总资金 (后缀和机制)
+      // 作用：保证前面的股票就算四舍五入多买了，也不会把后面股票买1手的钱挤占掉
+      const minCostSuffix = new Array(stocks.length).fill(0)
+      let suffixSum = 0
+      for (let i = stocks.length - 1; i >= 0; i--) {
+          minCostSuffix[i] = suffixSum
+          suffixSum += stocks[i].price * 100
+      }
+
       // 3. 循环计算 (瀑布流分配)
       for (let i = 0; i < stocks.length; i++) {
           const stock = stocks[i]
-          const currentPrice = stock.price // 注意：您原代码是 sp，这里适配为 price
+          const currentPrice = stock.price
 
           if (!currentPrice || currentPrice <= 0) continue
 
@@ -571,15 +579,27 @@
           // 四舍五入到整百
           let sharesToBuy = Math.round(idealShares / 100) * 100
 
-          // 兜底逻辑：如果计算出0手，强制给1手 (前提是资金足够，下面会校验)
+          // 兜底逻辑：如果计算出0手，强制给1手
           if (sharesToBuy === 0) sharesToBuy = 100
 
           let actualCost = sharesToBuy * currentPrice
 
-          // 资金不足时的回退逻辑 (减少手数直到买得起)
-          while (actualCost > remainingFunds && sharesToBuy > 0) {
+          // [核心修复] 资金校验：当前买入后，剩下的钱必须足够后面所有股票各买至少1手
+          const requiredForRest = minCostSuffix[i]
+
+          // 当出现买不起，或者挤占了后续股票保底资金的情况，就减去100股，直到满足条件或降至1手
+          while (
+              sharesToBuy > 100 &&
+              (actualCost > remainingFunds || remainingFunds - actualCost < requiredForRest)
+          ) {
               sharesToBuy -= 100
               actualCost = sharesToBuy * currentPrice
+          }
+
+          // 极端情况兜底：万一连1手都买不起则归零 (有前面的 minThreshold 拦截，正常情况绝对不会走到这)
+          if (actualCost > remainingFunds) {
+              sharesToBuy = 0
+              actualCost = 0
           }
 
           // 记录结果
@@ -595,7 +615,6 @@
                   weight: (actualWeight * 100).toFixed(2) + '%'
               })
           } else {
-              // 极端情况买不起
               tempMap.set(stock.code, { shares: 0, cost: 0, weight: '0%' })
           }
       }
@@ -607,32 +626,23 @@
           utilization: ((totalAllocated / fundsForAllocation) * 100).toFixed(2) + '%',
           msg: '计算完成'
       }
-      hasCalculated.value = true
 
-      // 1. 执行原有的瀑布流分配算法 (保持你原本的代码不变)
-      // ... (你原来的 for 循环计算 sharesToBuy) ...
-      // 假设现在 allocationData.value 已经有了 { '600xxx': { shares: 1000 ... } }
-
-      // 2. [新增] 生成动态调仓建议 (Diff 算法)
+      // --- 下方为你原有的 调仓建议 (Diff 算法) 代码，无需变动 ---
       const newBuyList: any[] = []
       const newSellList: any[] = []
 
-      // 获取所有涉及的股票代码 (策略中的 + 持仓中的)
       const allCodes = new Set([
           ...latestPortfolio.value.map((s: any) => s.code),
           ...userHoldings.value.map((h: any) => h.code)
       ])
 
       allCodes.forEach(code => {
-          // 目标持仓
           const targetData = allocationData.value.get(code)
           const targetShares = targetData ? targetData.shares : 0
 
-          // 当前持仓
           const currentData = userHoldings.value.find((h: any) => h.code === code)
           const currentShares = currentData ? currentData.shares : 0
 
-          // 股票名称查找
           let stockName = currentData?.name
           if (!stockName) {
               const s = latestPortfolio.value.find((item: any) => item.code === code)
@@ -642,44 +652,34 @@
           const diff = targetShares - currentShares
 
           if (diff > 0) {
-              // --- 买入侧 ---
-              // 0 -> 有：全新买入 (4字)
-              // 有 -> 更多：增持 (2字)
               const isNewEntry = currentShares === 0
               newBuyList.push({
                   code,
                   name: stockName,
                   action: isNewEntry ? '全新买入' : '增持',
-                  subType: isNewEntry ? 'new-buy' : 'add-buy', // 样式标记
+                  subType: isNewEntry ? 'new-buy' : 'add-buy',
                   shares: diff
               })
           } else if (diff < 0) {
-              // --- 卖出侧 ---
-              // 有 -> 0：全部卖出 (4字)
-              // 更多 -> 少：减持 (2字)
               const isClearance = targetShares === 0
               newSellList.push({
                   code,
                   name: stockName,
                   action: isClearance ? '全部卖出' : '减持',
-                  subType: isClearance ? 'clear-sell' : 'cut-sell', // 样式标记
+                  subType: isClearance ? 'clear-sell' : 'cut-sell',
                   shares: Math.abs(diff)
               })
           }
       })
 
-      // 排序优化：把“全部卖出”和“全新买入”这些大动作排在最前面，防止漏看
       newSellList.sort((a, b) => (a.subType === 'clear-sell' ? -1 : 1))
       newBuyList.sort((a, b) => (a.subType === 'new-buy' ? -1 : 1))
 
-      // 覆盖原本从云端获取的静态建议
       buyList.value = newBuyList
       sellList.value = newSellList
 
-      // ... (更新 calcSummary 等状态) ...
       hasCalculated.value = true
   }
-
   // ... (保留原有的 fetchStrategyData, chart 等逻辑)
   // --- 1. 基础数据 ---
   const formattedDate = ref('加载中...')
@@ -1241,8 +1241,8 @@
 
 <style scoped>
   /* =========================================
-                                                                                                                                                                                                                                          全局与基础样式 (Theme: #f0e68c / Khaki)
-                                                                                                                                                                                                                                          ========================================= */
+                                                                                                                                                                                                                                            全局与基础样式 (Theme: #f0e68c / Khaki)
+                                                                                                                                                                                                                                            ========================================= */
   :global(body),
   :global(html) {
       overflow-x: hidden;
@@ -1391,8 +1391,8 @@
   }
 
   /* =========================================
-                                                                                                                                                                                                                                                                                                                                     新增模块样式：最新持仓与调仓
-                                                                                                                                                                                                                                                                                                                                     ========================================= */
+                                                                                                                                                                                                                                                                                                                                       新增模块样式：最新持仓与调仓
+                                                                                                                                                                                                                                                                                                                                       ========================================= */
   .card-subtitle {
       font-size: 1.1rem;
       font-weight: bold;
@@ -1409,25 +1409,25 @@
   }
 
   /* .data-table {
-                                                                                                                                                                                                                                                                          width: 100%;
-                                                                                                                                                                                                                                                                          border-collapse: collapse;
-                                                                                                                                                                                                                                                                          min-width: 600px;
-                                                                                                                                                                                                                                                                          table-layout: fixed;
-                                                                                                                                                                                                                                                                      }
+                                                                                                                                                                                                                                                                            width: 100%;
+                                                                                                                                                                                                                                                                            border-collapse: collapse;
+                                                                                                                                                                                                                                                                            min-width: 600px;
+                                                                                                                                                                                                                                                                            table-layout: fixed;
+                                                                                                                                                                                                                                                                        }
 
-                                                                                                                                                                                                                                                                      .data-table th,
-                                                                                                                                                                                                                                                                      .data-table td {
-                                                                                                                                                                                                                                                                          padding: 0.8rem 1rem;
-                                                                                                                                                                                                                                                                          text-align: left;
-                                                                                                                                                                                                                                                                          border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-                                                                                                                                                                                                                                                                      }
+                                                                                                                                                                                                                                                                        .data-table th,
+                                                                                                                                                                                                                                                                        .data-table td {
+                                                                                                                                                                                                                                                                            padding: 0.8rem 1rem;
+                                                                                                                                                                                                                                                                            text-align: left;
+                                                                                                                                                                                                                                                                            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+                                                                                                                                                                                                                                                                        }
 
-                                                                                                                                                                                                                                                                      .data-table th {
-                                                                                                                                                                                                                                                                          color: #ffffff;
-                                                                                                                                                                                                                                                                          font-weight: bold;
-                                                                                                                                                                                                                                                                          border-bottom: 2px solid rgba(255, 255, 255, 0.1);
-                                                                                                                                                                                                                                                                          white-space: nowrap;
-                                                                                                                                                                                                                                                                      } */
+                                                                                                                                                                                                                                                                        .data-table th {
+                                                                                                                                                                                                                                                                            color: #ffffff;
+                                                                                                                                                                                                                                                                            font-weight: bold;
+                                                                                                                                                                                                                                                                            border-bottom: 2px solid rgba(255, 255, 255, 0.1);
+                                                                                                                                                                                                                                                                            white-space: nowrap;
+                                                                                                                                                                                                                                                                        } */
 
   .data-table {
       width: 100%;
@@ -1531,8 +1531,8 @@
   }
 
   /* =========================================
-                                                                                                                                                                                                                                                                                                                                     新增模块样式：图表与统计 (Charts & Stats)
-                                                                                                                                                                                                                                                                                                                                     ========================================= */
+                                                                                                                                                                                                                                                                                                                                       新增模块样式：图表与统计 (Charts & Stats)
+                                                                                                                                                                                                                                                                                                                                       ========================================= */
   .card-header-row {
       display: flex;
       justify-content: space-between;
@@ -1588,8 +1588,8 @@
   }
 
   /* =========================================
-                                                                                                                                                                                                                                                                                                                                     新增模块样式：热力图 (Heatmap)
-                                                                                                                                                                                                                                                                                                                                     ========================================= */
+                                                                                                                                                                                                                                                                                                                                       新增模块样式：热力图 (Heatmap)
+                                                                                                                                                                                                                                                                                                                                       ========================================= */
   .heatmap-container {
       overflow-x: auto;
   }
@@ -1628,8 +1628,8 @@
   }
 
   /* =========================================
-                                                                                                                                                                                                                                                                                                                                     新增模块样式：风险分析
-                                                                                                                                                                                                                                                                                                                                     ========================================= */
+                                                                                                                                                                                                                                                                                                                                       新增模块样式：风险分析
+                                                                                                                                                                                                                                                                                                                                       ========================================= */
   .risk-summary-grid {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
@@ -1706,8 +1706,8 @@
   }
 
   /* =========================================
-                                                                                                                                                                                                                                                                                                                                     FAQ 样式
-                                                                                                                                                                                                                                                                                                                                     ========================================= */
+                                                                                                                                                                                                                                                                                                                                       FAQ 样式
+                                                                                                                                                                                                                                                                                                                                       ========================================= */
   .faq-container {
       display: flex;
       flex-direction: column;
@@ -1764,8 +1764,8 @@
       }
   }
   /* =========================================
-                                                                                                                                                                                                                                                   移动端适配 (最终修正版)
-                                                                                                                                                                                                                                                   ========================================= */
+                                                                                                                                                                                                                                                     移动端适配 (最终修正版)
+                                                                                                                                                                                                                                                     ========================================= */
   @media (max-width: 768px) {
       /* 1. 核心修复：给所有滚动容器添加渐变遮罩，增加高级感 */
       .table-container,
