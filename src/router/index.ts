@@ -76,6 +76,10 @@ export const constantRoutes = [
     path: '/cb',
     component: () => import('@/views/cb.vue'),
     meta: { requiresAuth: true }
+  }, {
+    path: '/zb',
+    component: () => import('@/views/zb.vue'),
+    meta: { requiresAuth: true }
   },
   // 404页面必须放在最后
   {

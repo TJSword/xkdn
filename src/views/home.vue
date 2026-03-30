@@ -31,6 +31,10 @@
         <template v-for="card in allFeatureCards" :key="card.id">
           <div v-if="!card.adminOnly || (userStore.userInfo && userStore.userInfo.admin)"
             :class="['strategy-card', card.cssClass, { 'disabled-card': card.vipOnly && !userStore.isVip }]" @click="handleCardClick(card)">
+
+            <div v-if="card.vipOnly" class="pro-tag">
+              <span>PRO</span>
+            </div>
             <div class="card-icon">{{ card.icon }}</div>
             <h2 class="card-title">{{ card.title }}</h2>
             <p class="card-description">{{ card.description }}</p>
@@ -276,7 +280,7 @@
       {
           id: 4,
           title: '微盘股策略',
-          description: '日度跟踪微盘组合，纪律化调仓获取贝塔收益。',
+          description: '周度跟踪微盘组合，纪律化调仓获取贝塔收益。',
           icon: '💎',
           cssClass: 'micro-cap',
           link: '/micro-cap',
@@ -1169,6 +1173,11 @@
   .card-icon {
       font-size: 2.2rem;
       margin-bottom: 0.6rem;
+      /* 👇 新增以下 3 行，锁死图标容器的高度和布局 */
+      height: 45px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
   }
 
   .card-title {
@@ -1253,7 +1262,7 @@
   .micro-cap-admin {
       /* 背景改为深紫色渐变，区别于关于我们的黄色 */
       /* background: linear-gradient(145deg, rgba(157, 78, 221, 0.08), rgba(0, 0, 0, 0.3));
-                                                                                                                border: 1px solid rgba(157, 78, 221, 0.2); */
+                                                                                                                      border: 1px solid rgba(157, 78, 221, 0.2); */
   }
 
   .micro-cap-admin:not(.disabled-card):hover {
@@ -2154,10 +2163,10 @@
   /* 针对最后两个大套餐，让它们在小屏下占据更多空间，或者直接流式布局 */
   /* 这里我们为了简单，用 flex wrap 或者保持 grid */
   /* .plans-grid {
-                                                                                    display: flex;
-                                                                                    flex-wrap: wrap;
-                                                                                    justify-content: space-between;
-                                                                                } */
+                                                                                          display: flex;
+                                                                                          flex-wrap: wrap;
+                                                                                          justify-content: space-between;
+                                                                                      } */
 
   .plan-item {
       background: rgba(255, 255, 255, 0.05);
@@ -2307,15 +2316,89 @@
 
       /* 让最后一个（2年卡）在手机上占满一行，显得霸气 */
       /* .plan-item:last-child {
-                                                                                                                                                                            width: 100%;
-                                                                                                                                                                            display: flex;
-                                                                                                                                                                            justify-content: space-between;
-                                                                                                                                                                            align-items: center;
-                                                                                                                                                                            padding: 0 20px;
-                                                                                                                                                                            height: 60px;
-                                                                                                                                                                        } */
+                                                                                                                                                                                  width: 100%;
+                                                                                                                                                                                  display: flex;
+                                                                                                                                                                                  justify-content: space-between;
+                                                                                                                                                                                  align-items: center;
+                                                                                                                                                                                  padding: 0 20px;
+                                                                                                                                                                                  height: 60px;
+                                                                                                                                                                              } */
       .recharge-modal-content {
           padding: 1.5rem 1rem;
+      }
+  }
+
+  /* 1. 确保 strategy-card 有相对定位，以承接绝对定位的 PRO 标签 */
+  .strategy-card {
+      position: relative; /* <-- 请在原有的 .strategy-card 样式中确保有这一行 */
+      /* 其他原有代码保持不变... */
+  }
+
+  /* 2. PRO 标签基础样式 */
+  .pro-tag {
+      position: absolute;
+      top: 0;
+      right: 0;
+      background: linear-gradient(135deg, #ffd700 0%, #ffa500 100%);
+      color: #121212;
+      font-size: 0.75rem;
+      font-weight: 900;
+      padding: 4px 12px;
+      border-bottom-left-radius: 12px;
+      box-shadow: -2px 2px 8px rgba(255, 215, 0, 0.3);
+      z-index: 10; /* 确保层级高于禁用的蒙版 */
+      overflow: hidden;
+      letter-spacing: 1px;
+  }
+
+  /* 3. 为 PRO 标签添加高级感的“扫光”动画 */
+  .pro-tag::after {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: -100%;
+      width: 50%;
+      height: 100%;
+      background: linear-gradient(
+          to right,
+          rgba(255, 255, 255, 0) 0%,
+          rgba(255, 255, 255, 0.8) 50%,
+          rgba(255, 255, 255, 0) 100%
+      );
+      transform: skewX(-20deg);
+      animation: proShine 3s infinite ease-in-out;
+  }
+
+  @keyframes proShine {
+      0% {
+          left: -100%;
+      }
+      20%,
+      100% {
+          left: 200%;
+      } /* 留白时间让动画不会太晃眼 */
+  }
+
+  /* 4. 修改未解锁时的遮罩层层级，确保不挡住 PRO 标签 */
+  .disabled-card::after {
+      z-index: 5; /* 在原有的 .disabled-card::after 样式中加入这行 */
+      /* 其他原有代码保持不变... */
+  }
+
+  /* 5. 为卡片内的图标添加悬浮互动小动画 (Q弹效果) */
+  .strategy-card:not(.disabled-card):hover .card-icon {
+      animation: iconPop 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+  }
+
+  @keyframes iconPop {
+      0% {
+          transform: scale(1);
+      }
+      50% {
+          transform: scale(1.2) translateY(-4px);
+      }
+      100% {
+          transform: scale(1.1) translateY(-2px);
       }
   }
 </style>
