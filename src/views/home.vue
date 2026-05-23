@@ -1062,6 +1062,7 @@
   }
 
   .strategy-card {
+      position: relative;
       /* 修改：使用更有质感的渐变背景 */
       background: linear-gradient(145deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.02));
       border: 1px solid rgba(255, 255, 255, 0.1);
@@ -1094,6 +1095,7 @@
       position: absolute;
       top: 0;
       left: 0;
+      z-index: 5;
       width: 100%;
       height: 100%;
 
@@ -1589,14 +1591,6 @@
       font-size: 0.9rem;
       width: fit-content;
   }
-
-  .price-highlight {
-      font-size: 1.2rem;
-      font-weight: bold;
-      color: #ffd700;
-      /* 亮金色 */
-  }
-
   /* 新增：联系提示文本样式 */
   .contact-prompt {
       font-size: 0.9rem;
@@ -1785,87 +1779,6 @@
   }
 
   /* ... 之后的响应式和其他样式都保持您原来的版本 ... */
-  @media (max-width: 1024px) {
-      .features-grid {
-          grid-template-columns: repeat(2, 1fr);
-      }
-
-      .home-page-wrapper {
-          align-items: flex-start;
-          overflow-y: auto;
-      }
-  }
-
-  @media (max-width: 576px) {
-      .home-page-wrapper {
-          padding: 1.5rem 1rem;
-      }
-
-      .main-title {
-          font-size: 1.8rem;
-      }
-
-      .subtitle {
-          font-size: 0.9rem;
-      }
-
-      .thermometer-header {
-          /* flex-direction: column; */
-          /* align-items: flex-start; */
-          gap: 0.25rem;
-          margin-bottom: 0.5rem;
-      }
-
-      .thermometer-desc {
-          text-align: center;
-      }
-
-      .features-grid {
-          grid-template-columns: 1fr;
-      }
-
-      .strategy-card {
-          min-height: auto;
-          padding: 1.5rem;
-      }
-
-      .membership-footer {
-          margin-top: 2rem;
-      }
-
-      .modal-content {
-          padding: 1.2rem 1rem;
-      }
-
-      /* --- 新增：进一步减小图表高度 --- */
-      .echart-container {
-          height: 300px;
-          /* 在最小屏幕上可以再小一点 */
-      }
-
-      /* --- 新增：适配欢迎弹窗的特定内容 --- */
-      .welcome-modal-body h4 {
-          font-size: 1.05rem;
-          /* 减小欢迎弹窗内的小标题字号 */
-      }
-
-      .welcome-modal-body ul {
-          padding-left: 0.5rem;
-          /* 减小列表的左内边距 */
-      }
-
-      .welcome-modal-body li {
-          font-size: 0.9rem;
-          /* 减小列表项字号 */
-      }
-
-      .welcome-modal-button {
-          width: 100%;
-          /* 让“开始探索”按钮撑满宽度，更易点击 */
-          padding: 0.9rem;
-      }
-  }
-
   .welcome-modal-content {
       max-width: 600px;
       /* 可以比图表弹窗窄一些 */
@@ -1980,20 +1893,6 @@
           padding: 1rem;
           min-height: 140px;
       }
-
-      .modal-content {
-          width: 80%;
-          padding: 1.5rem;
-      }
-
-      .modal-header h3 {
-          font-size: 1.2rem;
-      }
-
-      .echart-container {
-          height: 400px;
-      }
-
       .modal-content {
           width: 80%;
           padding: 1.5rem 1.2rem;
@@ -2062,6 +1961,7 @@
           align-items: flex-start;
           justify-content: center;
           gap: 0.25rem;
+          margin-bottom: 0.5rem;
       }
 
       .thermometer-desc {
@@ -2116,20 +2016,13 @@
           padding-left: 0.5rem;
       }
 
+      .welcome-modal-body li {
+          font-size: 0.9rem;
+      }
+
       .echart-container {
           height: 350px;
       }
-
-      .user-actions-footer {
-          flex-direction: column;
-          gap: 0.5rem;
-          margin-top: 2.5rem;
-      }
-
-      .user-actions-footer .separator {
-          /* display: none; */
-      }
-
       .user-actions-footer {
           flex-direction: column; /* 整体依然垂直，让“会员状态”在第一行 */
           gap: 0.8rem; /* 增加一点行间距 */
@@ -2328,12 +2221,6 @@
       }
   }
 
-  /* 1. 确保 strategy-card 有相对定位，以承接绝对定位的 PRO 标签 */
-  .strategy-card {
-      position: relative; /* <-- 请在原有的 .strategy-card 样式中确保有这一行 */
-      /* 其他原有代码保持不变... */
-  }
-
   /* 2. PRO 标签基础样式 */
   .pro-tag {
       position: absolute;
@@ -2377,12 +2264,6 @@
       100% {
           left: 200%;
       } /* 留白时间让动画不会太晃眼 */
-  }
-
-  /* 4. 修改未解锁时的遮罩层层级，确保不挡住 PRO 标签 */
-  .disabled-card::after {
-      z-index: 5; /* 在原有的 .disabled-card::after 样式中加入这行 */
-      /* 其他原有代码保持不变... */
   }
 
   /* 5. 为卡片内的图标添加悬浮互动小动画 (Q弹效果) */
