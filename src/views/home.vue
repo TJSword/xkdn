@@ -264,8 +264,7 @@
           description: '基于多因子轮动模型，每日动态捕捉交易机会。',
           icon: '🔄',
           cssClass: 'convertible-bond',
-          link: '/bonds',
-          vipOnly: true
+          link: '/bonds'
       },
 
       {
@@ -274,8 +273,7 @@
           description: '依据动量模型，轮动持有最强资产，进攻性强。',
           icon: '⚡',
           cssClass: 'momentum-strategy',
-          link: '/momentum',
-          vipOnly: true
+          link: '/momentum'
       },
       {
           id: 4,
@@ -283,8 +281,7 @@
           description: '周度跟踪微盘组合，纪律化调仓获取贝塔收益。',
           icon: '💎',
           cssClass: 'micro-cap',
-          link: '/micro-cap',
-          vipOnly: true
+          link: '/micro-cap'
       },
       // {
       //     id: 99, // 使用一个特殊的ID
@@ -301,8 +298,7 @@
           description: '自定义策略配比，回测组合相关性与风险收益特征。',
           icon: '⚗️', // 使用烧瓶图标，代表实验室
           cssClass: 'portfolio-lab', // 对应下面的 CSS
-          link: '/portfolio-analysis', // 记得在 router 中注册这个路由
-          vipOnly: true
+          link: '/portfolio-analysis' // 记得在 router 中注册这个路由
       },
       {
           id: 3,
