@@ -37,7 +37,7 @@
           </ul>
         </div>
 
-        <div class="content-card monitor-card">
+        <div v-if="canViewPremiumContent" class="content-card monitor-card">
           <div class="card-header-row monitor-header">
             <h2 class="card-title no-margin">动量监控</h2>
 
@@ -105,6 +105,14 @@
               </tbody>
             </table>
           </div>
+        </div>
+        <div v-else class="content-card premium-lock-card">
+          <div class="premium-lock-icon">🔒</div>
+          <h2 class="card-title">动量监控</h2>
+          <p class="card-description">
+            实时持仓、轮动代码与涨幅排名属于会员内容，开通后可查看完整调仓依据。
+          </p>
+          <button class="premium-lock-button" @click="router.push('/home')">返回首页开通会员</button>
         </div>
         <div class="content-card">
           <div class="card-header-row">
@@ -255,10 +263,16 @@
 </template>
 
 <script setup lang="ts">
-  import { ref, onMounted, nextTick } from 'vue'
+  import { computed, ref, onMounted, nextTick } from 'vue'
+  import { useRouter } from 'vue-router'
   import * as echarts from 'echarts'
   import app, { auth } from '@/lib/cloudbase'
   import axios from 'axios'
+  import { useUserStore } from '@/store/user'
+
+  const router = useRouter()
+  const userStore: any = useUserStore()
+  const canViewPremiumContent = computed(() => userStore.isVip || userStore.userInfo?.admin === true)
   // --- 1. 动量监控台数据 ---
   const currentRebalanceDate = ref('')
   const dataUpdateTime = ref('')
@@ -270,6 +284,8 @@
   const momentumList: any = ref([])
 
   const getMomentum = () => {
+      if (!canViewPremiumContent.value) return
+
       app.callFunction({
           name: 'getMomentumInfo',
           parse: true
@@ -283,9 +299,10 @@
           isToday.value = data.is_switch_triggered
       })
   }
-  getMomentum()
 
   const getEtfData = () => {
+      if (!canViewPremiumContent.value) return
+
       app.callFunction({
           name: 'fetchEtfData',
           parse: true
@@ -295,7 +312,11 @@
           dataUpdateTime.value = res.result.updateTime
       })
   }
-  getEtfData()
+
+  if (canViewPremiumContent.value) {
+      getMomentum()
+      getEtfData()
+  }
 
   const getlocalData = () => {
       axios.get('./static/momentumData.json').then(res => {
@@ -944,6 +965,47 @@
       align-items: center;
       flex-wrap: wrap; /* 允许小屏幕换行 */
       gap: 0.8rem;
+  }
+
+  .premium-lock-card {
+      min-height: 280px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+  }
+
+  .premium-lock-card .card-title {
+      padding-left: 0;
+      border-left: 0;
+  }
+
+  .premium-lock-icon {
+      width: 54px;
+      height: 54px;
+      display: grid;
+      place-items: center;
+      margin-bottom: 1rem;
+      border-radius: 50%;
+      background: rgba(255, 87, 34, 0.1);
+      border: 1px solid rgba(255, 87, 34, 0.25);
+      font-size: 1.6rem;
+  }
+
+  .premium-lock-button {
+      margin-top: 1rem;
+      padding: 0.7rem 1.2rem;
+      border: 0;
+      border-radius: 6px;
+      color: #fff;
+      background: #ff5722;
+      font-weight: 700;
+      cursor: pointer;
+  }
+
+  .premium-lock-button:hover {
+      background: #ff7043;
   }
 
   /* 右侧元数据容器 (时间 + 标签) */

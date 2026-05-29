@@ -98,7 +98,17 @@ const router = createRouter({
 const whiteList = ['/login']
 
 // 新增：为非 VIP 用户定义登录后可以访问的页面列表
-const nonVipAccessibleRoutes = ['/home', '/all-weather', '/tools', '/wealth-map', '/about']; // 示例列表
+const nonVipAccessibleRoutes = [
+  '/home',
+  '/all-weather',
+  '/tools',
+  '/wealth-map',
+  '/about',
+  '/bonds',
+  '/micro-cap',
+  '/momentum',
+  '/portfolio-analysis'
+]; // 示例列表
 
 const adminRoutes = ['/admin', '/mc', '/cb'];
 

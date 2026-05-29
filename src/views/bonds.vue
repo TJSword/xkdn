@@ -28,7 +28,7 @@
         </div>
 
         <!-- 新增：转债市场概览 -->
-        <div class="content-card">
+        <div v-if="canViewPremiumContent" class="content-card">
           <h2 class="card-title">转债市场概览</h2>
           <p class="card-description">
             以下为截至 <strong>{{ marketTimestamp }}</strong> 的全市场可转债核心数据，反映当前市场温度。
@@ -139,7 +139,7 @@
           </table>
         </div>
 
-        <div class="content-card">
+        <div v-if="canViewPremiumContent" class="content-card">
           <h2 class="card-title">最新持仓与调仓建议</h2>
           <p class="card-description">
             根据模型于 {{ formattedDate }} 14:40 生成的最新组合与操作建议。请结合自身情况参考。
@@ -212,6 +212,14 @@
             </div>
 
           </div>
+        </div>
+        <div v-else class="content-card premium-lock-card">
+          <div class="premium-lock-icon">🔒</div>
+          <h2 class="card-title">最新持仓与调仓建议</h2>
+          <p class="card-description">
+            最新持仓、调入调出清单属于会员内容，开通后可查看完整操作指引。
+          </p>
+          <button class="premium-lock-button" @click="router.push('/home')">返回首页开通会员</button>
         </div>
 
         <div class="content-card">
@@ -363,10 +371,18 @@
 
 <script setup lang="ts">
   import { ref, onMounted, watch, computed } from 'vue'
+  import { useRouter } from 'vue-router'
   import * as echarts from 'echarts'
   import app, { auth } from '@/lib/cloudbase'
   import axios from 'axios'
+  import { useUserStore } from '@/store/user'
+
+  const router = useRouter()
+  const userStore: any = useUserStore()
+  const canViewPremiumContent = computed(() => userStore.isVip || userStore.userInfo?.admin === true)
   const getStrategyData = () => {
+      if (!canViewPremiumContent.value) return
+
       app.callFunction({
           name: 'getBondPortfolio',
           parse: true
@@ -1098,6 +1114,48 @@
       padding-bottom: 0.5rem;
       border-bottom: 1px solid rgba(255, 255, 255, 0.1);
   }
+
+  .premium-lock-card {
+      min-height: 280px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+  }
+
+  .premium-lock-card .card-title {
+      padding-left: 0;
+      border-left: 0;
+  }
+
+  .premium-lock-icon {
+      width: 54px;
+      height: 54px;
+      display: grid;
+      place-items: center;
+      margin-bottom: 1rem;
+      border-radius: 50%;
+      background: rgba(173, 216, 230, 0.1);
+      border: 1px solid rgba(173, 216, 230, 0.25);
+      font-size: 1.6rem;
+  }
+
+  .premium-lock-button {
+      margin-top: 1rem;
+      padding: 0.7rem 1.2rem;
+      border: 0;
+      border-radius: 6px;
+      color: #0f1824;
+      background: #add8e6;
+      font-weight: 700;
+      cursor: pointer;
+  }
+
+  .premium-lock-button:hover {
+      background: #c7edf8;
+  }
+
   .adjustments-grid {
       display: grid;
       grid-template-columns: 1fr 1fr;

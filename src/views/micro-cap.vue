@@ -36,7 +36,7 @@
             <li><b>作为“卫星”配置：</b> 鉴于微盘股的高波动特性，它适合作为投资组合中的“卫星”部分，用以增强整体收益弹性。建议配置比例不超过总投资资产的20%，并做好长期持有的准备。</li>
           </ul>
         </div>
-        <div class="content-card">
+        <div v-if="canViewPremiumContent" class="content-card">
           <h2 class="card-title">最新持仓与调仓建议</h2>
           <p class="card-description">
             根据模型于 {{ formattedDate }} 生成的最新组合。
@@ -154,6 +154,14 @@
             </div>
           </template>
 
+        </div>
+        <div v-else class="content-card premium-lock-card">
+          <div class="premium-lock-icon">🔒</div>
+          <h2 class="card-title">最新持仓与调仓建议</h2>
+          <p class="card-description">
+            核心持仓、资金测算和组合调仓指引属于会员内容，开通后可查看完整执行方案。
+          </p>
+          <button class="premium-lock-button" @click="router.push('/home')">返回首页开通会员</button>
         </div>
 
         <div class="content-card">
@@ -357,10 +365,13 @@
 </template>
 
 <script setup lang="ts">
-  import { ref, onMounted, nextTick, watch } from 'vue'
+  import { computed, ref, onMounted, nextTick, watch } from 'vue'
+  import { useRouter } from 'vue-router'
   import * as echarts from 'echarts'
   import { useUserStore } from '@/store/user'
+  const router = useRouter()
   const userStore = useUserStore()
+  const canViewPremiumContent = computed(() => userStore.isVip || userStore.userInfo?.admin === true)
   // 引入云开发 SDK (请确保路径与您项目一致，通常是 @/lib/cloudbase 或类似的)
   import app from '@/lib/cloudbase'
   import axios from 'axios'
@@ -381,6 +392,8 @@
 
   // 2. [新增] 获取映射关系的函数
   const fetchStockMap = async () => {
+      if (!canViewPremiumContent.value) return
+
       try {
           // 假设文件放在 public/static/stock_map.json
           // 注意：根据你的部署环境，路径可能是 './static/...' 或 '/static/...'
@@ -533,6 +546,11 @@
 
   // 执行计算 (修复保底1手分配的瀑布流算法)
   const handleCalculate = () => {
+      if (!canViewPremiumContent.value) {
+          showMessage('开通会员后可查看调仓测算。', 'warning')
+          return
+      }
+
       const stocks = latestPortfolio.value
       const totalFunds = Number(inputAmount.value)
 
@@ -692,6 +710,8 @@
 
   // --- 3. 获取云端数据函数 ---
   const fetchStrategyData = async () => {
+      if (!canViewPremiumContent.value) return
+
       try {
           const res = await app.callFunction({
               name: 'getMicroCapData10' // 刚才创建的云函数名称
@@ -1184,8 +1204,10 @@
 
   // --- 生命周期 ---
   onMounted(() => {
-      fetchStrategyData()
-      fetchStockMap()
+      if (canViewPremiumContent.value) {
+          fetchStrategyData()
+          fetchStockMap()
+      }
       nextTick(() => {
           // 2. 初始化图表
           window.addEventListener('resize', () => myChart?.resize())
@@ -1468,6 +1490,47 @@
   }
   .text-green {
       color: #00c497 !important;
+  }
+
+  .premium-lock-card {
+      min-height: 280px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+  }
+
+  .premium-lock-card .card-title {
+      padding-left: 0;
+      border-left: 0;
+  }
+
+  .premium-lock-icon {
+      width: 54px;
+      height: 54px;
+      display: grid;
+      place-items: center;
+      margin-bottom: 1rem;
+      border-radius: 50%;
+      background: rgba(240, 230, 140, 0.1);
+      border: 1px solid rgba(240, 230, 140, 0.25);
+      font-size: 1.6rem;
+  }
+
+  .premium-lock-button {
+      margin-top: 1rem;
+      padding: 0.7rem 1.2rem;
+      border: 0;
+      border-radius: 6px;
+      color: #171609;
+      background: #f0e68c;
+      font-weight: 700;
+      cursor: pointer;
+  }
+
+  .premium-lock-button:hover {
+      background: #fff2a8;
   }
 
   /* 调仓指引 Grid */
@@ -2033,16 +2096,21 @@
   /* --- Modal 弹窗样式 --- */
   .modal-overlay {
       position: fixed;
-      top: 0;
-      left: 0;
-      width: 100vw;
+      inset: 0;
+      width: 100%;
       height: 100vh;
+      height: 100svh;
+      height: 100dvh;
+      padding: max(1rem, env(safe-area-inset-top)) max(1rem, env(safe-area-inset-right))
+          max(1rem, env(safe-area-inset-bottom)) max(1rem, env(safe-area-inset-left));
       background: rgba(0, 0, 0, 0.8);
       backdrop-filter: blur(5px);
       z-index: 999;
       display: flex;
       justify-content: center;
       align-items: center;
+      overflow-y: auto;
+      box-sizing: border-box;
   }
 
   .modal-content {
@@ -2054,6 +2122,9 @@
       display: flex;
       flex-direction: column;
       max-height: 80vh; /* 防止太高 */
+      max-height: min(80vh, calc(100svh - 2rem - env(safe-area-inset-top) - env(safe-area-inset-bottom)));
+      max-height: min(80vh, calc(100dvh - 2rem - env(safe-area-inset-top) - env(safe-area-inset-bottom)));
+      overflow: hidden;
       box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
       animation: fadeInUp 0.3s ease-out;
   }
@@ -2064,6 +2135,7 @@
       display: flex;
       justify-content: space-between;
       align-items: center;
+      flex-shrink: 0;
   }
   .modal-header h3 {
       margin: 0;
@@ -2080,6 +2152,8 @@
       padding: 1rem;
       overflow-y: auto;
       flex: 1;
+      min-height: 0;
+      -webkit-overflow-scrolling: touch;
   }
 
   .holding-row {
@@ -2154,6 +2228,7 @@
       display: flex;
       justify-content: flex-end;
       gap: 1rem;
+      flex-shrink: 0;
   }
 
   .modal-btn {
@@ -2174,6 +2249,17 @@
 
   /* 移动端适配 */
   @media (max-width: 480px) {
+      .modal-content {
+          width: 100%;
+          max-height: calc(100vh - 2rem);
+          max-height: calc(100svh - 2rem - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+          max-height: calc(100dvh - 2rem - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+      }
+
+      .modal-footer {
+          padding-bottom: max(1rem, env(safe-area-inset-bottom));
+      }
+
       .holding-row {
           gap: 0.3rem;
       }
