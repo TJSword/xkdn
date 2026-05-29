@@ -7,15 +7,14 @@ const _ = db.command // _.inc() 等高级操作符会用到，这里先引入
  * 保存每日投资表现记录
  */
 exports.main = async (event, context) => {
-    const { record_date, strategy_id, strategy_amount, daily_profit, cumulative_rate } = event
+    const { record_date, strategy_id, strategy_amount, daily_profit } = event
 
     // 3. 校验业务参数
     if (
         !record_date ||
         !strategy_id ||
         strategy_amount === undefined ||
-        daily_profit === undefined ||
-        cumulative_rate === undefined
+        daily_profit === undefined
     ) {
         return {
             success: false,
@@ -28,24 +27,44 @@ exports.main = async (event, context) => {
         const performanceCollection = db.collection('dailyPerformance')
 
         // 5. 创建一个唯一的文档 ID
-        // 在 NoSQL 数据库中，我们通常将复合主键合并成一个唯一的字符串ID
-        // 这样可以确保每个策略每天只有一条记录
         const docId = `${strategy_id}_${record_date}`
+
+        // 将输入的参数转为数字类型，以便进行计算
+        const numStrategyAmount = Number(strategy_amount); // 期末总额
+        const numDailyProfit = Number(daily_profit);       // 当日收益
+
+        // ==========================================================
+        // 新增逻辑：根据修正后的公式计算当日收益率
+        // ==========================================================
+
+        // 1. 计算期初本金 (Start-of-Day Principal)
+        const startOfDayAmount = numStrategyAmount - numDailyProfit;
+
+        // 2. 计算当日收益率，并处理期初本金为0的情况
+        // 公式: 当日收益率 = 当日收益 / 期初本金
+        const daily_rate = startOfDayAmount !== 0 ? numDailyProfit / startOfDayAmount : 0;
+        // ==========================================================
+
 
         // 6. 准备要存入数据库的数据
         const dataToSave = {
             record_date: record_date,
             strategy_id: strategy_id,
-            strategy_amount: Number(strategy_amount),
-            daily_profit: Number(daily_profit),
-            cumulative_rate: Number(cumulative_rate),
+            strategy_amount: numStrategyAmount, // 期末总额
+            daily_profit: numDailyProfit,
+            // cumulative_rate: Number(cumulative_rate),
+
+            // 新增字段：将计算出的当日收益率也存入数据库
+            daily_rate: daily_rate.toFixed(4),
+
+            // （可选）也可以把期初本金存下来，方便核对
+            // start_of_day_amount: startOfDayAmount,
+
             // 使用服务端时间，可以防止客户端时间不准导致的问题
             last_updated: db.serverDate()
         }
 
         // 7. 执行写入/更新操作
-        // 使用 doc(id).set() 方法。如果ID对应的文档存在，它会覆盖更新；如果不存在，则会创建。
-        // 这完美地实现了我们“存在即更新，不存在则创建”(Upsert)的需求，非常简洁。
         await performanceCollection.doc(docId).set(dataToSave)
 
         console.log(`成功保存或更新文档: ${docId}`)

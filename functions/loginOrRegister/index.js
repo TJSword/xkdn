@@ -5,10 +5,11 @@ const auth = app.auth()
 const db = app.database()
 const _ = db.command
 
+
 exports.main = async (event, context) => {
     // 在实际环境中，您应该使用真实的 uid
     const { uid } = auth.getUserInfo()
-    // 为了方便测试，此处我们模拟一个 uid
+   
     const usersCollection = db.collection('users')
 
     const userRecordResult = await usersCollection.doc(uid).get()
@@ -33,7 +34,7 @@ exports.main = async (event, context) => {
         await usersCollection.doc(uid).update(updateData)
         return { ...user, ...updateData }
     } else {
-        const vipExpiry = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).getTime()
+        const vipExpiry = new Date(Date.now() + 1 * 24 * 60 * 60 * 1000).getTime()
 
         const newUser = {
             createTime: db.serverDate(),
