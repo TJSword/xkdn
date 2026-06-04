@@ -43,7 +43,10 @@
       </div>
 
       <div class="user-actions-footer">
-        <span>{{ membershipStatusText }}</span>
+        <span class="membership-status">
+          <span class="membership-icon">👑</span>
+          <span>{{ membershipStatusText }}</span>
+        </span>
         <span class="separator status-separator">|</span>
         <div class="actions-wrapper">
           <div href="#" @click.prevent="openRechargeModal" class="action-link">会员充值</div>
@@ -299,6 +302,14 @@
           icon: '⚗️', // 使用烧瓶图标，代表实验室
           cssClass: 'portfolio-lab', // 对应下面的 CSS
           link: '/portfolio-analysis' // 记得在 router 中注册这个路由
+      },
+      {
+          id: 11,
+          title: 'LOF溢价监控',
+          description: '聚合场内价格、净值估算与申购状态，观察折溢价机会。',
+          icon: '📈',
+          cssClass: 'lof-monitor',
+          link: '/lof'
       },
       {
           id: 3,
@@ -744,10 +755,10 @@
       // 如果用户是 VIP
       if (userStore.isVip) {
           // 返回格式化的到期时间
-          return `👑 会员有效期至: ${formatTimestamp(userStore.userInfo.vipExpiry)}`
+          return `会员有效期至: ${formatTimestamp(userStore.userInfo.vipExpiry)}`
       } else {
           // 如果用户不是 VIP，返回鼓励升级的文案
-          return '👑 升级会员，解锁全部特权'
+          return '升级会员，解锁全部特权'
       }
   })
 

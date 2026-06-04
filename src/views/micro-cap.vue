@@ -167,7 +167,7 @@
         <div class="content-card">
           <div class="card-header-row">
             <h2 class="card-title no-margin">微盘股策略 vs 沪深300全收益</h2>
-            <span class="period-badge">回测周期: 2013-01-04 至 2025-12-31</span>
+            <span class="period-badge">{{ backtestPeriodText }}</span>
           </div>
 
           <div ref="chartContainer" class="echart-container"></div>
@@ -175,23 +175,23 @@
           <div class="stats-bar">
             <div class="stat-item">
               <div class="stat-label">总收益</div>
-              <div class="stat-value highlight">45341.53%</div>
+              <div class="stat-value highlight">{{ strategyStats.totalReturn }}%</div>
             </div>
             <div class="stat-item">
               <div class="stat-label">年化收益</div>
-              <div class="stat-value">62.35%</div>
+              <div class="stat-value">{{ strategyStats.annualizedReturn }}%</div>
             </div>
             <div class="stat-item">
               <div class="stat-label">波动率</div>
-              <div class="stat-value">28.91%</div>
+              <div class="stat-value">{{ strategyStats.volatility }}%</div>
             </div>
             <div class="stat-item">
               <div class="stat-label">夏普比率</div>
-              <div class="stat-value">2.087</div>
+              <div class="stat-value">{{ strategyStats.sharpe }}</div>
             </div>
             <div class="stat-item">
               <div class="stat-label">最大回撤</div>
-              <div class="stat-value negative">-50.92%</div>
+              <div class="stat-value negative">{{ strategyStats.maxDrawdown }}%</div>
             </div>
           </div>
         </div>
@@ -228,17 +228,17 @@
           <div class="risk-summary-grid">
             <div class="risk-box">
               <div class="risk-label">卡玛比率 (Calmar)</div>
-              <div class="risk-main-val">1.224</div>
+              <div class="risk-main-val">{{ strategyStats.calmar }}</div>
               <div class="risk-sub-val">年化收益 / 最大回撤</div>
             </div>
             <div class="risk-box">
-              <div class="risk-label"> 月度胜率: 69.2%</div>
-              <div class="risk-main-val">108 / 156</div>
+              <div class="risk-label"> 月度胜率: {{ monthlySummary.winRate }}%</div>
+              <div class="risk-main-val">{{ monthlySummary.profitableMonths }} / {{ monthlySummary.totalMonths }}</div>
               <div class="risk-sub-val">盈利月数 / 总月数</div>
             </div>
             <div class="risk-box">
               <div class="risk-label">盈亏比</div>
-              <div class="risk-main-val">0.928</div>
+              <div class="risk-main-val">{{ profitLossRatio }}</div>
               <div class="risk-sub-val">日均盈利 / 日均亏损</div>
             </div>
           </div>
@@ -375,8 +375,33 @@
   // 引入云开发 SDK (请确保路径与您项目一致，通常是 @/lib/cloudbase 或类似的)
   import app from '@/lib/cloudbase'
   import axios from 'axios'
+  import {
+      calculateDrawdownAnalysis,
+      calculateMonthlyReturns,
+      calculateMonthlySummary,
+      calculateProfitLossRatio,
+      calculateStats,
+      formatBacktestPeriod,
+      prepareStrategySeries
+  } from '@/utils/strategyMetrics'
+  import type { MonthlySummary, StrategyStats } from '@/utils/strategyMetrics'
   const showMessage: any = inject('showMessage')
   const hasCalculated = ref(false) // 新增开关
+  const strategyStats = ref<StrategyStats>({
+      totalReturn: '0.00',
+      annualizedReturn: '0.00',
+      volatility: '0.00',
+      sharpe: '0.000',
+      maxDrawdown: '0.00',
+      calmar: '0.000'
+  })
+  const monthlySummary = ref<MonthlySummary>({
+      profitableMonths: 0,
+      totalMonths: 0,
+      winRate: '0.0'
+  })
+  const profitLossRatio = ref('0.000')
+  const backtestPeriodText = ref('回测周期: --')
 
   // --- 新增：资金分配计算器逻辑 ---
   const inputAmount = ref<number | null>(null) // 用户输入的金额
@@ -1197,13 +1222,24 @@
   const getlocalData = () => {
       axios.get('./static/microCapData.json').then(res => {
           const data = res.data
-          initChart(data.dateList, data.strategyData, data.hs300)
+          const series = prepareStrategySeries(data.dateList, data.strategyData)
+          const benchmarkData = Array.isArray(data.hs300) ? data.hs300.slice(0, series.dates.length) : []
+          const drawdownAnalysis = calculateDrawdownAnalysis(series.values, series.dates)
+
+          backtestPeriodText.value = formatBacktestPeriod(series.dates)
+          strategyStats.value = calculateStats(series.values)
+          profitLossRatio.value = calculateProfitLossRatio(series.values)
+          monthlyReturns.value = calculateMonthlyReturns(series.values, series.dates)
+          monthlySummary.value = calculateMonthlySummary(monthlyReturns.value)
+          drawdownDist.value = drawdownAnalysis.distribution
+          topDrawdowns.value = drawdownAnalysis.drawdowns
+          initChart(series.dates, series.values, benchmarkData)
       })
   }
-  getlocalData()
 
   // --- 生命周期 ---
   onMounted(() => {
+      getlocalData()
       if (canViewPremiumContent.value) {
           fetchStrategyData()
           fetchStockMap()
