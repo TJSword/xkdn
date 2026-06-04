@@ -28,8 +28,15 @@
         <div class="config-grid">
           <div class="strategy-inputs">
             <div v-for="strat in strategies" :key="strat.id" class="input-row">
-              <label class="checkbox-label">
-                <input type="checkbox" v-model="strat.selected" @change="handleSelectionChange" />
+              <div class="strategy-label-cell">
+                <input
+                  :id="`strategy-${strat.id}`"
+                  class="strategy-checkbox"
+                  type="checkbox"
+                  v-model="strat.selected"
+                  :aria-label="strat.name"
+                  @change="handleSelectionChange"
+                />
                 <button
                   v-if="hasStrategyAction(strat.id)"
                   type="button"
@@ -39,14 +46,16 @@
                 >
                   {{ strat.name }}
                 </button>
-                <span v-else class="name">{{ strat.name }}</span>
+                <label v-else class="name strategy-name-label" :for="`strategy-${strat.id}`">
+                  {{ strat.name }}
+                </label>
                 <span
                   v-if="strat.id === ALL_WEATHER_ID && leverageConfig.enabled"
                   class="inline-leverage-badge"
                 >
                   {{ formatLeverageMultiplier(cleanLeverageMultiplier) }}
                 </span>
-              </label>
+              </div>
               <div class="slider-container" :class="{ disabled: !strat.selected }">
                 <input type="range" v-model.number="strat.weight" min="0" max="100" step="5" :disabled="!strat.selected">
                 <div class="number-input-wrapper">
@@ -1659,18 +1668,22 @@
       align-items: center;
       gap: 1rem;
   }
-  .checkbox-label {
+  .strategy-label-cell {
       display: flex;
       align-items: center;
       gap: 0.5rem;
       min-width: 100px;
-      cursor: pointer;
       font-size: 0.9rem;
   }
-  .checkbox-label input[type='checkbox'] {
+  .strategy-checkbox {
       accent-color: var(--theme-color);
       width: 16px;
       height: 16px;
+      cursor: pointer;
+      flex-shrink: 0;
+  }
+  .strategy-name-label {
+      cursor: pointer;
   }
   .strategy-name-action {
       border: none;
@@ -1683,13 +1696,13 @@
       text-decoration-line: underline;
       text-decoration-style: dotted;
       text-decoration-thickness: 2px;
-      text-decoration-color: rgba(125, 211, 252, 0.95);
-      text-underline-offset: 5px;
+      text-decoration-color: rgb(99 102 241);
+      text-underline-offset: 8px;
       text-shadow: 0 0 8px rgba(125, 211, 252, 0.18);
       transition: all 0.2s;
   }
   .strategy-name-action:hover {
-      color: #ffffff;
+      color: var(--theme-color);
       text-decoration-color: var(--theme-color);
       text-shadow: 0 0 10px var(--theme-shadow);
   }
