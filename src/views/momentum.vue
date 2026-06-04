@@ -117,7 +117,7 @@
         <div class="content-card">
           <div class="card-header-row">
             <h2 class="card-title no-margin">动量策略 vs 沪深300全收益</h2>
-            <span class="period-badge">回测周期: 2013-01-04 至 2025-12-31</span>
+            <span class="period-badge">{{ backtestPeriodText }}</span>
           </div>
 
           <div ref="chartContainer" class="echart-container"></div>
@@ -125,23 +125,23 @@
           <div class="stats-bar">
             <div class="stat-item">
               <div class="stat-label">总收益</div>
-              <div class="stat-value highlight">5200.43%</div>
+              <div class="stat-value highlight">{{ strategyStats.totalReturn }}%</div>
             </div>
             <div class="stat-item">
               <div class="stat-label">年化收益</div>
-              <div class="stat-value">36.95%</div>
+              <div class="stat-value">{{ strategyStats.annualizedReturn }}%</div>
             </div>
             <div class="stat-item">
               <div class="stat-label">波动率</div>
-              <div class="stat-value">24.51%</div>
+              <div class="stat-value">{{ strategyStats.volatility }}%</div>
             </div>
             <div class="stat-item">
               <div class="stat-label">夏普比率</div>
-              <div class="stat-value">1.426</div>
+              <div class="stat-value">{{ strategyStats.sharpe }}</div>
             </div>
             <div class="stat-item">
               <div class="stat-label">最大回撤</div>
-              <div class="stat-value negative">-29.72%</div>
+              <div class="stat-value negative">{{ strategyStats.maxDrawdown }}%</div>
             </div>
           </div>
         </div>
@@ -178,17 +178,17 @@
           <div class="risk-summary-grid">
             <div class="risk-box">
               <div class="risk-label">卡玛比率 (Calmar)</div>
-              <div class="risk-main-val">1.243</div>
+              <div class="risk-main-val">{{ strategyStats.calmar }}</div>
               <div class="risk-sub-val">年化收益 / 最大回撤</div>
             </div>
             <div class="risk-box">
               <div class="risk-label">盈利 / 总月数</div>
-              <div class="risk-main-val"> 95 / 156</div>
-              <div class="risk-sub-val">月度胜率: 60.9%</div>
+              <div class="risk-main-val">{{ monthlySummary.profitableMonths }} / {{ monthlySummary.totalMonths }}</div>
+              <div class="risk-sub-val">月度胜率: {{ monthlySummary.winRate }}%</div>
             </div>
             <div class="risk-box">
               <div class="risk-label">平均持仓天数</div>
-              <div class="risk-main-val">5.4 天</div>
+              <div class="risk-main-val">13.2 天</div>
               <div class="risk-sub-val">反映策略换手频率</div>
             </div>
           </div>
@@ -269,14 +269,37 @@
   import app, { auth } from '@/lib/cloudbase'
   import axios from 'axios'
   import { useUserStore } from '@/store/user'
+  import {
+      calculateDrawdownAnalysis,
+      calculateMonthlyReturns,
+      calculateMonthlySummary,
+      calculateStats,
+      formatBacktestPeriod,
+      prepareStrategySeries
+  } from '@/utils/strategyMetrics'
+  import type { MonthlySummary, StrategyStats } from '@/utils/strategyMetrics'
 
   const router = useRouter()
   const userStore: any = useUserStore()
   const canViewPremiumContent = computed(() => userStore.isVip || userStore.userInfo?.admin === true)
+  const strategyStats = ref<StrategyStats>({
+      totalReturn: '0.00',
+      annualizedReturn: '0.00',
+      volatility: '0.00',
+      sharpe: '0.000',
+      maxDrawdown: '0.00',
+      calmar: '0.000'
+  })
+  const monthlySummary = ref<MonthlySummary>({
+      profitableMonths: 0,
+      totalMonths: 0,
+      winRate: '0.0'
+  })
   // --- 1. 动量监控台数据 ---
   const currentRebalanceDate = ref('')
   const dataUpdateTime = ref('')
   const signalUpdateTime = ref('')
+  const backtestPeriodText = ref('回测周期: --')
   const currentHolding = ref('')
   const currentHoldingCode = ref('')
   const isToday = ref(false)
@@ -321,7 +344,17 @@
   const getlocalData = () => {
       axios.get('./static/momentumData.json').then(res => {
           const data = res.data
-          initChart(data.dateList, data.strategyData, data.hs300)
+          const series = prepareStrategySeries(data.dateList, data.strategyData)
+          const benchmarkData = Array.isArray(data.hs300) ? data.hs300.slice(0, series.dates.length) : []
+          const drawdownAnalysis = calculateDrawdownAnalysis(series.values, series.dates)
+
+          backtestPeriodText.value = formatBacktestPeriod(series.dates)
+          strategyStats.value = calculateStats(series.values)
+          monthlyReturns.value = calculateMonthlyReturns(series.values, series.dates)
+          monthlySummary.value = calculateMonthlySummary(monthlyReturns.value)
+          drawdownDist.value = drawdownAnalysis.distribution
+          topDrawdowns.value = drawdownAnalysis.drawdowns
+          initChart(series.dates, series.values, benchmarkData)
       })
   }
   getlocalData()
@@ -567,8 +600,6 @@
       // console.log(years)
       monthlyReturns.value = years
   }
-  generateMockData()
-
   const getHeatmapStyle = (value: number | null) => {
       if (value === null || value === undefined) return {}
       if (value === 0) return { backgroundColor: 'transparent' }
@@ -606,7 +637,8 @@
       { range: '> 30%', count: 0 }
   ])
 
-  const topDrawdowns = ref([
+  const topDrawdowns:any
+   = ref([
       {
           startDate: '2024-10-08',
           troughDate: '2025-01-02',

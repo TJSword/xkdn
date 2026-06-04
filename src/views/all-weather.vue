@@ -63,7 +63,7 @@
               <thead>
                 <tr>
                   <th>资产类别</th>
-                  <th>建议配置比例</th>
+                  <th>配置比例</th>
                   <th>对应ETF</th>
                   <th>ETF代码</th>
                 </tr>
@@ -104,7 +104,7 @@
               <thead>
                 <tr>
                   <th>资产类别</th>
-                  <th>建议配置比例</th>
+                  <th>配置比例</th>
                   <th>对应基金名称</th>
                   <th>基金代码</th>
                 </tr>
@@ -300,7 +300,7 @@
         <div class="content-card">
           <div class="card-header-row">
             <h2 class="card-title no-margin">全天候策略 vs 沪深300全收益</h2>
-            <span class="period-badge">回测周期: 2016-01-04 至 2025-12-31</span>
+            <span class="period-badge">{{ backtestPeriodText }}</span>
           </div>
 
           <div ref="chartContainer" class="echart-container"></div>
@@ -308,23 +308,23 @@
           <div class="stats-bar">
             <div class="stat-item">
               <div class="stat-label">总收益</div>
-              <div class="stat-value highlight">290.59%</div>
+              <div class="stat-value highlight">{{ strategyStats.totalReturn }}%</div>
             </div>
             <div class="stat-item">
               <div class="stat-label">年化收益</div>
-              <div class="stat-value">15.05%</div>
+              <div class="stat-value">{{ strategyStats.annualizedReturn }}%</div>
             </div>
             <div class="stat-item">
               <div class="stat-label">波动率</div>
-              <div class="stat-value">7.67%</div>
+              <div class="stat-value">{{ strategyStats.volatility }}%</div>
             </div>
             <div class="stat-item">
               <div class="stat-label">夏普比率</div>
-              <div class="stat-value">1.701</div>
+              <div class="stat-value">{{ strategyStats.sharpe }}</div>
             </div>
             <div class="stat-item">
               <div class="stat-label">最大回撤</div>
-              <div class="stat-value negative">-9.47%</div>
+              <div class="stat-value negative">{{ strategyStats.maxDrawdown }}%</div>
             </div>
           </div>
         </div>
@@ -361,17 +361,17 @@
           <div class="risk-summary-grid">
             <div class="risk-box">
               <div class="risk-label">卡玛比率 (Calmar)</div>
-              <div class="risk-main-val">1.588</div>
+              <div class="risk-main-val">{{ strategyStats.calmar }}</div>
               <div class="risk-sub-val">年化收益 / 最大回撤</div>
             </div>
             <div class="risk-box">
               <div class="risk-label">盈利 / 总月数</div>
-              <div class="risk-main-val"> 89/ 120</div>
-              <div class="risk-sub-val">月度胜率: 74.2%</div>
+              <div class="risk-main-val">{{ monthlySummary.profitableMonths }} / {{ monthlySummary.totalMonths }}</div>
+              <div class="risk-sub-val">月度胜率: {{ monthlySummary.winRate }}%</div>
             </div>
             <div class="risk-box">
               <div class="risk-label">索提诺比率</div>
-              <div class="risk-main-val">2.543</div>
+              <div class="risk-main-val">{{ sortinoRatio }}</div>
               <div class="risk-sub-val">反映策略的抗跌能力</div>
             </div>
           </div>
@@ -465,6 +465,16 @@
   import * as echarts from 'echarts'
   import app from '@/lib/cloudbase'
   import axios from 'axios'
+  import {
+      calculateDrawdownAnalysis,
+      calculateMonthlyReturns,
+      calculateMonthlySummary,
+      calculateSortinoRatio,
+      calculateStats,
+      formatBacktestPeriod,
+      prepareStrategySeries
+  } from '@/utils/strategyMetrics'
+  import type { MonthlySummary, StrategyStats } from '@/utils/strategyMetrics'
   // 1. 新增：加载状态，提升用户体验
   const isLoading = ref(true)
   // --- 控制Tabs和FAQ (无变化) ---
@@ -473,6 +483,21 @@
   const toggleFaq = (index: number) => {
       openFaqIndex.value = openFaqIndex.value === index ? null : index
   }
+  const strategyStats = ref<StrategyStats>({
+      totalReturn: '0.00',
+      annualizedReturn: '0.00',
+      volatility: '0.00',
+      sharpe: '0.000',
+      maxDrawdown: '0.00',
+      calmar: '0.000'
+  })
+  const monthlySummary = ref<MonthlySummary>({
+      profitableMonths: 0,
+      totalMonths: 0,
+      winRate: '0.0'
+  })
+  const sortinoRatio = ref('0.000')
+  const backtestPeriodText = ref('回测周期: --')
   // --- 2. 收益热力图数据 (这里用模拟数据，你可以替换为真实全天候数据) ---
   const monthlyReturns: any = ref([])
   const generateMockData = () => {
@@ -692,7 +717,7 @@
       { range: '> 10%', count: 0 }
   ])
 
-  const topDrawdowns = ref([
+  const topDrawdowns:any = ref([
       {
           startDate: '2020-02-21',
           troughDate: '2020-03-23',
@@ -866,14 +891,24 @@
   const getlocalData = () => {
       axios.get('./static/allWeatherData.json').then(res => {
           const data = res.data
-          initChart(data.dateList, data.strategyData, data.hs300)
+          const series = prepareStrategySeries(data.dateList, data.strategyData)
+          const benchmarkData = Array.isArray(data.hs300) ? data.hs300.slice(0, series.dates.length) : []
+          const drawdownAnalysis = calculateDrawdownAnalysis(series.values, series.dates)
+
+          backtestPeriodText.value = formatBacktestPeriod(series.dates)
+          strategyStats.value = calculateStats(series.values)
+          sortinoRatio.value = calculateSortinoRatio(series.values)
+          monthlyReturns.value = calculateMonthlyReturns(series.values, series.dates)
+          monthlySummary.value = calculateMonthlySummary(monthlyReturns.value)
+          drawdownDist.value = drawdownAnalysis.distribution
+          topDrawdowns.value = drawdownAnalysis.drawdowns
+          initChart(series.dates, series.values, benchmarkData)
       })
   }
-  getlocalData()
 
   // 在组件挂载后，首次初始化图表
   onMounted(() => {
-      generateMockData()
+      getlocalData()
 
       window.addEventListener('resize', () => myChart?.resize())
   })

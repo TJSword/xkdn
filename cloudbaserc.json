@@ -1,0 +1,15 @@
+{
+  "$schema": "https://static.cloudbase.net/cli/cloudbaserc.schema.json",
+  "envId": "xkdn-9g0lbgfyc7310777",
+  "functionRoot": "functions",
+  "functions": [
+    {
+      "name": "getLofData",
+      "runtime": "Nodejs20.19",
+      "handler": "index.main",
+      "timeout": 60,
+      "memorySize": 512,
+      "description": "LOF data snapshot reader and scheduled refresher"
+    }
+  ]
+}

@@ -47,7 +47,13 @@ export const constantRoutes = [
     path: '/momentum',
     component: () => import('@/views/momentum.vue'),
     meta: { requiresAuth: true }
-  }, {
+  },
+  {
+    path: '/lof',
+    component: () => import('@/views/lof.vue'),
+    meta: { requiresAuth: true }
+  },
+  {
     path: '/wealth-map',
     component: () => import('@/views/wealth-map.vue'),
     meta: { requiresAuth: true }
@@ -107,6 +113,7 @@ const nonVipAccessibleRoutes = [
   '/bonds',
   '/micro-cap',
   '/momentum',
+  '/lof',
   '/portfolio-analysis'
 ]; // 示例列表
 

@@ -225,7 +225,7 @@
         <div class="content-card">
           <div class="card-header-row">
             <h2 class="card-title no-margin">可转债策略 vs 可转债等权指数</h2>
-            <span class="period-badge">回测周期: 2018-01-02 至 2025-12-31</span>
+            <span class="period-badge">{{ backtestPeriodText }}</span>
           </div>
 
           <div ref="chartContainer" class="echart-container"></div>
@@ -233,23 +233,23 @@
           <div class="stats-bar">
             <div class="stat-item">
               <div class="stat-label">总收益</div>
-              <div class="stat-value-small highlight">1421.14%</div>
+              <div class="stat-value-small highlight">{{ backtestStats.totalReturn }}%</div>
             </div>
             <div class="stat-item">
               <div class="stat-label">年化收益</div>
-              <div class="stat-value-small">41.97%</div>
+              <div class="stat-value-small">{{ backtestStats.annualizedReturn }}%</div>
             </div>
             <div class="stat-item">
               <div class="stat-label">波动率</div>
-              <div class="stat-value-small">15.91%</div>
+              <div class="stat-value-small">{{ backtestStats.volatility }}%</div>
             </div>
             <div class="stat-item">
               <div class="stat-label">夏普比率</div>
-              <div class="stat-value-small">2.512</div>
+              <div class="stat-value-small">{{ backtestStats.sharpe }}</div>
             </div>
             <div class="stat-item">
               <div class="stat-label">最大回撤</div>
-              <div class="stat-value-small negative">-25.25%</div>
+              <div class="stat-value-small negative">{{ backtestStats.maxDrawdown }}%</div>
             </div>
           </div>
         </div>
@@ -286,17 +286,17 @@
           <div class="risk-summary-grid">
             <div class="risk-box">
               <div class="risk-label">卡玛比率 (Calmar)</div>
-              <div class="risk-main-val">1.662</div>
+              <div class="risk-main-val">{{ backtestStats.calmar }}</div>
               <div class="risk-sub-val">年化收益 / 最大回撤</div>
             </div>
             <div class="risk-box">
               <div class="risk-label">盈利 / 总月数</div>
-              <div class="risk-main-val"> 73 / 96</div>
-              <div class="risk-sub-val">月度胜率: 76.0%</div>
+              <div class="risk-main-val">{{ monthlySummary.profitableMonths }} / {{ monthlySummary.totalMonths }}</div>
+              <div class="risk-sub-val">月度胜率: {{ monthlySummary.winRate }}%</div>
             </div>
             <div class="risk-box">
               <div class="risk-label">索提诺比率</div>
-              <div class="risk-main-val">3.329</div>
+              <div class="risk-main-val">{{ sortinoRatio }}</div>
               <div class="risk-sub-val">反映策略的抗跌能力</div>
             </div>
           </div>
@@ -321,7 +321,7 @@
           </div>
 
           <h3 class="card-subtitle">历史重大回撤明细 (Top 10)</h3>
-          <div class="table-container">
+          <div class="table-container drawdown-table-container">
             <table class="risk-table">
               <thead>
                 <tr>
@@ -376,10 +376,35 @@
   import app, { auth } from '@/lib/cloudbase'
   import axios from 'axios'
   import { useUserStore } from '@/store/user'
+  import {
+      calculateDrawdownAnalysis,
+      calculateMonthlyReturns,
+      calculateMonthlySummary,
+      calculateSortinoRatio,
+      calculateStats,
+      formatBacktestPeriod,
+      prepareStrategySeries
+  } from '@/utils/strategyMetrics'
+  import type { MonthlySummary, StrategyStats } from '@/utils/strategyMetrics'
 
   const router = useRouter()
   const userStore: any = useUserStore()
   const canViewPremiumContent = computed(() => userStore.isVip || userStore.userInfo?.admin === true)
+  const backtestStats = ref<StrategyStats>({
+      totalReturn: '0.00',
+      annualizedReturn: '0.00',
+      volatility: '0.00',
+      sharpe: '0.000',
+      maxDrawdown: '0.00',
+      calmar: '0.000'
+  })
+  const monthlySummary = ref<MonthlySummary>({
+      profitableMonths: 0,
+      totalMonths: 0,
+      winRate: '0.0'
+  })
+  const sortinoRatio = ref('0.000')
+  const backtestPeriodText = ref('回测周期: --')
   const getStrategyData = () => {
       if (!canViewPremiumContent.value) return
 
@@ -855,12 +880,24 @@
   const getlocalData = () => {
       axios.get('./static/bondData.json').then(res => {
           const data = res.data
-          initChart(data.dateList, data.strategyData, data.equalWeight)
+          const series = prepareStrategySeries(data.dateList, data.strategyData)
+          const benchmarkData = Array.isArray(data.equalWeight)
+              ? data.equalWeight.slice(0, series.dates.length)
+              : []
+          const drawdownAnalysis = calculateDrawdownAnalysis(series.values, series.dates)
+
+          backtestPeriodText.value = formatBacktestPeriod(series.dates)
+          backtestStats.value = calculateStats(series.values)
+          sortinoRatio.value = calculateSortinoRatio(series.values)
+          monthlyReturns.value = calculateMonthlyReturns(series.values, series.dates)
+          monthlySummary.value = calculateMonthlySummary(monthlyReturns.value)
+          drawdownDist.value = drawdownAnalysis.distribution
+          topDrawdowns.value = drawdownAnalysis.drawdowns
+          initChart(series.dates, series.values, benchmarkData)
       })
   }
-  getlocalData()
   onMounted(() => {
-      generateMockHeatmap()
+      getlocalData()
 
       window.addEventListener('resize', () => myChart?.resize())
   })
@@ -1426,6 +1463,14 @@
       margin-bottom: 1.5rem;
       overflow-x: auto;
   }
+
+  .drawdown-table-container {
+      min-width: 0;
+      max-width: 100%;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+  }
+
   .dist-table-inner {
       min-width: 600px;
   }
@@ -1506,6 +1551,16 @@
       .data-table th,
       .data-table td {
           white-space: nowrap;
+      }
+
+      .drawdown-table-container {
+          width: 100%;
+          max-width: calc(100vw - 2rem);
+          padding-bottom: 0.25rem;
+      }
+
+      .drawdown-table-container .risk-table {
+          min-width: 620px;
       }
 
       /* 步骤四：处理图表卡片的切换按钮，使其堆叠 */
