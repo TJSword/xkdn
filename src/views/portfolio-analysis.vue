@@ -30,7 +30,22 @@
             <div v-for="strat in strategies" :key="strat.id" class="input-row">
               <label class="checkbox-label">
                 <input type="checkbox" v-model="strat.selected" @change="handleSelectionChange" />
-                <span class="name">{{ strat.name }}</span>
+                <button
+                  v-if="hasStrategyAction(strat.id)"
+                  type="button"
+                  class="strategy-name-action"
+                  :title="getStrategyActionTitle(strat.id)"
+                  @click.stop.prevent="handleStrategyActionClick(strat)"
+                >
+                  {{ strat.name }}
+                </button>
+                <span v-else class="name">{{ strat.name }}</span>
+                <span
+                  v-if="strat.id === ALL_WEATHER_ID && leverageConfig.enabled"
+                  class="inline-leverage-badge"
+                >
+                  {{ formatLeverageMultiplier(cleanLeverageMultiplier) }}
+                </span>
               </label>
               <div class="slider-container" :class="{ disabled: !strat.selected }">
                 <input type="range" v-model.number="strat.weight" min="0" max="100" step="5" :disabled="!strat.selected">
@@ -59,6 +74,100 @@
         </div>
       </div>
 
+      <div v-if="showLeverageModal" class="modal-backdrop" @click.self="closeLeverageModal">
+        <div class="leverage-modal">
+          <div class="modal-header">
+            <div>
+              <h2 class="modal-title">全天候杠杆设置</h2>
+              <p class="modal-subtitle">设置只作用于组合中的全天候策略成分。</p>
+            </div>
+            <button type="button" class="modal-close" @click="closeLeverageModal">×</button>
+          </div>
+
+          <label class="modal-toggle-row">
+            <input type="checkbox" v-model="leverageConfig.enabled" />
+            <span>启用杠杆增强</span>
+          </label>
+
+          <div v-if="!allWeatherSelected" class="modal-note">
+            当前未勾选全天候策略，配置会在勾选后参与回测。
+          </div>
+
+          <div class="modal-fields">
+            <label class="modal-field">
+              <span>杠杆倍数</span>
+              <input
+                type="number"
+                v-model.number="leverageConfig.multiplier"
+                min="1"
+                max="3"
+                step="0.1"
+                class="cyber-input"
+                :disabled="!leverageConfig.enabled"
+              />
+            </label>
+            <label class="modal-field">
+              <span>融资成本 (%/年)</span>
+              <input
+                type="number"
+                v-model.number="leverageConfig.financingRate"
+                min="0"
+                max="30"
+                step="0.1"
+                class="cyber-input"
+                :disabled="!leverageConfig.enabled"
+              />
+            </label>
+          </div>
+
+          <div class="leverage-metrics">
+            <div>
+              <span>总持仓</span>
+              <strong>{{ leverageExposureText }}</strong>
+            </div>
+            <div>
+              <span>融资部分</span>
+              <strong>{{ leverageBorrowedText }}</strong>
+            </div>
+            <div>
+              <span>当前状态</span>
+              <strong>{{ leverageStatusText }}</strong>
+            </div>
+          </div>
+
+          <p class="modal-footnote">
+            融资成本按自然日折算，只对超过 100% 的融资部分扣减。
+          </p>
+
+          <div class="modal-actions">
+            <button type="button" class="modal-secondary-btn" @click="closeLeverageModal">取消</button>
+            <button type="button" class="modal-primary-btn" @click="confirmLeverageSettings">完成</button>
+          </div>
+        </div>
+      </div>
+
+      <div v-if="activeStrategyInfo" class="modal-backdrop" @click.self="closeStrategyInfoModal">
+        <div class="strategy-info-modal">
+          <div class="modal-header">
+            <div>
+              <h2 class="modal-title">{{ activeStrategyInfo.title }}</h2>
+              <p class="modal-subtitle">{{ activeStrategyInfo.subtitle }}</p>
+            </div>
+            <button type="button" class="modal-close" @click="closeStrategyInfoModal">×</button>
+          </div>
+
+          <div class="strategy-info-body">
+            <p v-for="paragraph in activeStrategyInfo.paragraphs" :key="paragraph">
+              {{ paragraph }}
+            </p>
+          </div>
+
+          <div class="modal-actions">
+            <button type="button" class="modal-primary-btn" @click="closeStrategyInfoModal">我知道了</button>
+          </div>
+        </div>
+      </div>
+
       <div v-if="analysisDone" class="analysis-results">
 
         <div class="content-card">
@@ -66,6 +175,20 @@
           <p class="card-description">
             粗线为合成的组合策略 (阈值再平衡: 30%)，细线为各成分策略。区间：{{ startDate }} 至 {{ endDate }}
           </p>
+          <div v-if="leverageSummary.enabled" class="leverage-result-strip">
+            <div>
+              <span>全天候杠杆</span>
+              <strong>{{ formatLeverageMultiplier(leverageSummary.multiplier) }}</strong>
+            </div>
+            <div>
+              <span>融资成本</span>
+              <strong>{{ formatPlainPercent(leverageSummary.financingRate) }}/年</strong>
+            </div>
+            <div>
+              <span>累计扣减</span>
+              <strong>{{ leverageSummary.totalFinancingCost }}%</strong>
+            </div>
+          </div>
           <div ref="chartContainer" class="echart-container"></div>
         </div>
 
@@ -102,6 +225,72 @@
                   <td>{{ stat.sharpe }}</td>
                   <td class="negative">{{ stat.maxDrawdown }}%</td>
                   <td>{{ stat.calmar }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="content-card">
+          <h2 class="card-title">持有体验指标</h2>
+          <p class="card-description">
+            用更贴近日常持有感受的指标，观察策略是否经常创新高、正收益周期是否稳定，以及最长需要等待多久重新创新高。
+          </p>
+          <div class="table-container" style="margin-top: 1rem;">
+            <table class="comparison-table">
+              <thead>
+                <tr>
+                  <th class="sticky-col-header">策略名称</th>
+                  <th>创新高率</th>
+                  <th>日胜率</th>
+                  <th>周胜率</th>
+                  <th>月胜率</th>
+                  <th>年胜率</th>
+                  <th>最长未创新高</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr class="highlight-row">
+                  <td class="sticky-col">🧪 组合策略</td>
+                  <td :class="getExperienceRateClass(portfolioExperienceStats.highWatermarkRate)">
+                    {{ portfolioExperienceStats.highWatermarkRate }}%
+                  </td>
+                  <td :class="getExperienceRateClass(portfolioExperienceStats.dailyWinRate)">
+                    {{ portfolioExperienceStats.dailyWinRate }}%
+                  </td>
+                  <td :class="getExperienceRateClass(portfolioExperienceStats.weeklyWinRate)">
+                    {{ portfolioExperienceStats.weeklyWinRate }}%
+                  </td>
+                  <td :class="getExperienceRateClass(portfolioExperienceStats.monthlyWinRate)">
+                    {{ portfolioExperienceStats.monthlyWinRate }}%
+                  </td>
+                  <td :class="getExperienceRateClass(portfolioExperienceStats.yearlyWinRate)">
+                    {{ portfolioExperienceStats.yearlyWinRate }}%
+                  </td>
+                  <td :class="getNoHighClass(portfolioExperienceStats.longestNoHighDays)">
+                    {{ portfolioExperienceStats.longestNoHighDays }}天
+                  </td>
+                </tr>
+                <tr v-for="stat in individualExperienceStats" :key="stat.name">
+                  <td class="sticky-col">{{ stat.name }}</td>
+                  <td :class="getExperienceRateClass(stat.highWatermarkRate)">
+                    {{ stat.highWatermarkRate }}%
+                  </td>
+                  <td :class="getExperienceRateClass(stat.dailyWinRate)">
+                    {{ stat.dailyWinRate }}%
+                  </td>
+                  <td :class="getExperienceRateClass(stat.weeklyWinRate)">
+                    {{ stat.weeklyWinRate }}%
+                  </td>
+                  <td :class="getExperienceRateClass(stat.monthlyWinRate)">
+                    {{ stat.monthlyWinRate }}%
+                  </td>
+                  <td :class="getExperienceRateClass(stat.yearlyWinRate)">
+                    {{ stat.yearlyWinRate }}%
+                  </td>
+                  <td :class="getNoHighClass(stat.longestNoHighDays)">
+                    {{ stat.longestNoHighDays }}天
+                  </td>
                 </tr>
               </tbody>
             </table>
@@ -277,6 +466,13 @@
   import { ref, computed, onMounted, nextTick, watch } from 'vue'
   import * as echarts from 'echarts'
   import axios from 'axios'
+  import {
+      calculateCorrelation as calculateStrategyCorrelation,
+      calculateDrawdownAnalysis as calculateStrategyDrawdownAnalysis,
+      calculateMonthlyReturns as calculateStrategyMonthlyReturns,
+      calculateStats as calculateStrategyStats,
+      getDailyReturns as getStrategyDailyReturns
+  } from '@/utils/strategyMetrics'
   const mcYears = ref(1) // 默认预测1年
   const showTooltip = ref(false) // 控制提示框显示
   const mcChartContainer = ref<HTMLElement | null>(null)
@@ -287,6 +483,30 @@
   // 🎨 主题色：电光靛
   // ============================================
   const THEME_COLOR = '#6366f1'
+  const ALL_WEATHER_ID = 'all_weather'
+  const BONDS_ID = 'bonds'
+  const JINGHONG_ID = 'jinghong'
+  const FINANCING_DAYS = 365
+  const strategyInfoMap: Record<string, { title: string; subtitle: string; paragraphs: string[] }> = {
+      [BONDS_ID]: {
+          title: '可转债回测日期说明',
+          subtitle: '2022年8月交易新规前后的市场环境不可简单等同。',
+          paragraphs: [
+              '回测数据覆盖了 2018年1月2日至今的完整周期，但需要注意，可转债市场在 2022年8月实施了交易新规。',
+              '在新规之前，沪市转债没有涨跌幅限制，市场波动结构、流动性和交易行为都与现在差异较大。',
+              '因此，2022年8月之前的策略表现仅供参考。为了更准确地理解当前风险，建议重点关注 2022年8月1日之后的走势，这更接近现在的真实交易环境。'
+          ]
+      },
+      [JINGHONG_ID]: {
+          title: '惊鸿策略说明',
+          subtitle: '自运行的可转债策略，暂不开放自助跟投。',
+          paragraphs: [
+              '惊鸿策略是我当前自行运行的可转债策略，属于内部实盘和托管观察策略。',
+              '现阶段暂不对外开放公开配置或自助跟投。如果想参与，只能先通过托管方式进行。',
+              '组合实验室中的惊鸿回测用于观察策略历史特征，不代表当前开放申购，也不构成具体交易指令。'
+          ]
+      }
+  }
 
   const cssVars = computed(() => {
       return {
@@ -299,6 +519,8 @@
   const isLoading = ref(false)
   const dataReady = ref(false) // 数据是否加载完毕
   const analysisDone = ref(false)
+  const showLeverageModal = ref(false)
+  const activeStrategyInfo = ref<{ title: string; subtitle: string; paragraphs: string[] } | null>(null)
   const chartContainer = ref<HTMLElement | null>(null)
   let myChart: echarts.ECharts | null = null
 
@@ -310,6 +532,19 @@
   const maxDate = ref('')
   const startDate = ref('')
   const endDate = ref('')
+
+  const leverageConfig = ref({
+      enabled: false,
+      multiplier: 2.1,
+      financingRate: 0
+  })
+
+  const leverageSummary = ref({
+      enabled: false,
+      multiplier: 1,
+      financingRate: 0,
+      totalFinancingCost: '0.00'
+  })
 
   // --- 策略定义 ---
   const strategies = ref([
@@ -366,6 +601,48 @@
       return strategies.value.filter(s => s.selected).map(s => s.name)
   })
 
+  const allWeatherSelected = computed(() => {
+      return strategies.value.some(s => s.id === ALL_WEATHER_ID && s.selected)
+  })
+
+  const cleanLeverageMultiplier = computed(() => {
+      const value = Number(leverageConfig.value.multiplier)
+      if (!Number.isFinite(value)) return 1
+      return Math.min(3, Math.max(1, value))
+  })
+
+  const cleanFinancingRate = computed(() => {
+      const value = Number(leverageConfig.value.financingRate)
+      if (!Number.isFinite(value)) return 0
+      return Math.min(30, Math.max(0, value))
+  })
+
+  const leverageEnabled = computed(() => {
+      return (
+          leverageConfig.value.enabled &&
+          allWeatherSelected.value &&
+          cleanLeverageMultiplier.value > 1
+      )
+  })
+
+  const leverageExposureText = computed(() => {
+      const exposure = leverageEnabled.value ? cleanLeverageMultiplier.value * 100 : 100
+      return formatPlainPercent(exposure)
+  })
+
+  const leverageBorrowedText = computed(() => {
+      const borrowed = leverageEnabled.value ? (cleanLeverageMultiplier.value - 1) * 100 : 0
+      return formatPlainPercent(borrowed)
+  })
+
+  const leverageStatusText = computed(() => {
+      if (!leverageConfig.value.enabled) return '未启用'
+      if (cleanLeverageMultiplier.value <= 1) return '1x 不产生融资'
+      return `${formatLeverageMultiplier(cleanLeverageMultiplier.value)} / ${formatPlainPercent(
+          cleanFinancingRate.value
+      )}/年`
+  })
+
   const dataStatusText = computed(() => {
       if (isLoading.value) return '正在计算...'
       if (!dataReady.value) return '正在加载数据...'
@@ -376,6 +653,15 @@
   // --- 结果数据 ---
   const portfolioStats = ref<any>({})
   const individualStats = ref<any[]>([])
+  const portfolioExperienceStats = ref<any>({
+      highWatermarkRate: '0.00',
+      dailyWinRate: '0.00',
+      weeklyWinRate: '0.00',
+      monthlyWinRate: '0.00',
+      yearlyWinRate: '0.00',
+      longestNoHighDays: 0
+  })
+  const individualExperienceStats = ref<any[]>([])
   const correlationMatrix = ref<number[][]>([])
   const top10Drawdowns = ref<any[]>([])
   const drawdownDistribution = ref<any[]>([])
@@ -383,6 +669,237 @@
 
   // 临时存储图表数据
   const chartData = ref<any>(null)
+
+  const formatPlainPercent = (value: number) => {
+      const rounded = Math.round(value * 100) / 100
+      return `${Number.isInteger(rounded) ? rounded.toFixed(0) : rounded.toFixed(2)}%`
+  }
+
+  const formatLeverageMultiplier = (value: number) => {
+      const rounded = Math.round(value * 100) / 100
+      return `${Number.isInteger(rounded) ? rounded.toFixed(0) : rounded.toFixed(2)}x`
+  }
+
+  const getStrategyDisplayName = (strat: any) => {
+      if (strat.id === ALL_WEATHER_ID && leverageEnabled.value) {
+          return `${strat.name} (${formatLeverageMultiplier(cleanLeverageMultiplier.value)})`
+      }
+      return strat.name
+  }
+
+  const hasStrategyAction = (strategyId: string) => {
+      return [ALL_WEATHER_ID, BONDS_ID, JINGHONG_ID].includes(strategyId)
+  }
+
+  const getStrategyActionTitle = (strategyId: string) => {
+      if (strategyId === ALL_WEATHER_ID) return '设置全天候杠杆和融资成本'
+      if (strategyId === BONDS_ID) return '查看可转债回测日期说明'
+      if (strategyId === JINGHONG_ID) return '查看惊鸿策略开放说明'
+      return ''
+  }
+
+  const handleStrategyActionClick = (strat: any) => {
+      if (strat.id === ALL_WEATHER_ID) {
+          openLeverageModal()
+          return
+      }
+
+      activeStrategyInfo.value = strategyInfoMap[strat.id] || null
+  }
+
+  const normalizeLeverageInputs = () => {
+      leverageConfig.value.multiplier = cleanLeverageMultiplier.value
+      leverageConfig.value.financingRate = cleanFinancingRate.value
+  }
+
+  const openLeverageModal = () => {
+      showLeverageModal.value = true
+  }
+
+  const closeLeverageModal = () => {
+      showLeverageModal.value = false
+  }
+
+  const closeStrategyInfoModal = () => {
+      activeStrategyInfo.value = null
+  }
+
+  const confirmLeverageSettings = () => {
+      normalizeLeverageInputs()
+      closeLeverageModal()
+  }
+
+  const getCalendarDayGap = (start: string, end: string) => {
+      const startTime = new Date(start).getTime()
+      const endTime = new Date(end).getTime()
+      if (!Number.isFinite(startTime) || !Number.isFinite(endTime) || endTime <= startTime) return 1
+      return Math.max(1, Math.round((endTime - startTime) / (1000 * 60 * 60 * 24)))
+  }
+
+  const parseDateAsUtc = (date: string) => {
+      const [year, month, day] = date.split('-').map(Number)
+      return new Date(Date.UTC(year, month - 1, day))
+  }
+
+  const getIsoWeekKey = (date: string) => {
+      const current = parseDateAsUtc(date)
+      current.setUTCDate(current.getUTCDate() + 4 - (current.getUTCDay() || 7))
+      const yearStart = new Date(Date.UTC(current.getUTCFullYear(), 0, 1))
+      const week = Math.ceil(((current.getTime() - yearStart.getTime()) / 86400000 + 1) / 7)
+      return `${current.getUTCFullYear()}-W${String(week).padStart(2, '0')}`
+  }
+
+  const formatRate = (value: number) => {
+      return Number.isFinite(value) ? (value * 100).toFixed(2) : '0.00'
+  }
+
+  const calculateWinRate = (returns: number[]) => {
+      const validReturns = returns.filter(ret => Number.isFinite(ret))
+      if (validReturns.length === 0) return '0.00'
+      return formatRate(validReturns.filter(ret => ret > 0).length / validReturns.length)
+  }
+
+  const calculatePeriodReturns = (
+      prices: number[],
+      dates: string[],
+      getPeriodKey: (date: string) => string
+  ) => {
+      const returns: number[] = []
+      const length = Math.min(prices.length, dates.length)
+      if (length < 2) return returns
+
+      let currentKey = getPeriodKey(dates[1])
+      let periodReturn = 1
+
+      for (let i = 1; i < length; i++) {
+          const key = getPeriodKey(dates[i])
+          if (key !== currentKey) {
+              returns.push(periodReturn - 1)
+              periodReturn = 1
+              currentKey = key
+          }
+
+          const prevPrice = prices[i - 1]
+          const currentPrice = prices[i]
+          const dailyReturn =
+              Number.isFinite(prevPrice) && prevPrice > 0 && Number.isFinite(currentPrice)
+                  ? currentPrice / prevPrice
+                  : 1
+          periodReturn *= dailyReturn
+      }
+
+      returns.push(periodReturn - 1)
+      return returns
+  }
+
+  const calculateExperienceStats = (prices: number[], dates: string[]) => {
+      const length = Math.min(prices.length, dates.length)
+      if (length < 2 || prices[0] <= 0) {
+          return {
+              highWatermarkRate: '0.00',
+              dailyWinRate: '0.00',
+              weeklyWinRate: '0.00',
+              monthlyWinRate: '0.00',
+              yearlyWinRate: '0.00',
+              longestNoHighDays: 0
+          }
+      }
+
+      const epsilon = 0.0000001
+      let peak = prices[0]
+      let highWatermarkDays = 1
+      let noHighStartDate = ''
+      let longestNoHighDays = 0
+
+      for (let i = 1; i < length; i++) {
+          const currentPrice = prices[i]
+          if (!Number.isFinite(currentPrice)) continue
+
+          if (currentPrice >= peak * (1 - epsilon)) {
+              if (noHighStartDate) {
+                  const noHighDays = getCalendarDayGap(noHighStartDate, dates[i])
+                  if (noHighDays > longestNoHighDays) {
+                      longestNoHighDays = noHighDays
+                  }
+                  noHighStartDate = ''
+              }
+              highWatermarkDays += 1
+              peak = Math.max(peak, currentPrice)
+          } else if (!noHighStartDate) {
+              noHighStartDate = dates[i]
+          }
+      }
+
+      if (noHighStartDate) {
+          const noHighDays = getCalendarDayGap(noHighStartDate, dates[length - 1])
+          if (noHighDays > longestNoHighDays) {
+              longestNoHighDays = noHighDays
+          }
+      }
+
+      const dailyReturns = getStrategyDailyReturns(prices)
+      const weeklyReturns = calculatePeriodReturns(prices, dates, getIsoWeekKey)
+      const monthlyPeriodReturns = calculatePeriodReturns(prices, dates, date => date.slice(0, 7))
+      const yearlyReturns = calculatePeriodReturns(prices, dates, date => date.slice(0, 4))
+
+      return {
+          highWatermarkRate: formatRate(highWatermarkDays / length),
+          dailyWinRate: calculateWinRate(dailyReturns),
+          weeklyWinRate: calculateWinRate(weeklyReturns),
+          monthlyWinRate: calculateWinRate(monthlyPeriodReturns),
+          yearlyWinRate: calculateWinRate(yearlyReturns),
+          longestNoHighDays
+      }
+  }
+
+  const resetLeverageSummary = () => {
+      leverageSummary.value = {
+          enabled: false,
+          multiplier: 1,
+          financingRate: 0,
+          totalFinancingCost: '0.00'
+      }
+  }
+
+  const applyLeverageToAllWeather = (baseCurve: number[], dates: string[]) => {
+      if (!leverageEnabled.value || baseCurve.length < 2) {
+          resetLeverageSummary()
+          return baseCurve
+      }
+
+      const multiplier = cleanLeverageMultiplier.value
+      const annualFinancingRate = cleanFinancingRate.value / 100
+      const borrowedMultiplier = multiplier - 1
+      const leveragedCurve = [1]
+      let totalFinancingCost = 0
+
+      for (let i = 1; i < baseCurve.length; i++) {
+          const prevBaseValue = baseCurve[i - 1]
+          const currentBaseValue = baseCurve[i]
+          const baseReturn =
+              Number.isFinite(prevBaseValue) && prevBaseValue > 0 && Number.isFinite(currentBaseValue)
+                  ? currentBaseValue / prevBaseValue - 1
+                  : 0
+          const financingDays = getCalendarDayGap(dates[i - 1], dates[i])
+          const periodFinancingRate = annualFinancingRate * (financingDays / FINANCING_DAYS)
+          const previousLeveragedValue = leveragedCurve[i - 1]
+          const financingCost = previousLeveragedValue * borrowedMultiplier * periodFinancingRate
+          const leveragedReturn = multiplier * baseReturn - borrowedMultiplier * periodFinancingRate
+          const nextValue = previousLeveragedValue * (1 + leveragedReturn)
+
+          totalFinancingCost += financingCost
+          leveragedCurve.push(Number.isFinite(nextValue) && nextValue > 0 ? nextValue : 0.000001)
+      }
+
+      leverageSummary.value = {
+          enabled: true,
+          multiplier,
+          financingRate: cleanFinancingRate.value,
+          totalFinancingCost: (totalFinancingCost * 100).toFixed(2)
+      }
+
+      return leveragedCurve
+  }
 
   // =======================================================
   // 1. 初始化：加载所有数据
@@ -418,6 +935,19 @@
       updateDateRangeLimits()
   }
 
+  const getCommonDateList = (selectedStrats: any[]) => {
+      if (selectedStrats.length === 0) return []
+
+      let commonDates = [...(rawDataMap.value[selectedStrats[0].id]?.dateList || [])]
+
+      for (let i = 1; i < selectedStrats.length; i++) {
+          const nextDates = new Set(rawDataMap.value[selectedStrats[i].id]?.dateList || [])
+          commonDates = commonDates.filter((d: string) => nextDates.has(d))
+      }
+
+      return commonDates.sort()
+  }
+
   // =======================================================
   // 2. 核心逻辑：计算日期交集并设置限制
   // =======================================================
@@ -425,14 +955,7 @@
       const selectedStrats = strategies.value.filter(s => s.selected)
       if (selectedStrats.length === 0) return
 
-      let commonDates = rawDataMap.value[selectedStrats[0].id]?.dateList || []
-
-      for (let i = 1; i < selectedStrats.length; i++) {
-          const nextDates = new Set(rawDataMap.value[selectedStrats[i].id]?.dateList || [])
-          commonDates = commonDates.filter((d: string) => nextDates.has(d))
-      }
-
-      commonDates.sort()
+      const commonDates = getCommonDateList(selectedStrats)
 
       if (commonDates.length > 0) {
           minDate.value = commonDates[0]
@@ -475,11 +998,14 @@
       if (selectedStrats.length === 0) return
 
       // 1. 确定计算用的日期列表 (基于 Map 匹配，解决 NaN 问题)
-      const baseStratId = selectedStrats[0].id
-      const baseRawData = rawDataMap.value[baseStratId]
-      const calcDateList = baseRawData.dateList.filter(
+      const calcDateList = getCommonDateList(selectedStrats).filter(
           (d: string) => d >= startDate.value && d <= endDate.value
       )
+
+      if (calcDateList.length < 2) {
+          alert('回测区间至少需要两个共同交易日。')
+          return
+      }
 
       // 2. 数据清洗与归一化：构建 Map 映射
       const normalizedDataMap: Record<string, number[]> = {}
@@ -507,11 +1033,23 @@
           // 归一化 (Start = 1.0)
           if (alignedData.length > 0) {
               const baseVal = alignedData[0]
-              normalizedDataMap[strat.id] = alignedData.map(v => v / baseVal)
+              normalizedDataMap[strat.id] =
+                  Number.isFinite(baseVal) && baseVal > 0
+                      ? alignedData.map(v => v / baseVal)
+                      : alignedData.map(() => 1)
           } else {
               normalizedDataMap[strat.id] = []
           }
       })
+
+      if (selectedStrats.some(strat => strat.id === ALL_WEATHER_ID)) {
+          normalizedDataMap[ALL_WEATHER_ID] = applyLeverageToAllWeather(
+              normalizedDataMap[ALL_WEATHER_ID],
+              calcDateList
+          )
+      } else {
+          resetLeverageSummary()
+      }
 
       // 3. 计算组合净值曲线 (核心：阈值再平衡逻辑)
       const portfolioCurve: number[] = []
@@ -537,7 +1075,10 @@
           selectedStrats.forEach(s => {
               const prevPrice = normalizedDataMap[s.id][t - 1]
               const currPrice = normalizedDataMap[s.id][t]
-              const dailyReturn = currPrice / prevPrice // 当日涨幅因子
+              const dailyReturn =
+                  Number.isFinite(prevPrice) && prevPrice > 0 && Number.isFinite(currPrice)
+                      ? currPrice / prevPrice
+                      : 1 // 当日涨幅因子
 
               currentHoldings[s.id] *= dailyReturn
               newTotalEquity += currentHoldings[s.id]
@@ -573,12 +1114,21 @@
       }
 
       // 4. 计算各项统计指标
-      portfolioStats.value = calculateStats(portfolioCurve)
+      portfolioStats.value = calculateStrategyStats(portfolioCurve)
+      portfolioExperienceStats.value = calculateExperienceStats(portfolioCurve, calcDateList)
 
       individualStats.value = selectedStrats.map(strat => {
-          const stats = calculateStats(normalizedDataMap[strat.id])
+          const stats = calculateStrategyStats(normalizedDataMap[strat.id])
           return {
-              name: strat.name,
+              name: getStrategyDisplayName(strat),
+              ...stats
+          }
+      })
+
+      individualExperienceStats.value = selectedStrats.map(strat => {
+          const stats = calculateExperienceStats(normalizedDataMap[strat.id], calcDateList)
+          return {
+              name: getStrategyDisplayName(strat),
               ...stats
           }
       })
@@ -586,7 +1136,7 @@
       // 5. 相关性矩阵
       const returnsMap: Record<string, number[]> = {}
       selectedStrats.forEach(strat => {
-          returnsMap[strat.id] = getDailyReturns(normalizedDataMap[strat.id])
+          returnsMap[strat.id] = getStrategyDailyReturns(normalizedDataMap[strat.id])
       })
 
       const matrix: number[][] = []
@@ -596,7 +1146,7 @@
               if (i === j) {
                   row.push(1.0)
               } else {
-                  const corr = calculateCorrelation(
+                  const corr = calculateStrategyCorrelation(
                       returnsMap[selectedStrats[i].id],
                       returnsMap[selectedStrats[j].id]
                   )
@@ -608,13 +1158,13 @@
       correlationMatrix.value = matrix
 
       // 6. Top 10 回撤 & 回撤分布
-      const { drawdowns, distribution } = calculateDrawdownAnalysis(portfolioCurve, calcDateList)
+      const { drawdowns, distribution } = calculateStrategyDrawdownAnalysis(portfolioCurve, calcDateList)
       top10Drawdowns.value = drawdowns
       console.log(drawdowns)
       drawdownDistribution.value = distribution
 
       // 7. 月度/年度收益
-      monthlyReturns.value = calculateMonthlyReturns(portfolioCurve, calcDateList)
+      monthlyReturns.value = calculateStrategyMonthlyReturns(portfolioCurve, calcDateList)
       console.log(monthlyReturns.value)
 
       // 保存数据给图表
@@ -645,8 +1195,12 @@
       const dailyReturns = []
       // 使用对数收益率更准确，符合正态分布假设
       for (let i = 1; i < prices.length; i++) {
-          dailyReturns.push(Math.log(prices[i] / prices[i - 1]))
+          if (prices[i - 1] > 0 && prices[i] > 0) {
+              dailyReturns.push(Math.log(prices[i] / prices[i - 1]))
+          }
       }
+
+      if (dailyReturns.length === 0) return
 
       const mean = dailyReturns.reduce((a, b) => a + b, 0) / dailyReturns.length
       // 计算方差和标准差
@@ -670,7 +1224,7 @@
       }
 
       // 漂移项 (Drift)
-      const drift = mean - 0.5 * variance
+      const drift = mean
 
       // Z-score 常数：
       // 1.645 代表正态分布的 95% 分位点
@@ -857,257 +1411,6 @@
       mcChart.setOption(option)
   }
 
-  // --- 数学工具函数 ---
-
-  const calculateStats = (data: number[]) => {
-      const totalReturn = data[data.length - 1] / data[0] - 1
-      const dailyReturns = getDailyReturns(data)
-      const days = data.length
-
-      // 年化收益 (复利)
-      const annualizedReturn = Math.pow(1 + totalReturn, 250 / days) - 1
-
-      // 波动率
-      const mean = dailyReturns.reduce((a, b) => a + b, 0) / dailyReturns.length
-      const variance =
-          dailyReturns.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / dailyReturns.length
-      const stdDev = Math.sqrt(variance)
-      const volatility = stdDev * Math.sqrt(250)
-
-      // 夏普
-      const rf = 0.02
-      const sharpe = volatility === 0 ? 0 : (annualizedReturn - rf) / volatility
-
-      // 最大回撤
-      let maxDd = 0
-      let peak = -99999
-      for (const val of data) {
-          if (val > peak) peak = val
-          const dd = (val - peak) / peak
-          if (dd < maxDd) maxDd = dd
-      }
-
-      const calmar = Math.abs(maxDd) > 0.0001 ? annualizedReturn / Math.abs(maxDd) : 0
-
-      return {
-          totalReturn: (totalReturn * 100).toFixed(2),
-          annualizedReturn: (annualizedReturn * 100).toFixed(2),
-          volatility: (volatility * 100).toFixed(2),
-          sharpe: sharpe.toFixed(3),
-          maxDrawdown: (maxDd * 100).toFixed(2),
-          calmar: calmar.toFixed(3)
-      }
-  }
-
-  const getDailyReturns = (data: number[]) => {
-      const res = []
-      for (let i = 1; i < data.length; i++) {
-          res.push(data[i] / data[i - 1] - 1)
-      }
-      return res
-  }
-
-  const calculateCorrelation = (x: number[], y: number[]) => {
-      const n = x.length
-      if (n !== y.length) return 0
-      const meanX = x.reduce((a, b) => a + b, 0) / n
-      const meanY = y.reduce((a, b) => a + b, 0) / n
-
-      let num = 0
-      let denX = 0
-      let denY = 0
-      for (let i = 0; i < n; i++) {
-          const dx = x[i] - meanX
-          const dy = y[i] - meanY
-          num += dx * dy
-          denX += dx * dx
-          denY += dy * dy
-      }
-      return num / Math.sqrt(denX * denY)
-  }
-
-  const calculateDrawdownAnalysis = (prices: number[], dates: string[]) => {
-      const ddEvents = []
-      let peak = prices[0]
-      let peakDate = dates[0]
-
-      let currentDdStart = peakDate
-      let maxDdInCycle = 0
-      let troughDate = peakDate
-      let cycleActive = false
-
-      // 设定一个极小的阈值，防止浮点数计算误差导致的 0 被误判
-      // 0.0001 代表 0.01%，实际上等于统计所有“非平盘”的回撤
-      const THRESHOLD = 0.00001
-
-      for (let i = 1; i < prices.length; i++) {
-          const price = prices[i]
-
-          // 创新高（或持平）
-          if (price >= peak) {
-              // 结算前一次回撤
-              // 修改点1：阈值改为 THRESHOLD (接近0)，不再过滤 1% 以下的小回撤
-              if (cycleActive && Math.abs(maxDdInCycle) > THRESHOLD) {
-                  const startD = new Date(currentDdStart)
-                  const troughD = new Date(troughDate)
-                  const endD = new Date(dates[i])
-
-                  // 计算天数
-                  const ddDays = Math.floor(
-                      (troughD.getTime() - startD.getTime()) / (1000 * 3600 * 24)
-                  )
-                  const fixDays = Math.floor(
-                      (endD.getTime() - troughD.getTime()) / (1000 * 3600 * 24)
-                  )
-
-                  ddEvents.push({
-                      startDate: currentDdStart,
-                      troughDate: troughDate,
-                      endDate: dates[i],
-                      drawdown: (maxDdInCycle * 100).toFixed(2),
-                      rawDd: maxDdInCycle,
-                      ddDays: ddDays,
-                      fixDays: fixDays
-                  })
-              }
-              // 重置状态
-              cycleActive = false
-              peak = price
-              peakDate = dates[i]
-              maxDdInCycle = 0
-          } else {
-              // 处于回撤中
-              cycleActive = true
-              // 逻辑微调：确保回撤开始日期准确指向峰值日
-              if (currentDdStart !== peakDate) {
-                  currentDdStart = peakDate
-              }
-
-              const dd = (price - peak) / peak
-              if (dd < maxDdInCycle) {
-                  maxDdInCycle = dd
-                  troughDate = dates[i]
-              }
-          }
-      }
-
-      // 处理当前尚未修复的回撤 (Active Drawdown)
-      if (cycleActive && Math.abs(maxDdInCycle) > THRESHOLD) {
-          const startD = new Date(currentDdStart)
-          const troughD = new Date(troughDate)
-          const ddDays = Math.floor((troughD.getTime() - startD.getTime()) / (1000 * 3600 * 24))
-
-          ddEvents.push({
-              startDate: currentDdStart,
-              troughDate: troughDate,
-              endDate: '未修复',
-              drawdown: (maxDdInCycle * 100).toFixed(2),
-              rawDd: maxDdInCycle,
-              ddDays: ddDays,
-              fixDays: '-'
-          })
-      }
-
-      // Top 10 列表 (按深度排序)
-      const top10 = [...ddEvents].sort((a, b) => a.rawDd - b.rawDd).slice(0, 10)
-
-      // ==========================================================
-      // 📊 分布统计 (Distribution)
-      // ==========================================================
-
-      // 提取所有回撤事件的绝对深度 (%)
-      const eventDepths = ddEvents.map(e => Math.abs(e.rawDd) * 100)
-
-      // 获取历史最大回撤值，用于动态定标尺
-      const maxAbsDd = eventDepths.length > 0 ? Math.max(...eventDepths) : 0
-
-      // 动态步长 (Step)
-      let step = 2
-      if (maxAbsDd > 10 && maxAbsDd <= 30) step = 5
-      else if (maxAbsDd > 30) step = 10
-
-      // 定义区间边界 [step, 2*step, 3*step, 4*step]
-      const limits = [step, step * 2, step * 3, step * 4]
-
-      // 统计各区间的频次
-      const buckets = [0, 0, 0, 0, 0]
-      const totalEvents = eventDepths.length || 1
-
-      eventDepths.forEach(val => {
-          if (val < limits[0]) buckets[0]++ // 0 ~ Step (例如 0~2%)
-          else if (val < limits[1]) buckets[1]++ // Step ~ 2*Step
-          else if (val < limits[2]) buckets[2]++
-          else if (val < limits[3]) buckets[3]++
-          else buckets[4]++
-      })
-
-      // 修改点2：第一个区间的 Label 改为 "0% ~ ..."
-      const distribution = [
-          {
-              range: `0% ~ ${limits[0]}%`,
-              count: buckets[0],
-              percent: (buckets[0] / totalEvents) * 100
-          },
-          {
-              range: `${limits[0]}% ~ ${limits[1]}%`,
-              count: buckets[1],
-              percent: (buckets[1] / totalEvents) * 100
-          },
-          {
-              range: `${limits[1]}% ~ ${limits[2]}%`,
-              count: buckets[2],
-              percent: (buckets[2] / totalEvents) * 100
-          },
-          {
-              range: `${limits[2]}% ~ ${limits[3]}%`,
-              count: buckets[3],
-              percent: (buckets[3] / totalEvents) * 100
-          },
-          { range: `> ${limits[3]}%`, count: buckets[4], percent: (buckets[4] / totalEvents) * 100 }
-      ]
-
-      return { drawdowns: top10, distribution }
-  }
-
-  const calculateMonthlyReturns = (prices: number[], dates: string[]) => {
-      const monthReturnsMap: Record<string, number> = {}
-
-      let currentMonth = dates[0].slice(0, 7)
-      let currentMonthRet = 1.0
-
-      for (let i = 1; i < dates.length; i++) {
-          const ret = prices[i] / prices[i - 1]
-          const m = dates[i].slice(0, 7)
-          if (m !== currentMonth) {
-              monthReturnsMap[currentMonth] = (currentMonthRet - 1) * 100
-              currentMonth = m
-              currentMonthRet = 1.0
-          }
-          currentMonthRet *= ret
-      }
-      monthReturnsMap[currentMonth] = (currentMonthRet - 1) * 100
-
-      const yearsObj: Record<number, any> = {}
-      Object.keys(monthReturnsMap).forEach(key => {
-          const year = parseInt(key.split('-')[0])
-          const month = parseInt(key.split('-')[1])
-          if (!yearsObj[year]) {
-              yearsObj[year] = { year: year, months: new Array(12).fill(null), total: 0 }
-          }
-          yearsObj[year].months[month - 1] = monthReturnsMap[key].toFixed(2)
-      })
-
-      const result = Object.values(yearsObj).sort((a: any, b: any) => b.year - a.year)
-      result.forEach((yData: any) => {
-          let yRet = 1.0
-          yData.months.forEach((m: string | null) => {
-              if (m) yRet *= 1 + Number(m) / 100
-          })
-          yData.total = ((yRet - 1) * 100).toFixed(2)
-      })
-      return result
-  }
-
   // --- ECharts 图表渲染 ---
   const initChart = () => {
       if (!chartContainer.value || !chartData.value) return
@@ -1121,7 +1424,7 @@
       const selectedStrats = strategies.value.filter(s => s.selected)
       selectedStrats.forEach(strat => {
           series.push({
-              name: strat.name,
+              name: getStrategyDisplayName(strat),
               type: 'line',
               data: singles[strat.id],
               symbol: 'none',
@@ -1162,7 +1465,7 @@
               }
           },
           legend: {
-              data: ['🧪 组合策略', ...selectedStrats.map(s => s.name)],
+              data: ['🧪 组合策略', ...selectedStrats.map(s => getStrategyDisplayName(s))],
               textStyle: { color: '#b0c4de' },
               bottom: 0,
               type: 'scroll'
@@ -1188,6 +1491,18 @@
   // 辅助样式函数
   const getValueColor = (val: string | number) =>
       Number(val) >= 0 ? 'highlight-red' : 'highlight-green'
+  const getExperienceRateClass = (val: string | number) => {
+      const rate = Number(val)
+      if (rate >= 60) return 'experience-strong'
+      if (rate >= 50) return 'experience-mid'
+      return 'experience-soft'
+  }
+  const getNoHighClass = (days: number | string) => {
+      const value = Number(days)
+      if (value <= 90) return 'experience-strong'
+      if (value <= 365) return 'experience-mid'
+      return 'experience-soft'
+  }
   const getCorrelationStyle = (val: number) => {
       if (val >= 0.99) return { background: 'rgba(255,255,255,0.05)', color: '#fff' }
       if (val > 0) return { background: `rgba(255, 87, 34, ${val * 0.6})`, color: '#fff' }
@@ -1357,6 +1672,37 @@
       width: 16px;
       height: 16px;
   }
+  .strategy-name-action {
+      border: none;
+      background: transparent;
+      color: #dfe5ff;
+      padding: 0 0.05rem 0.08rem;
+      font: inherit;
+      font-weight: 600;
+      cursor: pointer;
+      text-decoration-line: underline;
+      text-decoration-style: dotted;
+      text-decoration-thickness: 2px;
+      text-decoration-color: rgba(125, 211, 252, 0.95);
+      text-underline-offset: 5px;
+      text-shadow: 0 0 8px rgba(125, 211, 252, 0.18);
+      transition: all 0.2s;
+  }
+  .strategy-name-action:hover {
+      color: #ffffff;
+      text-decoration-color: var(--theme-color);
+      text-shadow: 0 0 10px var(--theme-shadow);
+  }
+  .inline-leverage-badge {
+      flex-shrink: 0;
+      color: #ffffff;
+      background: rgba(99, 102, 241, 0.28);
+      border: 1px solid rgba(99, 102, 241, 0.5);
+      border-radius: 4px;
+      padding: 0.05rem 0.28rem;
+      font-size: 0.7rem;
+      line-height: 1.3;
+  }
   .slider-container {
       flex: 1;
       display: flex;
@@ -1445,6 +1791,212 @@
       box-shadow: none;
       cursor: not-allowed;
       opacity: 0.7;
+  }
+
+  .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      z-index: 1000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 1rem;
+      background: rgba(0, 0, 0, 0.65);
+      backdrop-filter: blur(8px);
+  }
+  .leverage-modal {
+      width: min(520px, 100%);
+      background: #1b1c27;
+      border: 1px solid rgba(99, 102, 241, 0.45);
+      border-radius: 8px;
+      box-shadow: 0 16px 50px rgba(0, 0, 0, 0.45);
+      padding: 1.4rem;
+  }
+  .strategy-info-modal {
+      width: min(560px, 100%);
+      background: #1b1c27;
+      border: 1px solid rgba(99, 102, 241, 0.45);
+      border-radius: 8px;
+      box-shadow: 0 16px 50px rgba(0, 0, 0, 0.45);
+      padding: 1.4rem;
+  }
+  .modal-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 1rem;
+      margin-bottom: 1.2rem;
+      padding-bottom: 0.8rem;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  }
+  .modal-title {
+      margin: 0 0 0.25rem;
+      font-size: 1.15rem;
+  }
+  .modal-subtitle,
+  .modal-footnote,
+  .modal-note {
+      margin: 0;
+      color: #b0c4de;
+      font-size: 0.82rem;
+      line-height: 1.5;
+  }
+  .modal-close {
+      width: 30px;
+      height: 30px;
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      border-radius: 6px;
+      background: rgba(255, 255, 255, 0.06);
+      color: #ffffff;
+      cursor: pointer;
+      font-size: 1rem;
+      line-height: 1;
+  }
+  .modal-close:hover {
+      border-color: var(--theme-color);
+      color: var(--theme-color);
+  }
+  .modal-toggle-row {
+      display: flex;
+      align-items: center;
+      gap: 0.55rem;
+      margin-bottom: 1rem;
+      color: #ffffff;
+      font-size: 0.95rem;
+      cursor: pointer;
+  }
+  .modal-toggle-row input {
+      accent-color: var(--theme-color);
+      width: 16px;
+      height: 16px;
+  }
+  .modal-note {
+      margin-bottom: 1rem;
+      padding: 0.6rem 0.75rem;
+      border: 1px solid rgba(255, 193, 7, 0.35);
+      border-radius: 6px;
+      background: rgba(255, 193, 7, 0.08);
+      color: #f2d184;
+  }
+  .strategy-info-body {
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+      margin: 1rem 0 0.25rem;
+      color: #d6deff;
+      font-size: 0.9rem;
+      line-height: 1.75;
+  }
+  .strategy-info-body p {
+      margin: 0;
+      padding-left: 0.8rem;
+      border-left: 3px solid rgba(99, 102, 241, 0.35);
+  }
+  .modal-fields {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+      margin-bottom: 1rem;
+  }
+  .modal-field {
+      display: flex;
+      flex-direction: column;
+      gap: 0.45rem;
+      color: #b0c4de;
+      font-size: 0.85rem;
+  }
+  .modal-field .cyber-input {
+      width: 100%;
+      box-sizing: border-box;
+  }
+  .leverage-metrics {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 0.75rem;
+      margin: 1rem 0;
+  }
+  .leverage-metrics > div {
+      min-width: 0;
+      padding: 0.75rem;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 6px;
+      background: rgba(255, 255, 255, 0.04);
+  }
+  .leverage-metrics span {
+      display: block;
+      margin-bottom: 0.35rem;
+      color: #8392a5;
+      font-size: 0.75rem;
+  }
+  .leverage-metrics strong {
+      display: block;
+      color: #ffffff;
+      font-size: 0.95rem;
+      overflow-wrap: anywhere;
+  }
+  .modal-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 0.75rem;
+      margin-top: 1.2rem;
+  }
+  .modal-secondary-btn,
+  .modal-primary-btn {
+      border-radius: 6px;
+      padding: 0.55rem 1rem;
+      font-weight: bold;
+      cursor: pointer;
+      border: 1px solid transparent;
+  }
+  .modal-secondary-btn {
+      background: transparent;
+      border-color: rgba(255, 255, 255, 0.18);
+      color: #b0c4de;
+  }
+  .modal-primary-btn {
+      background: var(--theme-color);
+      color: #ffffff;
+      box-shadow: 0 0 10px var(--theme-shadow);
+  }
+  .modal-secondary-btn:hover {
+      border-color: var(--theme-color);
+      color: #ffffff;
+  }
+  .modal-primary-btn:hover {
+      box-shadow: 0 0 18px var(--theme-shadow);
+  }
+
+  .leverage-result-strip {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 0.75rem;
+      margin-bottom: 1rem;
+      padding: 0.75rem;
+      border: 1px solid rgba(99, 102, 241, 0.28);
+      border-radius: 8px;
+      background: rgba(99, 102, 241, 0.08);
+  }
+  .leverage-result-strip span {
+      display: block;
+      color: #8392a5;
+      font-size: 0.75rem;
+      margin-bottom: 0.25rem;
+  }
+  .leverage-result-strip strong {
+      color: #ffffff;
+      font-size: 0.95rem;
+  }
+  .experience-strong {
+      color: #ffb454;
+      font-weight: 700;
+  }
+  .experience-mid {
+      color: #7dd3fc;
+      font-weight: 700;
+  }
+  .experience-soft {
+      color: #00c497;
+      font-weight: 700;
   }
 
   /* ECharts */
@@ -1641,6 +2193,24 @@
       .run-btn {
           width: 100%;
           margin-top: 0.5rem;
+      }
+      .leverage-modal {
+          padding: 1rem;
+      }
+      .strategy-info-modal {
+          padding: 1rem;
+      }
+      .modal-fields,
+      .leverage-metrics,
+      .leverage-result-strip {
+          grid-template-columns: 1fr;
+      }
+      .modal-actions {
+          flex-direction: column-reverse;
+      }
+      .modal-secondary-btn,
+      .modal-primary-btn {
+          width: 100%;
       }
 
       .grid-two-col {
