@@ -2,6 +2,7 @@
 node_modules
 /dist
 lib/CesiumUnminified/
+/data
 
 # local env files
 .env.local
