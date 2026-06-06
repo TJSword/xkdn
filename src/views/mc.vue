@@ -21,9 +21,19 @@
           <div class="panel-section config-section">
             <div class="section-label" style="display: flex; justify-content: space-between; align-items: center;">
               <span><span class="icon">⚙️</span> 明日计划资金</span>
-              <button class="text-icon-btn" @click="openCookieModal" title="设置雪球Cookie">
-                🍪 设置 Cookie
-              </button>
+              <div class="cookie-actions">
+                <button class="text-icon-btn" @click="openCookieModal" title="设置雪球 Cookie">
+                  🍪 设置 Cookie
+                </button>
+                <button
+                  class="text-icon-btn"
+                  :disabled="isCheckingCookie"
+                  @click="checkCookie"
+                  title="检查雪球 Cookie 状态"
+                >
+                  {{ isCheckingCookie ? '检查中...' : '✓ 检查 Cookie' }}
+                </button>
+              </div>
             </div>
             <div class="input-group">
               <span class="currency">¥</span>
@@ -266,6 +276,7 @@
   const xueqiuCookie = ref('')
   const savedCookie = ref('')
   const isSavingCookie = ref(false) // Cookie保存状态
+  const isCheckingCookie = ref(false)
 
   const strategyData = ref({
       date: '20260115',
@@ -356,6 +367,32 @@
 
   const closeCookieModal = () => {
       showCookieModal.value = false
+  }
+
+  const checkCookie = async () => {
+      if (isCheckingCookie.value) return
+
+      isCheckingCookie.value = true
+      try {
+          const res: any = await app.callFunction({
+              name: 'checkCookieStatus',
+              data: {}
+          })
+          const result = res.result || {}
+          const message = result.message || result.msg || result.data?.message
+
+          if (result.success === false || result.valid === false || result.data?.valid === false) {
+              showMessage(message || 'Cookie 已失效，请重新设置', 'error')
+              return
+          }
+
+          showMessage(message || 'Cookie 状态正常', 'success')
+      } catch (err: any) {
+          console.error('Cookie 状态检查失败', err)
+          showMessage(err.message || 'Cookie 状态检查失败', 'error')
+      } finally {
+          isCheckingCookie.value = false
+      }
   }
 
   // --- 1. 保存计划资金 ---
@@ -1147,6 +1184,13 @@
   }
 
   /* === 新增：触发弹窗的小按钮 === */
+  .cookie-actions {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 0.5rem;
+  }
+
   .text-icon-btn {
       background: transparent;
       border: 1px solid rgba(255, 215, 0, 0.3);
@@ -1163,6 +1207,17 @@
   .text-icon-btn:hover {
       background: rgba(255, 215, 0, 0.1);
       border-color: #ffd700;
+  }
+
+  .text-icon-btn:disabled {
+      cursor: wait;
+      opacity: 0.55;
+  }
+
+  @media (max-width: 768px) {
+      .cookie-actions {
+          flex-wrap: wrap;
+      }
   }
 
   /* === 新增：Cookie 弹窗样式 === */

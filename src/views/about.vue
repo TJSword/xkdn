@@ -89,7 +89,7 @@
         </div>
 
         <!-- 卡片四：常见问题 (FAQ) -->
-        <div class="content-card">
+        <!-- <div class="content-card">
           <h2 class="card-title">常见问题 (FAQ)</h2>
           <div class="faq-container">
             <div v-for="(item, index) in faqList" :key="index" class="faq-item">
@@ -102,7 +102,7 @@
               </div>
             </div>
           </div>
-        </div>
+        </div> -->
       </div>
     </div>
   </div>

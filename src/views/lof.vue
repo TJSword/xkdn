@@ -928,7 +928,13 @@
   }
 
   .sort-button.center {
+      position: relative;
       justify-content: center;
+  }
+
+  .sort-button.center span {
+      position: absolute;
+      right: 0.1rem;
   }
 
   .sort-button span {
@@ -990,7 +996,9 @@
   .lof-table td {
       padding: 0.82rem 0.25rem;
       font-size: 0.8rem;
-      font-family: 'Courier New', Courier, monospace;
+      font-family: 'Noto Sans SC', 'Microsoft YaHei', 'Segoe UI', Arial, sans-serif;
+      font-variant-numeric: tabular-nums lining-nums;
+      font-feature-settings: 'tnum' 1, 'lnum' 1;
       text-align: left;
       white-space: nowrap;
       color: #e8edf5;
@@ -999,6 +1007,10 @@
   }
 
   .lof-table td.col-watch {
+      text-align: center;
+  }
+
+  .lof-table th.col-watch {
       text-align: center;
   }
 
@@ -1100,7 +1112,9 @@
 
   .premium-badge {
       padding: 0.35rem 0.55rem;
-      font-family: 'Courier New', Courier, monospace;
+      font-family: 'Noto Sans SC', 'Microsoft YaHei', 'Segoe UI', Arial, sans-serif;
+      font-variant-numeric: tabular-nums lining-nums;
+      font-feature-settings: 'tnum' 1, 'lnum' 1;
       background: rgb(255 255 255 / 6%);
       border-radius: 6px;
       flex: 0 0 auto;
@@ -1126,7 +1140,9 @@
   }
 
   .item-grid span {
-      font-family: 'Courier New', Courier, monospace;
+      font-family: 'Noto Sans SC', 'Microsoft YaHei', 'Segoe UI', Arial, sans-serif;
+      font-variant-numeric: tabular-nums lining-nums;
+      font-feature-settings: 'tnum' 1, 'lnum' 1;
       color: #e8edf5;
   }
 

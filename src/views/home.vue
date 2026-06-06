@@ -269,6 +269,14 @@
           cssClass: 'convertible-bond',
           link: '/bonds'
       },
+      {
+          id: 12,
+          title: '含权策略',
+          description: '按动态含权量轮动，捕捉正股配债价值。',
+          icon: '🎯',
+          cssClass: 'rights-strategy',
+          link: '/rights-strategy'
+      },
 
       {
           id: 9,
@@ -319,14 +327,14 @@
           cssClass: 'handy-tools',
           link: '/tools'
       },
-      {
-          id: 7,
-          title: '财富版图',
-          description: '将您的资产目标具象化，一步步点亮全国版图。',
-          icon: '🗺️',
-          cssClass: 'wealth-map',
-          link: '/wealth-map'
-      },
+      // {
+      //     id: 7,
+      //     title: '财富版图',
+      //     description: '将您的资产目标具象化，一步步点亮全国版图。',
+      //     icon: '🗺️',
+      //     cssClass: 'wealth-map',
+      //     link: '/wealth-map'
+      // },
       {
           id: 8,
           title: '关于本站',
@@ -1293,6 +1301,15 @@
       color: #add8e6;
   }
 
+  .rights-strategy:hover {
+      box-shadow: 0 0 15px #ef4444;
+      border-color: #ef4444;
+  }
+
+  .rights-strategy .card-icon {
+      color: #ef4444;
+  }
+
   .cash-flow-strategy:hover {
       box-shadow: 0 0 15px #e59866;
       border-color: #e59866;
@@ -1325,6 +1342,18 @@
       display: flex;
       align-items: center;
       gap: 0.8rem;
+  }
+
+  .membership-status {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.25rem;
+  }
+
+  .membership-icon {
+      display: inline-block;
+      line-height: 1;
+      transform: translateY(-1px);
   }
 
   .user-actions-footer .separator {
