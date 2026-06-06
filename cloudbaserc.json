@@ -10,6 +10,36 @@
       "timeout": 60,
       "memorySize": 512,
       "description": "LOF data snapshot reader and scheduled refresher"
+    },
+    {
+      "name": "getRightsStrategyData",
+      "runtime": "Nodejs20.19",
+      "handler": "index.main",
+      "timeout": 60,
+      "memorySize": 512,
+      "description": "Convertible rights strategy daily snapshot and trading-day 14:40 refresher",
+      "triggers": [
+        {
+          "name": "refreshRightsStrategyWeekday1440",
+          "type": "timer",
+          "config": "0 40 14 * * MON-FRI *"
+        }
+      ]
+    },
+    {
+      "name": "checkCookieStatus",
+      "runtime": "Nodejs18.15",
+      "handler": "index.main",
+      "timeout": 3,
+      "memorySize": 256,
+      "description": "Daily Xueqiu cookie status precheck with Bark alert",
+      "triggers": [
+        {
+          "name": "myTrigger",
+          "type": "timer",
+          "config": "0 0 16 * * * *"
+        }
+      ]
     }
   ]
 }

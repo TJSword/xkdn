@@ -1,4 +1,4 @@
-import { createWebHashHistory, createRouter } from 'vue-router'
+import { createWebHistory, createRouter } from 'vue-router'
 import { useUserStore } from '@/store/user' // 引入我们刚创建的 user store
 import app from '@/lib/cloudbase'
 // 路由表
@@ -54,10 +54,15 @@ export const constantRoutes = [
     meta: { requiresAuth: true }
   },
   {
-    path: '/wealth-map',
-    component: () => import('@/views/wealth-map.vue'),
+    path: '/rights-strategy',
+    component: () => import('@/views/rights-strategy.vue'),
     meta: { requiresAuth: true }
   },
+  // {
+  //   path: '/wealth-map',
+  //   component: () => import('@/views/wealth-map.vue'),
+  //   meta: { requiresAuth: true }
+  // },
   {
     path: '/about',
     component: () => import('@/views/about.vue'),
@@ -95,8 +100,18 @@ export const constantRoutes = [
   }
 ]
 
+const migrateLegacyHashRoute = () => {
+  const legacyPath = window.location.hash.slice(1)
+  if (!legacyPath.startsWith('/')) return
+
+  const basePath = import.meta.env.BASE_URL.replace(/\/$/, '')
+  window.history.replaceState(window.history.state, '', `${basePath}${legacyPath}`)
+}
+
+migrateLegacyHashRoute()
+
 const router = createRouter({
-  history: createWebHashHistory(),
+  history: createWebHistory(import.meta.env.BASE_URL),
   routes: constantRoutes
 })
 
@@ -108,9 +123,10 @@ const nonVipAccessibleRoutes = [
   '/home',
   '/all-weather',
   '/tools',
-  '/wealth-map',
+  // '/wealth-map',
   '/about',
   '/bonds',
+  '/rights-strategy',
   '/micro-cap',
   '/momentum',
   '/lof',

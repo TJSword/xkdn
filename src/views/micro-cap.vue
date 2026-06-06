@@ -37,7 +37,20 @@
           </ul>
         </div>
         <div v-if="canViewPremiumContent" class="content-card">
-          <h2 class="card-title">最新持仓与调仓建议</h2>
+          <div class="holdings-card-header">
+            <h2 class="card-title">最新持仓与调仓建议</h2>
+            <button
+              v-if="canRefreshStrategy"
+              class="strategy-refresh-button"
+              :class="{ spinning: isStrategyRefreshing }"
+              :disabled="isStrategyRefreshing"
+              title="刷新微盘股策略数据"
+              aria-label="刷新微盘股策略数据"
+              @click="refreshStrategyData"
+            >
+              ↻
+            </button>
+          </div>
           <p class="card-description">
             根据模型于 {{ formattedDate }} 生成的最新组合。
           </p>
@@ -372,6 +385,7 @@
   const router = useRouter()
   const userStore = useUserStore()
   const canViewPremiumContent = computed(() => userStore.isVip || userStore.userInfo?.admin === true)
+  const canRefreshStrategy = computed(() => userStore.userInfo?.admin === true)
   // 引入云开发 SDK (请确保路径与您项目一致，通常是 @/lib/cloudbase 或类似的)
   import app from '@/lib/cloudbase'
   import axios from 'axios'
@@ -727,6 +741,7 @@
   // --- 1. 基础数据 ---
   const formattedDate = ref('加载中...')
   const isLoading = ref(true)
+  const isStrategyRefreshing = ref(false)
 
   // --- 2. 持仓与调仓数据 ---
   const latestPortfolio: any = ref([]) // 核心持仓
@@ -780,6 +795,28 @@
           formattedDate.value = '数据加载失败'
       } finally {
           isLoading.value = false
+      }
+  }
+
+  const refreshStrategyData = async () => {
+      if (!canRefreshStrategy.value || isStrategyRefreshing.value) return
+
+      isStrategyRefreshing.value = true
+      try {
+          const res: any = await app.callFunction({
+              name: 'microCapStrategy10'
+          })
+          if (res.result?.success === false) {
+              throw new Error(res.result?.message || res.result?.msg || '微盘股策略刷新失败')
+          }
+
+          await fetchStrategyData()
+          showMessage?.('微盘股策略数据已刷新', 'success')
+      } catch (err: any) {
+          console.error('微盘股策略刷新失败', err)
+          showMessage?.(err.message || '微盘股策略刷新失败', 'error')
+      } finally {
+          isStrategyRefreshing.value = false
       }
   }
 
@@ -1451,6 +1488,54 @@
   /* =========================================
                                                                                                                                                                                                                                                                                                                                        新增模块样式：最新持仓与调仓
                                                                                                                                                                                                                                                                                                                                        ========================================= */
+  .holdings-card-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 1rem;
+  }
+
+  .strategy-refresh-button {
+      display: inline-grid;
+      flex: 0 0 26px;
+      width: 26px;
+      height: 26px;
+      padding: 0;
+      color: #8392a5;
+      font-size: 1rem;
+      line-height: 1;
+      background: rgb(0 0 0 / 16%);
+      border: 1px solid rgb(255 255 255 / 6%);
+      border-radius: 4px;
+      cursor: pointer;
+      place-items: center;
+      transition:
+          color 0.2s ease,
+          border-color 0.2s ease,
+          background-color 0.2s ease;
+  }
+
+  .strategy-refresh-button:hover:not(:disabled) {
+      color: #f0e68c;
+      background: rgb(0 0 0 / 16%);
+      border-color: rgba(240, 230, 140, 0.5);
+  }
+
+  .strategy-refresh-button:disabled {
+      cursor: wait;
+      opacity: 0.65;
+  }
+
+  .strategy-refresh-button.spinning {
+      animation: strategyRefreshSpin 0.8s linear infinite;
+  }
+
+  @keyframes strategyRefreshSpin {
+      to {
+          transform: rotate(360deg);
+      }
+  }
+
   .card-subtitle {
       font-size: 1.1rem;
       font-weight: bold;

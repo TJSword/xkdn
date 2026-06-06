@@ -177,6 +177,14 @@
         </div>
       </div>
 
+      <div
+        v-if="metricTooltip.visible"
+        :class="['metric-floating-tooltip', `metric-floating-tooltip--${metricTooltip.placement}`]"
+        :style="{ left: metricTooltip.x + 'px', top: metricTooltip.y + 'px' }"
+      >
+        {{ metricTooltip.text }}
+      </div>
+
       <div v-if="analysisDone" class="analysis-results">
 
         <div class="content-card">
@@ -204,7 +212,7 @@
         <div class="content-card">
           <h2 class="card-title">策略表现对比统计</h2>
           <div class="table-container" style="margin-top: 1rem;">
-            <table class="comparison-table">
+            <table class="comparison-table experience-table">
               <thead>
                 <tr>
                   <th class="sticky-col-header">策略名称</th>
@@ -219,21 +227,45 @@
               <tbody>
                 <tr class="highlight-row">
                   <td class="sticky-col">🧪 组合策略</td>
-                  <td :class="getValueColor(portfolioStats.totalReturn)">{{ portfolioStats.totalReturn }}%</td>
-                  <td :class="getValueColor(portfolioStats.annualizedReturn)">{{ portfolioStats.annualizedReturn }}%</td>
-                  <td>{{ portfolioStats.volatility }}%</td>
-                  <td>{{ portfolioStats.sharpe }}</td>
-                  <td class="negative">{{ portfolioStats.maxDrawdown }}%</td>
-                  <td>{{ portfolioStats.calmar }}</td>
+                  <td :class="getPerformanceCellClass(portfolioStats, 'totalReturn', true, 'return')">
+                    {{ portfolioStats.totalReturn }}%
+                  </td>
+                  <td :class="getPerformanceCellClass(portfolioStats, 'annualizedReturn', true, 'return')">
+                    {{ portfolioStats.annualizedReturn }}%
+                  </td>
+                  <td :class="getPerformanceCellClass(portfolioStats, 'volatility', false)">
+                    {{ portfolioStats.volatility }}%
+                  </td>
+                  <td :class="getPerformanceCellClass(portfolioStats, 'sharpe', true)">
+                    {{ portfolioStats.sharpe }}
+                  </td>
+                  <td :class="getPerformanceCellClass(portfolioStats, 'maxDrawdown', true, 'drawdown')">
+                    {{ portfolioStats.maxDrawdown }}%
+                  </td>
+                  <td :class="getPerformanceCellClass(portfolioStats, 'calmar', true)">
+                    {{ portfolioStats.calmar }}
+                  </td>
                 </tr>
                 <tr v-for="stat in individualStats" :key="stat.name">
                   <td class="sticky-col">{{ stat.name }}</td>
-                  <td :class="getValueColor(stat.totalReturn)">{{ stat.totalReturn }}%</td>
-                  <td :class="getValueColor(stat.annualizedReturn)">{{ stat.annualizedReturn }}%</td>
-                  <td>{{ stat.volatility }}%</td>
-                  <td>{{ stat.sharpe }}</td>
-                  <td class="negative">{{ stat.maxDrawdown }}%</td>
-                  <td>{{ stat.calmar }}</td>
+                  <td :class="getPerformanceCellClass(stat, 'totalReturn', true, 'return')">
+                    {{ stat.totalReturn }}%
+                  </td>
+                  <td :class="getPerformanceCellClass(stat, 'annualizedReturn', true, 'return')">
+                    {{ stat.annualizedReturn }}%
+                  </td>
+                  <td :class="getPerformanceCellClass(stat, 'volatility', false)">
+                    {{ stat.volatility }}%
+                  </td>
+                  <td :class="getPerformanceCellClass(stat, 'sharpe', true)">
+                    {{ stat.sharpe }}
+                  </td>
+                  <td :class="getPerformanceCellClass(stat, 'maxDrawdown', true, 'drawdown')">
+                    {{ stat.maxDrawdown }}%
+                  </td>
+                  <td :class="getPerformanceCellClass(stat, 'calmar', true)">
+                    {{ stat.calmar }}
+                  </td>
                 </tr>
               </tbody>
             </table>
@@ -246,7 +278,7 @@
             用更贴近日常持有感受的指标，观察策略是否经常创新高、正收益周期是否稳定，以及最长需要等待多久重新创新高。
           </p>
           <div class="table-container" style="margin-top: 1rem;">
-            <table class="comparison-table">
+            <table class="comparison-table experience-table holding-experience-table">
               <thead>
                 <tr>
                   <th class="sticky-col-header">策略名称</th>
@@ -256,49 +288,106 @@
                   <th>月胜率</th>
                   <th>年胜率</th>
                   <th>最长未创新高</th>
+                  <th>
+                    收益偏度
+                    <span
+                      class="metric-help"
+                      tabindex="0"
+                      @mouseenter="showMetricTooltip($event, metricHelpText.returnSkewness)"
+                      @focus="showMetricTooltip($event, metricHelpText.returnSkewness)"
+                      @mouseleave="hideMetricTooltip"
+                      @blur="hideMetricTooltip"
+                    >
+                      ?
+                    </span>
+                  </th>
+                  <th>
+                    溃疡指数
+                    <span
+                      class="metric-help"
+                      tabindex="0"
+                      @mouseenter="showMetricTooltip($event, metricHelpText.ulcerIndex)"
+                      @focus="showMetricTooltip($event, metricHelpText.ulcerIndex)"
+                      @mouseleave="hideMetricTooltip"
+                      @blur="hideMetricTooltip"
+                    >
+                      ?
+                    </span>
+                  </th>
+                  <th>
+                    收益痛苦比
+                    <span
+                      class="metric-help"
+                      tabindex="0"
+                      @mouseenter="showMetricTooltip($event, metricHelpText.gainPainRatio)"
+                      @focus="showMetricTooltip($event, metricHelpText.gainPainRatio)"
+                      @mouseleave="hideMetricTooltip"
+                      @blur="hideMetricTooltip"
+                    >
+                      ?
+                    </span>
+                  </th>
                 </tr>
               </thead>
               <tbody>
                 <tr class="highlight-row">
                   <td class="sticky-col">🧪 组合策略</td>
-                  <td :class="getExperienceRateClass(portfolioExperienceStats.highWatermarkRate)">
+                  <td :class="getExperienceCellClass(portfolioExperienceStats, 'highWatermarkRate', true, 'rate')">
                     {{ portfolioExperienceStats.highWatermarkRate }}%
                   </td>
-                  <td :class="getExperienceRateClass(portfolioExperienceStats.dailyWinRate)">
+                  <td :class="getExperienceCellClass(portfolioExperienceStats, 'dailyWinRate', true, 'rate')">
                     {{ portfolioExperienceStats.dailyWinRate }}%
                   </td>
-                  <td :class="getExperienceRateClass(portfolioExperienceStats.weeklyWinRate)">
+                  <td :class="getExperienceCellClass(portfolioExperienceStats, 'weeklyWinRate', true, 'rate')">
                     {{ portfolioExperienceStats.weeklyWinRate }}%
                   </td>
-                  <td :class="getExperienceRateClass(portfolioExperienceStats.monthlyWinRate)">
+                  <td :class="getExperienceCellClass(portfolioExperienceStats, 'monthlyWinRate', true, 'rate')">
                     {{ portfolioExperienceStats.monthlyWinRate }}%
                   </td>
-                  <td :class="getExperienceRateClass(portfolioExperienceStats.yearlyWinRate)">
+                  <td :class="getExperienceCellClass(portfolioExperienceStats, 'yearlyWinRate', true, 'rate')">
                     {{ portfolioExperienceStats.yearlyWinRate }}%
                   </td>
-                  <td :class="getNoHighClass(portfolioExperienceStats.longestNoHighDays)">
+                  <td :class="getExperienceCellClass(portfolioExperienceStats, 'longestNoHighDays', false, 'noHigh')">
                     {{ portfolioExperienceStats.longestNoHighDays }}天
+                  </td>
+                  <td :class="getExperienceCellClass(portfolioExperienceStats, 'returnSkewness', true, 'skewness')">
+                    {{ portfolioExperienceStats.returnSkewness }}
+                  </td>
+                  <td :class="getExperienceCellClass(portfolioExperienceStats, 'ulcerIndex', false, 'ulcer')">
+                    {{ portfolioExperienceStats.ulcerIndex }}%
+                  </td>
+                  <td :class="getExperienceCellClass(portfolioExperienceStats, 'gainPainRatio', true, 'gainPain')">
+                    {{ portfolioExperienceStats.gainPainRatio }}
                   </td>
                 </tr>
                 <tr v-for="stat in individualExperienceStats" :key="stat.name">
                   <td class="sticky-col">{{ stat.name }}</td>
-                  <td :class="getExperienceRateClass(stat.highWatermarkRate)">
+                  <td :class="getExperienceCellClass(stat, 'highWatermarkRate', true, 'rate')">
                     {{ stat.highWatermarkRate }}%
                   </td>
-                  <td :class="getExperienceRateClass(stat.dailyWinRate)">
+                  <td :class="getExperienceCellClass(stat, 'dailyWinRate', true, 'rate')">
                     {{ stat.dailyWinRate }}%
                   </td>
-                  <td :class="getExperienceRateClass(stat.weeklyWinRate)">
+                  <td :class="getExperienceCellClass(stat, 'weeklyWinRate', true, 'rate')">
                     {{ stat.weeklyWinRate }}%
                   </td>
-                  <td :class="getExperienceRateClass(stat.monthlyWinRate)">
+                  <td :class="getExperienceCellClass(stat, 'monthlyWinRate', true, 'rate')">
                     {{ stat.monthlyWinRate }}%
                   </td>
-                  <td :class="getExperienceRateClass(stat.yearlyWinRate)">
+                  <td :class="getExperienceCellClass(stat, 'yearlyWinRate', true, 'rate')">
                     {{ stat.yearlyWinRate }}%
                   </td>
-                  <td :class="getNoHighClass(stat.longestNoHighDays)">
+                  <td :class="getExperienceCellClass(stat, 'longestNoHighDays', false, 'noHigh')">
                     {{ stat.longestNoHighDays }}天
+                  </td>
+                  <td :class="getExperienceCellClass(stat, 'returnSkewness', true, 'skewness')">
+                    {{ stat.returnSkewness }}
+                  </td>
+                  <td :class="getExperienceCellClass(stat, 'ulcerIndex', false, 'ulcer')">
+                    {{ stat.ulcerIndex }}%
+                  </td>
+                  <td :class="getExperienceCellClass(stat, 'gainPainRatio', true, 'gainPain')">
+                    {{ stat.gainPainRatio }}
                   </td>
                 </tr>
               </tbody>
@@ -337,20 +426,15 @@
           <div class="card-header-row">
             <div class="title-with-tooltip">
               <h2 class="card-title no-margin">蒙特卡洛未来模拟</h2>
-              <div class="info-icon-wrapper" @mouseenter="showTooltip = true" @mouseleave="showTooltip = false"
-                @click="showTooltip = !showTooltip">
+              <div
+                class="info-icon-wrapper"
+                tabindex="0"
+                @mouseenter="showMetricTooltip($event, metricHelpText.monteCarlo)"
+                @focus="showMetricTooltip($event, metricHelpText.monteCarlo)"
+                @mouseleave="hideMetricTooltip"
+                @blur="hideMetricTooltip"
+              >
                 <span class="info-icon">i</span>
-                <transition name="fade">
-                  <div v-if="showTooltip" class="tooltip-box">
-                    <p class="tooltip-title">什么是蒙特卡洛模拟？</p>
-                    <p>这是一种利用随机采样来预测可能结果的数学算法。我们基于当前组合的历史波动率和收益率，进行了 <strong>1000次</strong> 平行宇宙式的模拟。</p>
-                    <ul class="tooltip-list">
-                      <li><strong>上轨 (95%)：</strong> 运气极佳时的表现</li>
-                      <li><strong>中轨 (50%)：</strong> 最可能的预期表现</li>
-                      <li><strong>下轨 (5%)：</strong> 运气较差时的底线风险</li>
-                    </ul>
-                  </div>
-                </transition>
               </div>
             </div>
 
@@ -367,10 +451,10 @@
           </div>
 
           <p class="card-description">
-            基于当前策略特征生成的 1000 条潜在未来路径。阴影区域代表 90% 的概率区间。
+            基于当前组合历史日收益重采样生成 1000 条潜在未来路径。阴影区域代表 90% 的概率区间。
           </p>
 
-          <div class="grid-two-col mc-layout">
+          <div class="mc-layout">
             <div ref="mcChartContainer" class="echart-container mc-chart"></div>
 
             <div class="mc-stats">
@@ -388,6 +472,28 @@
                 <span class="label">悲观预期 (5分位)</span>
                 <span class="value" :class="{'negative': parseFloat(mcStats.p05) < 0}">{{ mcStats.p05 }}%</span>
                 <span class="sub">资产变为 {{ mcStats.p05X }} 倍</span>
+              </div>
+              <div class="mc-risk-grid">
+                <div class="mc-risk-item">
+                  <span class="label">期末亏损概率</span>
+                  <span class="value">{{ mcStats.lossProbability }}%</span>
+                </div>
+                <div class="mc-risk-item">
+                  <span class="label">回撤超 10%</span>
+                  <span class="value">{{ mcStats.drawdown10Probability }}%</span>
+                </div>
+                <div class="mc-risk-item">
+                  <span class="label">回撤超 20%</span>
+                  <span class="value">{{ mcStats.drawdown20Probability }}%</span>
+                </div>
+                <div class="mc-risk-item">
+                  <span class="label">最大回撤中位数</span>
+                  <span class="value">{{ mcStats.medianMaxDrawdown }}%</span>
+                </div>
+                <div class="mc-risk-item wide">
+                  <span class="label">最差 5% 情景最大回撤</span>
+                  <span class="value">{{ mcStats.tailMaxDrawdown }}%</span>
+                </div>
               </div>
             </div>
           </div>
@@ -483,10 +589,21 @@
       getDailyReturns as getStrategyDailyReturns
   } from '@/utils/strategyMetrics'
   const mcYears = ref(1) // 默认预测1年
-  const showTooltip = ref(false) // 控制提示框显示
   const mcChartContainer = ref<HTMLElement | null>(null)
   let mcChart: echarts.ECharts | null = null
-  const mcStats = ref({ p95: '0', p50: '0', p05: '0', p95X: '1.0', p50X: '1.0', p05X: '1.0' })
+  const mcStats = ref({
+      p95: '0',
+      p50: '0',
+      p05: '0',
+      p95X: '1.0',
+      p50X: '1.0',
+      p05X: '1.0',
+      lossProbability: '0.0',
+      drawdown10Probability: '0.0',
+      drawdown20Probability: '0.0',
+      medianMaxDrawdown: '0.0',
+      tailMaxDrawdown: '0.0'
+  })
 
   // ============================================
   // 🎨 主题色：电光靛
@@ -495,7 +612,18 @@
   const ALL_WEATHER_ID = 'all_weather'
   const BONDS_ID = 'bonds'
   const JINGHONG_ID = 'jinghong'
+  const RIGHTS_ID = 'rights_strategy'
   const FINANCING_DAYS = 365
+  const metricHelpText = {
+      returnSkewness:
+          '衡量日收益分布是否偏向右侧。数值越高，说明极端正收益相对更多；数值为负时，说明极端负收益更突出。',
+      ulcerIndex:
+          '衡量回撤带来的持有痛感。它会把每天低于历史高点的回撤幅度纳入均方计算，所以不只看跌得多深，也会把持续低于高点的时间计入。',
+      gainPainRatio:
+          '累计收益率除以溃疡指数。数值越高，说明每承受一单位回撤痛感，换来的收益越多。',
+      monteCarlo:
+          '基于当前组合历史日收益做短周期重采样，生成 1000 条可能路径。上轨/中轨/下轨分别代表 95%、50%、5% 分位结果；右侧风险指标展示期末亏损概率和模拟路径中的回撤压力。它不是预测承诺，而是用历史波动结构观察未来可能区间。'
+  }
   const strategyInfoMap: Record<string, { title: string; subtitle: string; paragraphs: string[] }> = {
       [BONDS_ID]: {
           title: '可转债回测日期说明',
@@ -514,6 +642,15 @@
               '现阶段暂不对外开放公开配置或自助跟投。如果想参与，只能先通过托管方式进行。',
               '组合实验室中的惊鸿回测用于观察策略历史特征，不代表当前开放申购，也不构成具体交易指令。'
           ]
+      },
+      [RIGHTS_ID]: {
+          title: '含权策略说明',
+          subtitle: '事件驱动 + 权利价值重估策略。',
+          paragraphs: [
+              '含权策略用可转债配售价值重新衡量正股，重点观察单位股价中嵌入更多配售权利的阶段性机会。',
+              '组合实验室中使用的是日线回测净值曲线，数据已统一截到 2026年6月4日，以便和其他策略做同区间组合分析。',
+              '该策略权益属性较强，适合在组合层面观察相关性和回撤贡献，不代表单独满仓配置建议。'
+          ]
       }
   }
 
@@ -530,6 +667,13 @@
   const analysisDone = ref(false)
   const showLeverageModal = ref(false)
   const activeStrategyInfo = ref<{ title: string; subtitle: string; paragraphs: string[] } | null>(null)
+  const metricTooltip = ref({
+      visible: false,
+      text: '',
+      x: 0,
+      y: 0,
+      placement: 'top'
+  })
   const chartContainer = ref<HTMLElement | null>(null)
   let myChart: echarts.ECharts | null = null
 
@@ -560,7 +704,7 @@
       {
           id: 'all_weather',
           name: '全天候策略',
-          weight: 40,
+          weight: 20,
           selected: true,
           color: '#00aaff',
           url: './static/allWeatherData.json'
@@ -568,11 +712,20 @@
       {
           id: 'bonds',
           name: '可转债策略',
-          weight: 30,
+          weight: 20,
           selected: true,
           color: '#add8e6',
           url: './static/bondData.json'
       },
+    
+      {
+          id: RIGHTS_ID,
+          name: '含权策略',
+          weight: 20,
+          selected: true,
+          color: '#ef4444',
+          url: './static/rightsStrategyData.json'
+      }  ,
       {
           id: 'momentum',
           name: '动量策略',
@@ -584,7 +737,7 @@
       {
           id: 'micro_cap',
           name: '微盘股策略',
-          weight: 10,
+          weight: 20,
           selected: true,
           color: '#f0e68c',
           url: './static/microCapData.json'
@@ -668,7 +821,10 @@
       weeklyWinRate: '0.00',
       monthlyWinRate: '0.00',
       yearlyWinRate: '0.00',
-      longestNoHighDays: 0
+      longestNoHighDays: 0,
+      returnSkewness: '0.000',
+      ulcerIndex: '0.00',
+      gainPainRatio: '0.000'
   })
   const individualExperienceStats = ref<any[]>([])
   const correlationMatrix = ref<number[][]>([])
@@ -733,6 +889,30 @@
       activeStrategyInfo.value = null
   }
 
+  const showMetricTooltip = (event: MouseEvent | FocusEvent, text: string) => {
+      const target = event.currentTarget as HTMLElement
+      const rect = target.getBoundingClientRect()
+      const tooltipHalfWidth = 160
+      const viewportWidth = window.innerWidth || document.documentElement.clientWidth
+      const placement = rect.top < 150 ? 'bottom' : 'top'
+      const x = Math.min(
+          Math.max(rect.left + rect.width / 2, tooltipHalfWidth + 12),
+          viewportWidth - tooltipHalfWidth - 12
+      )
+
+      metricTooltip.value = {
+          visible: true,
+          text,
+          x,
+          y: placement === 'bottom' ? rect.bottom + 10 : rect.top - 10,
+          placement
+      }
+  }
+
+  const hideMetricTooltip = () => {
+      metricTooltip.value.visible = false
+  }
+
   const confirmLeverageSettings = () => {
       normalizeLeverageInputs()
       closeLeverageModal()
@@ -766,6 +946,57 @@
       const validReturns = returns.filter(ret => Number.isFinite(ret))
       if (validReturns.length === 0) return '0.00'
       return formatRate(validReturns.filter(ret => ret > 0).length / validReturns.length)
+  }
+
+  const calculateReturnSkewness = (returns: number[]) => {
+      const validReturns = returns.filter(ret => Number.isFinite(ret))
+      if (validReturns.length < 2) return '0.000'
+
+      const mean = validReturns.reduce((sum, ret) => sum + ret, 0) / validReturns.length
+      const variance =
+          validReturns.reduce((sum, ret) => sum + Math.pow(ret - mean, 2), 0) /
+          validReturns.length
+      const stdDev = Math.sqrt(variance)
+      if (stdDev === 0) return '0.000'
+
+      const skewness =
+          validReturns.reduce((sum, ret) => sum + Math.pow((ret - mean) / stdDev, 3), 0) /
+          validReturns.length
+      return skewness.toFixed(3)
+  }
+
+  const calculateUlcerIndex = (prices: number[]) => {
+      if (prices.length < 2 || prices[0] <= 0) return '0.00'
+
+      let peak = prices[0]
+      const squaredDrawdowns: number[] = []
+
+      prices.forEach(price => {
+          if (!Number.isFinite(price) || price <= 0) return
+          if (price > peak) peak = price
+          const drawdownPercent = ((price - peak) / peak) * 100
+          squaredDrawdowns.push(Math.pow(drawdownPercent, 2))
+      })
+
+      if (squaredDrawdowns.length === 0) return '0.00'
+      const meanSquaredDrawdown =
+          squaredDrawdowns.reduce((sum, value) => sum + value, 0) / squaredDrawdowns.length
+      return Math.sqrt(meanSquaredDrawdown).toFixed(2)
+  }
+
+  const calculateGainPainRatio = (prices: number[], ulcerIndex: string) => {
+      const validPrices = prices.filter(price => Number.isFinite(price) && price > 0)
+      if (validPrices.length < 2) return '0.000'
+
+      const totalReturnPercent =
+          ((validPrices[validPrices.length - 1] / validPrices[0]) - 1) * 100
+      const ulcerValue = parseFloat(ulcerIndex)
+
+      if (!Number.isFinite(ulcerValue) || ulcerValue <= 0) {
+          return totalReturnPercent > 0 ? '∞' : '0.000'
+      }
+
+      return (totalReturnPercent / ulcerValue).toFixed(3)
   }
 
   const calculatePeriodReturns = (
@@ -810,7 +1041,10 @@
               weeklyWinRate: '0.00',
               monthlyWinRate: '0.00',
               yearlyWinRate: '0.00',
-              longestNoHighDays: 0
+              longestNoHighDays: 0,
+              returnSkewness: '0.000',
+              ulcerIndex: '0.00',
+              gainPainRatio: '0.000'
           }
       }
 
@@ -851,13 +1085,18 @@
       const monthlyPeriodReturns = calculatePeriodReturns(prices, dates, date => date.slice(0, 7))
       const yearlyReturns = calculatePeriodReturns(prices, dates, date => date.slice(0, 4))
 
+      const ulcerIndex = calculateUlcerIndex(prices)
+
       return {
           highWatermarkRate: formatRate(highWatermarkDays / length),
           dailyWinRate: calculateWinRate(dailyReturns),
           weeklyWinRate: calculateWinRate(weeklyReturns),
           monthlyWinRate: calculateWinRate(monthlyPeriodReturns),
           yearlyWinRate: calculateWinRate(yearlyReturns),
-          longestNoHighDays
+          longestNoHighDays,
+          returnSkewness: calculateReturnSkewness(dailyReturns),
+          ulcerIndex,
+          gainPainRatio: calculateGainPainRatio(prices, ulcerIndex)
       }
   }
 
@@ -1184,77 +1423,108 @@
       }
   }
 
-  // --- 蒙特卡洛模拟核心逻辑 ---
+  const getPercentileValue = (values: number[], percentile: number) => {
+      if (values.length === 0) return 1
+      const sortedValues = [...values].sort((a, b) => a - b)
+      const index = (sortedValues.length - 1) * percentile
+      const lowerIndex = Math.floor(index)
+      const upperIndex = Math.ceil(index)
 
-  // Box-Muller 变换：生成标准正态分布随机数
-  const randn_bm = () => {
-      let u = 0,
-          v = 0
-      while (u === 0) u = Math.random()
-      while (v === 0) v = Math.random()
-      return Math.sqrt(-2.0 * Math.log(u)) * Math.cos(2.0 * Math.PI * v)
+      if (lowerIndex === upperIndex) return sortedValues[lowerIndex]
+
+      const weight = index - lowerIndex
+      return sortedValues[lowerIndex] * (1 - weight) + sortedValues[upperIndex] * weight
   }
 
-  // --- 蒙特卡洛模拟核心逻辑 (优化版) ---
+  const calculatePathMaxDrawdownDepth = (path: number[]) => {
+      let peak = path[0] || 1
+      let maxDrawdown = 0
+
+      path.forEach(value => {
+          if (value > peak) peak = value
+          if (peak > 0) {
+              const drawdown = (value - peak) / peak
+              if (drawdown < maxDrawdown) maxDrawdown = drawdown
+          }
+      })
+
+      return Math.abs(maxDrawdown)
+  }
+
+  const buildBootstrapReturnSequence = (returns: number[], days: number) => {
+      const sequence: number[] = []
+      const blockSize = Math.min(5, returns.length)
+
+      while (sequence.length < days) {
+          const maxStart = Math.max(0, returns.length - blockSize)
+          const startIndex = Math.floor(Math.random() * (maxStart + 1))
+
+          for (let i = 0; i < blockSize && sequence.length < days; i++) {
+              sequence.push(returns[startIndex + i])
+          }
+      }
+
+      return sequence
+  }
+
+  // --- 蒙特卡洛模拟核心逻辑：历史收益重采样 ---
   const runMonteCarlo = () => {
       if (!chartData.value || !chartData.value.portfolio) return
 
-      // 1. 获取当前组合的历史特征 (日均收益率 和 日波动率)
       const prices = chartData.value.portfolio
-      const dailyReturns = []
-      // 使用对数收益率更准确，符合正态分布假设
+      const dailyReturns: number[] = []
+
       for (let i = 1; i < prices.length; i++) {
           if (prices[i - 1] > 0 && prices[i] > 0) {
-              dailyReturns.push(Math.log(prices[i] / prices[i - 1]))
+              dailyReturns.push(prices[i] / prices[i - 1] - 1)
           }
       }
 
       if (dailyReturns.length === 0) return
 
-      const mean = dailyReturns.reduce((a, b) => a + b, 0) / dailyReturns.length
-      // 计算方差和标准差
-      const variance =
-          dailyReturns.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / dailyReturns.length
-      const stdDev = Math.sqrt(variance)
+      const days = mcYears.value * 252
+      const simulationCount = 1000
+      const paths: number[][] = []
+      const finalValues: number[] = []
+      const maxDrawdownDepths: number[] = []
 
-      // 2. 模拟参数设定
-      // 注意：使用数学公式法，不需要循环 10000 次，
-      // 公式直接计算出的结果等同于模拟了无穷多次，且不消耗浏览器性能。
-      const days = mcYears.value * 252 // 交易日数量
+      for (let simulation = 0; simulation < simulationCount; simulation++) {
+          const sampledReturns = buildBootstrapReturnSequence(dailyReturns, days)
+          const path = [1]
 
-      // 3. 几何布朗运动 (GBM) 概率锥计算
-      // 公式: Price_t = Price_0 * exp( (mu - 0.5*sigma^2)*t + sigma*W_t )
-      // 其中 W_t 对应标准正态分布的分位值 (Z-score)
+          sampledReturns.forEach(ret => {
+              const previousValue = path[path.length - 1]
+              const nextValue = previousValue * Math.max(0.000001, 1 + ret)
+              path.push(nextValue)
+          })
+
+          paths.push(path)
+          finalValues.push(path[path.length - 1])
+          maxDrawdownDepths.push(calculatePathMaxDrawdownDepth(path))
+      }
 
       const percentilesData = {
-          p95: [1.0], // 乐观线
-          p50: [1.0], // 中位线
-          p05: [1.0] // 悲观线
+          p95: [] as number[],
+          p50: [] as number[],
+          p05: [] as number[]
       }
 
-      // 漂移项 (Drift)
-      const drift = mean
-
-      // Z-score 常数：
-      // 1.645 代表正态分布的 95% 分位点
-      // -1.645 代表正态分布的 5% 分位点
-      const z95 = 1.645
-      const z05 = -1.645
-
-      // 逐日计算概率锥的边界
-      for (let t = 1; t <= days; t++) {
-          const timeFactor = drift * t
-          const volFactor = stdDev * Math.sqrt(t) // 波动率随时间的平方根扩散
-
-          percentilesData.p95.push(Math.exp(timeFactor + z95 * volFactor))
-          percentilesData.p50.push(Math.exp(timeFactor))
-          percentilesData.p05.push(Math.exp(timeFactor + z05 * volFactor))
+      for (let day = 0; day <= days; day++) {
+          const dayValues = paths.map(path => path[day])
+          percentilesData.p95.push(getPercentileValue(dayValues, 0.95))
+          percentilesData.p50.push(getPercentileValue(dayValues, 0.5))
+          percentilesData.p05.push(getPercentileValue(dayValues, 0.05))
       }
 
-      // 4. 更新统计数据 (基于最后一天的预测值)
       const final95 = percentilesData.p95[days]
       const final50 = percentilesData.p50[days]
       const final05 = percentilesData.p05[days]
+      const lossProbability =
+          finalValues.filter(value => value < 1).length / simulationCount
+      const drawdown10Probability =
+          maxDrawdownDepths.filter(value => value >= 0.1).length / simulationCount
+      const drawdown20Probability =
+          maxDrawdownDepths.filter(value => value >= 0.2).length / simulationCount
 
       mcStats.value = {
           p95: ((final95 - 1) * 100).toFixed(0),
@@ -1262,10 +1532,14 @@
           p50: ((final50 - 1) * 100).toFixed(0),
           p50X: final50.toFixed(2),
           p05: ((final05 - 1) * 100).toFixed(0),
-          p05X: final05.toFixed(2)
+          p05X: final05.toFixed(2),
+          lossProbability: (lossProbability * 100).toFixed(1),
+          drawdown10Probability: (drawdown10Probability * 100).toFixed(1),
+          drawdown20Probability: (drawdown20Probability * 100).toFixed(1),
+          medianMaxDrawdown: (getPercentileValue(maxDrawdownDepths, 0.5) * 100).toFixed(1),
+          tailMaxDrawdown: (getPercentileValue(maxDrawdownDepths, 0.95) * 100).toFixed(1)
       }
 
-      // 5. 绘图
       initMonteCarloChart(days, percentilesData)
   }
 
@@ -1500,6 +1774,75 @@
   // 辅助样式函数
   const getValueColor = (val: string | number) =>
       Number(val) >= 0 ? 'highlight-red' : 'highlight-green'
+  const getAllPerformanceStats = () => {
+      return [portfolioStats.value, ...individualStats.value]
+  }
+  const isBestPerformanceValue = (stat: any, key: string, higherIsBetter: boolean) => {
+      const values = getAllPerformanceStats()
+          .map(item => Number(item[key]))
+          .filter(value => Number.isFinite(value))
+      const currentValue = Number(stat[key])
+
+      if (values.length === 0 || !Number.isFinite(currentValue)) return false
+
+      const bestValue = higherIsBetter ? Math.max(...values) : Math.min(...values)
+      return Math.abs(currentValue - bestValue) < 0.000001
+  }
+  const getPerformanceCellClass = (
+      stat: any,
+      key: string,
+      higherIsBetter: boolean,
+      mode?: 'return' | 'drawdown'
+  ) => {
+      return [
+          mode === 'return' ? getValueColor(stat[key]) : mode === 'drawdown' ? 'negative' : '',
+          { 'experience-best': isBestPerformanceValue(stat, key, higherIsBetter) }
+      ]
+  }
+  const parseExperienceValue = (val: string | number) => {
+      if (val === '∞') return Number.POSITIVE_INFINITY
+      const value = Number(val)
+      return Number.isFinite(value) ? value : 0
+  }
+  const getAllExperienceStats = () => {
+      return [portfolioExperienceStats.value, ...individualExperienceStats.value]
+  }
+  const isBestExperienceValue = (stat: any, key: string, higherIsBetter: boolean) => {
+      const values = getAllExperienceStats().map(item => parseExperienceValue(item[key]))
+      if (values.length === 0) return false
+
+      const bestValue = higherIsBetter ? Math.max(...values) : Math.min(...values)
+      const currentValue = parseExperienceValue(stat[key])
+
+      if (!Number.isFinite(bestValue) || !Number.isFinite(currentValue)) {
+          return bestValue === currentValue
+      }
+
+      return Math.abs(currentValue - bestValue) < 0.000001
+  }
+  const getExperienceBaseClass = (
+      stat: any,
+      key: string,
+      mode: 'rate' | 'noHigh' | 'skewness' | 'ulcer' | 'gainPain'
+  ) => {
+      const value = stat[key]
+      if (mode === 'noHigh') return getNoHighClass(value)
+      if (mode === 'skewness') return getSkewnessClass(value)
+      if (mode === 'ulcer') return getUlcerIndexClass(value)
+      if (mode === 'gainPain') return getGainPainClass(value)
+      return getExperienceRateClass(value)
+  }
+  const getExperienceCellClass = (
+      stat: any,
+      key: string,
+      higherIsBetter: boolean,
+      mode: 'rate' | 'noHigh' | 'skewness' | 'ulcer' | 'gainPain'
+  ) => {
+      return [
+          getExperienceBaseClass(stat, key, mode),
+          { 'experience-best': isBestExperienceValue(stat, key, higherIsBetter) }
+      ]
+  }
   const getExperienceRateClass = (val: string | number) => {
       const rate = Number(val)
       if (rate >= 60) return 'experience-strong'
@@ -1510,6 +1853,25 @@
       const value = Number(days)
       if (value <= 90) return 'experience-strong'
       if (value <= 365) return 'experience-mid'
+      return 'experience-soft'
+  }
+  const getSkewnessClass = (val: string | number) => {
+      const value = Number(val)
+      if (value > 0.3) return 'experience-strong'
+      if (value >= -0.3) return 'experience-mid'
+      return 'experience-soft'
+  }
+  const getUlcerIndexClass = (val: string | number) => {
+      const value = Number(val)
+      if (value <= 5) return 'experience-strong'
+      if (value <= 12) return 'experience-mid'
+      return 'experience-soft'
+  }
+  const getGainPainClass = (val: string | number) => {
+      if (val === '∞') return 'experience-strong'
+      const value = Number(val)
+      if (value >= 1.5) return 'experience-strong'
+      if (value >= 1) return 'experience-mid'
       return 'experience-soft'
   }
   const getCorrelationStyle = (val: number) => {
@@ -1545,6 +1907,7 @@
           opacity: 0;
           transform: translateY(20px);
       }
+
       to {
           opacity: 1;
           transform: translateY(0);
@@ -1552,74 +1915,81 @@
   }
 
   .page-wrapper {
-      font-family: 'Noto Sans SC', sans-serif;
-      background-color: #121212;
-      color: #ffffff;
-      min-height: 100vh;
+      overflow-x: hidden;
       padding: 3rem 1rem;
+      min-height: 100vh;
+      font-family: 'Noto Sans SC', sans-serif;
+      color: #fff;
       background: radial-gradient(circle at 20% 50%, #1e1b4b, transparent 40%),
           radial-gradient(circle at 80% 20%, #312e81, transparent 40%), #121212;
-      overflow-x: hidden;
+      background-color: #121212;
   }
 
   .main-container {
-      max-width: 1100px;
       margin: 0 auto;
+      max-width: 1100px;
   }
 
   /* 头部 */
   .page-header {
-      text-align: center;
       margin-bottom: 2rem;
+      text-align: center;
       animation: fadeInUp 0.5s ease-out forwards;
   }
+
   .back-button {
-      color: #b0c4de;
-      text-decoration: none;
-      font-size: 0.9rem;
       display: inline-block;
       margin-bottom: 1rem;
+      font-size: 0.9rem;
+      text-decoration: none;
+      color: #b0c4de;
       transition: color 0.3s;
   }
+
   .back-button:hover {
       color: var(--theme-color);
   }
+
   .main-title {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      margin-bottom: 0.5rem;
       font-size: 2rem;
       font-weight: 700;
-      display: flex;
-      align-items: center;
-      justify-content: center;
       gap: 0.8rem;
-      margin-bottom: 0.5rem;
   }
+
   .title-icon {
       text-shadow: 0 0 15px var(--theme-color);
   }
+
   .subtitle {
-      color: #b0c4de;
-      font-size: 0.9rem;
-      max-width: 800px;
       margin: 0 auto;
+      max-width: 800px;
+      font-size: 0.9rem;
+      color: #b0c4de;
   }
 
   /* 卡片通用 */
   .content-card {
-      background: rgba(255, 255, 255, 0.05);
-      border: 1px solid rgba(255, 255, 255, 0.1);
-      border-radius: 12px;
       padding: 1.5rem;
-      backdrop-filter: blur(10px);
       margin-bottom: 1.5rem;
-      animation: fadeInUp 0.5s ease-out forwards;
+      background: rgb(255 255 255 / 5%);
+      border: 1px solid rgb(255 255 255 / 10%);
+      border-radius: 12px;
       transition: border-color 0.3s;
+      backdrop-filter: blur(10px);
+      animation: fadeInUp 0.5s ease-out forwards;
   }
+
   .content-card:hover {
       border-color: var(--theme-shadow);
   }
+
   .full-height {
-      height: 100%;
       display: flex;
+      height: 100%;
       flex-direction: column;
       box-sizing: border-box;
   }
@@ -1628,46 +1998,53 @@
       display: flex;
       justify-content: space-between;
       align-items: center;
-      margin-bottom: 1.2rem;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
       padding-bottom: 0.8rem;
+      margin-bottom: 1.2rem;
+      border-bottom: 1px solid rgb(255 255 255 / 10%);
   }
+
   .card-title {
+      padding-left: 0.8rem;
       margin: 0;
       font-size: 1.2rem;
       border-left: 4px solid var(--theme-color);
-      padding-left: 0.8rem;
   }
+
   .card-description {
-      color: #b0c4de;
-      font-size: 0.85rem;
       margin-bottom: 1rem;
+      font-size: 0.85rem;
+      color: #b0c4de;
   }
 
   /* 配置区 */
   .weight-indicator {
-      font-weight: bold;
-      color: #00c497;
       font-size: 0.95rem;
+      color: #00c497;
+      font-weight: bold;
   }
+
   .weight-indicator.warning {
       color: #ff5722;
   }
+
   .config-grid {
       display: flex;
       flex-direction: column;
       gap: 1.5rem;
   }
+
   .strategy-inputs {
       display: grid;
       grid-template-columns: repeat(2, 1fr);
       gap: 1rem;
   }
+
   .input-row {
       display: flex;
       align-items: center;
       gap: 1rem;
   }
+
   .strategy-label-cell {
       display: flex;
       align-items: center;
@@ -1675,6 +2052,7 @@
       min-width: 100px;
       font-size: 0.9rem;
   }
+
   .strategy-checkbox {
       accent-color: var(--theme-color);
       width: 16px;
@@ -1682,14 +2060,18 @@
       cursor: pointer;
       flex-shrink: 0;
   }
+
   .strategy-name-label {
       cursor: pointer;
   }
+
   .strategy-name-action {
-      border: none;
-      background: transparent;
-      color: #dfe5ff;
       padding: 0 0.05rem 0.08rem;
+      color: #dfe5ff;
+      background: transparent;
+      border: none;
+      text-shadow: 0 0 8px rgb(125 211 252 / 18%);
+      transition: all 0.2s;
       font: inherit;
       font-weight: 600;
       cursor: pointer;
@@ -1698,58 +2080,64 @@
       text-decoration-thickness: 2px;
       text-decoration-color: rgb(99 102 241);
       text-underline-offset: 8px;
-      text-shadow: 0 0 8px rgba(125, 211, 252, 0.18);
-      transition: all 0.2s;
   }
+
   .strategy-name-action:hover {
       color: var(--theme-color);
       text-decoration-color: var(--theme-color);
       text-shadow: 0 0 10px var(--theme-shadow);
   }
+
   .inline-leverage-badge {
-      flex-shrink: 0;
-      color: #ffffff;
-      background: rgba(99, 102, 241, 0.28);
-      border: 1px solid rgba(99, 102, 241, 0.5);
-      border-radius: 4px;
       padding: 0.05rem 0.28rem;
       font-size: 0.7rem;
+      color: #fff;
+      background: rgb(99 102 241 / 28%);
+      border: 1px solid rgb(99 102 241 / 50%);
+      border-radius: 4px;
+      flex-shrink: 0;
       line-height: 1.3;
   }
+
   .slider-container {
       flex: 1;
       display: flex;
       align-items: center;
       gap: 0.8rem;
   }
+
   .slider-container.disabled {
       opacity: 0.3;
       pointer-events: none;
   }
+
   input[type='range'] {
       flex: 1;
       accent-color: var(--theme-color);
   }
+
   .number-input-wrapper {
       position: relative;
       width: 60px;
   }
+
   .number-input-wrapper input {
-      width: 100%;
-      background: rgba(0, 0, 0, 0.3);
-      border: 1px solid rgba(255, 255, 255, 0.2);
-      color: #fff;
       padding: 4px;
-      border-radius: 4px;
-      text-align: center;
+      width: 100%;
       font-size: 0.9rem;
+      text-align: center;
+      color: #fff;
+      background: rgb(0 0 0 / 30%);
+      border: 1px solid rgb(255 255 255 / 20%);
+      border-radius: 4px;
   }
+
   .number-input-wrapper .unit {
       position: absolute;
-      right: 0px;
       top: 7px;
-      color: #888;
+      right: 0;
       font-size: 0.7rem;
+      color: #888;
   }
 
   /* 操作区 */
@@ -1757,259 +2145,364 @@
       display: flex;
       justify-content: space-between;
       align-items: flex-end;
-      border-top: 1px dashed rgba(255, 255, 255, 0.1);
+      border-top: 1px dashed rgb(255 255 255 / 10%);
       padding-top: 1.2rem;
       gap: 1rem;
   }
+
   .date-picker-group label {
       display: block;
+      margin-bottom: 0.5rem;
       font-size: 0.85rem;
       color: #b0c4de;
-      margin-bottom: 0.5rem;
   }
+
   .date-inputs {
       display: flex;
       align-items: center;
       gap: 0.5rem;
   }
+
   .cyber-input {
-      background: rgba(0, 0, 0, 0.3);
-      border: 1px solid var(--theme-color);
-      color: #fff;
       padding: 0.5rem 0.6rem;
+      font-size: 0.9rem;
+      font-family: inherit;
+      color: #fff;
+      background: rgb(0 0 0 / 30%);
+      border: 1px solid var(--theme-color);
       border-radius: 6px;
       outline: none;
-      font-family: inherit;
       color-scheme: dark;
-      font-size: 0.9rem;
   }
+
   .run-btn {
-      background: var(--theme-color);
-      color: #fff;
-      border: none;
       padding: 0.6rem 1.5rem;
+      white-space: nowrap;
+      color: #fff;
+      background: var(--theme-color);
+      border: none;
       border-radius: 6px;
-      font-weight: bold;
-      cursor: pointer;
       box-shadow: 0 0 10px var(--theme-shadow);
       transition: all 0.3s;
-      white-space: nowrap;
+      font-weight: bold;
+      cursor: pointer;
   }
+
   .run-btn:hover:not(:disabled) {
       transform: translateY(-2px);
       box-shadow: 0 0 20px var(--theme-shadow);
   }
+
   .run-btn:disabled {
       background: #444;
+      opacity: 0.7;
       box-shadow: none;
       cursor: not-allowed;
-      opacity: 0.7;
   }
 
   .modal-backdrop {
       position: fixed;
-      inset: 0;
       z-index: 1000;
       display: flex;
-      align-items: center;
       justify-content: center;
+      align-items: center;
       padding: 1rem;
-      background: rgba(0, 0, 0, 0.65);
+      background: rgb(0 0 0 / 65%);
+      inset: 0;
       backdrop-filter: blur(8px);
   }
+
   .leverage-modal {
+      padding: 1.4rem;
       width: min(520px, 100%);
       background: #1b1c27;
-      border: 1px solid rgba(99, 102, 241, 0.45);
+      border: 1px solid rgb(99 102 241 / 45%);
       border-radius: 8px;
-      box-shadow: 0 16px 50px rgba(0, 0, 0, 0.45);
-      padding: 1.4rem;
+      box-shadow: 0 16px 50px rgb(0 0 0 / 45%);
   }
+
   .strategy-info-modal {
+      padding: 1.4rem;
       width: min(560px, 100%);
       background: #1b1c27;
-      border: 1px solid rgba(99, 102, 241, 0.45);
+      border: 1px solid rgb(99 102 241 / 45%);
       border-radius: 8px;
-      box-shadow: 0 16px 50px rgba(0, 0, 0, 0.45);
-      padding: 1.4rem;
+      box-shadow: 0 16px 50px rgb(0 0 0 / 45%);
   }
+
   .modal-header {
       display: flex;
-      align-items: flex-start;
       justify-content: space-between;
-      gap: 1rem;
-      margin-bottom: 1.2rem;
+      align-items: flex-start;
       padding-bottom: 0.8rem;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      margin-bottom: 1.2rem;
+      gap: 1rem;
+      border-bottom: 1px solid rgb(255 255 255 / 10%);
   }
+
   .modal-title {
       margin: 0 0 0.25rem;
       font-size: 1.15rem;
   }
+
   .modal-subtitle,
   .modal-footnote,
   .modal-note {
       margin: 0;
-      color: #b0c4de;
       font-size: 0.82rem;
+      color: #b0c4de;
       line-height: 1.5;
   }
+
   .modal-close {
       width: 30px;
       height: 30px;
-      border: 1px solid rgba(255, 255, 255, 0.16);
-      border-radius: 6px;
-      background: rgba(255, 255, 255, 0.06);
-      color: #ffffff;
-      cursor: pointer;
       font-size: 1rem;
+      color: #fff;
+      background: rgb(255 255 255 / 6%);
+      border: 1px solid rgb(255 255 255 / 16%);
+      border-radius: 6px;
+      cursor: pointer;
       line-height: 1;
   }
+
   .modal-close:hover {
-      border-color: var(--theme-color);
       color: var(--theme-color);
+      border-color: var(--theme-color);
   }
+
   .modal-toggle-row {
       display: flex;
       align-items: center;
-      gap: 0.55rem;
       margin-bottom: 1rem;
-      color: #ffffff;
       font-size: 0.95rem;
+      color: #fff;
+      gap: 0.55rem;
       cursor: pointer;
   }
+
   .modal-toggle-row input {
       accent-color: var(--theme-color);
       width: 16px;
       height: 16px;
   }
+
   .modal-note {
-      margin-bottom: 1rem;
       padding: 0.6rem 0.75rem;
-      border: 1px solid rgba(255, 193, 7, 0.35);
-      border-radius: 6px;
-      background: rgba(255, 193, 7, 0.08);
+      margin-bottom: 1rem;
       color: #f2d184;
+      background: rgb(255 193 7 / 8%);
+      border: 1px solid rgb(255 193 7 / 35%);
+      border-radius: 6px;
   }
+
   .strategy-info-body {
       display: flex;
+      margin: 1rem 0 0.25rem;
+      font-size: 0.9rem;
+      color: #d6deff;
       flex-direction: column;
       gap: 0.75rem;
-      margin: 1rem 0 0.25rem;
-      color: #d6deff;
-      font-size: 0.9rem;
       line-height: 1.75;
   }
+
   .strategy-info-body p {
-      margin: 0;
       padding-left: 0.8rem;
-      border-left: 3px solid rgba(99, 102, 241, 0.35);
+      margin: 0;
+      border-left: 3px solid rgb(99 102 241 / 35%);
   }
+
   .modal-fields {
       display: grid;
       grid-template-columns: 1fr 1fr;
       gap: 1rem;
       margin-bottom: 1rem;
   }
+
   .modal-field {
       display: flex;
+      font-size: 0.85rem;
+      color: #b0c4de;
       flex-direction: column;
       gap: 0.45rem;
-      color: #b0c4de;
-      font-size: 0.85rem;
   }
+
   .modal-field .cyber-input {
       width: 100%;
       box-sizing: border-box;
   }
+
   .leverage-metrics {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
       gap: 0.75rem;
       margin: 1rem 0;
   }
+
   .leverage-metrics > div {
-      min-width: 0;
       padding: 0.75rem;
-      border: 1px solid rgba(255, 255, 255, 0.1);
+      min-width: 0;
+      background: rgb(255 255 255 / 4%);
+      border: 1px solid rgb(255 255 255 / 10%);
       border-radius: 6px;
-      background: rgba(255, 255, 255, 0.04);
   }
+
   .leverage-metrics span {
       display: block;
       margin-bottom: 0.35rem;
-      color: #8392a5;
       font-size: 0.75rem;
+      color: #8392a5;
   }
+
   .leverage-metrics strong {
       display: block;
-      color: #ffffff;
       font-size: 0.95rem;
+      color: #fff;
       overflow-wrap: anywhere;
   }
+
   .modal-actions {
       display: flex;
       justify-content: flex-end;
       gap: 0.75rem;
       margin-top: 1.2rem;
   }
+
   .modal-secondary-btn,
   .modal-primary-btn {
-      border-radius: 6px;
       padding: 0.55rem 1rem;
+      border: 1px solid transparent;
+      border-radius: 6px;
       font-weight: bold;
       cursor: pointer;
-      border: 1px solid transparent;
   }
+
   .modal-secondary-btn {
-      background: transparent;
-      border-color: rgba(255, 255, 255, 0.18);
       color: #b0c4de;
+      background: transparent;
+      border-color: rgb(255 255 255 / 18%);
   }
+
   .modal-primary-btn {
+      color: #fff;
       background: var(--theme-color);
-      color: #ffffff;
       box-shadow: 0 0 10px var(--theme-shadow);
   }
+
   .modal-secondary-btn:hover {
+      color: #fff;
       border-color: var(--theme-color);
-      color: #ffffff;
   }
+
   .modal-primary-btn:hover {
       box-shadow: 0 0 18px var(--theme-shadow);
   }
 
   .leverage-result-strip {
       display: grid;
+      padding: 0.75rem;
+      margin-bottom: 1rem;
+      background: rgb(99 102 241 / 8%);
+      border: 1px solid rgb(99 102 241 / 28%);
+      border-radius: 8px;
       grid-template-columns: repeat(3, 1fr);
       gap: 0.75rem;
-      margin-bottom: 1rem;
-      padding: 0.75rem;
-      border: 1px solid rgba(99, 102, 241, 0.28);
-      border-radius: 8px;
-      background: rgba(99, 102, 241, 0.08);
   }
+
   .leverage-result-strip span {
       display: block;
-      color: #8392a5;
-      font-size: 0.75rem;
       margin-bottom: 0.25rem;
+      font-size: 0.75rem;
+      color: #8392a5;
   }
+
   .leverage-result-strip strong {
-      color: #ffffff;
       font-size: 0.95rem;
+      color: #fff;
   }
+
   .experience-strong {
       color: #ffb454;
       font-weight: 700;
   }
+
   .experience-mid {
       color: #7dd3fc;
       font-weight: 700;
   }
+
   .experience-soft {
       color: #00c497;
       font-weight: 700;
+  }
+
+  .experience-best {
+      position: relative;
+      background: rgb(255 180 84 / 14%);
+      box-shadow: inset 0 0 0 1px rgb(255 180 84 / 35%);
+  }
+
+  .experience-best::after {
+      position: absolute;
+      top: 2px;
+      right: 4px;
+      font-size: 0.62rem;
+      color: #ffb454;
+      content: '优';
+      font-weight: 700;
+      line-height: 1;
+  }
+
+  .metric-help {
+      position: relative;
+      display: inline-flex;
+      justify-content: center;
+      align-items: center;
+      margin-left: 0.2rem;
+      width: 12px;
+      height: 12px;
+      font-size: 9px;
+      color: #b0c4de;
+      border: 1px solid rgb(176 196 222 / 65%);
+      border-radius: 50%;
+      font-weight: 700;
+      line-height: 1;
+      cursor: help;
+      vertical-align: middle;
+  }
+
+  .metric-help:hover,
+  .metric-help:focus {
+      color: var(--theme-color);
+      border-color: var(--theme-color);
+      outline: none;
+  }
+
+  .metric-floating-tooltip {
+      position: fixed;
+      z-index: 5000;
+      padding: 0.65rem 0.75rem;
+      width: 320px;
+      max-width: calc(100vw - 24px);
+      font-size: 0.78rem;
+      text-align: left;
+      white-space: normal;
+      color: #d6deff;
+      background: rgb(27 28 39 / 98%);
+      border: 1px solid rgb(99 102 241 / 45%);
+      border-radius: 6px;
+      box-shadow: 0 8px 24px rgb(0 0 0 / 35%);
+      font-weight: 400;
+      line-height: 1.55;
+      pointer-events: none;
+  }
+
+  .metric-floating-tooltip--top {
+      transform: translate(-50%, -100%);
+  }
+
+  .metric-floating-tooltip--bottom {
+      transform: translate(-50%, 0);
   }
 
   /* ECharts */
@@ -2023,11 +2516,13 @@
       overflow-x: auto;
       -webkit-overflow-scrolling: touch;
   }
+
   .table-container::-webkit-scrollbar {
       height: 6px;
   }
+
   .table-container::-webkit-scrollbar-thumb {
-      background: rgba(255, 255, 255, 0.2);
+      background: rgb(255 255 255 / 20%);
       border-radius: 3px;
   }
 
@@ -2035,21 +2530,24 @@
       width: 100%;
       border-collapse: collapse;
       font-size: 0.9rem;
+
       /* min-width: 600px; */
   }
+
   th {
-      background: rgba(0, 0, 0, 0.3);
-      color: #b0c4de;
       padding: 0.8rem;
-      border: 1px solid rgba(255, 255, 255, 0.1);
-      font-weight: normal;
       white-space: nowrap;
+      color: #b0c4de;
+      background: rgb(0 0 0 / 30%);
+      border: 1px solid rgb(255 255 255 / 10%);
+      font-weight: normal;
   }
+
   td {
       padding: 0.8rem;
       text-align: center;
-      border: 1px solid rgba(255, 255, 255, 0.1);
       white-space: nowrap;
+      border: 1px solid rgb(255 255 255 / 10%);
   }
 
   /* 固定列样式 */
@@ -2058,56 +2556,99 @@
       left: 0;
       z-index: 2;
       background: #1e1e1e;
-      border-right: 1px solid rgba(255, 255, 255, 0.2);
+      border-right: 1px solid rgb(255 255 255 / 20%);
   }
+
   .sticky-col-header {
       position: sticky;
       left: 0;
       z-index: 3;
       background: #252525;
   }
+
   .highlight-row .sticky-col {
       background: #2c2a4a;
   }
+
   .row-header {
       font-weight: bold;
       text-align: center;
   }
 
   .highlight-row {
-      background: rgba(99, 102, 241, 0.1);
+      background: rgb(99 102 241 / 10%);
       font-weight: bold;
   }
+
   .highlight-red {
       color: #ff5722;
       font-weight: bold;
   }
+
   .highlight-green {
       color: #00c497;
       font-weight: bold;
   }
+
   .negative {
       color: #00c497;
       font-weight: bold;
   }
 
+  .experience-table {
+      font-size: 0.82rem;
+  }
+
+  .experience-table th,
+  .experience-table td {
+      padding: 0.65rem 0.42rem;
+  }
+
+  .experience-table .sticky-col,
+  .experience-table .sticky-col-header {
+      min-width: 92px;
+  }
+
+  .holding-experience-table {
+      table-layout: fixed;
+      width: 100%;
+      min-width: 960px;
+  }
+
+  .holding-experience-table th,
+  .holding-experience-table td {
+      overflow: hidden;
+      width: 10%;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+  }
+
+  .holding-experience-table .sticky-col,
+  .holding-experience-table .sticky-col-header {
+      width: 10%;
+      min-width: 0;
+  }
+
   /* === 热力图表格样式 === */
   .heatmap-table th {
-      font-size: 0.85rem;
       padding: 0.6rem 0.2rem;
       min-width: 40px;
+      font-size: 0.85rem;
   }
+
   .heatmap-table td {
       padding: 0.6rem 0.2rem;
       font-size: 0.85rem;
   }
+
   .year-cell {
       font-weight: bold;
       color: #b0c4de;
   }
+
   .year-total-cell {
       font-weight: bold;
-      border-left: 2px solid rgba(255, 255, 255, 0.2);
+      border-left: 2px solid rgb(255 255 255 / 20%);
   }
 
   /* 双栏布局 */
@@ -2117,6 +2658,7 @@
       gap: 1.5rem;
       margin-bottom: 1.5rem;
   }
+
   /* 关键修复：防止Grid/Flex子项撑破容器 */
   .grid-two-col > * {
       min-width: 0;
@@ -2129,42 +2671,47 @@
       gap: 1rem;
       padding-top: 0.5rem;
   }
+
   .dist-row {
       display: flex;
       flex-direction: column;
       gap: 0.3rem;
   }
+
   .dist-info {
       display: flex;
       justify-content: space-between;
       font-size: 0.85rem;
       color: #b0c4de;
   }
+
   .dist-bar-bg {
+      overflow: hidden;
       width: 100%;
       height: 10px;
-      background: rgba(255, 255, 255, 0.05);
+      background: rgb(255 255 255 / 5%);
       border-radius: 5px;
-      overflow: hidden;
   }
+
   .dist-bar {
-      height: 100%;
-      border-radius: 5px;
-      background: linear-gradient(90deg, var(--theme-color), #a5b4fc);
       min-width: 4px;
+      height: 100%;
+      background: linear-gradient(90deg, var(--theme-color), #a5b4fc);
+      border-radius: 5px;
   }
+
   select.cyber-input {
+      padding-right: 2rem; /* 给右侧箭头留位置 */
+      background-position: right 0.5rem center;
+      background-repeat: no-repeat;
+      background-size: 1rem;
       appearance: none; /* 移除浏览器默认样式 */
       -webkit-appearance: none;
       -moz-appearance: none;
       cursor: pointer;
-      padding-right: 2rem; /* 给右侧箭头留位置 */
 
       /* 自定义下拉箭头 (使用 SVG 编码) */
       background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23b0c4de' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
-      background-repeat: no-repeat;
-      background-position: right 0.5rem center;
-      background-size: 1rem;
       line-height: 1.2;
   }
 
@@ -2173,8 +2720,8 @@
   }
 
   select.cyber-input option {
-      background-color: #1e1e2e; /* 下拉选项背景色 */
       color: #fff;
+      background-color: #1e1e2e; /* 下拉选项背景色 */
   }
 
   /* ============================================
@@ -2182,9 +2729,10 @@
                                                                                                                                      ============================================ */
   @media (max-width: 768px) {
       .page-wrapper {
-          padding: 1.5rem 0.8rem;
           overflow-x: hidden;
+          padding: 1.5rem 0.8rem;
       }
+
       .main-title {
           font-size: 1.6rem;
       }
@@ -2193,34 +2741,43 @@
           grid-template-columns: 1fr;
           gap: 1.2rem;
       }
+
       .action-area {
           flex-direction: column;
           align-items: stretch;
       }
+
       .date-inputs {
           justify-content: space-between;
       }
+
       .cyber-input {
           flex: 1;
       }
+
       .run-btn {
-          width: 100%;
           margin-top: 0.5rem;
+          width: 100%;
       }
+
       .leverage-modal {
           padding: 1rem;
       }
+
       .strategy-info-modal {
           padding: 1rem;
       }
+
       .modal-fields,
       .leverage-metrics,
       .leverage-result-strip {
           grid-template-columns: 1fr;
       }
+
       .modal-actions {
           flex-direction: column-reverse;
       }
+
       .modal-secondary-btn,
       .modal-primary-btn {
           width: 100%;
@@ -2230,6 +2787,7 @@
           grid-template-columns: 1fr;
           gap: 1rem;
       }
+
       /* 双重保险 */
       .grid-two-col > * {
           min-width: 0;
@@ -2241,8 +2799,8 @@
       }
 
       table {
-          font-size: 0.8rem;
           min-width: auto;
+          font-size: 0.8rem;
       }
 
       .correlation-table th,
@@ -2251,18 +2809,19 @@
       .heatmap-table td {
           padding: 0.4rem 0.2rem;
           font-size: 0.75rem;
-          border-color: #373333;
           text-align: center;
+          border-color: #373333;
       }
   }
+
   /* === 蒙特卡洛卡片样式 === */
 
   /* 标题栏布局 */
   .title-with-tooltip {
+      position: relative; /* 所有的tooltip定位参考点 */
       display: flex;
       align-items: center;
       gap: 0.5rem;
-      position: relative; /* 所有的tooltip定位参考点 */
   }
 
   /* 交互式Icon */
@@ -2271,69 +2830,32 @@
       cursor: pointer;
       display: flex;
       align-items: center;
+      border-radius: 50%;
   }
+
+  .info-icon-wrapper:focus {
+      outline: none;
+  }
+
   .info-icon {
       display: flex;
       justify-content: center;
       align-items: center;
       width: 12px;
       height: 12px;
-      border-radius: 50%;
-      border: 1px solid #b0c4de;
-      color: #b0c4de;
       font-size: 10px;
-      font-weight: bold;
+      color: #b0c4de;
+      border: 1px solid #b0c4de;
+      border-radius: 50%;
       transition: all 0.3s;
+      font-weight: bold;
   }
+
   .info-icon:hover,
   .info-icon-wrapper:hover .info-icon {
+      color: var(--theme-color);
       border-color: var(--theme-color);
-      color: var(--theme-color);
       box-shadow: 0 0 5px var(--theme-shadow);
-  }
-
-  /* Tooltip 弹窗 */
-  .tooltip-box {
-      position: absolute;
-      top: 25px;
-      left: 0;
-      width: 280px;
-      background: rgba(30, 30, 40, 0.95);
-      border: 1px solid var(--theme-color);
-      border-radius: 8px;
-      padding: 1rem;
-      z-index: 100;
-      box-shadow: 0 5px 20px rgba(0, 0, 0, 0.5);
-      backdrop-filter: blur(5px);
-      font-size: 0.85rem;
-      line-height: 1.5;
-      color: #e0e0e0;
-  }
-  .tooltip-title {
-      color: var(--theme-color);
-      font-weight: bold;
-      margin-bottom: 0.5rem;
-      font-size: 0.95rem;
-  }
-  .tooltip-list {
-      margin: 0.5rem 0 0 1.2rem;
-      padding: 0;
-      font-size: 0.8rem;
-      color: #b0c4de;
-  }
-  .tooltip-list li {
-      margin-bottom: 0.3rem;
-  }
-
-  /* 过渡动画 */
-  .fade-enter-active,
-  .fade-leave-active {
-      transition: opacity 0.3s, transform 0.3s;
-  }
-  .fade-enter-from,
-  .fade-leave-to {
-      opacity: 0;
-      transform: translateY(-5px);
   }
 
   /* 年份选择器 */
@@ -2344,163 +2866,202 @@
       font-size: 0.9rem;
       color: #b0c4de;
   }
+
   .cyber-select {
-      background: rgba(0, 0, 0, 0.3);
-      border: 1px solid rgba(255, 255, 255, 0.2);
-      color: #fff;
       padding: 0.3rem 0.5rem;
+      font-family: inherit;
+      color: #fff;
+      background: rgb(0 0 0 / 30%);
+      border: 1px solid rgb(255 255 255 / 20%);
       border-radius: 4px;
       outline: none;
-      font-family: inherit;
       cursor: pointer;
   }
+
   .cyber-select:hover {
       border-color: var(--theme-color);
   }
 
-  /* 布局：左图右数据 */
+  /* 蒙特卡洛布局：上图下指标 */
   .mc-layout {
+      display: grid;
+      align-items: stretch;
       margin-top: 1.5rem;
-      align-items: center; /* 垂直居中 */
+      grid-template-columns: 1fr;
+      gap: 1rem;
   }
+
   .mc-chart {
-      height: 300px;
       width: 100%;
+      height: 360px;
+      min-height: 360px;
+      align-self: stretch;
   }
 
   /* 统计数据块 */
   .mc-stats {
-      display: flex;
-      flex-direction: column;
-      gap: 1rem;
-      justify-content: center;
-      height: 100%;
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 0.75rem;
   }
-  .stat-box {
-      background: rgba(255, 255, 255, 0.03);
+
+  .mc-risk-grid {
+      display: grid;
+      grid-column: 1 / -1;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 0.75rem;
+  }
+
+  .mc-risk-item {
+      padding: 0.7rem;
+      min-width: 0;
+      background: rgb(255 255 255 / 3.5%);
+      border: 1px solid rgb(255 255 255 / 10%);
       border-radius: 8px;
-      padding: 1rem;
-      border-left: 4px solid #555;
-      display: flex;
-      flex-direction: column;
-      position: relative;
-      overflow: hidden;
   }
+
+  .mc-risk-item.wide {
+      grid-column: auto;
+  }
+
+  .mc-risk-item .label {
+      display: block;
+      margin-bottom: 0.25rem;
+      font-size: 0.72rem;
+      color: #b0c4de;
+  }
+
+  .mc-risk-item .value {
+      font-size: 1.05rem;
+      color: #ffb454;
+      font-weight: 700;
+  }
+
+  .stat-box {
+      position: relative;
+      display: flex;
+      overflow: hidden;
+      padding: 1rem;
+      background: rgb(255 255 255 / 3%);
+      border-radius: 8px;
+      border-left: 4px solid #555;
+      flex-direction: column;
+  }
+
   .stat-box::after {
-      content: '';
       position: absolute;
-      right: -10px;
       top: -10px;
+      right: -10px;
       width: 40px;
       height: 40px;
       border-radius: 50%;
       opacity: 0.1;
+      content: '';
   }
 
   .stat-box.optimistic {
       border-color: #00c497;
   }
+
   .stat-box.optimistic::after {
       background: #00c497;
   }
 
   .stat-box.median {
-      border-color: #ffffff;
+      border-color: #fff;
   }
+
   .stat-box.median::after {
-      background: #ffffff;
+      background: #fff;
   }
 
   .stat-box.pessimistic {
       border-color: #ff5722;
   }
+
   .stat-box.pessimistic::after {
       background: #ff5722;
   }
 
   .stat-box .label {
+      margin-bottom: 0.2rem;
       font-size: 0.8rem;
       color: #b0c4de;
-      margin-bottom: 0.2rem;
   }
+
   .stat-box .value {
       font-size: 1.5rem;
       font-weight: bold;
       color: #fff;
   }
+
   .stat-box .value.negative {
       color: #ff5722;
   }
+
   .stat-box .sub {
+      margin-top: 0.2rem;
       font-size: 0.75rem;
       color: #666;
-      margin-top: 0.2rem;
   }
 
   /* 移动端适配 */
   @media (max-width: 768px) {
-      .tooltip-box {
-          width: 250px;
-          left: -10px; /* 防止溢出屏幕 */
-      }
       .mc-layout {
-          grid-template-columns: 1fr; /* 强制单列 */
+          grid-template-columns: 1fr;
           gap: 1.5rem;
       }
+
+      .mc-chart {
+          height: 320px;
+          min-height: 320px;
+      }
+
       .mc-stats {
-          flex-direction: row; /* 移动端改为横向排列，如果放不下会自动换行吗？最好是用grid */
           display: grid;
-          grid-template-columns: 1fr 1fr 1fr;
+          grid-template-columns: repeat(3, minmax(0, 1fr));
           gap: 0.5rem;
       }
+
+      .mc-risk-grid {
+          grid-column: 1 / -1;
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .mc-risk-item.wide {
+          grid-column: 1 / -1;
+      }
+
       .stat-box {
-          padding: 0.5rem;
           align-items: center;
+          padding: 0.5rem;
           text-align: center;
       }
+
       .stat-box .label {
-          font-size: 0.7rem;
-          white-space: nowrap;
           overflow: hidden;
-          text-overflow: ellipsis;
           width: 100%;
+          font-size: 0.7rem;
+          text-overflow: ellipsis;
+          white-space: nowrap;
       }
+
       .stat-box .value {
           font-size: 1.1rem;
       }
+
       .card-header-row {
           flex-wrap: wrap; /* 允许标题和选择器换行 */
           gap: 0.8rem;
       }
+
       .year-selector {
-          width: 100%;
           justify-content: space-between;
+          width: 100%;
       }
+
       .title-with-tooltip {
-          position: static; /* 移除相对定位基准，允许子元素相对于视口定位 */
-      }
-
-      .tooltip-box {
-          position: fixed; /* 强制固定在屏幕上 */
-          top: 38%; /* 垂直居中 */
-          left: 50%; /* 水平居中 */
-          transform: translate(-50%, -50%); /* 修正偏移 */
-          width: 85vw; /* 宽度占屏幕85% */
-          max-width: 350px;
-          background: rgba(25, 25, 35, 0.98); /* 背景加深，防止透视干扰 */
-          border: 1px solid var(--theme-color);
-          box-shadow: 0 0 50px rgba(0, 0, 0, 0.8); /* 增加阴影强调层级 */
-          z-index: 9999; /* 确保在最上层 */
-      }
-
-      /* 可选：给弹窗加一个关闭提示，优化体验 */
-      .tooltip-box::after {
-          content: '(点击再次关闭)';
-          display: block;
-          text-align: center;
-          font-size: 0.7rem;
-          color: #666;
-          margin-top: 1rem;
+          position: static;
       }
   }
 </style>
