@@ -18,10 +18,23 @@
 
       <div class="content-card config-card">
         <div class="card-header-row">
-          <h2 class="card-title no-margin">🧪 参数配置</h2>
-          <div :class="['weight-indicator', { 'warning': totalWeight !== 100 }]">
-            总权重: {{ totalWeight }}%
-            <span v-if="totalWeight !== 100" class="warning-text">(目标 100%)</span>
+          <h2 class="card-title no-margin">参数配置</h2>
+          <div class="config-header-actions">
+            <button
+              type="button"
+              class="conservative-help-trigger"
+              @mouseenter="showMetricTooltip($event, metricHelpText.conservativeFactor)"
+              @focus="showMetricTooltip($event, metricHelpText.conservativeFactor)"
+              @mouseleave="hideMetricTooltip"
+              @blur="hideMetricTooltip"
+            >
+              <span>保守系数</span>
+              <span class="info-icon">i</span>
+            </button>
+            <div :class="['weight-indicator', { 'warning': totalWeight !== 100 }]">
+              总权重: {{ totalWeight }}%
+              <span v-if="totalWeight !== 100" class="warning-text">(目标 100%)</span>
+            </div>
           </div>
         </div>
 
@@ -63,6 +76,18 @@
                   <span class="unit">%</span>
                 </div>
               </div>
+              <label class="conservative-field" :class="{ disabled: !strat.selected }">
+                <span>保守系数</span>
+                <input
+                  type="number"
+                  v-model.number="strat.conservativeFactor"
+                  min="0"
+                  max="1"
+                  step="0.05"
+                  :disabled="!strat.selected"
+                  @change="normalizeConservativeFactor(strat)"
+                />
+              </label>
             </div>
           </div>
 
@@ -218,6 +243,7 @@
                   <th class="sticky-col-header">策略名称</th>
                   <th>总收益率</th>
                   <th>年化收益</th>
+                  <th>保守后年化</th>
                   <th>年化波动率</th>
                   <th>夏普比率</th>
                   <th>最大回撤</th>
@@ -232,6 +258,9 @@
                   </td>
                   <td :class="getPerformanceCellClass(portfolioStats, 'annualizedReturn', true, 'return')">
                     {{ portfolioStats.annualizedReturn }}%
+                  </td>
+                  <td :class="getPerformanceCellClass(portfolioStats, 'conservativeAnnualizedReturn', true, 'return')">
+                    {{ portfolioStats.conservativeAnnualizedReturn }}%
                   </td>
                   <td :class="getPerformanceCellClass(portfolioStats, 'volatility', false)">
                     {{ portfolioStats.volatility }}%
@@ -253,6 +282,9 @@
                   </td>
                   <td :class="getPerformanceCellClass(stat, 'annualizedReturn', true, 'return')">
                     {{ stat.annualizedReturn }}%
+                  </td>
+                  <td :class="getPerformanceCellClass(stat, 'conservativeAnnualizedReturn', true, 'return')">
+                    {{ stat.conservativeAnnualizedReturn }}%
                   </td>
                   <td :class="getPerformanceCellClass(stat, 'volatility', false)">
                     {{ stat.volatility }}%
@@ -451,7 +483,7 @@
           </div>
 
           <p class="card-description">
-            基于当前组合历史日收益重采样生成 1000 条潜在未来路径。阴影区域代表 90% 的概率区间。
+            基于当前组合历史日收益重采样生成 1000 条潜在未来路径，并按保守系数折减历史平均收益。阴影区域代表 90% 的概率区间。
           </p>
 
           <div class="mc-layout">
@@ -621,6 +653,8 @@
           '衡量回撤带来的持有痛感。它会把每天低于历史高点的回撤幅度纳入均方计算，所以不只看跌得多深，也会把持续低于高点的时间计入。',
       gainPainRatio:
           '累计收益率除以溃疡指数。数值越高，说明每承受一单位回撤痛感，换来的收益越多。',
+      conservativeFactor:
+          '保守系数用于估算未来收益的兑现程度。它只作用于“策略表现对比统计”里的“保守后年化”，以及“蒙特卡洛未来模拟”的收益漂移假设；不改变净值走势、历史年化收益、历史波动、夏普、最大回撤、持有体验、相关性、月度收益和历史回撤明细。',
       monteCarlo:
           '基于当前组合历史日收益做短周期重采样，生成 1000 条可能路径。上轨/中轨/下轨分别代表 95%、50%、5% 分位结果；右侧风险指标展示期末亏损概率和模拟路径中的回撤压力。它不是预测承诺，而是用历史波动结构观察未来可能区间。'
   }
@@ -707,6 +741,7 @@
           weight: 20,
           selected: true,
           color: '#00aaff',
+          conservativeFactor: 0.95,
           url: './static/allWeatherData.json'
       },
       {
@@ -715,6 +750,7 @@
           weight: 20,
           selected: true,
           color: '#add8e6',
+          conservativeFactor: 0.6,
           url: './static/bondData.json'
       },
     
@@ -724,6 +760,7 @@
           weight: 20,
           selected: true,
           color: '#ef4444',
+          conservativeFactor: 0.8,
           url: './static/rightsStrategyData.json'
       }  ,
       {
@@ -732,6 +769,7 @@
           weight: 20,
           selected: true,
           color: '#ff5722',
+          conservativeFactor: 0.7,
           url: './static/momentumData.json'
       },
       {
@@ -740,6 +778,7 @@
           weight: 20,
           selected: true,
           color: '#f0e68c',
+          conservativeFactor: 0.8,
           url: './static/microCapData.json'
       },
       {
@@ -748,6 +787,7 @@
           weight: 0, // 建议初始设为 0，防止总权重直接超过 100% 导致报错
           selected: false, // 建议初始不选中，由用户手动勾选
           color: '#ff4081', // 🎨 推荐色：荧光玫红。在深色背景极具穿透力，且与蓝/橙/黄形成完美互补。
+          conservativeFactor: 0.6,
           url: './static/jinghongData.json'
       }
   ])
@@ -843,6 +883,37 @@
   const formatLeverageMultiplier = (value: number) => {
       const rounded = Math.round(value * 100) / 100
       return `${Number.isInteger(rounded) ? rounded.toFixed(0) : rounded.toFixed(2)}x`
+  }
+
+  const getCleanConservativeFactor = (value: number) => {
+      const numericValue = Number(value)
+      if (!Number.isFinite(numericValue)) return 1
+      return Math.min(1, Math.max(0, numericValue))
+  }
+
+  const normalizeConservativeFactor = (strat: any) => {
+      strat.conservativeFactor = Number(getCleanConservativeFactor(strat.conservativeFactor).toFixed(2))
+  }
+
+  const getPortfolioConservativeFactor = (selectedStrats: any[]) => {
+      const totalSelectedWeight = selectedStrats.reduce((sum, strat) => sum + Number(strat.weight || 0), 0)
+      if (totalSelectedWeight <= 0) return 1
+
+      return selectedStrats.reduce((sum, strat) => {
+          return (
+              sum +
+              (Number(strat.weight || 0) / totalSelectedWeight) *
+                  getCleanConservativeFactor(strat.conservativeFactor)
+          )
+      }, 0)
+  }
+
+  const applyConservativeAnnualizedReturn = (annualizedReturn: string | number, factor: number) => {
+      const value = Number(annualizedReturn)
+      if (!Number.isFinite(value)) return '0.00'
+
+      const adjustedValue = value > 0 ? value * getCleanConservativeFactor(factor) : value
+      return adjustedValue.toFixed(2)
   }
 
   const getStrategyDisplayName = (strat: any) => {
@@ -1362,13 +1433,25 @@
       }
 
       // 4. 计算各项统计指标
-      portfolioStats.value = calculateStrategyStats(portfolioCurve)
+      const portfolioConservativeFactor = getPortfolioConservativeFactor(selectedStrats)
+      const rawPortfolioStats = calculateStrategyStats(portfolioCurve)
+      portfolioStats.value = {
+          ...rawPortfolioStats,
+          conservativeAnnualizedReturn: applyConservativeAnnualizedReturn(
+              rawPortfolioStats.annualizedReturn,
+              portfolioConservativeFactor
+          )
+      }
       portfolioExperienceStats.value = calculateExperienceStats(portfolioCurve, calcDateList)
 
       individualStats.value = selectedStrats.map(strat => {
           const stats = calculateStrategyStats(normalizedDataMap[strat.id])
           return {
               name: getStrategyDisplayName(strat),
+              conservativeAnnualizedReturn: applyConservativeAnnualizedReturn(
+                  stats.annualizedReturn,
+                  getCleanConservativeFactor(strat.conservativeFactor)
+              ),
               ...stats
           }
       })
@@ -1419,7 +1502,8 @@
       chartData.value = {
           dateList: calcDateList,
           portfolio: portfolioCurve,
-          singles: normalizedDataMap
+          singles: normalizedDataMap,
+          conservativeFactor: portfolioConservativeFactor
       }
   }
 
@@ -1482,6 +1566,14 @@
 
       if (dailyReturns.length === 0) return
 
+      const conservativeFactor = getCleanConservativeFactor(chartData.value.conservativeFactor)
+      const historicalMean =
+          dailyReturns.reduce((sum, ret) => sum + ret, 0) / dailyReturns.length
+      const simulationReturns =
+          historicalMean > 0
+              ? dailyReturns.map(ret => ret - historicalMean + historicalMean * conservativeFactor)
+              : dailyReturns
+
       const days = mcYears.value * 252
       const simulationCount = 1000
       const paths: number[][] = []
@@ -1489,7 +1581,7 @@
       const maxDrawdownDepths: number[] = []
 
       for (let simulation = 0; simulation < simulationCount; simulation++) {
-          const sampledReturns = buildBootstrapReturnSequence(dailyReturns, days)
+          const sampledReturns = buildBootstrapReturnSequence(simulationReturns, days)
           const path = [1]
 
           sampledReturns.forEach(ret => {
@@ -2027,6 +2119,42 @@
       color: #ff5722;
   }
 
+  .config-header-actions {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 1rem;
+      flex-wrap: wrap;
+  }
+
+  .conservative-help-trigger {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.4rem;
+      padding: 0;
+      color: #b0c4de;
+      background: transparent;
+      border: none;
+      font: inherit;
+      font-size: 0.86rem;
+      cursor: help;
+      line-height: 1;
+  }
+
+  .conservative-help-trigger:hover,
+  .conservative-help-trigger:focus {
+      color: #dfe5ff;
+      outline: none;
+  }
+
+  .conservative-help-trigger:hover .info-icon,
+  .conservative-help-trigger:focus .info-icon {
+      color: var(--theme-color);
+      border-color: var(--theme-color);
+      box-shadow: 0 0 5px var(--theme-shadow);
+  }
+
   .config-grid {
       display: flex;
       flex-direction: column;
@@ -2035,14 +2163,18 @@
 
   .strategy-inputs {
       display: grid;
-      grid-template-columns: repeat(2, 1fr);
-      gap: 1rem;
+      grid-template-columns: 1fr;
+      gap: 0.85rem;
   }
 
   .input-row {
       display: flex;
       align-items: center;
       gap: 1rem;
+      padding: 0.65rem 0.75rem;
+      background: rgb(255 255 255 / 3%);
+      border: 1px solid rgb(255 255 255 / 8%);
+      border-radius: 6px;
   }
 
   .strategy-label-cell {
@@ -2111,6 +2243,38 @@
       pointer-events: none;
   }
 
+  .conservative-field {
+      display: flex;
+      align-items: center;
+      gap: 0.45rem;
+      flex-shrink: 0;
+      color: #b0c4de;
+      font-size: 0.82rem;
+      white-space: nowrap;
+  }
+
+  .conservative-field.disabled {
+      opacity: 0.35;
+      pointer-events: none;
+  }
+
+  .conservative-field input {
+      width: 74px;
+      box-sizing: border-box;
+      padding: 0.42rem 0.45rem;
+      color: #fff;
+      background: rgb(0 0 0 / 28%);
+      border: 1px solid rgb(255 255 255 / 14%);
+      border-radius: 4px;
+      outline: none;
+      text-align: center;
+  }
+
+  .conservative-field input:focus {
+      border-color: var(--theme-color);
+      box-shadow: 0 0 0 2px var(--theme-shadow);
+  }
+
   input[type='range'] {
       flex: 1;
       accent-color: var(--theme-color);
@@ -2161,6 +2325,35 @@
       display: flex;
       align-items: center;
       gap: 0.5rem;
+  }
+
+  .date-inputs .cyber-input {
+      display: inline-flex;
+      align-items: center;
+      box-sizing: border-box;
+      height: 38px;
+      padding: 0 0.6rem;
+      line-height: 1;
+  }
+
+  .date-inputs .cyber-input::-webkit-datetime-edit {
+      display: inline-flex;
+      align-items: center;
+      min-height: 100%;
+  }
+
+  .date-inputs .cyber-input::-webkit-calendar-picker-indicator {
+      width: 16px;
+      height: 16px;
+      padding: 0;
+      margin: 0;
+      cursor: pointer;
+  }
+
+  .separator {
+      display: inline-flex;
+      align-items: center;
+      height: 38px;
   }
 
   .cyber-input {
@@ -2597,6 +2790,7 @@
 
   .experience-table {
       font-size: 0.82rem;
+      min-width: 760px;
   }
 
   .experience-table th,
@@ -2737,9 +2931,29 @@
           font-size: 1.6rem;
       }
 
+      .config-card .card-header-row {
+          align-items: flex-start;
+          flex-direction: column;
+          gap: 0.8rem;
+      }
+
+      .config-header-actions {
+          justify-content: space-between;
+          width: 100%;
+      }
+
       .strategy-inputs {
           grid-template-columns: 1fr;
           gap: 1.2rem;
+      }
+
+      .input-row {
+          flex-wrap: wrap;
+      }
+
+      .conservative-field {
+          justify-content: flex-end;
+          width: 100%;
       }
 
       .action-area {

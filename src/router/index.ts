@@ -1,4 +1,4 @@
-import { createWebHistory, createRouter } from 'vue-router'
+import { createWebHashHistory, createRouter } from 'vue-router'
 import { useUserStore } from '@/store/user' // 引入我们刚创建的 user store
 import app from '@/lib/cloudbase'
 // 路由表
@@ -100,18 +100,8 @@ export const constantRoutes = [
   }
 ]
 
-const migrateLegacyHashRoute = () => {
-  const legacyPath = window.location.hash.slice(1)
-  if (!legacyPath.startsWith('/')) return
-
-  const basePath = import.meta.env.BASE_URL.replace(/\/$/, '')
-  window.history.replaceState(window.history.state, '', `${basePath}${legacyPath}`)
-}
-
-migrateLegacyHashRoute()
-
 const router = createRouter({
-  history: createWebHistory(import.meta.env.BASE_URL),
+  history: createWebHashHistory(import.meta.env.BASE_URL),
   routes: constantRoutes
 })
 

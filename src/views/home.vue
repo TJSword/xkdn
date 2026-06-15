@@ -52,8 +52,21 @@
           <div href="#" @click.prevent="openRechargeModal" class="action-link">会员充值</div>
           <span class="separator">|</span>
           <div href="#" @click.prevent="openPasswordModal" class="action-link">修改密码</div>
+          <template v-if="userStore.isVip">
+            <span class="separator">|</span>
+            <div href="#" @click.prevent="openNotificationModal" class="action-link">通知设置</div>
+          </template>
           <span class="separator">|</span>
-          <div href="#" @click.prevent="copyWeChatID" class="action-link">加入交流群</div>
+          <div class="wechat-hover-wrapper">
+            <button type="button" class="action-link action-button" @click="copyWeChatID">
+              加入交流群
+            </button>
+            <div class="wechat-qr-popover" role="tooltip">
+              <img :src="wechatQrCode" alt="开发者微信二维码" class="wechat-qr-image">
+              <span class="wechat-qr-title">扫码添加微信</span>
+              <span class="wechat-qr-tip">想手动添加的话，轻点“加入交流群”复制微信号：lib-young</span>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -129,6 +142,134 @@
               </div>
               <button type="submit" class="submit-btn">确认修改</button>
             </form>
+          </div>
+        </div>
+      </div>
+    </Transition>
+
+    <Transition name="modal-fade">
+      <div v-if="isNotificationModalVisible" class="modal-backdrop">
+        <div class="modal-content notification-modal-content" @click.stop>
+          <div class="modal-header">
+            <h3>通知设置</h3>
+            <button class="modal-close-button" @click="closeNotificationModal">×</button>
+          </div>
+          <div v-if="notificationLoading" class="notification-loading">正在加载...</div>
+          <form v-else @submit.prevent="saveNotificationSettings">
+            <label class="notification-field">
+              <span>Bark ID（iOS）</span>
+              <input
+                v-model.trim="notificationForm.barkKey"
+                type="text"
+                @input="handleBarkInput"
+                placeholder="填写 Bark Key">
+            </label>
+            <label class="notification-field">
+              <span>企业微信 ID（iOS / Android）</span>
+              <input
+                v-model.trim="notificationForm.wechatWebhookKey"
+                type="text"
+                @input="handleWechatInput"
+                placeholder="填写 Webhook Key">
+            </label>
+            <p class="notification-channel-tip">
+              Bark ID 和企业微信 ID 只能填写一个，企业微信同时支持 iOS 和 Android。
+            </p>
+            <button class="notification-guide-trigger" type="button" @click="openNotificationGuideModal">
+              不知道通知 ID 怎么获取？查看教程
+            </button>
+
+            <div class="notification-options">
+              <label v-for="option in notificationStrategyOptions" :key="option.key" class="notification-option">
+                <input v-model="notificationForm.subscriptions[option.key]" type="checkbox">
+                <span class="notification-option-title">{{ option.label }}</span>
+                <span class="notification-option-popover">
+                  <strong>{{ option.label }}</strong>
+                  <span><b>触发：</b>{{ option.trigger }}</span>
+                  <span><b>内容：</b>{{ option.content }}</span>
+                  <em>示例：{{ option.example }}</em>
+                </span>
+              </label>
+            </div>
+
+            <button class="submit-btn notification-save-button" type="submit" :disabled="notificationSaving">
+              {{ notificationSaving ? '保存中...' : '保存设置' }}
+            </button>
+          </form>
+        </div>
+      </div>
+    </Transition>
+
+    <Transition name="modal-fade">
+      <div v-if="isNotificationGuideVisible" class="modal-backdrop notification-guide-backdrop" @click="closeNotificationGuideModal">
+        <div class="modal-content notification-guide-modal-content" @click.stop>
+          <div class="modal-header">
+            <h3>通知 ID 获取教程</h3>
+            <button class="modal-close-button" @click="closeNotificationGuideModal">×</button>
+          </div>
+
+          <div class="notification-guide">
+            <div class="notification-guide-item">
+              <div class="notification-guide-copy">
+                <strong>Bark ID</strong>
+                <p>下载 Bark App，打开后复制自己的 Bark Key 即可。</p>
+              </div>
+              <div class="notification-guide-gallery bark-guide-gallery">
+                <button
+                  v-for="(image, index) in barkGuideImages"
+                  :key="image.src"
+                  type="button"
+                  @click="openNotificationImageViewer('bark', index)">
+                  <img :src="image.src" :alt="image.alt">
+                </button>
+              </div>
+            </div>
+
+            <div class="notification-guide-item">
+              <div class="notification-guide-copy">
+                <strong>企业微信 ID</strong>
+                <p>
+                  下载企业微信 App 并完成注册，点击右上角「+」发起群聊并创建新企业，
+                  进入群聊后点击右上角三个点，依次进入「消息通知」-「自定义消息推送」，
+                  添加并配置机器人后复制 Webhook 里的 key。
+                </p>
+              </div>
+              <div class="notification-guide-gallery wechat-guide-gallery">
+                <button
+                  v-for="(image, index) in wechatGuideImages"
+                  :key="image.src"
+                  type="button"
+                  @click="openNotificationImageViewer('wechat', index)">
+                  <img :src="image.src" :alt="image.alt">
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </Transition>
+
+    <Transition name="modal-fade">
+      <div v-if="isNotificationImageViewerVisible" class="modal-backdrop notification-image-viewer-backdrop" @click="closeNotificationImageViewer">
+        <div class="notification-image-viewer" @click.stop>
+          <button class="image-viewer-close" type="button" @click="closeNotificationImageViewer">×</button>
+          <div class="image-viewer-stage">
+            <button
+              v-if="currentGuideImageList.length > 1"
+              class="image-viewer-nav image-viewer-prev"
+              type="button"
+              aria-label="上一张"
+              @click="showPreviousGuideImage"></button>
+            <img :src="currentGuideImage.src" :alt="currentGuideImage.alt">
+            <button
+              v-if="currentGuideImageList.length > 1"
+              class="image-viewer-nav image-viewer-next"
+              type="button"
+              aria-label="下一张"
+              @click="showNextGuideImage"></button>
+          </div>
+          <div class="image-viewer-caption">
+            {{ currentGuideImageIndex + 1 }} / {{ currentGuideImageList.length }} · {{ currentGuideImage.title }}
           </div>
         </div>
       </div>
@@ -216,6 +357,7 @@
   import app, { auth } from '@/lib/cloudbase'
   import * as echarts from 'echarts'
   import { useUserStore } from '@/store/user'
+  import wechatQrCode from '@/assets/images/wechat-qrcode.jpg'
 
   const showMessage: any = inject('showMessage')
   const userStore: any = useUserStore()
@@ -290,7 +432,7 @@
           id: 4,
           title: '微盘股策略',
           description: '周度跟踪微盘组合，纪律化调仓获取贝塔收益。',
-          icon: '💎',
+          icon: '🎲',
           cssClass: 'micro-cap',
           link: '/micro-cap'
       },
@@ -336,7 +478,7 @@
       //     link: '/wealth-map'
       // },
       {
-          id: 8,
+          id: 14,
           title: '关于本站',
           description: '了解建站初衷、开发者、会员服务与联系方式。',
           icon: '💡',
@@ -895,6 +1037,216 @@
           showMessage(error.message || '修改密码失败，请检查当前密码是否正确', 'error')
       }
   }
+
+  const isNotificationModalVisible = ref(false)
+  const notificationLoading = ref(false)
+  const notificationSaving = ref(false)
+  const isNotificationGuideVisible = ref(false)
+  const isNotificationImageViewerVisible = ref(false)
+  const currentGuideImageGroup = ref<'wechat' | 'bark'>('wechat')
+  const currentGuideImageIndex = ref(0)
+  const wechatGuideImages = [
+      {
+          src: '/static/notification-guide/wechat-guide-1.png',
+          alt: '企业微信点击发起群聊步骤图',
+          title: '企业微信：点击发起群聊'
+      },
+      {
+          src: '/static/notification-guide/wechat-guide-2.png',
+          alt: '企业微信选择群成员并完成群聊步骤图',
+          title: '企业微信：选择成员并完成群聊'
+      },
+      {
+          src: '/static/notification-guide/wechat-guide-3.png',
+          alt: '企业微信点击群聊右上角更多步骤图',
+          title: '企业微信：点击群聊右上角更多'
+      },
+      {
+          src: '/static/notification-guide/wechat-guide-4.png',
+          alt: '企业微信进入消息推送步骤图',
+          title: '企业微信：进入消息推送'
+      },
+      {
+          src: '/static/notification-guide/wechat-guide-5.png',
+          alt: '企业微信点击 Webhook 地址步骤图',
+          title: '企业微信：点击 Webhook 地址'
+      },
+      {
+          src: '/static/notification-guide/wechat-guide-6.png',
+          alt: '企业微信复制 Webhook key 步骤图',
+          title: '企业微信：复制 key 后面的内容'
+      }
+  ]
+  const barkGuideImages = [
+      {
+          src: '/static/notification-guide/bark-id-guide.png',
+          alt: 'Bark 复制 key 步骤图',
+          title: 'Bark：复制自己的 Bark Key'
+      }
+  ]
+  const currentGuideImageList = computed(() =>
+      currentGuideImageGroup.value === 'wechat' ? wechatGuideImages : barkGuideImages
+  )
+  const currentGuideImage = computed(() => currentGuideImageList.value[currentGuideImageIndex.value])
+  const notificationStrategyOptions = [
+      {
+          key: 'convertible',
+          label: '可转债策略',
+          trigger: '交易日 14:40 自动计算排名后通知；不调仓也会通知。',
+          content: '有调仓时包含卖出、买入以及当前持仓；无调仓时提示继续持有并展示当前持仓。',
+          example: '今日无调仓操作，继续持有。当前持仓：XX转债(123456)、YY转债(113000)。'
+      },
+      {
+          key: 'rights_strategy',
+          label: '含权策略',
+          trigger: '交易日 14:40 刷新含权策略；只有发生调仓时通知，无调仓不通知。',
+          content: '交易日、卖出清单、买入清单，以及对应含权值。',
+          example: '交易日：2026-06-15；卖出：A公司(600000) 含权值:12.34；买入：B公司(000001) 含权值:15.20。'
+      },
+      {
+          key: 'momentum',
+          label: '动量策略',
+          trigger: '交易日 14:50 触发调仓；当动量标的切换时通知。',
+          content: '卖出标的、买入标的、买入代码、近 20 日涨幅和调仓日期。',
+          example: '卖出：中证1000价值ETF华夏；买入：纳指100ETF招商(159659)；近20日涨幅：6.23%。'
+      },
+      {
+          key: 'micro_cap',
+          label: '微盘股策略',
+          trigger: '微盘股数据更新完成后通知。',
+          content: '提醒数据已更新，并附带更新时间。',
+          example: '微盘股数据已更新，请及时查看最新持仓。更新时间：2026-06-15 09:30:08。'
+        },
+      {
+          key: 'lof_premium',
+          label: 'LOF 溢价',
+          trigger: '交易日 14:30，从实时 LOF 刷新结果里筛选符合条件的基金。',
+          content: '名称、代码、T-2/T-1/实时溢价率；条件为可申购、申购额度小于 1 万元、实时溢价率大于 0。',
+          example: 'XXLOF(161000) T-2:1.20% T-1:0.85% 实时:1.56%。'
+      }
+  ] as const
+  const notificationForm = reactive({
+      barkKey: '',
+      wechatWebhookKey: '',
+      subscriptions: {
+          momentum: false,
+          convertible: false,
+          micro_cap: false,
+          rights_strategy: false,
+          lof_premium: false
+      }
+  })
+
+  const openNotificationModal = async () => {
+      if (!userStore.isVip) return
+
+      isNotificationModalVisible.value = true
+      notificationLoading.value = true
+      try {
+          const response: any = await app.callFunction({
+              name: 'notificationSettings',
+              data: { action: 'get' }
+          })
+          if (!response.result?.success) {
+              throw new Error(response.result?.message || '通知设置加载失败')
+          }
+          applyNotificationSettings(response.result.settings)
+      } catch (error: any) {
+          console.error('通知设置加载失败:', error)
+          showMessage(error.message || '通知设置加载失败', 'error')
+          closeNotificationModal()
+      } finally {
+          notificationLoading.value = false
+      }
+  }
+
+  const closeNotificationModal = () => {
+      isNotificationModalVisible.value = false
+  }
+
+  const openNotificationGuideModal = () => {
+      isNotificationGuideVisible.value = true
+  }
+
+  const closeNotificationGuideModal = () => {
+      isNotificationGuideVisible.value = false
+  }
+
+  const openNotificationImageViewer = (group: 'wechat' | 'bark', index: number) => {
+      currentGuideImageGroup.value = group
+      currentGuideImageIndex.value = index
+      isNotificationImageViewerVisible.value = true
+  }
+
+  const closeNotificationImageViewer = () => {
+      isNotificationImageViewerVisible.value = false
+  }
+
+  const showPreviousGuideImage = () => {
+      currentGuideImageIndex.value =
+          (currentGuideImageIndex.value - 1 + currentGuideImageList.value.length) %
+          currentGuideImageList.value.length
+  }
+
+  const showNextGuideImage = () => {
+      currentGuideImageIndex.value = (currentGuideImageIndex.value + 1) % currentGuideImageList.value.length
+  }
+
+  const handleBarkInput = (event: Event) => {
+      const value = (event.target as HTMLInputElement).value.trim()
+      notificationForm.barkKey = value
+      if (value) notificationForm.wechatWebhookKey = ''
+  }
+
+  const handleWechatInput = (event: Event) => {
+      const value = (event.target as HTMLInputElement).value.trim()
+      notificationForm.wechatWebhookKey = value
+      if (value) notificationForm.barkKey = ''
+  }
+
+  const saveNotificationSettings = async () => {
+      if (!userStore.isVip) return
+      if (notificationForm.barkKey && notificationForm.wechatWebhookKey) {
+          showMessage('Bark ID 和企业微信 ID 只能填写一个', 'error')
+          return
+      }
+
+      notificationSaving.value = true
+      try {
+          const response: any = await app.callFunction({
+              name: 'notificationSettings',
+              data: {
+                  action: 'update',
+                  settings: {
+                      barkKey: notificationForm.barkKey,
+                      wechatWebhookKey: notificationForm.wechatWebhookKey,
+                      subscriptions: { ...notificationForm.subscriptions }
+                  }
+              }
+          })
+          if (!response.result?.success) {
+              throw new Error(response.result?.message || '通知设置保存失败')
+          }
+          applyNotificationSettings(response.result.settings)
+          showMessage('通知设置已保存', 'success')
+          closeNotificationModal()
+      } catch (error: any) {
+          console.error('通知设置保存失败:', error)
+          showMessage(error.message || '通知设置保存失败', 'error')
+      } finally {
+          notificationSaving.value = false
+      }
+  }
+
+  const applyNotificationSettings = (settings: any = {}) => {
+      notificationForm.barkKey = settings.barkKey || ''
+      notificationForm.wechatWebhookKey = settings.wechatWebhookKey || ''
+      notificationForm.subscriptions.momentum = settings.subscriptions?.momentum === true
+      notificationForm.subscriptions.convertible = settings.subscriptions?.convertible === true
+      notificationForm.subscriptions.micro_cap = settings.subscriptions?.micro_cap === true
+      notificationForm.subscriptions.rights_strategy = settings.subscriptions?.rights_strategy === true
+      notificationForm.subscriptions.lof_premium = settings.subscriptions?.lof_premium === true
+  }
 </script>
 
 
@@ -1246,6 +1598,15 @@
       color: #6366f1;
   }
 
+  .lof-monitor:hover {
+      border-color: #00aaff;
+      box-shadow: 0 0 15px rgb(0 170 255 / 70%);
+  }
+
+  .lof-monitor .card-icon {
+      filter: drop-shadow(0 0 8px rgb(0 170 255 / 55%));
+  }
+
   .handy-tools:hover {
       box-shadow: 0 0 15px #8a2be2;
       border-color: #8a2be2;
@@ -1370,6 +1731,89 @@
       cursor: pointer;
       transition: all 0.3s ease;
       /* 平滑过渡效果 */
+  }
+
+  .user-actions-footer .action-button {
+      appearance: none;
+      padding: 1px 0 0;
+      background: none;
+      border-top: 0;
+      border-right: 0;
+      border-bottom: 1px solid transparent;
+      border-left: 0;
+      font: inherit;
+  }
+
+  .wechat-hover-wrapper {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+  }
+
+  .wechat-qr-popover {
+      position: absolute;
+      left: 50%;
+      bottom: calc(100% + 14px);
+      z-index: 20;
+      width: 220px;
+      padding: 0.95rem;
+      background: rgba(15, 23, 42, 0.96);
+      border: 1px solid rgba(0, 170, 255, 0.35);
+      border-radius: 16px;
+      box-shadow: 0 18px 45px rgba(0, 0, 0, 0.38), 0 0 20px rgba(0, 170, 255, 0.16);
+      backdrop-filter: blur(14px);
+      transform: translate(-50%, 8px);
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+      transition: opacity 0.22s ease, transform 0.22s ease, visibility 0.22s ease;
+  }
+
+  .wechat-qr-popover::after {
+      content: '';
+      position: absolute;
+      left: 50%;
+      bottom: -8px;
+      width: 14px;
+      height: 14px;
+      background: rgba(15, 23, 42, 0.96);
+      border-right: 1px solid rgba(0, 170, 255, 0.35);
+      border-bottom: 1px solid rgba(0, 170, 255, 0.35);
+      transform: translateX(-50%) rotate(45deg);
+  }
+
+  .wechat-hover-wrapper:hover .wechat-qr-popover,
+  .wechat-hover-wrapper:focus-within .wechat-qr-popover {
+      transform: translate(-50%, 0);
+      opacity: 1;
+      visibility: visible;
+  }
+
+  .wechat-qr-image {
+      display: block;
+      width: 100%;
+      aspect-ratio: 1;
+      object-fit: cover;
+      border-radius: 12px;
+      background: #ffffff;
+  }
+
+  .wechat-qr-title {
+      display: block;
+      margin-top: 0.75rem;
+      color: #ffffff;
+      font-size: 0.95rem;
+      font-weight: 700;
+      text-align: center;
+  }
+
+  .wechat-qr-tip {
+      display: block;
+      margin-top: 0.35rem;
+      color: #b0c4de;
+      font-size: 0.78rem;
+      line-height: 1.5;
+      text-align: center;
   }
 
   /* 鼠标悬停时，链接才变得突出 */
@@ -1529,6 +1973,406 @@
       color: #b0c4de;
       pointer-events: none;
       transition: all 0.3s ease;
+  }
+
+  .notification-modal-content {
+      box-sizing: border-box;
+      width: min(520px, calc(100vw - 2rem));
+      max-width: 520px;
+      max-height: calc(100vh - 2rem);
+      padding: 2rem;
+      overflow-x: hidden;
+      overflow-y: auto;
+      background: rgb(30 30 30 / 96%);
+  }
+
+  .notification-loading {
+      padding: 2rem 0;
+      color: #b0c4de;
+      text-align: center;
+  }
+
+  .notification-field {
+      display: grid;
+      gap: 0.5rem;
+      margin-bottom: 1.2rem;
+      color: #e0e0e0;
+      font-size: 0.9rem;
+  }
+
+  .notification-field input {
+      box-sizing: border-box;
+      width: 100%;
+      padding: 0.75rem 0.85rem;
+      color: #fff;
+      background: rgb(255 255 255 / 7%);
+      border: 1px solid rgb(255 255 255 / 18%);
+      border-radius: 8px;
+      outline: none;
+  }
+
+  .notification-field input:focus {
+      border-color: #00aaff;
+  }
+
+  .notification-channel-tip {
+      margin: -0.35rem 0 1.2rem;
+      color: #8392a5;
+      font-size: 0.78rem;
+      line-height: 1.5;
+  }
+
+  .notification-guide-trigger {
+      box-sizing: border-box;
+      width: 100%;
+      padding: 0.75rem 0.9rem;
+      margin-bottom: 1.25rem;
+      color: #bde9ff;
+      font-size: 0.85rem;
+      text-align: left;
+      cursor: pointer;
+      background: rgb(0 170 255 / 10%);
+      border: 1px solid rgb(0 170 255 / 28%);
+      border-radius: 8px;
+  }
+
+  .notification-guide-trigger:hover {
+      color: #fff;
+      background: rgb(0 170 255 / 16%);
+  }
+
+  .notification-guide-modal-content {
+      width: min(880px, calc(100vw - 2rem));
+      max-height: calc(100vh - 4rem);
+      padding: 2rem;
+      overflow-y: auto;
+      background: rgb(30 30 30 / 97%);
+  }
+
+  .notification-guide {
+      padding: 1rem;
+      color: #b0c4de;
+      background: rgb(255 255 255 / 5%);
+      border: 1px solid rgb(255 255 255 / 10%);
+      border-radius: 10px;
+  }
+
+  .notification-guide h4 {
+      margin: 0 0 0.8rem;
+      color: #fff;
+      font-size: 0.95rem;
+  }
+
+  .notification-guide-item + .notification-guide-item {
+      margin-top: 0.85rem;
+      padding-top: 0.85rem;
+      border-top: 1px solid rgb(255 255 255 / 9%);
+  }
+
+  .notification-guide-item {
+      display: grid;
+      gap: 0.75rem;
+  }
+
+  .notification-guide-item strong {
+      display: block;
+      margin-bottom: 0.35rem;
+      color: #dce8f5;
+      font-size: 0.85rem;
+  }
+
+  .notification-guide-item p {
+      margin: 0;
+      font-size: 0.78rem;
+      line-height: 1.65;
+  }
+
+  .notification-guide-gallery {
+      display: grid;
+      gap: 0.55rem;
+  }
+
+  .notification-guide-gallery button {
+      display: block;
+      overflow: hidden;
+      padding: 0;
+      cursor: zoom-in;
+      background: rgb(255 255 255 / 5%);
+      border: 1px solid rgb(255 255 255 / 16%);
+      border-radius: 8px;
+  }
+
+  .wechat-guide-gallery {
+      grid-template-columns: repeat(6, max-content);
+      overflow-x: auto;
+      padding-bottom: 0.15rem;
+  }
+
+  .bark-guide-gallery {
+      grid-template-columns: max-content;
+      justify-content: start;
+  }
+
+  .bark-guide-gallery button {
+      width: max-content;
+      background: transparent;
+  }
+
+  .wechat-guide-gallery button {
+      width: max-content;
+      background: transparent;
+  }
+
+  .notification-guide-gallery img {
+      display: block;
+      width: auto;
+      height: 130px;
+      max-height: 130px;
+      object-fit: contain;
+      object-position: center;
+      background: #fff;
+      cursor: zoom-in;
+      transition: transform 0.2s ease, border-color 0.2s ease;
+  }
+
+  .notification-guide-gallery button:hover {
+      border-color: rgb(0 170 255 / 55%);
+  }
+
+  .notification-guide-gallery button:hover img {
+      transform: scale(1.02);
+  }
+
+  .bark-guide-gallery img {
+      background: transparent;
+  }
+
+  .bark-guide-gallery button:hover img {
+      transform: none;
+  }
+
+  .notification-image-viewer-backdrop {
+      z-index: 1300;
+  }
+
+  .notification-image-viewer {
+      position: relative;
+      display: grid;
+      grid-template-rows: minmax(0, 1fr) auto;
+      width: min(1100px, calc(100vw - 2rem));
+      height: min(760px, calc(100vh - 2rem));
+      padding: 1.25rem;
+      background: rgb(12 16 22 / 96%);
+      border: 1px solid rgb(255 255 255 / 14%);
+      border-radius: 14px;
+      box-shadow: 0 20px 60px rgb(0 0 0 / 55%);
+  }
+
+  .image-viewer-stage {
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 0;
+  }
+
+  .image-viewer-stage img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      min-height: 0;
+      background: #fff;
+      border-radius: 10px;
+  }
+
+  .image-viewer-close,
+  .image-viewer-nav {
+      position: absolute;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #fff;
+      cursor: pointer;
+      background: rgb(0 0 0 / 48%);
+      border: 1px solid rgb(255 255 255 / 20%);
+      border-radius: 999px;
+      backdrop-filter: blur(6px);
+      z-index: 2;
+  }
+
+  .image-viewer-close {
+      top: 0.9rem;
+      right: 0.9rem;
+      width: 36px;
+      height: 36px;
+      font-size: 1.5rem;
+      line-height: 1;
+      z-index: 3;
+  }
+
+  .image-viewer-nav {
+      top: 50%;
+      width: 52px;
+      height: 52px;
+      padding: 0;
+      color: #111;
+      background: transparent;
+      border: 0;
+      border-radius: 0;
+      box-shadow: none;
+      font-size: 0;
+      line-height: 1;
+      transform: translateY(-50%);
+  }
+
+  .image-viewer-nav::before {
+      display: block;
+      font-size: 4rem;
+      font-weight: 700;
+      line-height: 1;
+      text-shadow: 0 1px 2px rgb(255 255 255 / 80%), 0 0 8px rgb(255 255 255 / 45%);
+  }
+
+  .image-viewer-prev::before {
+      content: '\2039';
+  }
+
+  .image-viewer-next::before {
+      content: '\203A';
+  }
+
+  .image-viewer-prev {
+      left: 1.75rem;
+  }
+
+  .image-viewer-next {
+      right: 1.75rem;
+  }
+
+  .image-viewer-caption {
+      padding-top: 0.9rem;
+      color: #dce8f5;
+      font-size: 0.9rem;
+      text-align: center;
+  }
+
+  .notification-options {
+      box-sizing: border-box;
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 0.6rem;
+      margin: 1.5rem 0;
+      overflow: visible;
+  }
+
+  .notification-option {
+      position: relative;
+      display: flex;
+      gap: 0.35rem;
+      align-items: center;
+      justify-content: flex-start;
+      box-sizing: border-box;
+      width: 100%;
+      min-height: 42px;
+      padding: 0.65rem 0.75rem;
+      color: #dce8f5;
+      font-size: 0.82rem;
+      background: rgb(255 255 255 / 6%);
+      border-radius: 8px;
+      cursor: pointer;
+  }
+
+  .notification-option input {
+      flex: 0 0 auto;
+      margin: 0;
+  }
+
+  .notification-option-title {
+      flex: 1;
+      white-space: nowrap;
+  }
+
+  .notification-option-popover {
+      position: absolute;
+      left: 50%;
+      bottom: calc(100% + 10px);
+      z-index: 20;
+      display: grid;
+      gap: 0.45rem;
+      box-sizing: border-box;
+      width: min(310px, calc(100vw - 3rem));
+      padding: 0.8rem 0.9rem;
+      color: #dce8f5;
+      text-align: left;
+      pointer-events: none;
+      background: rgb(12 18 28 / 96%);
+      border: 1px solid rgb(0 170 255 / 35%);
+      border-radius: 10px;
+      box-shadow: 0 12px 28px rgb(0 0 0 / 38%);
+      opacity: 0;
+      transform: translate(-50%, 6px);
+      transition: opacity 0.18s ease, transform 0.18s ease;
+  }
+
+  .notification-option-popover::after {
+      content: '';
+      position: absolute;
+      left: 50%;
+      bottom: -6px;
+      width: 10px;
+      height: 10px;
+      background: rgb(12 18 28 / 96%);
+      border-right: 1px solid rgb(0 170 255 / 35%);
+      border-bottom: 1px solid rgb(0 170 255 / 35%);
+      transform: translateX(-50%) rotate(45deg);
+  }
+
+  .notification-option-popover strong {
+      color: #fff;
+      font-size: 0.86rem;
+  }
+
+  .notification-option-popover span,
+  .notification-option-popover em {
+      font-size: 0.76rem;
+      line-height: 1.55;
+  }
+
+  .notification-option-popover b {
+      color: #8fd8ff;
+      font-weight: 700;
+  }
+
+  .notification-option-popover em {
+      color: #b9c9dc;
+      font-style: normal;
+  }
+
+  .notification-option:hover .notification-option-popover,
+  .notification-option:focus-within .notification-option-popover {
+      opacity: 1;
+      transform: translate(-50%, 0);
+  }
+
+  .notification-save-button {
+      width: 100%;
+      padding: 0.85rem;
+      margin-top: 0;
+      color: #fff;
+      font-weight: 700;
+      background: #00aaff;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+  }
+
+  .notification-save-button:hover:not(:disabled) {
+      box-shadow: 0 0 12px rgb(0 170 255 / 45%);
+  }
+
+  .notification-save-button:disabled {
+      cursor: wait;
+      opacity: 0.65;
   }
 
   .password-modal-content .input-field:focus + .input-label,
@@ -1976,6 +2820,48 @@
           padding: 1.5rem 1rem;
       }
 
+      .wechat-guide-gallery {
+          grid-template-columns: repeat(6, max-content);
+      }
+
+      .notification-guide-gallery img {
+          height: 130px;
+          max-height: 130px;
+      }
+
+      .notification-modal-content {
+          width: calc(100vw - 1.5rem);
+          max-height: calc(100vh - 1.5rem);
+          padding: 1.35rem 1rem;
+          overflow-x: hidden;
+      }
+
+      .notification-options {
+          grid-template-columns: 1fr;
+      }
+
+      .notification-option {
+          min-width: 0;
+      }
+
+      .notification-option-popover {
+          left: 0;
+          right: 0;
+          width: 100%;
+          max-width: none;
+          transform: translateY(6px);
+      }
+
+      .notification-option-popover::after {
+          left: 1.5rem;
+          transform: rotate(45deg);
+      }
+
+      .notification-option:hover .notification-option-popover,
+      .notification-option:focus-within .notification-option-popover {
+          transform: translateY(0);
+      }
+
       .main-container {
           padding: 0;
       }
@@ -2077,8 +2963,9 @@
       .actions-wrapper {
           display: flex;
           flex-direction: row;
+          flex-wrap: wrap;
           justify-content: center;
-          gap: 0.8rem;
+          gap: 0.45rem;
       }
   }
 

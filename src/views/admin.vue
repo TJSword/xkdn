@@ -12,7 +12,7 @@
           用户管理
         </h1>
         <p class="subtitle">
-          在这里管理所有用户信息、查询状态并进行会员续费操作。
+          管理会员状态、通知渠道和用户备注。
         </p>
       </div>
 
@@ -38,29 +38,46 @@
             <table class="portfolio-table">
               <thead>
                 <tr>
-                  <th>用户ID</th>
                   <th>手机号</th>
+                  <th>Bark ID</th>
+                  <th>企业微信 ID</th>
+                  <th>通知策略</th>
+                  <th>备注</th>
                   <th class="sortable-header" @click="toggleSort">
                     会员到期日
                     <span class="sort-icon" v-if="sortOrder === 'asc'">↑</span>
                     <span class="sort-icon" v-else-if="sortOrder === 'desc'">↓</span>
                     <span class="sort-icon" v-else>↕</span>
                   </th>
-                  <th class="text-center">操作</th>
+                  <th>操作</th>
                 </tr>
               </thead>
               <tbody>
                 <tr v-if="isLoading">
-                  <td colspan="4" class="text-center no-data">正在加载用户数据...</td>
+                  <td colspan="7" class="no-data">正在加载用户数据...</td>
                 </tr>
                 <tr v-else v-for="user in users" :key="user.id">
-                  <td>{{ user.id }}</td>
                   <td>{{ user.phone }}</td>
+                  <td class="key-cell" :title="user.barkKey">{{ user.barkKey || '-' }}</td>
+                  <td class="key-cell" :title="user.wechatWebhookKey">{{ user.wechatWebhookKey || '-' }}</td>
+                  <td class="subscription-cell">
+                    <div v-if="activeSubscriptionLabels(user).length" class="subscription-tags">
+                      <span
+                        v-for="subscription in activeSubscriptionLabels(user)"
+                        :key="subscription.key"
+                        :class="['subscription-tag', `subscription-tag-${subscription.key}`]">
+                        {{ subscription.tagLabel }}
+                      </span>
+                    </div>
+                    <span v-else>-</span>
+                  </td>
+                  <td class="remark-cell" :title="user.remark">{{ user.remark || '-' }}</td>
                   <td>{{ user.membershipExpiry }}</td>
-                  <td class="text-center">
-                    <button class="action-button" @click="openRenewalModal(user)">
-                      续费/调整
-                    </button>
+                  <td>
+                    <div class="row-actions">
+                      <button class="action-button edit-button" @click="openEditModal(user)">编辑资料</button>
+                      <button class="action-button" @click="openRenewalModal(user)">会员调整</button>
+                    </div>
                   </td>
                 </tr>
               </tbody>
@@ -122,6 +139,75 @@
         </div>
       </div>
     </Transition>
+
+    <Transition name="modal-fade">
+      <div v-if="isEditModalVisible" class="modal-backdrop" @click="closeEditModal">
+        <div class="modal-content edit-modal-content" @click.stop>
+          <div class="modal-header">
+            <h3>编辑用户资料</h3>
+            <button class="modal-close-button" @click="closeEditModal">×</button>
+          </div>
+          <form class="modal-form" @submit.prevent="saveUserProfile">
+            <div class="form-group">
+              <label>用户手机号</label>
+              <p class="info-text">{{ editingUser?.phone }}</p>
+            </div>
+            <div class="form-group">
+              <label for="admin-bark-key">Bark ID</label>
+              <input
+                id="admin-bark-key"
+                v-model.trim="editForm.barkKey"
+                class="form-input"
+                type="text"
+                @input="handleAdminBarkInput"
+                placeholder="未配置">
+            </div>
+            <div class="form-group">
+              <label for="admin-wechat-key">企业微信 ID（iOS / Android）</label>
+              <input
+                id="admin-wechat-key"
+                v-model.trim="editForm.wechatWebhookKey"
+                class="form-input"
+                type="text"
+                @input="handleAdminWechatInput"
+                placeholder="可填写 Key 或完整 Webhook 地址">
+              <span class="form-help">Bark ID 和企业微信 ID 只能填写一个。</span>
+            </div>
+            <div class="form-group">
+              <label>通知策略</label>
+              <div class="admin-notification-options">
+                <div v-for="option in subscriptionOptions" :key="option.key" class="admin-notification-option">
+                  <input v-model="editForm.subscriptions[option.key]" type="checkbox">
+                  <span class="admin-notification-option-title">{{ option.label }}</span>
+                  <span class="admin-notification-popover">
+                    <strong>{{ option.label }}</strong>
+                    <span><b>触发：</b>{{ option.trigger }}</span>
+                    <span><b>内容：</b>{{ option.content }}</span>
+                    <em>示例：{{ option.example }}</em>
+                  </span>
+                </div>
+              </div>
+            </div>
+            <div class="form-group">
+              <label for="admin-user-remark">备注</label>
+              <textarea
+                id="admin-user-remark"
+                v-model="editForm.remark"
+                class="form-input remark-input"
+                maxlength="500"
+                placeholder="会员昵称、沟通记录等"></textarea>
+              <span class="character-count">{{ editForm.remark.length }}/500</span>
+            </div>
+            <div class="modal-footer">
+              <button type="button" class="button-secondary" @click="closeEditModal">取消</button>
+              <button type="submit" class="button-primary" :disabled="isSavingUser">
+                {{ isSavingUser ? '保存中...' : '保存资料' }}
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </Transition>
   </div>
 </template>
 
@@ -135,6 +221,19 @@
       id: string
       phone: string
       membershipExpiry: string
+      isVip: boolean
+      barkKey: string
+      wechatWebhookKey: string
+      subscriptions: NotificationSubscriptions
+      remark: string
+  }
+
+  interface NotificationSubscriptions {
+      momentum: boolean
+      convertible: boolean
+      micro_cap: boolean
+      rights_strategy: boolean
+      lof_premium: boolean
   }
 
   // --- 响应式数据 ---
@@ -143,8 +242,8 @@
   const isLoading = ref(true)
 
   // 新增：筛选和排序状态
-  const onlyActive = ref(false) // 仅显示会员
-  const sortOrder = ref<'asc' | 'desc' | ''>('') // 排序方向：升序、降序、无
+  const onlyActive = ref(true) // 默认仅显示生效会员
+  const sortOrder = ref<'asc' | 'desc' | ''>('asc') // 默认按会员到期日升序，临近到期排前面
 
   // --- 分页状态 ---
   const currentPage = ref(1)
@@ -192,13 +291,13 @@
 
   // --- 排序逻辑 ---
   const toggleSort = () => {
-      // 切换顺序：空 -> 降序 (最近到期) -> 升序 (最远到期) -> 空
-      if (sortOrder.value === '') {
+      // 切换顺序：升序 -> 降序 -> 无排序 -> 升序
+      if (sortOrder.value === 'asc') {
           sortOrder.value = 'desc'
       } else if (sortOrder.value === 'desc') {
-          sortOrder.value = 'asc'
-      } else {
           sortOrder.value = ''
+      } else {
+          sortOrder.value = 'asc'
       }
       // 重置到第一页并查询
       currentPage.value = 1
@@ -243,7 +342,6 @@
   }
   const prevPage = () => goToPage(currentPage.value - 1)
   const nextPage = () => goToPage(currentPage.value + 1)
-
   // --- 模态框逻辑 ---
   const isModalVisible = ref(false)
   const selectedUser = ref<User | null>(null)
@@ -310,6 +408,147 @@
               showMessage('网络错误，操作失败', 'error')
           })
   }
+
+  const isEditModalVisible = ref(false)
+  const isSavingUser = ref(false)
+  const editingUser = ref<User | null>(null)
+  const editForm = ref({
+      barkKey: '',
+      wechatWebhookKey: '',
+      subscriptions: emptySubscriptions(),
+      remark: ''
+  })
+
+  const subscriptionOptions = [
+      {
+          key: 'convertible',
+          label: '可转债策略',
+          tagLabel: '可转债',
+          trigger: '交易日 14:40 自动计算排名后通知；不调仓也会通知。',
+          content: '有调仓时包含卖出、买入以及当前持仓；无调仓时提示继续持有并展示当前持仓。',
+          example: '今日无调仓操作，继续持有。当前持仓：XX转债(123456)、YY转债(113000)。'
+      },
+      {
+          key: 'rights_strategy',
+          label: '含权策略',
+          tagLabel: '含权',
+          trigger: '交易日 14:40 刷新含权策略；只有发生调仓时通知，无调仓不通知。',
+          content: '交易日、卖出清单、买入清单，以及对应含权值。',
+          example: '交易日：2026-06-15；卖出：A公司(600000) 含权值:12.34；买入：B公司(000001) 含权值:15.20。'
+      },
+      {
+          key: 'momentum',
+          label: '动量策略',
+          tagLabel: '动量',
+          trigger: '交易日 14:50 触发调仓；当动量标的切换时通知。',
+          content: '卖出标的、买入标的、买入代码、近 20 日涨幅和调仓日期。',
+          example: '卖出：中证1000价值ETF华夏；买入：纳指100ETF招商(159659)；近20日涨幅：6.23%。'
+      },
+      {
+          key: 'micro_cap',
+          label: '微盘股策略',
+          tagLabel: '微盘股',
+          trigger: '微盘股数据更新完成后通知。',
+          content: '提醒数据已更新，并附带更新时间。',
+          example: '微盘股数据已更新，请及时查看最新持仓。更新时间：2026-06-15 09:30:08。'
+        },
+      {
+          key: 'lof_premium',
+          label: 'LOF 溢价',
+          tagLabel: 'LOF溢价',
+          trigger: '交易日 14:30，从实时 LOF 刷新结果里筛选符合条件的基金。',
+          content: '名称、代码、T-2/T-1/实时溢价率；条件为可申购、申购额度小于 1 万元、实时溢价率大于 0。',
+          example: 'XXLOF(161000) T-2:1.20% T-1:0.85% 实时:1.56%。'
+      }
+  ] as const
+
+  function emptySubscriptions(): NotificationSubscriptions {
+      return {
+          momentum: false,
+          convertible: false,
+          micro_cap: false,
+          rights_strategy: false,
+          lof_premium: false
+      }
+  }
+
+  const activeSubscriptionLabels = (user: User) =>
+      subscriptionOptions.filter(option => user.subscriptions?.[option.key] === true)
+
+  const openEditModal = (user: User) => {
+      editingUser.value = user
+      editForm.value = {
+          barkKey: user.barkKey || '',
+          wechatWebhookKey: user.wechatWebhookKey || '',
+          subscriptions: {
+              momentum: user.subscriptions?.momentum === true,
+              convertible: user.subscriptions?.convertible === true,
+              micro_cap: user.subscriptions?.micro_cap === true,
+              rights_strategy: user.subscriptions?.rights_strategy === true,
+              lof_premium: user.subscriptions?.lof_premium === true
+          },
+          remark: user.remark || ''
+      }
+      isEditModalVisible.value = true
+  }
+
+  const closeEditModal = () => {
+      isEditModalVisible.value = false
+      editingUser.value = null
+      editForm.value = {
+          barkKey: '',
+          wechatWebhookKey: '',
+          subscriptions: emptySubscriptions(),
+          remark: ''
+      }
+  }
+
+  const handleAdminBarkInput = (event: Event) => {
+      const value = (event.target as HTMLInputElement).value.trim()
+      editForm.value.barkKey = value
+      if (value) editForm.value.wechatWebhookKey = ''
+  }
+
+  const handleAdminWechatInput = (event: Event) => {
+      const value = (event.target as HTMLInputElement).value.trim()
+      editForm.value.wechatWebhookKey = value
+      if (value) editForm.value.barkKey = ''
+  }
+
+  const saveUserProfile = async () => {
+      if (!editingUser.value) return
+      if (editForm.value.barkKey && editForm.value.wechatWebhookKey) {
+          showMessage('Bark ID 和企业微信 ID 只能填写一个', 'error')
+          return
+      }
+
+      isSavingUser.value = true
+      try {
+          const response: any = await app.callFunction({
+              name: 'updateAdminUser',
+              data: {
+                  userId: editingUser.value.id,
+                  barkKey: editForm.value.barkKey,
+                  wechatWebhookKey: editForm.value.wechatWebhookKey,
+                  subscriptions: { ...editForm.value.subscriptions },
+                  remark: editForm.value.remark
+              }
+          })
+
+          if (!response.result?.success) {
+              throw new Error(response.result?.message || '保存失败')
+          }
+
+          showMessage('用户资料已更新', 'success')
+          closeEditModal()
+          fetchUsers()
+      } catch (error: any) {
+          console.error('更新用户资料失败:', error)
+          showMessage(error.message || '保存失败', 'error')
+      } finally {
+          isSavingUser.value = false
+      }
+  }
 </script>
 
 <style scoped>
@@ -327,17 +566,22 @@
 
   /* 页面容器 */
   .page-wrapper {
+      display: flex;
+      justify-content: center;
+      box-sizing: border-box;
+      width: 100%;
       font-family: 'Noto Sans SC', sans-serif;
       background-color: #121212;
       color: #ffffff;
-      min-height: calc(100vh - 6rem);
+      min-height: 100vh;
       padding: 3rem 1rem;
       background: radial-gradient(circle at 15% 50%, #1a2a4a, transparent 40%),
           radial-gradient(circle at 85% 50%, #4a1a2a, transparent 40%), #121212;
   }
 
   .main-container {
-      max-width: 900px;
+      width: min(1400px, 100%);
+      max-width: 1400px;
       margin: 0 auto;
   }
 
@@ -380,9 +624,13 @@
   /* 卡片样式 */
   .content-grid {
       display: grid;
+      min-width: 0;
       gap: 1.5rem;
   }
   .content-card {
+      box-sizing: border-box;
+      width: 100%;
+      min-width: 0;
       background: rgba(255, 255, 255, 0.05);
       border: 1px solid rgba(255, 255, 255, 0.1);
       border-radius: 12px;
@@ -438,9 +686,11 @@
   /* 表格样式 */
   .table-wrapper {
       overflow-x: auto;
+      width: 100%;
   }
   .portfolio-table {
       width: 100%;
+      min-width: 1180px;
       border-collapse: collapse;
   }
   .portfolio-table th,
@@ -472,11 +722,77 @@
       color: #b0c4de;
       vertical-align: middle;
   }
+
+  .key-cell,
+  .remark-cell {
+      max-width: 170px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+  }
+
+  .key-cell {
+      font-family: monospace;
+      font-size: 0.82rem;
+  }
+
+  .remark-cell {
+      max-width: 220px;
+  }
+
+  .subscription-cell {
+      min-width: 190px;
+  }
+
+  .subscription-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4rem;
+  }
+
+  .subscription-tag {
+      display: inline-flex;
+      align-items: center;
+      padding: 0.25rem 0.6rem;
+      font-size: 0.75rem;
+      font-weight: 600;
+      line-height: 1;
+      border: 1px solid transparent;
+      border-radius: 999px;
+      white-space: nowrap;
+  }
+
+  .subscription-tag-momentum {
+      color: #bde9ff;
+      background: rgb(0 170 255 / 16%);
+      border-color: rgb(0 170 255 / 38%);
+  }
+
+  .subscription-tag-convertible {
+      color: #dfd0ff;
+      background: rgb(139 92 246 / 16%);
+      border-color: rgb(139 92 246 / 38%);
+  }
+
+  .subscription-tag-micro_cap {
+      color: #bff5d2;
+      background: rgb(34 197 94 / 16%);
+      border-color: rgb(34 197 94 / 38%);
+  }
+
+  .subscription-tag-rights_strategy {
+      color: #ffefb8;
+      background: rgb(245 158 11 / 16%);
+      border-color: rgb(245 158 11 / 38%);
+  }
+
+  .subscription-tag-lof_premium {
+      color: #c7f9ff;
+      background: rgb(20 184 166 / 16%);
+      border-color: rgb(20 184 166 / 38%);
+  }
   .portfolio-table tr:last-child td {
       border-bottom: none;
-  }
-  .text-center {
-      text-align: center;
   }
   .no-data {
       padding: 2rem;
@@ -490,6 +806,18 @@
       padding: 0.4rem 1rem;
       cursor: pointer;
       font-size: 0.9rem;
+      white-space: nowrap;
+  }
+
+  .row-actions {
+      display: flex;
+      justify-content: flex-start;
+      gap: 0.5rem;
+  }
+
+  .edit-button {
+      color: #e8ddff;
+      background-color: #7656d6;
   }
 
   /* 分页样式 */
@@ -596,6 +924,131 @@
       font-size: 1rem;
       box-sizing: border-box;
   }
+
+  .edit-modal-content {
+      max-width: 560px;
+  }
+
+  .remark-input {
+      min-height: 110px;
+      resize: vertical;
+      font-family: inherit;
+      line-height: 1.6;
+  }
+
+  .character-count {
+      display: block;
+      margin-top: 0.35rem;
+      color: #8392a5;
+      font-size: 0.75rem;
+      text-align: right;
+  }
+
+  .form-help {
+      display: block;
+      margin-top: 0.35rem;
+      color: #8392a5;
+      font-size: 0.78rem;
+  }
+
+  .admin-notification-options {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 0.6rem;
+  }
+
+  .admin-notification-option {
+      position: relative;
+      display: flex;
+      gap: 0.55rem;
+      align-items: center;
+      justify-content: flex-start;
+      box-sizing: border-box;
+      width: 100%;
+      min-height: 42px;
+      padding: 0.65rem 0.75rem;
+      color: #dce8f5;
+      font-size: 0.82rem;
+      background: rgb(255 255 255 / 6%);
+      border: 1px solid rgb(255 255 255 / 10%);
+      border-radius: 8px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: flex-start;
+  }
+
+  .admin-notification-option input {
+    
+      margin: 0;
+  }
+
+  .admin-notification-option-title {
+        margin-left:0.4rem;
+      white-space: nowrap;
+  }
+
+  .admin-notification-popover {
+      position: absolute;
+      left: 50%;
+      bottom: calc(100% + 10px);
+      z-index: 20;
+      display: grid;
+      gap: 0.45rem;
+      width: min(310px, 82vw);
+      padding: 0.8rem 0.9rem;
+      color: #dce8f5;
+      text-align: left;
+      pointer-events: none;
+      background: rgb(12 18 28 / 96%);
+      border: 1px solid rgb(0 170 255 / 35%);
+      border-radius: 10px;
+      box-shadow: 0 12px 28px rgb(0 0 0 / 38%);
+      opacity: 0;
+      transform: translate(-50%, 6px);
+      transition: opacity 0.18s ease, transform 0.18s ease;
+  }
+
+  .admin-notification-popover::after {
+      content: '';
+      position: absolute;
+      left: 50%;
+      bottom: -6px;
+      width: 10px;
+      height: 10px;
+      background: rgb(12 18 28 / 96%);
+      border-right: 1px solid rgb(0 170 255 / 35%);
+      border-bottom: 1px solid rgb(0 170 255 / 35%);
+      transform: translateX(-50%) rotate(45deg);
+  }
+
+  .admin-notification-popover strong {
+      color: #fff;
+      font-size: 0.86rem;
+  }
+
+  .admin-notification-popover span,
+  .admin-notification-popover em {
+      font-size: 0.76rem;
+      line-height: 1.55;
+  }
+
+  .admin-notification-popover b {
+      color: #8fd8ff;
+      font-weight: 700;
+  }
+
+  .admin-notification-popover em {
+      color: #b9c9dc;
+      font-style: normal;
+  }
+
+  .admin-notification-option:hover .admin-notification-popover,
+  .admin-notification-option:focus-within .admin-notification-popover {
+      opacity: 1;
+      transform: translate(-50%, 0);
+  }
+
   .modal-footer {
       display: flex;
       justify-content: flex-end;

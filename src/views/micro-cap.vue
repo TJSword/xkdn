@@ -7,7 +7,7 @@
           ← 返回主页
         </router-link>
         <h1 class="main-title">
-          <span class="title-icon">💎</span>
+          <span class="title-icon">🎲</span>
           微盘股策略
         </h1>
         <p class="subtitle">
@@ -60,8 +60,8 @@
                 <span class="currency-symbol">¥</span>
                 <input type="number" v-model="inputAmount" class="compact-input" placeholder="计划投入" @keyup.enter="handleCalculate" />
               </div>
-              <button class="calc-btn-compact" @click="handleCalculate">
-                计算
+              <button class="calc-btn-compact" :disabled="isCalculating" @click="handleCalculate">
+                {{ isCalculating ? '检查最新数据...' : '计算' }}
               </button>
               <button class="calc-btn-compact outline" @click="openHoldingsModal">
                 我的持仓
@@ -378,7 +378,7 @@
 </template>
 
 <script setup lang="ts">
-  import { computed, ref, onMounted, nextTick, watch } from 'vue'
+  import { computed, ref, onMounted, onUnmounted, nextTick, watch } from 'vue'
   import { useRouter } from 'vue-router'
   import * as echarts from 'echarts'
   import { useUserStore } from '@/store/user'
@@ -536,7 +536,7 @@
 
           // 3. 重新触发策略计算（因为 store 更新了，watch 会自动更新 userHoldings，这里只需要重新计算建议）
           if (hasCalculated.value) {
-              handleCalculate()
+              calculateWithCurrentData()
           }
       } catch (err: any) {
           console.error(err)
@@ -570,7 +570,7 @@
           // 3. 保存成功后，重新触发一下计算
           // 此时“当前持仓”和“目标持仓”应该是一致的，
           // 所以下方的“调仓建议”应该会变为空（或显示无操作），这是符合逻辑的。
-          handleCalculate()
+          calculateWithCurrentData()
       } catch (err: any) {
           console.error(err)
           showMessage(err.message || '录入失败', 'error')
@@ -584,7 +584,7 @@
   })
 
   // 执行计算 (修复保底1手分配的瀑布流算法)
-  const handleCalculate = () => {
+  const calculateWithCurrentData = () => {
       if (!canViewPremiumContent.value) {
           showMessage('开通会员后可查看调仓测算。', 'warning')
           return
@@ -742,6 +742,8 @@
   const formattedDate = ref('加载中...')
   const isLoading = ref(true)
   const isStrategyRefreshing = ref(false)
+  const isCalculating = ref(false)
+  let viewFetchPromise: Promise<any> | null = null
 
   // --- 2. 持仓与调仓数据 ---
   const latestPortfolio: any = ref([]) // 核心持仓
@@ -752,49 +754,84 @@
   const fetchStrategyData = async () => {
       if (!canViewPremiumContent.value) return
 
-      try {
-          const res = await app.callFunction({
-              name: 'getMicroCapData10' // 刚才创建的云函数名称
-          })
+      if (viewFetchPromise) {
+          return viewFetchPromise
+      }
 
-          if (res.result.success && res.result.data) {
-              const data = res.result.data
+      const request = (async () => {
+          try {
+              const res: any = await app.callFunction({
+                  name: 'getMicroCapData10'
+              })
 
-              // 1. 更新日期
-              formattedDate.value = data.updated_at
+              if (res.result.success && res.result.data) {
+                  const data = res.result.data
+                  const versionChanged =
+                      formattedDate.value !== '加载中...' &&
+                      formattedDate.value !== data.updated_at
 
-              // 2. 更新持仓列表 (数据库字段 ranking -> 前端 latestPortfolio)
-              latestPortfolio.value = data.ranking || []
+                  formattedDate.value = data.updated_at
 
-              // 3. 更新调仓建议 (数据库字段 adjustments -> 拆分为 buy/sell)
-              const adj = data.adjustments || []
+                  latestPortfolio.value = data.ranking || []
 
-              // 过滤出买入 (action: 'buy')
-              // buyList.value = adj
-              //     .filter((item: any) => item.action === 'buy')
-              //     .map((item: any) => ({
-              //         code: item.code,
-              //         name: item.name,
-              //         action: '买入' // 用于前端显示文字
-              //     }))
+                  if (versionChanged) {
+                      hasCalculated.value = false
+                      allocationData.value = new Map()
+                      buyList.value = []
+                      sellList.value = []
+                  }
 
-              // // 过滤出卖出 (action: 'sell')
-              // sellList.value = adj
-              //     .filter((item: any) => item.action === 'sell')
-              //     .map((item: any) => ({
-              //         code: item.code,
-              //         name: item.name,
-              //         action: '卖出' // 用于前端显示文字
-              //     }))
-          } else {
+                  return {
+                      success: true,
+                      message: ''
+                  }
+              }
+
               console.warn('未获取到有效数据:', res.result.msg)
-              formattedDate.value = '暂无数据'
+              return {
+                  success: false,
+                  message: res.result.message || res.result.msg || '暂时无法获取策略数据'
+              }
+          } catch (err) {
+              console.error('云函数调用失败', err)
+              return {
+                  success: false,
+                  message: '网络异常，暂时无法获取最新策略数据'
+              }
+          } finally {
+              isLoading.value = false
           }
-      } catch (err) {
-          console.error('云函数调用失败', err)
-          formattedDate.value = '数据加载失败'
+      })()
+
+      viewFetchPromise = request
+
+      try {
+          return await request
       } finally {
-          isLoading.value = false
+          if (viewFetchPromise === request) {
+              viewFetchPromise = null
+          }
+      }
+  }
+
+  const handleCalculate = async () => {
+      if (!canViewPremiumContent.value || isCalculating.value) {
+          if (!canViewPremiumContent.value) {
+              showMessage('开通会员后可查看调仓测算。', 'warning')
+          }
+          return
+      }
+
+      isCalculating.value = true
+      try {
+          const result = await fetchStrategyData()
+          if (!result?.success) {
+              showMessage(result?.message || '暂时无法获取最新策略数据', 'warning')
+              return
+          }
+          calculateWithCurrentData()
+      } finally {
+          isCalculating.value = false
       }
   }
 
@@ -1275,16 +1312,32 @@
   }
 
   // --- 生命周期 ---
+  const refreshStrategyDataOnReturn = () => {
+      if (document.visibilityState === 'visible' && canViewPremiumContent.value) {
+          fetchStrategyData()
+      }
+  }
+
+  const handleResize = () => myChart?.resize()
+
   onMounted(() => {
       getlocalData()
       if (canViewPremiumContent.value) {
           fetchStrategyData()
           fetchStockMap()
       }
+      document.addEventListener('visibilitychange', refreshStrategyDataOnReturn)
+      window.addEventListener('focus', refreshStrategyDataOnReturn)
       nextTick(() => {
           // 2. 初始化图表
-          window.addEventListener('resize', () => myChart?.resize())
+          window.addEventListener('resize', handleResize)
       })
+  })
+
+  onUnmounted(() => {
+      document.removeEventListener('visibilitychange', refreshStrategyDataOnReturn)
+      window.removeEventListener('focus', refreshStrategyDataOnReturn)
+      window.removeEventListener('resize', handleResize)
   })
 
   // [新增] 控制确认弹窗显示
@@ -1326,7 +1379,7 @@
       try {
           await userStore.updateHoldings(newHoldings)
           showMessage('已将目标组合录入为当前持仓！', 'success')
-          handleCalculate() // 重新计算以刷新界面
+          calculateWithCurrentData() // 使用刚录入的持仓刷新本地调仓结果
       } catch (err: any) {
           console.error(err)
           showMessage(err.message || '录入失败', 'error')

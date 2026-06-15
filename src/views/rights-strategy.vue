@@ -220,7 +220,7 @@
           </div>
 
           <h3 class="risk-sub-title risk-detail-title">历史重大回撤明细 (Top 10)</h3>
-          <div class="table-container">
+          <div class="table-container risk-table-container">
             <table class="risk-table">
               <thead>
                 <tr>
@@ -1106,6 +1106,10 @@
       margin-top: 2rem;
   }
 
+  .risk-table-container {
+      box-shadow: inset 0 -1px 0 rgb(255 255 255 / 14%);
+  }
+
   .dist-table-container {
       margin-bottom: 1.5rem;
   }
@@ -1172,6 +1176,10 @@
       white-space: nowrap;
       color: #b0c4de;
       border: 1px solid rgb(255 255 255 / 10%);
+  }
+
+  .risk-table tbody tr:last-child td {
+      border-bottom-color: rgb(255 255 255 / 16%);
   }
 
   .risk-table .negative {

@@ -4,12 +4,105 @@
   "functionRoot": "functions",
   "functions": [
     {
+      "name": "fetchEtfData",
+      "runtime": "Nodejs18.15",
+      "handler": "index.main",
+      "timeout": 10,
+      "memorySize": 256,
+      "description": "获取动量策略中-etf的实时数据"
+    },
+    {
+      "name": "getMomentum",
+      "runtime": "Nodejs18.15",
+      "handler": "index.main",
+      "timeout": 3,
+      "memorySize": 256,
+      "description": "交易日下午2：50 自动获取动量数据",
+      "triggers": [
+        {
+          "name": "myTrigger",
+          "type": "timer",
+          "config": "0 50 14 * * * *"
+        }
+      ]
+    },
+    {
+      "name": "getMomentumInfo",
+      "runtime": "Nodejs18.15",
+      "handler": "index.main",
+      "timeout": 3,
+      "memorySize": 256,
+      "description": "从数据中拿最新的动量数据"
+    },
+    {
+      "name": "notification",
+      "runtime": "Nodejs18.15",
+      "handler": "index.main",
+      "timeout": 60,
+      "memorySize": 256,
+      "description": "根据用户订阅配置发送策略通知"
+    },
+    {
+      "name": "notificationSettings",
+      "runtime": "Nodejs18.15",
+      "handler": "index.main",
+      "timeout": 10,
+      "memorySize": 256,
+      "description": "读取和更新当前用户的策略通知配置"
+    },
+    {
+      "name": "migrateNotificationSettings",
+      "runtime": "Nodejs18.15",
+      "handler": "index.main",
+      "timeout": 60,
+      "memorySize": 256,
+      "description": "管理员按手机号尾号迁移历史通知配置"
+    },
+    {
+      "name": "getUsers",
+      "runtime": "Nodejs18.15",
+      "handler": "index.main",
+      "timeout": 30,
+      "memorySize": 256,
+      "description": "管理员分页查询用户及通知信息"
+    },
+    {
+      "name": "updateAdminUser",
+      "runtime": "Nodejs18.15",
+      "handler": "index.main",
+      "timeout": 10,
+      "memorySize": 256,
+      "description": "管理员更新用户通知 ID 和备注"
+    },
+    {
       "name": "getLofData",
       "runtime": "Nodejs20.19",
       "handler": "index.main",
       "timeout": 60,
       "memorySize": 512,
-      "description": "LOF data snapshot reader and scheduled refresher"
+      "description": "LOF data snapshot reader and scheduled refresher",
+      "triggers": [
+        {
+          "name": "refreshLofWeekday0930",
+          "type": "timer",
+          "config": "0 30-59 9 * * MON-FRI *"
+        },
+        {
+          "name": "refreshLofWeekday1000",
+          "type": "timer",
+          "config": "0 * 10 * * MON-FRI *"
+        },
+        {
+          "name": "refreshLofWeekday1100",
+          "type": "timer",
+          "config": "0 0-29 11 * * MON-FRI *"
+        },
+        {
+          "name": "refreshLofWeekdayAfternoon",
+          "type": "timer",
+          "config": "0 * 13-14 * * MON-FRI *"
+        }
+      ]
     },
     {
       "name": "getRightsStrategyData",
