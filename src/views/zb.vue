@@ -17,10 +17,13 @@
         </p>
       </div>
 
-      <div v-if="isLoading" class="loading-state">
-        <span class="loader"></span>
-        <p>正在同步全网策略实时数据...</p>
-      </div>
+      <StrategyLoading
+        v-if="isLoading"
+        title="正在同步实盘数据"
+        description="聚合策略资产、收益与实时状态"
+        monogram="LIVE"
+        :steps="['策略资产', '实时收益', '仓位分布']"
+      />
 
       <div class="content-grid" v-else>
 

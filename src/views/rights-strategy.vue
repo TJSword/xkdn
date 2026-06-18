@@ -7,7 +7,7 @@
         </router-link>
 
         <h1 class="main-title">
-          <span class="title-icon">🎯</span>
+          <FeaturePageIcon class="title-icon" type="rights" />
           含权策略
         </h1>
         <p class="subtitle">
@@ -15,10 +15,14 @@
         </p>
       </div>
 
-      <div v-if="isLoading" class="content-card loading-panel">
-        <span class="loader"></span>
-        <p>正在加载策略资料...</p>
-      </div>
+      <StrategyLoading
+        v-if="isLoading"
+        title="正在同步含权策略"
+        description="读取动态含权量、持仓与回测资料"
+        monogram="RX"
+        icon-type="rights"
+        :steps="['含权排序', '组合持仓', '风险收益']"
+      />
 
       <div v-else class="content-grid">
         <div class="content-card">
@@ -128,7 +132,75 @@
         <div class="content-card">
           <div class="card-header-row">
             <h2 class="card-title">含权策略 vs 沪深300全收益</h2>
-            <span class="period-badge">{{ backtestPeriodText }}</span>
+            <div class="chart-range-picker">
+              <div class="range-date-field">
+                <input
+                  v-model="dateRangeStart"
+                  class="range-date-input"
+                  type="text"
+                  inputmode="numeric"
+                  maxlength="10"
+                  placeholder="YYYY-MM-DD"
+                  aria-label="选择开始日期"
+                  @input="handleDateRangeInput('start')"
+                  @keydown.enter="applyDateRangeSelection"
+                  @blur="applyDateRangeSelection"
+                />
+                <button
+                  class="range-date-button"
+                  type="button"
+                  aria-label="打开开始日期选择器"
+                  @click="openDatePicker('start')"
+                >
+                  <span class="range-calendar-icon" aria-hidden="true"></span>
+                </button>
+                <input
+                  ref="dateRangeStartPicker"
+                  v-model="dateRangeStart"
+                  class="native-date-input"
+                  type="date"
+                  :min="chartMinDate"
+                  :max="chartMaxDate"
+                  tabindex="-1"
+                  aria-hidden="true"
+                  @change="applyDateRangeSelection"
+                />
+              </div>
+              <span class="range-separator">~</span>
+              <div class="range-date-field">
+                <input
+                  v-model="dateRangeEnd"
+                  class="range-date-input"
+                  type="text"
+                  inputmode="numeric"
+                  maxlength="10"
+                  placeholder="YYYY-MM-DD"
+                  aria-label="选择结束日期"
+                  @input="handleDateRangeInput('end')"
+                  @keydown.enter="applyDateRangeSelection"
+                  @blur="applyDateRangeSelection"
+                />
+                <button
+                  class="range-date-button"
+                  type="button"
+                  aria-label="打开结束日期选择器"
+                  @click="openDatePicker('end')"
+                >
+                  <span class="range-calendar-icon" aria-hidden="true"></span>
+                </button>
+                <input
+                  ref="dateRangeEndPicker"
+                  v-model="dateRangeEnd"
+                  class="native-date-input"
+                  type="date"
+                  :min="chartMinDate"
+                  :max="chartMaxDate"
+                  tabindex="-1"
+                  aria-hidden="true"
+                  @change="applyDateRangeSelection"
+                />
+              </div>
+            </div>
           </div>
           <v-chart class="echart-container" :option="navChartOption" autoresize />
           <div class="stats-bar">
@@ -351,6 +423,14 @@
       winRate: '0.0'
   })
   const sortinoRatio = ref('0.000')
+  const dateRangeStart = ref('')
+  const dateRangeEnd = ref('')
+  const dateRangeStartPicker = ref<HTMLInputElement | null>(null)
+  const dateRangeEndPicker = ref<HTMLInputElement | null>(null)
+  const chartMinDate = ref('')
+  const chartMaxDate = ref('')
+  const selectedStartIndex = ref(0)
+  const selectedEndIndex = ref(0)
 
   const realtimeRows = ref<RealtimeRow[]>([])
   const realtimeUpdatedAt = ref('')
@@ -392,15 +472,26 @@
   }
 
   const navChartOption = computed(() => {
-      const dates = strategyData.value.dateList || []
+      const dates = strategySeries.value.dates || []
+      const startIndex = selectedStartIndex.value
+      const endIndex = selectedEndIndex.value || dates.length - 1
+      const selectedDates = dates.slice(startIndex, endIndex + 1)
+      const strategyDisplayData = rebaseSeries(strategySeries.value.values, startIndex).slice(
+          startIndex,
+          endIndex + 1
+      )
+      const benchmarkDisplayData = rebaseSeries(strategyData.value.hs300 || [], startIndex).slice(
+          startIndex,
+          endIndex + 1
+      )
       return {
           color: ['#ef4444', '#64748b'],
           tooltip: { trigger: 'axis', valueFormatter: (value: number) => formatNumber(value, 2) },
           legend: { top: 0, textStyle: { color: '#d8e4f2' } },
-          grid: { left: 56, right: 24, top: 46, bottom: 34 },
+          grid: { left: 56, right: 24, top: 52, bottom: 42 },
           xAxis: {
               type: 'category',
-              data: dates,
+              data: selectedDates,
               boundaryGap: false,
               axisLine: { lineStyle: { color: '#52677d' } },
               axisLabel: { color: '#b0c4de' }
@@ -409,7 +500,8 @@
               type: 'value',
               splitLine: { lineStyle: { color: 'rgba(255,255,255,0.08)' } },
               axisLabel: { color: '#b0c4de' },
-              scale: true
+              scale: true,
+              ...getAdaptiveYAxisRange(strategyDisplayData, benchmarkDisplayData)
           },
           series: [
               lineSeries('含权策略', strategyData.value.strategyData || []),
@@ -474,17 +566,183 @@
   })
 
   function lineSeries(name: string, data: Array<number | null>) {
+      const startIndex = selectedStartIndex.value
+      const endIndex = selectedEndIndex.value || strategySeries.value.dates.length - 1
+      const numericData = data.map(value => Number(value))
+      const displayData = rebaseSeries(numericData, startIndex).slice(startIndex, endIndex + 1)
+
       return {
           name,
           type: 'line',
-          data,
+          data: displayData,
           symbol: 'none',
           smooth: false,
           lineStyle: { width: name === '策略' ? 3 : 1.8 }
       }
   }
 
+  const CHART_REBASE_VALUE = 1000
+
+  const rebaseSeries = (data: number[], startIndex: number) => {
+      const startValue = data[startIndex]
+      if (!Number.isFinite(startValue) || startValue <= 0) {
+          return data.map(value => (Number.isFinite(value) ? value : null))
+      }
+
+      return data.map(value =>
+          Number.isFinite(value) ? Number(((value / startValue) * CHART_REBASE_VALUE).toFixed(2)) : null
+      )
+  }
+
+  const getAdaptiveYAxisRange = (...seriesList: Array<Array<number | null>>) => {
+      const values = seriesList.flat().filter((value): value is number => Number.isFinite(value))
+      if (!values.length) return {}
+
+      const visibleMin = Math.min(...values)
+      const visibleMax = Math.max(...values)
+      const visibleRange = Math.max(visibleMax - visibleMin, CHART_REBASE_VALUE * 0.025)
+      const min = Math.min(visibleMin - visibleRange * 0.08, CHART_REBASE_VALUE - visibleRange * 0.22)
+      const max = Math.max(visibleMax + visibleRange * 0.14, CHART_REBASE_VALUE + visibleRange * 0.72)
+
+      return {
+          min: Math.floor(min / 10) * 10,
+          max: Math.ceil(max / 10) * 10
+      }
+  }
+
+  const clampIndex = (index: number, maxIndex: number) =>
+      Math.min(Math.max(Math.round(index), 0), Math.max(maxIndex, 0))
+
+  const formatDateInputText = (value: string) => {
+      const digits = value.replace(/\D/g, '').slice(0, 8)
+      const parts = [digits.slice(0, 4), digits.slice(4, 6), digits.slice(6, 8)].filter(Boolean)
+      return parts.join('-')
+  }
+
+  const isCompleteDateInput = (value: string) => {
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false
+
+      const [year, month, day] = value.split('-').map(Number)
+      const date = new Date(year, month - 1, day)
+      return date.getFullYear() === year && date.getMonth() === month - 1 && date.getDate() === day
+  }
+
+  const getCommittedDateInput = (value: string, fallback: string) =>
+      isCompleteDateInput(value) ? value : fallback
+
+  const handleDateRangeInput = (side: 'start' | 'end') => {
+      const target = side === 'start' ? dateRangeStart : dateRangeEnd
+      target.value = formatDateInputText(target.value)
+  }
+
+  const openDatePicker = (side: 'start' | 'end') => {
+      const picker = side === 'start' ? dateRangeStartPicker.value : dateRangeEndPicker.value
+      if (!picker) return
+
+      const pickerWithShowPicker = picker as HTMLInputElement & { showPicker?: () => void }
+      if (pickerWithShowPicker.showPicker) {
+          pickerWithShowPicker.showPicker()
+          return
+      }
+
+      picker.focus()
+      picker.click()
+  }
+
+  const getDateIndex = (date: string, mode: 'start' | 'end') => {
+      const dates = strategySeries.value.dates
+      const maxIndex = dates.length - 1
+      if (maxIndex < 0 || !date) return mode === 'start' ? 0 : maxIndex
+
+      const exactIndex = dates.indexOf(date)
+      if (exactIndex >= 0) return exactIndex
+
+      if (mode === 'start') {
+          const nextIndex = dates.findIndex(item => item >= date)
+          return nextIndex >= 0 ? nextIndex : maxIndex
+      }
+
+      for (let index = maxIndex; index >= 0; index--) {
+          if (dates[index] <= date) return index
+      }
+
+      return 0
+  }
+
+  const updateSelectedRangeMetrics = (startIndex: number, endIndex: number) => {
+      const dates = strategySeries.value.dates
+      const values = strategySeries.value.values
+      const maxIndex = dates.length - 1
+      if (maxIndex < 0) return
+
+      const boundedStartIndex = clampIndex(startIndex, maxIndex)
+      const boundedEndIndex = clampIndex(Math.max(endIndex, boundedStartIndex), maxIndex)
+      const selectedDates = dates.slice(boundedStartIndex, boundedEndIndex + 1)
+      const selectedValues = values.slice(boundedStartIndex, boundedEndIndex + 1)
+      const drawdownAnalysis = calculateDrawdownAnalysis(selectedValues, selectedDates)
+
+      selectedStartIndex.value = boundedStartIndex
+      selectedEndIndex.value = boundedEndIndex
+      dateRangeStart.value = dates[boundedStartIndex] || ''
+      dateRangeEnd.value = dates[boundedEndIndex] || ''
+      strategyStats.value = calculateStats(selectedValues)
+      monthlyRows.value = calculateMonthlyReturns(selectedValues, selectedDates)
+      monthlySummary.value = calculateMonthlySummary(monthlyRows.value)
+      sortinoRatio.value = calculateSortinoRatio(selectedValues)
+      drawdownRows.value = drawdownAnalysis.drawdowns.slice(0, 10)
+      drawdownDistribution.value = drawdownAnalysis.distribution
+  }
+
+  const applyDateRangeSelection = () => {
+      const maxIndex = strategySeries.value.dates.length - 1
+      if (maxIndex < 0) return
+
+      const committedStartDate = getCommittedDateInput(dateRangeStart.value, chartMinDate.value)
+      const committedEndDate = getCommittedDateInput(dateRangeEnd.value, chartMaxDate.value)
+
+      dateRangeStart.value = committedStartDate
+      dateRangeEnd.value = committedEndDate
+
+      let startIndex = getDateIndex(committedStartDate, 'start')
+      let endIndex = getDateIndex(committedEndDate, 'end')
+      if (startIndex > endIndex) {
+          if (committedStartDate > committedEndDate) {
+              endIndex = startIndex
+          } else {
+              startIndex = endIndex
+          }
+      }
+      updateSelectedRangeMetrics(startIndex, endIndex)
+  }
+
   async function loadStaticData() {
+      try {
+          const res: any = await app.callFunction({
+              name: 'getRightsStrategySeries',
+              data: { action: 'get' }
+          })
+          const backendData = res.result?.success && res.result?.data ? res.result.data as RightsStrategyData : null
+          if (backendData) {
+              const series = prepareStrategySeries(backendData.dateList, backendData.strategyData)
+              const drawdownAnalysis = calculateDrawdownAnalysis(series.values, series.dates)
+
+              strategyData.value = backendData
+              strategySeries.value = series
+              chartMinDate.value = series.dates[0] || ''
+              chartMaxDate.value = series.dates[series.dates.length - 1] || ''
+              strategyStats.value = calculateStats(series.values)
+              monthlyRows.value = calculateMonthlyReturns(series.values, series.dates)
+              monthlySummary.value = calculateMonthlySummary(monthlyRows.value)
+              sortinoRatio.value = calculateSortinoRatio(series.values)
+              drawdownRows.value = drawdownAnalysis.drawdowns.slice(0, 10)
+              drawdownDistribution.value = drawdownAnalysis.distribution
+              updateSelectedRangeMetrics(0, series.dates.length - 1)
+              return
+          }
+      } catch (error) {
+          console.warn('Rights strategy backend series failed, fallback to static JSON:', error)
+      }
+
       const response = await fetch(`${import.meta.env.BASE_URL || '/'}static/rightsStrategyData.json`)
       if (!response.ok) throw new Error('rightsStrategyData.json 加载失败')
       const data = await response.json()
@@ -493,12 +751,15 @@
 
       strategyData.value = data
       strategySeries.value = series
+      chartMinDate.value = series.dates[0] || ''
+      chartMaxDate.value = series.dates[series.dates.length - 1] || ''
       strategyStats.value = calculateStats(series.values)
       monthlyRows.value = calculateMonthlyReturns(series.values, series.dates)
       monthlySummary.value = calculateMonthlySummary(monthlyRows.value)
       sortinoRatio.value = calculateSortinoRatio(series.values)
       drawdownRows.value = drawdownAnalysis.drawdowns.slice(0, 10)
       drawdownDistribution.value = drawdownAnalysis.distribution
+      updateSelectedRangeMetrics(0, series.dates.length - 1)
   }
 
   async function loadRealtime(forceRefresh = false) {
@@ -705,20 +966,110 @@
       margin-bottom: 0;
   }
 
-  .period-badge {
-      padding: 0.3rem 0.8rem;
-      font-size: 0.8rem;
-      white-space: nowrap;
-      color: #8392a5;
-      background: rgb(0 0 0 / 30%);
-      border: 1px solid rgb(255 255 255 / 5%);
-      border-radius: 4px;
+  .chart-range-picker {
+      display: flex;
+      justify-content: flex-end;
+      align-items: center;
+      gap: 0.45rem;
+      flex-wrap: wrap;
   }
 
-  .period-badge.warning {
-      color: #ffd79a;
-      background: rgb(245 158 11 / 12%);
-      border-color: rgb(245 158 11 / 35%);
+  .range-separator {
+      font-size: 0.9rem;
+      color: #8392a5;
+  }
+
+  .range-date-field {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+      width: 110px;
+      height: 32px;
+      flex: 0 0 auto;
+  }
+
+  .range-date-input {
+      box-sizing: border-box;
+      width: 100%;
+      height: 32px;
+      padding: 0 0rem 0 0.7rem;
+      font-size: 0.82rem;
+      font-family: inherit;
+      line-height: 32px;
+      color: #d8e8ff;
+      background: rgb(0 0 0 / 28%);
+      border: 1px solid rgb(216 228 242 / 24%);
+      border-radius: 6px;
+      outline: none;
+      font-variant-numeric: tabular-nums;
+  }
+
+  .range-date-input:focus {
+      border-color: #ef4444;
+      box-shadow: 0 0 0 2px rgb(239 68 68 / 16%);
+  }
+
+  .range-date-button {
+      position: absolute;
+      top: 50%;
+      right: 6px;
+      display: inline-flex;
+      justify-content: center;
+      align-items: center;
+      padding: 0;
+      width: 20px;
+      height: 20px;
+      color: #b7c9e0;
+      background: transparent;
+      border: 0;
+      border-radius: 4px;
+      transform: translateY(-50%);
+      cursor: pointer;
+  }
+
+  .range-date-button:hover {
+      color: #fff;
+      background: rgb(255 255 255 / 8%);
+  }
+
+  .range-calendar-icon {
+      position: relative;
+      display: block;
+      width: 14px;
+      height: 14px;
+      border: 1.5px solid currentColor;
+      border-radius: 3px;
+      box-sizing: border-box;
+  }
+
+  .range-calendar-icon::before {
+      content: '';
+      position: absolute;
+      top: 3px;
+      left: 0;
+      width: 100%;
+      border-top: 1.5px solid currentColor;
+  }
+
+  .range-calendar-icon::after {
+      content: '';
+      position: absolute;
+      top: -3px;
+      left: 3px;
+      width: 6px;
+      height: 4px;
+      border-right: 1.5px solid currentColor;
+      border-left: 1.5px solid currentColor;
+  }
+
+  .native-date-input {
+      position: absolute;
+      right: 0;
+      bottom: 0;
+      width: 1px;
+      height: 1px;
+      opacity: 0;
+      pointer-events: none;
   }
 
   .card-header-row {
@@ -838,10 +1189,10 @@
 
   .premium-lock-card {
       display: flex;
+      justify-content: center;
+      align-items: center;
       min-height: 280px;
       text-align: center;
-      align-items: center;
-      justify-content: center;
   }
 
   .premium-lock-card .card-title {
@@ -1063,13 +1414,13 @@
 
   .risk-box {
       display: flex;
+      justify-content: center;
       padding: 1.5rem 1rem;
       text-align: center;
       background: rgb(255 255 255 / 3%);
       border: 1px solid rgb(255 255 255 / 5%);
       border-radius: 8px;
       flex-direction: column;
-      justify-content: center;
       gap: 0.45rem;
   }
 
@@ -1301,6 +1652,15 @@
       .card-header-row {
           align-items: flex-start;
           flex-direction: column;
+      }
+
+      .chart-range-picker {
+          justify-content: flex-start;
+          width: 100%;
+      }
+
+      .range-date-field {
+          width: 110px;
       }
   }
 

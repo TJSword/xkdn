@@ -5,7 +5,7 @@
       <div class="page-header">
         <router-link to="/home" class="back-button"> ← 返回主页 </router-link>
         <h1 class="main-title">
-          <span class="title-icon">🗺️</span>
+          <FeaturePageIcon class="title-icon" type="wealth-map" />
           财富版图
         </h1>
         <p class="subtitle">
@@ -75,10 +75,14 @@
         </div>
       </div>
 
-      <!-- 加载指示器 -->
-      <div v-else class="loading-indicator">
-        正在加载版图数据...
-      </div>
+      <StrategyLoading
+        v-else
+        title="正在绘制财富版图"
+        description="加载城市数据与目标进度"
+        monogram="MAP"
+        icon-type="wealth-map"
+        :steps="['城市数据', '目标进度', '版图渲染']"
+      />
     </div>
 
     <!-- 玩法说明模态框 (无变化) -->
@@ -109,8 +113,7 @@
   import axios from 'axios'
 
   // --- 类型与配置 (保留你的) ---
-  mapboxgl.accessToken =
-      'pk.eyJ1Ijoib25pc205IiwiYSI6ImNsaGV6empibDAzd3gzdHBmeGd2bDAwYWkifQ.gjhG1z8Uo8bZETQuRn3Stg'
+  mapboxgl.accessToken = import.meta.env.VITE_MAPBOX_ACCESS_TOKEN || ''
 
   // --- 状态管理 (保留你的，并新增动画状态) ---
   const isLoading = ref(true)
@@ -287,7 +290,7 @@
       const fillColorExpression = [
           'case',
           ['in', ['get', 'name'], ['literal', Array.from(currentlyLitCityNames.value)]],
-          '#FFD700',
+          '#2dd4bf',
           '#333'
       ]
       map.value.setPaintProperty('city-fills', 'fill-color', fillColorExpression)
@@ -396,144 +399,164 @@
           opacity: 0;
           transform: translateY(20px);
       }
+
       to {
           opacity: 1;
           transform: translateY(0);
       }
   }
+
   /* 基本页面布局和头部样式 (无变化) */
   .page-wrapper {
-      font-family: 'Noto Sans SC', sans-serif;
-      background-color: #121212;
-      color: #ffffff;
-      min-height: 100vh;
       padding: 2rem 1rem;
-      background: radial-gradient(circle at 15% 50%, rgba(255, 215, 0, 0.1), transparent 40%),
-          radial-gradient(circle at 85% 50%, rgba(255, 215, 0, 0.08), transparent 40%), #121212;
+      min-height: 100vh;
+      font-family: 'Noto Sans SC', sans-serif;
+      color: #fff;
+      background: radial-gradient(circle at 15% 50%, rgb(45 212 191 / 10%), transparent 40%),
+          radial-gradient(circle at 85% 50%, rgb(45 212 191 / 8%), transparent 40%), #121212;
+      background-color: #121212;
   }
+
   .main-container {
-      max-width: 1200px;
       margin: 0 auto;
+      max-width: 1200px;
   }
+
   .page-header {
-      text-align: center;
       margin-bottom: 2rem;
-      animation: fadeInUp 0.5s ease-out forwards;
+      text-align: center;
       opacity: 0;
+      animation: fadeInUp 0.5s ease-out forwards;
   }
+
   .back-button {
-      color: #b0c4de;
-      text-decoration: none;
-      font-size: 0.9rem;
-      transition: color 0.3s ease;
       display: inline-block;
       margin-bottom: 1rem;
+      font-size: 0.9rem;
+      text-decoration: none;
+      color: #b0c4de;
+      transition: color 0.3s ease;
   }
+
   .back-button:hover {
-      color: #00aaff;
+      color: #0af;
   }
+
   .main-title {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      margin-bottom: 0.5rem;
       font-size: 2.5rem;
       font-weight: 700;
-      display: flex;
-      align-items: center;
-      justify-content: center;
       gap: 1rem;
-      margin-bottom: 0.5rem;
   }
+
   .title-icon {
       font-size: 2.8rem;
-      color: #ffd700;
-      text-shadow: 0 0 15px #ffd700;
+      color: #2dd4bf;
+      text-shadow: 0 0 15px rgb(45 212 191 / 70%);
   }
+
   .subtitle {
       font-size: 1.1rem;
       color: #b0c4de;
   }
+
   .map-tool-card {
-      background: rgba(255, 255, 255, 0.05);
-      border: 1px solid rgba(255, 255, 255, 0.1);
-      border-radius: 16px;
-      padding: 1.5rem 2rem 2rem;
-      backdrop-filter: blur(10px);
       display: flex;
+      padding: 1.5rem 2rem 2rem;
+      background: rgb(255 255 255 / 5%);
+      border: 1px solid rgb(255 255 255 / 10%);
+      border-radius: 16px;
+      opacity: 0;
+      backdrop-filter: blur(10px);
       flex-direction: column;
       gap: 1.5rem;
       animation: fadeInUp 0.5s ease-out forwards;
       animation-delay: 0.2s; /* 添加延迟，让它在标题之后出现 */
-      opacity: 0;
   }
+
   .card-header-section {
       display: grid;
       grid-template-columns: 1fr 1fr;
       gap: 2rem;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      border-bottom: 1px solid rgb(255 255 255 / 10%);
       padding-bottom: 1.5rem;
   }
+
   .area-title {
       display: flex;
       justify-content: space-between;
       align-items: center;
       margin-bottom: 1.5rem;
   }
+
   .area-title h3 {
+      padding-left: 1rem;
+      margin: 0;
       font-size: 1.4rem;
       font-weight: bold;
-      margin: 0;
-      border-left: 4px solid #ffd700;
-      padding-left: 1rem;
+      border-left: 4px solid #2dd4bf;
   }
+
   .how-to-play-button {
-      background: rgba(255, 255, 255, 0.1);
-      border: 1px solid rgba(255, 255, 255, 0.2);
-      color: #fff;
-      width: 32px;
-      height: 32px;
-      border-radius: 50%;
-      font-size: 1.2rem;
-      font-weight: bold;
-      cursor: pointer;
-      transition: all 0.3s ease;
       display: flex;
       justify-content: center;
       align-items: center;
+      width: 32px;
+      height: 32px;
+      font-size: 1.2rem;
+      color: #fff;
+      background: rgb(255 255 255 / 10%);
+      border: 1px solid rgb(255 255 255 / 20%);
+      border-radius: 50%;
+      transition: all 0.3s ease;
+      font-weight: bold;
+      cursor: pointer;
   }
+
   .how-to-play-button:hover {
-      background-color: #ffd700;
       color: #121212;
+      background-color: #2dd4bf;
       transform: scale(1.1);
   }
+
   .control-panel,
   .stats-panel {
       display: flex;
       flex-direction: column;
       gap: 1.2rem;
   }
+
   .control-group {
       display: flex;
       flex-direction: column;
       gap: 0.5rem;
   }
+
   .control-group label {
       font-size: 0.9rem;
-      color: #b0c4de;
       text-align: left;
+      color: #b0c4de;
   }
+
   .control-input {
-      background-color: rgba(0, 0, 0, 0.3);
-      border: 1px solid rgba(255, 255, 255, 0.2);
-      border-radius: 6px;
-      color: #fff;
       padding: 0.75rem;
-      font-size: 1.1rem;
       width: 100%;
-      box-sizing: border-box;
+      font-size: 1.1rem;
+      color: #fff;
+      background-color: rgb(0 0 0 / 30%);
+      border: 1px solid rgb(255 255 255 / 20%);
+      border-radius: 6px;
       transition: border-color 0.3s, box-shadow 0.3s;
+      box-sizing: border-box;
   }
+
   .control-input:focus {
+      border-color: #2dd4bf;
       outline: none;
-      border-color: #ffd700;
-      box-shadow: 0 0 10px rgba(255, 215, 0, 0.5);
+      box-shadow: 0 0 10px rgb(45 212 191 / 45%);
   }
 
   .input-row {
@@ -551,119 +574,138 @@
   .light-up-button {
       margin-top: 0.5rem;
   }
+
   .stat-item {
       display: flex;
       justify-content: space-between;
       align-items: baseline;
-      font-size: 1rem;
-      border-bottom: 1px dashed rgba(255, 255, 255, 0.1);
       padding-bottom: 1rem;
+      font-size: 1rem;
+      border-bottom: 1px dashed rgb(255 255 255 / 10%);
   }
+
   .stat-item:last-child {
       border-bottom: none;
       padding-bottom: 0;
   }
+
   .stat-label {
       color: #b0c4de;
   }
+
   .stat-value {
       font-weight: bold;
       font-size: 1.2rem;
       color: #fff;
   }
+
   .stat-value.highlight strong {
-      color: #ffd700;
+      color: #2dd4bf;
   }
+
   .map-wrapper {
+      overflow: hidden;
       width: 100%;
       height: 65vh;
-      border-radius: 12px;
-      overflow: hidden;
       background-color: #000;
+      border-radius: 12px;
   }
+
   .map-container {
       width: 100%;
       height: 100%;
   }
+
   .loading-indicator {
-      text-align: center;
-      font-size: 1.2rem;
       padding: 5rem 0;
+      font-size: 1.2rem;
+      text-align: center;
       color: #b0c4de;
   }
+
   .modal-fade-enter-active,
   .modal-fade-leave-active {
       transition: opacity 0.3s ease;
   }
+
   .modal-fade-enter-from,
   .modal-fade-leave-to {
       opacity: 0;
   }
+
   .modal-backdrop {
       position: fixed;
       top: 0;
       left: 0;
-      width: 100%;
-      height: 100%;
-      background-color: rgba(0, 0, 0, 0.7);
-      backdrop-filter: blur(8px);
+      z-index: 1000;
       display: flex;
       justify-content: center;
       align-items: center;
-      z-index: 1000;
+      width: 100%;
+      height: 100%;
+      background-color: rgb(0 0 0 / 70%);
+      backdrop-filter: blur(8px);
   }
+
   .modal-content {
-      background: #1e1e1e;
-      border: 1px solid rgba(255, 255, 255, 0.2);
-      border-radius: 15px;
       padding: 1.5rem 2rem;
-      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
       width: 90%;
       max-width: 500px;
+      background: #1e1e1e;
+      border: 1px solid rgb(255 255 255 / 20%);
+      border-radius: 15px;
+      box-shadow: 0 10px 30px rgb(0 0 0 / 50%);
   }
+
   .modal-header {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      margin-bottom: 1.5rem;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
       padding-bottom: 1rem;
+      margin-bottom: 1.5rem;
+      border-bottom: 1px solid rgb(255 255 255 / 10%);
   }
+
   .modal-header h3 {
       margin: 0;
       font-size: 1.4rem;
   }
+
   .modal-close-button {
+      font-size: 2rem;
+      color: #fff;
       background: transparent;
       border: none;
-      color: #fff;
-      font-size: 2rem;
       cursor: pointer;
       line-height: 1;
   }
+
   .modal-body {
       line-height: 1.8;
       color: #e0e0e0;
   }
+
   .modal-body h4 {
-      color: #ffd700;
       margin-top: 1.5rem;
       margin-bottom: 0.5rem;
+      color: #2dd4bf;
   }
+
   .modal-action-button {
       display: block;
-      width: 100%;
-      margin-top: 2rem;
       padding: 0.8rem 1rem;
-      background: #00aaff;
+      margin-top: 2rem;
+      width: 100%;
+      font-size: 1rem;
+      color: #fff;
+      background: #0af;
       border: none;
       border-radius: 8px;
-      color: #ffffff;
-      font-size: 1rem;
+      transition: transform 0.3s ease;
       font-weight: 700;
       cursor: pointer;
-      transition: transform 0.3s ease;
   }
+
   .modal-action-button:hover {
       transform: translateY(-3px);
   }
@@ -676,9 +718,11 @@
       .main-title {
           font-size: 2rem;
       }
+
       .map-tool-card {
           padding: 1rem;
       }
+
       .card-header-section {
           gap: 1rem;
       }
@@ -688,66 +732,71 @@
 
   /* 点亮按钮样式 */
   .light-up-button {
-      width: 100%;
       padding: 0.8rem 1rem;
-
-      background: #ffd700; /* 主题金色 */
+      width: 100%;
+      font-size: 1.1rem;
+      color: #121212; /* 深色文字 */
+      background: #2dd4bf;
       border: none;
       border-radius: 8px;
-      color: #121212; /* 深色文字 */
-      font-size: 1.1rem;
+      box-shadow: 0 0 15px rgb(45 212 191 / 30%);
+      transition: all 0.3s ease;
       font-weight: 700;
       cursor: pointer;
-      transition: all 0.3s ease;
-      box-shadow: 0 0 15px rgba(255, 215, 0, 0.3);
   }
 
   .light-up-button:hover:not(:disabled) {
       transform: translateY(-3px);
-      box-shadow: 0 4px 20px rgba(255, 215, 0, 0.5);
+      box-shadow: 0 4px 20px rgb(45 212 191 / 50%);
   }
 
   .light-up-button:disabled {
-      background-color: #555;
       color: #999;
-      cursor: not-allowed;
+      background-color: #555;
       box-shadow: none;
+      cursor: not-allowed;
       transform: none;
   }
 
   /* 修复 Mapbox Popup 样式 */
   :deep(.mapboxgl-popup-content) {
-      background-color: #2c2c2e; /* 深灰色背景 */
-      color: #e0e0e0; /* 浅灰色文字 */
-      border-radius: 8px;
       padding: 10px 15px;
-      box-shadow: 0 5px 15px rgba(0, 0, 0, 0.4);
       font-family: 'Noto Sans SC', sans-serif;
-      border: 1px solid rgba(255, 255, 255, 0.2);
+      color: #e0e0e0; /* 浅灰色文字 */
+      background-color: #2c2c2e; /* 深灰色背景 */
+      border: 1px solid rgb(255 255 255 / 20%);
+      border-radius: 8px;
+      box-shadow: 0 5px 15px rgb(0 0 0 / 40%);
   }
 
   :deep(.mapboxgl-popup-content strong) {
-      color: #ffffff; /* 粗体文字用纯白，增加对比度 */
+      color: #fff; /* 粗体文字用纯白，增加对比度 */
   }
 
   :deep(.mapboxgl-popup-anchor-bottom .mapboxgl-popup-tip) {
       border-top-color: #2c2c2e; /* 让小三角颜色和背景一致 */
   }
+
   :deep(.mapboxgl-popup-anchor-top .mapboxgl-popup-tip) {
       border-bottom-color: #2c2c2e;
   }
+
   :deep(.mapboxgl-popup-anchor-left .mapbox-popup-tip) {
       border-right-color: #2c2c2e;
   }
+
   :deep(.mapboxgl-popup-anchor-right .mapbox-popup-tip) {
       border-left-color: #2c2c2e;
   }
+
   :deep(.mapboxgl-ctrl-bottom-left) {
       display: none;
   }
+
   :deep(.mapboxgl-ctrl-bottom-right) {
       display: none;
   }
+
   /* ... 您现有的所有CSS ... */
 
   /* --- 在 @media (max-width: 900px) 中新增 --- */
@@ -769,8 +818,8 @@
 
       /* --- 新增：适配玩法说明弹窗 --- */
       .modal-content {
-          width: 75%; /* 弹窗宽度占屏幕的90% */
           padding: 1.5rem 1.2rem; /* 减小内边距 */
+          width: 75%; /* 弹窗宽度占屏幕的90% */
       }
 
       .modal-header h3 {

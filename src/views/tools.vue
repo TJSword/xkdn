@@ -8,7 +8,7 @@
           ← 返回主页
         </router-link>
         <h1 class="main-title">
-          <span class="title-icon">🛠️</span>
+          <FeaturePageIcon class="title-icon" type="tools" />
           投资小工具
         </h1>
         <p class="subtitle">

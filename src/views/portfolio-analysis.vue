@@ -8,7 +8,7 @@
         </router-link>
 
         <h1 class="main-title">
-          <span class="title-icon">⚗️</span>
+          <FeaturePageIcon class="title-icon" type="portfolio-lab" />
           组合实验室
         </h1>
         <p class="subtitle">
@@ -16,7 +16,16 @@
         </p>
       </div>
 
-      <div class="content-card config-card">
+      <StrategyLoading
+        v-if="!dataReady"
+        title="正在准备组合实验室"
+        description="对齐策略数据与可用回测区间"
+        monogram="LAB"
+        icon-type="portfolio-lab"
+        :steps="['策略数据', '时间交集', '分析模型']"
+      />
+
+      <div v-else class="content-card config-card">
         <div class="card-header-row">
           <h2 class="card-title no-margin">参数配置</h2>
           <div class="config-header-actions">
@@ -107,6 +116,15 @@
           </div>
         </div>
       </div>
+
+      <StrategyLoading
+        v-if="isLoading && dataReady"
+        mode="panel"
+        title="正在计算组合结果"
+        description="合成净值、相关性与风险收益指标"
+        monogram="CALC"
+        icon-type="portfolio-lab"
+      />
 
       <div v-if="showLeverageModal" class="modal-backdrop" @click.self="closeLeverageModal">
         <div class="leverage-modal">
@@ -612,7 +630,7 @@
 <script setup lang="ts">
   import { ref, computed, onMounted, nextTick, watch } from 'vue'
   import * as echarts from 'echarts'
-  import axios from 'axios'
+  import app from '@/lib/cloudbase'
   import {
       calculateCorrelation as calculateStrategyCorrelation,
       calculateDrawdownAnalysis as calculateStrategyDrawdownAnalysis,
@@ -742,7 +760,7 @@
           selected: true,
           color: '#00aaff',
           conservativeFactor: 0.95,
-          url: './static/allWeatherData.json'
+          functionName: 'getAllWeatherData'
       },
       {
           id: 'bonds',
@@ -751,7 +769,7 @@
           selected: true,
           color: '#add8e6',
           conservativeFactor: 0.6,
-          url: './static/bondData.json'
+          functionName: 'getBondStrategyData'
       },
     
       {
@@ -761,7 +779,7 @@
           selected: true,
           color: '#ef4444',
           conservativeFactor: 0.8,
-          url: './static/rightsStrategyData.json'
+          functionName: 'getRightsStrategySeries'
       }  ,
       {
           id: 'momentum',
@@ -770,7 +788,7 @@
           selected: true,
           color: '#ff5722',
           conservativeFactor: 0.7,
-          url: './static/momentumData.json'
+          functionName: 'getMomentumStrategyData'
       },
       {
           id: 'micro_cap',
@@ -779,7 +797,7 @@
           selected: true,
           color: '#f0e68c',
           conservativeFactor: 0.8,
-          url: './static/microCapData.json'
+          functionName: 'getMicroCapStrategyData'
       },
       {
           id: 'jinghong',
@@ -788,7 +806,7 @@
           selected: false, // 建议初始不选中，由用户手动勾选
           color: '#ff4081', // 🎨 推荐色：荧光玫红。在深色背景极具穿透力，且与蓝/橙/黄形成完美互补。
           conservativeFactor: 0.6,
-          url: './static/jinghongData.json'
+          functionName: 'getJinghongStrategyData'
       }
   ])
 
@@ -1220,19 +1238,51 @@
       return leveragedCurve
   }
 
+  const isValidStrategyData = (data: any) => {
+      return data && Array.isArray(data.dateList) && Array.isArray(data.strategyData) && data.dateList.length > 0
+  }
+
+  const loadStrategyData = async (strategy: any) => {
+      if (!strategy.functionName) {
+          throw new Error(`${strategy.id} has no cloud function configured`)
+      }
+
+      const response: any = await app.callFunction({ name: strategy.functionName, data: {} })
+      const backendData = response.result?.data
+      if (response.result?.success && isValidStrategyData(backendData)) {
+          return backendData
+      }
+
+      throw new Error(`${strategy.functionName} returned no valid strategy data`)
+  }
+
+  const loadStrategyDataIntoMap = async (strategy: any) => {
+      rawDataMap.value[strategy.id] = await loadStrategyData(strategy)
+  }
+
+  const loadMissingSelectedStrategyData = async () => {
+      const missingStrategies = strategies.value.filter(
+          strategy => strategy.selected && strategy.functionName && !rawDataMap.value[strategy.id]
+      )
+
+      if (missingStrategies.length === 0) return
+      await Promise.all(missingStrategies.map(loadStrategyDataIntoMap))
+  }
+
   // =======================================================
   // 1. 初始化：加载所有数据
   // =======================================================
   onMounted(async () => {
       try {
           isLoading.value = true
-          const requests = strategies.value.map(s => axios.get(s.url))
+          const cloudStrategies = strategies.value.filter(s => s.functionName && s.selected)
+          const requests = cloudStrategies.map(s => loadStrategyData(s))
           const responses = await Promise.all(requests)
 
-          responses.forEach((res, index) => {
-              const stratId = strategies.value[index].id
+          responses.forEach((data, index) => {
+              const stratId = cloudStrategies[index].id
               // 保存原始数据
-              rawDataMap.value[stratId] = res.data
+              rawDataMap.value[stratId] = data
           })
 
           dataReady.value = true
@@ -1250,8 +1300,17 @@
       })
   })
 
-  const handleSelectionChange = () => {
-      updateDateRangeLimits()
+  const handleSelectionChange = async () => {
+      try {
+          isLoading.value = true
+          await loadMissingSelectedStrategyData()
+          updateDateRangeLimits()
+      } catch (error) {
+          console.error('策略数据加载失败:', error)
+          alert('所选策略数据加载失败，请稍后重试。')
+      } finally {
+          isLoading.value = false
+      }
   }
 
   const getCommonDateList = (selectedStrats: any[]) => {

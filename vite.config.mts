@@ -6,6 +6,7 @@
  * @Description:
  */
 import path from 'path'
+import { fileURLToPath } from 'node:url'
 import { ConfigEnv, UserConfig, defineConfig, loadEnv } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import vueJsx from '@vitejs/plugin-vue-jsx'
@@ -14,8 +15,10 @@ import AutoImport from 'unplugin-auto-import/vite'
 import Components from 'unplugin-vue-components/vite'
 import { ElementPlusResolver } from 'unplugin-vue-components/resolvers'
 import ElementPlus from 'unplugin-element-plus/vite'
-import { createScriptTag } from './build'
 import createProxy from './build/createProxy'
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url))
+
 export default defineConfig(({ command, mode }: ConfigEnv): UserConfig => {
   const ENV = loadEnv(mode, process.cwd())
   const proxy = createProxy(ENV)
@@ -88,6 +91,7 @@ export default defineConfig(({ command, mode }: ConfigEnv): UserConfig => {
     css: {
       preprocessorOptions: {
         scss: {
+          api: 'modern',
           additionalData: `@use "@/style/adapter.scss" as *;`
         }
       }

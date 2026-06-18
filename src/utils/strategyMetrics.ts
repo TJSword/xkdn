@@ -10,6 +10,7 @@ export interface StrategyStats {
 export interface MonthlyReturnRow {
     year: number
     months: Array<string | null>
+    rawMonths?: Array<number | null>
     total: string
 }
 
@@ -288,16 +289,24 @@ export const calculateMonthlyReturns = (prices: number[], dates: string[]): Mont
         const year = parseInt(key.split('-')[0])
         const month = parseInt(key.split('-')[1])
         if (!yearsObj[year]) {
-            yearsObj[year] = { year, months: new Array(12).fill(null), total: '0.00' }
+            yearsObj[year] = {
+                year,
+                months: new Array(12).fill(null),
+                rawMonths: new Array(12).fill(null),
+                total: '0.00'
+            }
         }
         yearsObj[year].months[month - 1] = monthReturnsMap[key].toFixed(2)
+        if (yearsObj[year].rawMonths) {
+            yearsObj[year].rawMonths[month - 1] = monthReturnsMap[key]
+        }
     })
 
     const result = Object.values(yearsObj).sort((a, b) => b.year - a.year)
     result.forEach(row => {
         let yRet = 1.0
-        row.months.forEach(monthReturn => {
-            if (monthReturn !== null) yRet *= 1 + Number(monthReturn) / 100
+        row.rawMonths?.forEach(monthReturn => {
+            if (monthReturn !== null) yRet *= 1 + monthReturn / 100
         })
         row.total = ((yRet - 1) * 100).toFixed(2)
     })

@@ -7,7 +7,7 @@
           ← 返回主页
         </router-link>
         <h1 class="main-title">
-          <span class="title-icon">🎲</span>
+          <FeaturePageIcon class="title-icon" type="micro-cap" />
           微盘股策略
         </h1>
         <p class="subtitle">
@@ -15,7 +15,16 @@
         </p>
       </div>
 
-      <div class="content-grid">
+      <StrategyLoading
+        v-if="isLoading"
+        title="正在同步微盘股策略"
+        description="读取最新组合、纪律状态与回测数据"
+        monogram="MICRO"
+        icon-type="micro-cap"
+        :steps="['组合筛选', '纪律状态', '风险收益']"
+      />
+
+      <div v-else class="content-grid">
 
         <div class="content-card risk-warning-card">
           <h2 class="card-title">极端风险警告</h2>
@@ -25,6 +34,18 @@
           </p>
         </div>
 
+        <div v-if="disciplineCash" class="content-card discipline-cash-card">
+          <div class="discipline-cash-kicker">纪律空仓</div>
+          <h2 class="card-title no-border">当前处于 1月/4月空仓窗口</h2>
+          <p class="card-description">
+            系统会在空仓月首个交易日 9:30 之后切换为空仓状态，空仓期间策略净值不再跟随微盘股持仓波动。
+          </p>
+          <div class="discipline-cash-meta">
+            <span>状态：{{ disciplineCashReason || '纪律空仓' }}</span>
+            <span>更新时间：{{ realtimeUpdatedAt || '--' }}</span>
+          </div>
+        </div>
+
         <div class="content-card">
           <h2 class="card-title">组合思想：量化追踪，纪律执行</h2>
           <p class="card-description">
@@ -32,7 +53,7 @@
           </p>
           <ul class="idea-list">
             <li><b>规模因子溢价：</b> 学术与历史数据均表明，长期来看，小市值公司的整体回报率倾向于超越大市值公司。本策略的目标正是捕获这种由“规模”这一因子本身带来的系统性超额收益。</li>
-            <li><b>每周动态再平衡：</b> 模型于<b>每周一</b>进行调仓。这种再平衡机制，确保了策略能紧密跟随指数的成分变化，并及时捕捉市场动量，是策略获取阿尔法收益的关键环节。</li>
+            <li><b>每周动态再平衡：</b> 模型于<b>每周第一个交易日</b>进行调仓。若周一休市，则顺延至当周第一个实际交易日。这种再平衡机制，确保了策略能紧密跟随指数的成分变化，并及时捕捉市场动量，是策略获取阿尔法收益的关键环节。</li>
             <li><b>作为“卫星”配置：</b> 鉴于微盘股的高波动特性，它适合作为投资组合中的“卫星”部分，用以增强整体收益弹性。建议配置比例不超过总投资资产的20%，并做好长期持有的准备。</li>
           </ul>
         </div>
@@ -180,7 +201,75 @@
         <div class="content-card">
           <div class="card-header-row">
             <h2 class="card-title no-margin">微盘股策略 vs 沪深300全收益</h2>
-            <span class="period-badge">{{ backtestPeriodText }}</span>
+            <div class="chart-range-picker">
+              <div class="range-date-field">
+                <input
+                  v-model="dateRangeStart"
+                  class="range-date-input"
+                  type="text"
+                  inputmode="numeric"
+                  maxlength="10"
+                  placeholder="YYYY-MM-DD"
+                  aria-label="选择开始日期"
+                  @input="handleDateRangeInput('start')"
+                  @keydown.enter="applyDateRangeSelection"
+                  @blur="applyDateRangeSelection"
+                />
+                <button
+                  class="range-date-button"
+                  type="button"
+                  aria-label="打开开始日期选择器"
+                  @click="openDatePicker('start')"
+                >
+                  <span class="range-calendar-icon" aria-hidden="true"></span>
+                </button>
+                <input
+                  ref="dateRangeStartPicker"
+                  v-model="dateRangeStart"
+                  class="native-date-input"
+                  type="date"
+                  :min="chartMinDate"
+                  :max="chartMaxDate"
+                  tabindex="-1"
+                  aria-hidden="true"
+                  @change="applyDateRangeSelection"
+                />
+              </div>
+              <span class="range-separator">~</span>
+              <div class="range-date-field">
+                <input
+                  v-model="dateRangeEnd"
+                  class="range-date-input"
+                  type="text"
+                  inputmode="numeric"
+                  maxlength="10"
+                  placeholder="YYYY-MM-DD"
+                  aria-label="选择结束日期"
+                  @input="handleDateRangeInput('end')"
+                  @keydown.enter="applyDateRangeSelection"
+                  @blur="applyDateRangeSelection"
+                />
+                <button
+                  class="range-date-button"
+                  type="button"
+                  aria-label="打开结束日期选择器"
+                  @click="openDatePicker('end')"
+                >
+                  <span class="range-calendar-icon" aria-hidden="true"></span>
+                </button>
+                <input
+                  ref="dateRangeEndPicker"
+                  v-model="dateRangeEnd"
+                  class="native-date-input"
+                  type="date"
+                  :min="chartMinDate"
+                  :max="chartMaxDate"
+                  tabindex="-1"
+                  aria-hidden="true"
+                  @change="applyDateRangeSelection"
+                />
+              </div>
+            </div>
           </div>
 
           <div ref="chartContainer" class="echart-container"></div>
@@ -416,6 +505,15 @@
   })
   const profitLossRatio = ref('0.000')
   const backtestPeriodText = ref('回测周期: --')
+  const dateRangeStart = ref('')
+  const dateRangeEnd = ref('')
+  const dateRangeStartPicker = ref<HTMLInputElement | null>(null)
+  const dateRangeEndPicker = ref<HTMLInputElement | null>(null)
+  const chartMinDate = ref('')
+  const chartMaxDate = ref('')
+  const disciplineCash = ref(false)
+  const disciplineCashReason = ref('')
+  const realtimeUpdatedAt = ref('')
 
   // --- 新增：资金分配计算器逻辑 ---
   const inputAmount = ref<number | null>(null) // 用户输入的金额
@@ -798,8 +896,6 @@
                   success: false,
                   message: '网络异常，暂时无法获取最新策略数据'
               }
-          } finally {
-              isLoading.value = false
           }
       })()
 
@@ -860,16 +956,191 @@
   // --- 4. 图表逻辑 (保持原样，也可以后续换成真实数据) ---
   const chartContainer = ref<HTMLElement | null>(null)
   let myChart: echarts.ECharts | null = null
+  const CHART_REBASE_VALUE = 1000
+  const chartDates = ref<string[]>([])
+  const chartStrategyValues = ref<number[]>([])
+  const chartBenchmarkValues = ref<number[]>([])
+
+  const toFiniteSeries = (data: any[] = [], length: number) =>
+      Array.from({ length }, (_, index) => {
+          const value = Number(data[index])
+          return Number.isFinite(value) ? value : NaN
+      })
+
+  const rebaseSeries = (data: number[], startIndex: number) => {
+      const startValue = data[startIndex]
+      if (!Number.isFinite(startValue) || startValue <= 0) {
+          return data.map(value => (Number.isFinite(value) ? value : null))
+      }
+
+      return data.map(value =>
+          Number.isFinite(value) ? Number(((value / startValue) * CHART_REBASE_VALUE).toFixed(2)) : null
+      )
+  }
+
+  const getAdaptiveYAxisRange = (...seriesList: Array<Array<number | null>>) => {
+      const values = seriesList.flat().filter((value): value is number => Number.isFinite(value))
+      if (!values.length) return {}
+
+      const visibleMin = Math.min(...values)
+      const visibleMax = Math.max(...values)
+      const visibleRange = Math.max(visibleMax - visibleMin, CHART_REBASE_VALUE * 0.025)
+      const min = Math.min(visibleMin - visibleRange * 0.08, CHART_REBASE_VALUE - visibleRange * 0.22)
+      const max = Math.max(visibleMax + visibleRange * 0.14, CHART_REBASE_VALUE + visibleRange * 0.72)
+
+      return {
+          min: Math.floor(min / 10) * 10,
+          max: Math.ceil(max / 10) * 10
+      }
+  }
+
+  const clampIndex = (index: number, maxIndex: number) =>
+      Math.min(Math.max(Math.round(index), 0), Math.max(maxIndex, 0))
+
+  const formatDateInputText = (value: string) => {
+      const digits = value.replace(/\D/g, '').slice(0, 8)
+      const parts = [digits.slice(0, 4), digits.slice(4, 6), digits.slice(6, 8)].filter(Boolean)
+      return parts.join('-')
+  }
+
+  const isCompleteDateInput = (value: string) => {
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false
+
+      const [year, month, day] = value.split('-').map(Number)
+      const date = new Date(year, month - 1, day)
+      return date.getFullYear() === year && date.getMonth() === month - 1 && date.getDate() === day
+  }
+
+  const getCommittedDateInput = (value: string, fallback: string) =>
+      isCompleteDateInput(value) ? value : fallback
+
+  const handleDateRangeInput = (side: 'start' | 'end') => {
+      const target = side === 'start' ? dateRangeStart : dateRangeEnd
+      target.value = formatDateInputText(target.value)
+  }
+
+  const openDatePicker = (side: 'start' | 'end') => {
+      const picker = side === 'start' ? dateRangeStartPicker.value : dateRangeEndPicker.value
+      if (!picker) return
+
+      const pickerWithShowPicker = picker as HTMLInputElement & { showPicker?: () => void }
+      if (pickerWithShowPicker.showPicker) {
+          pickerWithShowPicker.showPicker()
+          return
+      }
+
+      picker.focus()
+      picker.click()
+  }
+
+  const getDateIndex = (date: string, mode: 'start' | 'end') => {
+      const maxIndex = chartDates.value.length - 1
+      if (maxIndex < 0 || !date) return mode === 'start' ? 0 : maxIndex
+
+      const exactIndex = chartDates.value.indexOf(date)
+      if (exactIndex >= 0) return exactIndex
+
+      if (mode === 'start') {
+          const nextIndex = chartDates.value.findIndex(item => item >= date)
+          return nextIndex >= 0 ? nextIndex : maxIndex
+      }
+
+      for (let index = maxIndex; index >= 0; index--) {
+          if (chartDates.value[index] <= date) return index
+      }
+
+      return 0
+  }
+
+  const updateRangeMetrics = (startIndex: number, endIndex: number) => {
+      const selectedPairs = chartDates.value
+          .slice(startIndex, endIndex + 1)
+          .map((date, index) => ({ date, value: chartStrategyValues.value[startIndex + index] }))
+          .filter(item => Number.isFinite(item.value))
+
+      const selectedDates = selectedPairs.map(item => item.date)
+      const selectedValues = selectedPairs.map(item => item.value)
+      const drawdownAnalysis = calculateDrawdownAnalysis(selectedValues, selectedDates)
+
+      backtestPeriodText.value = formatBacktestPeriod(selectedDates)
+      strategyStats.value = calculateStats(selectedValues)
+      profitLossRatio.value = calculateProfitLossRatio(selectedValues)
+      monthlyReturns.value = calculateMonthlyReturns(selectedValues, selectedDates)
+      monthlySummary.value = calculateMonthlySummary(monthlyReturns.value)
+      drawdownDist.value = drawdownAnalysis.distribution
+      topDrawdowns.value = drawdownAnalysis.drawdowns
+  }
+
+  const applyChartRange = (startIndex: number, endIndex: number, shouldUpdateChart = true) => {
+      const maxIndex = chartDates.value.length - 1
+      if (maxIndex < 0) return
+
+      const boundedStartIndex = clampIndex(startIndex, maxIndex)
+      const boundedEndIndex = clampIndex(Math.max(endIndex, boundedStartIndex), maxIndex)
+      const selectedDates = chartDates.value.slice(boundedStartIndex, boundedEndIndex + 1)
+      const strategyDisplayData = rebaseSeries(chartStrategyValues.value, boundedStartIndex).slice(
+          boundedStartIndex,
+          boundedEndIndex + 1
+      )
+      const benchmarkDisplayData = rebaseSeries(chartBenchmarkValues.value, boundedStartIndex).slice(
+          boundedStartIndex,
+          boundedEndIndex + 1
+      )
+
+      dateRangeStart.value = chartDates.value[boundedStartIndex] || ''
+      dateRangeEnd.value = chartDates.value[boundedEndIndex] || ''
+      updateRangeMetrics(boundedStartIndex, boundedEndIndex)
+
+      if (!myChart || !shouldUpdateChart) return
+
+      myChart.setOption({
+          xAxis: { data: selectedDates },
+          yAxis: getAdaptiveYAxisRange(strategyDisplayData, benchmarkDisplayData),
+          series: [{ data: strategyDisplayData }, { data: benchmarkDisplayData }]
+      })
+  }
+
+  const applyDateRangeSelection = () => {
+      const maxIndex = chartDates.value.length - 1
+      if (maxIndex < 0) return
+
+      const committedStartDate = getCommittedDateInput(dateRangeStart.value, chartMinDate.value)
+      const committedEndDate = getCommittedDateInput(dateRangeEnd.value, chartMaxDate.value)
+
+      dateRangeStart.value = committedStartDate
+      dateRangeEnd.value = committedEndDate
+
+      let startIndex = getDateIndex(committedStartDate, 'start')
+      let endIndex = getDateIndex(committedEndDate, 'end')
+      if (startIndex > endIndex) {
+          if (committedStartDate > committedEndDate) {
+              endIndex = startIndex
+          } else {
+              startIndex = endIndex
+          }
+      }
+      applyChartRange(startIndex, endIndex)
+  }
 
   const initChart = (dates: any, strategyData: any, benchmarkData: any) => {
       if (!chartContainer.value) return
+      if (myChart) myChart.dispose()
+
+      chartDates.value = Array.isArray(dates) ? dates : []
+      chartStrategyValues.value = toFiniteSeries(strategyData, chartDates.value.length)
+      chartBenchmarkValues.value = toFiniteSeries(benchmarkData, chartDates.value.length)
+      chartMinDate.value = chartDates.value[0] || ''
+      chartMaxDate.value = chartDates.value[chartDates.value.length - 1] || ''
+
+      const initialStrategyDisplayData = rebaseSeries(chartStrategyValues.value, 0)
+      const initialBenchmarkDisplayData = rebaseSeries(chartBenchmarkValues.value, 0)
       myChart = echarts.init(chartContainer.value)
 
       const option = {
           backgroundColor: 'transparent',
           tooltip: { trigger: 'axis' },
-          grid: { top: '15%', left: '3%', right: '4%', bottom: '10%', containLabel: true },
-          legend: { data: ['微盘股策略', '沪深300'], textStyle: { color: '#b0c4de' }, top: 0 },
+          grid: { top: 52, left: '3%', right: '4%', bottom: 42, containLabel: true },
+          legend: { data: ['微盘股策略', '沪深300全收益'], textStyle: { color: '#b0c4de' }, top: 0 },
           xAxis: {
               type: 'category',
               data: dates,
@@ -880,21 +1151,22 @@
               type: 'value',
               splitLine: { lineStyle: { color: 'rgba(255,255,255,0.1)' } },
               axisLabel: { color: '#8392A5' },
-              scale: true
+              scale: true,
+              ...getAdaptiveYAxisRange(initialStrategyDisplayData, initialBenchmarkDisplayData)
           },
           series: [
               {
                   name: '微盘股策略',
                   type: 'line',
-                  data: strategyData,
+                  data: initialStrategyDisplayData,
                   itemStyle: { color: '#f0e68c' },
                   showSymbol: false,
                   lineStyle: { width: 2 }
               },
               {
-                  name: '沪深300',
+                  name: '沪深300全收益',
                   type: 'line',
-                  data: benchmarkData,
+                  data: initialBenchmarkDisplayData,
                   itemStyle: { color: '#5470c6' },
                   showSymbol: false,
                   lineStyle: { width: 1, type: 'dashed' },
@@ -903,6 +1175,7 @@
           ]
       }
       myChart.setOption(option)
+      applyChartRange(0, chartDates.value.length - 1, false)
   }
 
   // --- 5. 热力图与辅助数据 (保持原样) ---
@@ -1277,7 +1550,7 @@
   const faqList = ref([
       {
           question: '我如何参与该策略？',
-          answer: '本策略精选沪深主板10只小市值个股，无科创/创业板门槛，但请务必认知其高波动风险。首次建仓建议在周一上午9:30进行；后续请严格跟随信号，务必在周一9:30第一时间完成调仓，以减少因股价快速波动带来的滑点损耗。'
+          answer: '本策略精选沪深主板10只小市值个股，无科创/创业板门槛，但请务必认知其高波动风险。首次建仓建议在每周第一个交易日上午9:30进行；后续请严格跟随信号，在当周第一个实际交易日9:30第一时间完成调仓，以减少因股价快速波动带来的滑点损耗。'
       },
       {
           question: '10支股票我应该如何分配资金？',
@@ -1293,9 +1566,7 @@
       }
   ])
 
-  const getlocalData = () => {
-      axios.get('./static/microCapData.json').then(res => {
-          const data = res.data
+  const applyStrategyData = (data: any) => {
           const series = prepareStrategySeries(data.dateList, data.strategyData)
           const benchmarkData = Array.isArray(data.hs300) ? data.hs300.slice(0, series.dates.length) : []
           const drawdownAnalysis = calculateDrawdownAnalysis(series.values, series.dates)
@@ -1308,7 +1579,46 @@
           drawdownDist.value = drawdownAnalysis.distribution
           topDrawdowns.value = drawdownAnalysis.drawdowns
           initChart(series.dates, series.values, benchmarkData)
-      })
+  }
+
+  const fetchRealtimeStatus = async () => {
+      try {
+          const response: any = await app.callFunction({
+              name: 'getMicroCapRealtimeInfo',
+              data: { action: 'get' }
+          })
+          const payload = response.result?.data
+          if (!response.result?.success || !payload) return
+
+          disciplineCash.value = payload.disciplineCash === true
+          disciplineCashReason.value = payload.disciplineCashReason || ''
+          realtimeUpdatedAt.value = payload.updatedAt || payload.updatedMinute || ''
+      } catch (error) {
+          console.warn('微盘实时状态读取失败:', error)
+      }
+  }
+
+  const getlocalData = async () => {
+      try {
+          const response: any = await app.callFunction({
+              name: 'getMicroCapStrategyData',
+              data: { action: 'get' }
+          })
+          const payload = response.result?.data
+          if (response.result?.success && payload) {
+              return payload
+          }
+      } catch (error) {
+          console.warn('微盘后端走势读取失败，使用本地静态数据:', error)
+      }
+
+      try {
+          const res = await axios.get('./static/microCapData.json')
+          return res.data
+      } catch (error) {
+          console.error('微盘股策略数据加载失败:', error)
+          return null
+      }
   }
 
   // --- 生命周期 ---
@@ -1320,18 +1630,21 @@
 
   const handleResize = () => myChart?.resize()
 
-  onMounted(() => {
-      getlocalData()
+  onMounted(async () => {
+      const chartDataPromise = getlocalData()
+      const loadingTasks: Promise<any>[] = [chartDataPromise, fetchRealtimeStatus()]
       if (canViewPremiumContent.value) {
-          fetchStrategyData()
-          fetchStockMap()
+          loadingTasks.push(fetchStrategyData(), fetchStockMap())
       }
+
+      const [chartData] = await Promise.all(loadingTasks)
+      isLoading.value = false
+      await nextTick()
+      if (chartData) applyStrategyData(chartData)
+
       document.addEventListener('visibilitychange', refreshStrategyDataOnReturn)
       window.addEventListener('focus', refreshStrategyDataOnReturn)
-      nextTick(() => {
-          // 2. 初始化图表
-          window.addEventListener('resize', handleResize)
-      })
+      window.addEventListener('resize', handleResize)
   })
 
   onUnmounted(() => {
@@ -1394,8 +1707,8 @@
   :global(body),
   :global(html) {
       overflow-x: hidden;
-      margin: 0;
       padding: 0;
+      margin: 0;
   }
 
   @keyframes fadeInUp {
@@ -1403,40 +1716,43 @@
           opacity: 0;
           transform: translateY(20px);
       }
+
       to {
           opacity: 1;
           transform: translateY(0);
       }
   }
+
   .page-wrapper {
-      font-family: 'Noto Sans SC', sans-serif;
-      background-color: #121212;
-      color: #ffffff;
-      min-height: 100vh;
       padding: 3rem 1rem;
+      min-height: 100vh;
+      font-family: 'Noto Sans SC', sans-serif;
+      color: #fff;
+
       /* 微盘股主题色背景渐变 */
       background: radial-gradient(circle at 15% 50%, #4a4a2a, transparent 40%),
           radial-gradient(circle at 85% 50%, #4a4a2a, transparent 40%), #121212;
+      background-color: #121212;
   }
 
   .main-container {
-      max-width: 900px;
       margin: 0 auto;
+      max-width: 900px;
   }
 
   /* 页面头部 */
   .page-header {
-      text-align: center;
       margin-bottom: 3rem;
+      text-align: center;
       animation: fadeInUp 0.5s ease-out forwards;
   }
 
   .back-button {
-      color: #b0c4de;
-      text-decoration: none;
-      font-size: 0.9rem;
-      margin-bottom: 1rem;
       display: inline-block;
+      margin-bottom: 1rem;
+      font-size: 0.9rem;
+      text-decoration: none;
+      color: #b0c4de;
   }
 
   .back-button:hover {
@@ -1444,13 +1760,13 @@
   }
 
   .main-title {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      margin-bottom: 0.5rem;
       font-size: 2.5rem;
       font-weight: 700;
-      display: flex;
-      align-items: center;
-      justify-content: center;
       gap: 1rem;
-      margin-bottom: 0.5rem;
   }
 
   .title-icon {
@@ -1471,27 +1787,53 @@
   }
 
   .content-card {
-      background: rgba(255, 255, 255, 0.05);
-      border: 1px solid rgba(255, 255, 255, 0.1);
-      border-radius: 12px;
       padding: 1.5rem 2rem;
+      min-width: 0;
+      background: rgb(255 255 255 / 5%);
+      border: 1px solid rgb(255 255 255 / 10%);
+      border-radius: 12px;
       backdrop-filter: blur(10px);
       animation: fadeInUp 0.5s ease-out forwards;
-      min-width: 0;
   }
 
   .content-card:hover {
-      border-color: rgba(240, 230, 140, 0.5); /* Theme color hover */
+      border-color: rgb(240 230 140 / 50%); /* Theme color hover */
+  }
+
+  .discipline-cash-card {
+      background: linear-gradient(135deg, rgb(240 230 140 / 14%), rgb(255 255 255 / 4%));
+      border-color: rgb(240 230 140 / 45%);
+  }
+
+  .discipline-cash-kicker {
+      display: inline-flex;
+      align-items: center;
+      padding: 0.25rem 0.65rem;
+      margin-bottom: 0.65rem;
+      font-size: 0.78rem;
+      color: #f0e68c;
+      border: 1px solid rgb(240 230 140 / 45%);
+      border-radius: 999px;
+      font-weight: 700;
+      letter-spacing: 0;
+  }
+
+  .discipline-cash-meta {
+      display: flex;
+      font-size: 0.86rem;
+      color: #d6d097;
+      flex-wrap: wrap;
+      gap: 0.75rem;
   }
 
   .card-title {
-      font-size: 1.4rem;
-      font-weight: bold;
+      padding-left: 1rem;
       margin-top: 0;
       margin-bottom: 1rem;
-      border-left: 4px solid #f0e68c; /* Theme border */
-      padding-left: 1rem;
+      font-size: 1.4rem;
       color: #fff;
+      font-weight: bold;
+      border-left: 4px solid #f0e68c; /* Theme border */
   }
 
   .card-title.no-margin {
@@ -1504,10 +1846,10 @@
   }
 
   .card-description {
+      margin-bottom: 1rem;
       font-size: 0.95rem;
       color: #b0c4de;
       line-height: 1.8;
-      margin-bottom: 1rem;
   }
 
   .idea-list {
@@ -1533,9 +1875,10 @@
   .risk-warning-card {
       border-left-color: #dc3545;
   }
+
   .risk-warning-card .card-title {
-      border-left-color: #dc3545;
       color: #e24141;
+      border-left-color: #dc3545;
   }
 
   /* =========================================
@@ -1543,35 +1886,35 @@
                                                                                                                                                                                                                                                                                                                                        ========================================= */
   .holdings-card-header {
       display: flex;
-      align-items: flex-start;
       justify-content: space-between;
+      align-items: flex-start;
       gap: 1rem;
   }
 
   .strategy-refresh-button {
       display: inline-grid;
-      flex: 0 0 26px;
+      padding: 0;
       width: 26px;
       height: 26px;
-      padding: 0;
-      color: #8392a5;
       font-size: 1rem;
-      line-height: 1;
+      color: #8392a5;
       background: rgb(0 0 0 / 16%);
       border: 1px solid rgb(255 255 255 / 6%);
       border-radius: 4px;
-      cursor: pointer;
-      place-items: center;
       transition:
           color 0.2s ease,
           border-color 0.2s ease,
           background-color 0.2s ease;
+      flex: 0 0 26px;
+      line-height: 1;
+      cursor: pointer;
+      place-items: center;
   }
 
   .strategy-refresh-button:hover:not(:disabled) {
       color: #f0e68c;
       background: rgb(0 0 0 / 16%);
-      border-color: rgba(240, 230, 140, 0.5);
+      border-color: rgb(240 230 140 / 50%);
   }
 
   .strategy-refresh-button:disabled {
@@ -1590,13 +1933,13 @@
   }
 
   .card-subtitle {
-      font-size: 1.1rem;
-      font-weight: bold;
-      color: #ffffff;
+      padding-bottom: 0.5rem;
       margin-top: 2rem;
       margin-bottom: 1rem;
-      padding-bottom: 0.5rem;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      font-size: 1.1rem;
+      color: #fff;
+      font-weight: bold;
+      border-bottom: 1px solid rgb(255 255 255 / 10%);
   }
 
   .table-wrapper {
@@ -1632,22 +1975,22 @@
   }
 
   .data-table th {
-      background: rgba(0, 0, 0, 0.2);
-      color: #fff;
-      font-weight: bold;
       padding: 0.8rem;
       text-align: center;
-      border: 1px solid rgba(255, 255, 255, 0.1);
       white-space: nowrap;
+      color: #fff;
+      background: rgb(0 0 0 / 20%);
+      border: 1px solid rgb(255 255 255 / 10%);
+      font-weight: bold;
   }
 
   .data-table td {
-      border: 1px solid rgba(255, 255, 255, 0.1);
       padding: 0.8rem;
-      text-align: center;
-      color: #b0c4de;
       font-size: 0.9rem;
+      text-align: center;
       white-space: nowrap;
+      color: #b0c4de;
+      border: 1px solid rgb(255 255 255 / 10%);
   }
 
   .data-table td {
@@ -1662,17 +2005,18 @@
   .text-red {
       color: #ff5722 !important;
   }
+
   .text-green {
       color: #00c497 !important;
   }
 
   .premium-lock-card {
-      min-height: 280px;
       display: flex;
-      flex-direction: column;
-      align-items: center;
       justify-content: center;
+      align-items: center;
+      min-height: 280px;
       text-align: center;
+      flex-direction: column;
   }
 
   .premium-lock-card .card-title {
@@ -1681,24 +2025,24 @@
   }
 
   .premium-lock-icon {
+      display: grid;
+      margin-bottom: 1rem;
       width: 54px;
       height: 54px;
-      display: grid;
-      place-items: center;
-      margin-bottom: 1rem;
-      border-radius: 50%;
-      background: rgba(240, 230, 140, 0.1);
-      border: 1px solid rgba(240, 230, 140, 0.25);
       font-size: 1.6rem;
+      background: rgb(240 230 140 / 10%);
+      border: 1px solid rgb(240 230 140 / 25%);
+      border-radius: 50%;
+      place-items: center;
   }
 
   .premium-lock-button {
-      margin-top: 1rem;
       padding: 0.7rem 1.2rem;
-      border: 0;
-      border-radius: 6px;
+      margin-top: 1rem;
       color: #171609;
       background: #f0e68c;
+      border: 0;
+      border-radius: 6px;
       font-weight: 700;
       cursor: pointer;
   }
@@ -1716,22 +2060,24 @@
   }
 
   .adjustment-title {
+      margin: 0 0 0.8rem;
       font-size: 1rem;
-      margin: 0 0 0.8rem 0;
       font-weight: 600;
   }
+
   .adjustment-title.buy {
       color: #00c497;
   }
+
   .adjustment-title.sell {
       color: #ff5722;
   }
 
   .adjustment-list {
-      list-style: none;
+      display: flex;
       padding: 0;
       margin: 0;
-      display: flex;
+      list-style: none;
       flex-direction: column;
       gap: 0.6rem;
   }
@@ -1740,31 +2086,33 @@
       display: flex;
       justify-content: space-between;
       align-items: center;
-      background: rgba(255, 255, 255, 0.05);
       padding: 0.5rem 0.8rem;
-      border-radius: 6px;
       font-size: 0.9rem;
       color: #b0c4de;
+      background: rgb(255 255 255 / 5%);
+      border-radius: 6px;
   }
 
   .adjustment-item-empty {
-      color: #8392a5;
-      font-size: 0.9rem;
       padding: 0.5rem 0;
+      font-size: 0.9rem;
+      color: #8392a5;
   }
 
   .action-badge {
       padding: 0.2rem 0.6rem;
-      border-radius: 4px;
       font-size: 0.8rem;
-      font-weight: bold;
       color: #fff;
+      border-radius: 4px;
+      font-weight: bold;
   }
+
   .action-badge.buy {
-      background-color: rgba(0, 196, 151, 0.7);
+      background-color: rgb(0 196 151 / 70%);
   }
+
   .action-badge.sell {
-      background-color: rgba(255, 87, 34, 0.7);
+      background-color: rgb(255 87 34 / 70%);
   }
 
   /* =========================================
@@ -1779,36 +2127,133 @@
       gap: 0.5rem;
   }
 
-  .period-badge {
-      font-size: 0.8rem;
+  .chart-range-picker {
+      display: flex;
+      justify-content: flex-end;
+      align-items: center;
+      gap: 0.45rem;
+      flex-wrap: wrap;
+  }
+
+  .range-separator {
+      font-size: 0.9rem;
       color: #8392a5;
-      background: rgba(0, 0, 0, 0.3);
-      padding: 0.3rem 0.8rem;
+  }
+
+  .range-date-field {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+      width: 110px;
+      height: 32px;
+      flex: 0 0 auto;
+  }
+
+  .range-date-input {
+      box-sizing: border-box;
+      width: 100%;
+      height: 32px;
+      padding: 0 0rem 0 0.7rem;
+      font-size: 0.82rem;
+      font-family: inherit;
+      line-height: 32px;
+      color: #d8e8ff;
+      background: rgb(0 0 0 / 28%);
+      border: 1px solid rgb(176 196 222 / 24%);
+      border-radius: 6px;
+      outline: none;
+      font-variant-numeric: tabular-nums;
+  }
+
+  .range-date-input:focus {
+      border-color: #f0e68c;
+      box-shadow: 0 0 0 2px rgb(240 230 140 / 16%);
+  }
+
+  .range-date-button {
+      position: absolute;
+      top: 50%;
+      right: 6px;
+      display: inline-flex;
+      justify-content: center;
+      align-items: center;
+      padding: 0;
+      width: 20px;
+      height: 20px;
+      color: #b7c9e0;
+      background: transparent;
+      border: 0;
       border-radius: 4px;
-      border: 1px solid rgba(255, 255, 255, 0.05);
+      transform: translateY(-50%);
+      cursor: pointer;
+  }
+
+  .range-date-button:hover {
+      color: #fff;
+      background: rgb(255 255 255 / 8%);
+  }
+
+  .range-calendar-icon {
+      position: relative;
+      display: block;
+      width: 14px;
+      height: 14px;
+      border: 1.5px solid currentColor;
+      border-radius: 3px;
+      box-sizing: border-box;
+  }
+
+  .range-calendar-icon::before {
+      content: '';
+      position: absolute;
+      top: 3px;
+      left: 0;
+      width: 100%;
+      border-top: 1.5px solid currentColor;
+  }
+
+  .range-calendar-icon::after {
+      content: '';
+      position: absolute;
+      top: -3px;
+      left: 3px;
+      width: 6px;
+      height: 4px;
+      border-right: 1.5px solid currentColor;
+      border-left: 1.5px solid currentColor;
+  }
+
+  .native-date-input {
+      position: absolute;
+      right: 0;
+      bottom: 0;
+      width: 1px;
+      height: 1px;
+      opacity: 0;
+      pointer-events: none;
   }
 
   .echart-container {
+      margin-top: 1rem;
       width: 100%;
       height: 350px;
-      margin-top: 1rem;
   }
 
   .stats-bar {
       display: grid;
-      grid-template-columns: repeat(5, 1fr);
-      background: rgba(0, 0, 0, 0.2);
-      margin-top: 1rem;
       padding: 1rem;
-      border-radius: 8px;
+      margin-top: 1rem;
       text-align: center;
+      background: rgb(0 0 0 / 20%);
+      border-radius: 8px;
+      grid-template-columns: repeat(5, 1fr);
       gap: 1rem;
   }
 
   .stat-label {
-      color: #8392a5;
-      font-size: 0.8rem;
       margin-bottom: 0.3rem;
+      font-size: 0.8rem;
+      color: #8392a5;
   }
 
   .stat-value {
@@ -1841,22 +2286,22 @@
   .heatmap-table th {
       padding: 0.8rem 0.2rem;
       font-size: 0.85rem;
-      color: #fff;
-      border: 1px solid rgba(255, 255, 255, 0.1);
       white-space: nowrap;
+      color: #fff;
+      border: 1px solid rgb(255 255 255 / 10%);
   }
 
   .heatmap-table td {
       padding: 0.6rem 0.2rem;
-      text-align: center;
       font-size: 0.8rem;
-      border: 1px solid rgba(255, 255, 255, 0.1);
+      text-align: center;
+      border: 1px solid rgb(255 255 255 / 10%);
   }
 
   .year-col {
-      font-weight: bold;
-      background: rgba(255, 255, 255, 0.02);
       color: #b0c4de;
+      background: rgb(255 255 255 / 2%);
+      font-weight: bold;
   }
 
   .year-total {
@@ -1875,24 +2320,24 @@
   }
 
   .risk-box {
-      background: rgba(255, 255, 255, 0.03);
-      border: 1px solid rgba(255, 255, 255, 0.05);
       padding: 1.5rem 1rem;
-      border-radius: 8px;
       text-align: center;
+      background: rgb(255 255 255 / 3%);
+      border: 1px solid rgb(255 255 255 / 5%);
+      border-radius: 8px;
   }
 
   .risk-label {
+      margin-bottom: 0.5rem;
       font-size: 0.85rem;
       color: #8392a5;
-      margin-bottom: 0.5rem;
   }
 
   .risk-main-val {
-      font-size: 1.4rem;
-      font-weight: bold;
-      color: #f0e68c; /* Theme Yellow */
       margin-bottom: 0.3rem;
+      font-size: 1.4rem;
+      color: #f0e68c; /* Theme Yellow */
+      font-weight: bold;
   }
 
   .risk-sub-val {
@@ -1913,29 +2358,30 @@
   }
 
   .dist-col {
-      flex: 1;
-      text-align: center;
       padding: 0.5rem;
       font-size: 0.8rem;
+      text-align: center;
       color: #8392a5;
-      border-right: 1px solid rgba(255, 255, 255, 0.05);
+      flex: 1;
+      border-right: 1px solid rgb(255 255 255 / 5%);
   }
+
   .dist-col:last-child {
       border-right: none;
   }
 
   .dist-bar-row {
-      height: 40px;
       align-items: center;
-      background: rgba(0, 0, 0, 0.2);
+      height: 40px;
+      background: rgb(0 0 0 / 20%);
   }
 
   .dist-block.yellow-theme {
-      background: linear-gradient(145deg, #f0e68c, #d4c550); /* Yellow Gradient */
-      color: #121212;
-      font-weight: bold;
       padding: 0.3rem 0;
+      color: #121212;
+      background: linear-gradient(145deg, #f0e68c, #d4c550); /* Yellow Gradient */
       border-radius: 4px;
+      font-weight: bold;
   }
 
   .risk-table {
@@ -1952,7 +2398,7 @@
   }
 
   .faq-item {
-      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      border-bottom: 1px solid rgb(255 255 255 / 10%);
   }
 
   .faq-item:last-child {
@@ -1960,24 +2406,24 @@
   }
 
   .faq-question {
-      width: 100%;
-      text-align: left;
-      padding: 1rem 0;
-      background: none;
-      border: none;
-      color: #fff;
-      font-size: 1rem;
-      cursor: pointer;
       display: flex;
       justify-content: space-between;
       align-items: center;
+      padding: 1rem 0;
+      width: 100%;
+      font-size: 1rem;
+      text-align: left;
+      color: #fff;
+      background: none;
+      border: none;
+      cursor: pointer;
   }
 
   .faq-icon {
       font-size: 1.5rem;
-      font-weight: bold;
-      transition: transform 0.3s ease;
       color: #f0e68c;
+      transition: transform 0.3s ease;
+      font-weight: bold;
   }
 
   .faq-icon.is-open {
@@ -1995,11 +2441,13 @@
           opacity: 0;
           transform: translateY(20px);
       }
+
       to {
           opacity: 1;
           transform: translateY(0);
       }
   }
+
   /* =========================================
                                                                                                                                                                                                                                                      移动端适配 (最终修正版)
                                                                                                                                                                                                                                                      ========================================= */
@@ -2008,7 +2456,6 @@
       .table-container,
       .table-wrapper,
       .heatmap-container {
-          mask-image: linear-gradient(to right, transparent, black 15px, black 95%, transparent);
           -webkit-mask-image: linear-gradient(
               to right,
               transparent,
@@ -2016,14 +2463,15 @@
               black 95%,
               transparent
           );
+          mask-image: linear-gradient(to right, transparent, black 15px, black 95%, transparent);
       }
 
       /* 2. 页面容器调整：确保不超出屏幕 */
       .page-wrapper {
+          overflow-x: hidden;
           padding: 2rem 1rem;
           width: 100vw; /* 强制视口宽度 */
           box-sizing: border-box;
-          overflow-x: hidden;
       }
 
       .main-container {
@@ -2041,8 +2489,8 @@
       }
 
       .subtitle {
-          font-size: 0.95rem;
           padding: 0 1rem; /* 增加文字内边距防止贴边 */
+          font-size: 0.95rem;
       }
 
       /* 4. 卡片间距与排版 */
@@ -2057,9 +2505,13 @@
           gap: 0.8rem;
       }
 
-      .period-badge {
-          font-size: 0.75rem;
-          align-self: flex-start; /* 靠左对齐 */
+      .chart-range-picker {
+          justify-content: flex-start;
+          width: 100%;
+      }
+
+      .range-date-field {
+          width: 110px;
       }
 
       /* 6. 调仓指引：单列显示 */
@@ -2082,10 +2534,10 @@
       }
 
       .risk-box {
-          padding: 1.2rem;
           display: flex;
-          flex-direction: column;
           align-items: center;
+          padding: 1.2rem;
+          flex-direction: column;
       }
 
       /* 9. 字体与细节微调 */
@@ -2102,21 +2554,21 @@
 
       /* 10. 修复回撤分布表的容器边距 */
       .dist-table-container {
-          margin-bottom: 0;
           overflow-x: auto;
+          margin-bottom: 0;
       }
   }
 
   /* --- 新增：紧凑型计算器工具条样式 --- */
   .calculator-toolbar {
-      background: rgba(0, 0, 0, 0.4);
-      border: 1px solid rgba(240, 230, 140, 0.2);
-      border-radius: 8px;
+      display: flex;
+      justify-content: space-between; /* 两端对齐 */
+      align-items: center;
       padding: 0.8rem 1rem;
       margin-bottom: 1.5rem;
-      display: flex;
-      align-items: center;
-      justify-content: space-between; /* 两端对齐 */
+      background: rgb(0 0 0 / 40%);
+      border: 1px solid rgb(240 230 140 / 20%);
+      border-radius: 8px;
       flex-wrap: wrap;
       gap: 1rem;
   }
@@ -2137,40 +2589,41 @@
   .currency-symbol {
       position: absolute;
       left: 10px;
+      z-index: 2;
+      font-size: 1rem;
       color: #f0e68c;
       font-weight: bold;
-      font-size: 1rem;
-      z-index: 2;
   }
 
   /* 输入框样式：变短、变精致 */
   .compact-input {
-      background: rgba(255, 255, 255, 0.1);
-      border: 1px solid rgba(255, 255, 255, 0.2);
-      color: #fff;
       padding: 0.5rem 0.5rem 0.5rem 1.8rem; /* 左边留出 ¥ 符号的位置 */
-      border-radius: 6px;
-      font-size: 1rem;
       width: 140px; /* 限制宽度 */
+      font-size: 1rem;
+      color: #fff;
+      background: rgb(255 255 255 / 10%);
+      border: 1px solid rgb(255 255 255 / 20%);
+      border-radius: 6px;
       outline: none;
       transition: all 0.3s;
   }
 
   .compact-input:focus {
+      background: rgb(0 0 0 / 30%);
       border-color: #f0e68c;
-      background: rgba(0, 0, 0, 0.3);
   }
 
   .calc-btn-compact {
-      background: #f0e68c;
-      color: #121212;
-      border: none;
       padding: 0.55rem 1rem;
+      font-size: 0.9rem;
+      color: #121212;
+      background: #f0e68c;
+      border: none;
       border-radius: 6px;
       font-weight: bold;
       cursor: pointer;
-      font-size: 0.9rem;
   }
+
   .calc-btn-compact:hover {
       opacity: 0.9;
   }
@@ -2180,6 +2633,7 @@
       display: flex;
       align-items: center;
       gap: 1.5rem;
+
       /* background: rgba(255, 255, 255, 0.03); */
       padding: 0.4rem 0.8rem;
       border-radius: 6px;
@@ -2193,9 +2647,9 @@
   }
 
   .summary-tag .label {
+      margin-bottom: 2px;
       font-size: 0.7rem;
       color: #8392a5;
-      margin-bottom: 2px;
   }
 
   .summary-tag .value {
@@ -2207,17 +2661,19 @@
   .summary-tag .value.highlight {
       color: #f0e68c;
   }
+
   .summary-tag .value.warn {
       color: #ff5722;
   }
 
   /* 表格计算列高亮 */
   .calc-col-head {
-      background: rgba(240, 230, 140, 0.15) !important;
       color: #f0e68c !important;
+      background: rgb(240 230 140 / 15%) !important;
   }
+
   .calc-col-cell {
-      background: rgba(240, 230, 140, 0.03);
+      background: rgb(240 230 140 / 3%);
   }
 
   /* 移动端适配 */
@@ -2226,9 +2682,11 @@
           flex-direction: column;
           align-items: stretch;
       }
+
       .compact-input {
           width: 100%;
       }
+
       .calc-summary-inline {
           justify-content: space-between;
       }
@@ -2236,23 +2694,24 @@
 
   /* --- 新增按钮样式 --- */
   .calc-btn-compact.outline {
+      margin-left: 0.5rem;
+      color: #f0e68c;
       background: transparent;
       border: 1px solid #f0e68c;
-      color: #f0e68c;
-      margin-left: 0.5rem;
   }
+
   .calc-btn-compact.outline:hover {
-      background: rgba(240, 230, 140, 0.1);
+      background: rgb(240 230 140 / 10%);
   }
 
   .action-text-btn {
+      padding: 0;
+      font-size: 0.85rem;
+      text-decoration: underline;
+      color: #00c497; /* Green */
       background: none;
       border: none;
-      color: #00c497; /* Green */
-      font-size: 0.85rem;
       cursor: pointer;
-      text-decoration: underline;
-      padding: 0;
   }
 
   /* --- 调仓列表右侧样式 --- */
@@ -2261,6 +2720,7 @@
       align-items: center;
       gap: 0.6rem;
   }
+
   .shares-badge {
       font-size: 0.8rem;
       color: #fff;
@@ -2270,52 +2730,54 @@
   /* --- Modal 弹窗样式 --- */
   .modal-overlay {
       position: fixed;
-      inset: 0;
-      width: 100%;
-      height: 100vh;
-      height: 100svh;
-      height: 100dvh;
-      padding: max(1rem, env(safe-area-inset-top)) max(1rem, env(safe-area-inset-right))
-          max(1rem, env(safe-area-inset-bottom)) max(1rem, env(safe-area-inset-left));
-      background: rgba(0, 0, 0, 0.8);
-      backdrop-filter: blur(5px);
       z-index: 999;
       display: flex;
       justify-content: center;
       align-items: center;
       overflow-y: auto;
+      padding: max(1rem, env(safe-area-inset-top)) max(1rem, env(safe-area-inset-right))
+          max(1rem, env(safe-area-inset-bottom)) max(1rem, env(safe-area-inset-left));
+      width: 100%;
+      height: 100vh;
+      height: 100svh;
+      height: 100dvh;
+      background: rgb(0 0 0 / 80%);
+      inset: 0;
+      backdrop-filter: blur(5px);
       box-sizing: border-box;
   }
 
   .modal-content {
-      background: #1e1e1e;
-      border: 1px solid rgba(255, 255, 255, 0.1);
-      border-radius: 12px;
+      display: flex;
+      overflow: hidden;
       width: 100%;
       max-width: 500px;
-      display: flex;
-      flex-direction: column;
       max-height: 80vh; /* 防止太高 */
       max-height: min(80vh, calc(100svh - 2rem - env(safe-area-inset-top) - env(safe-area-inset-bottom)));
       max-height: min(80vh, calc(100dvh - 2rem - env(safe-area-inset-top) - env(safe-area-inset-bottom)));
-      overflow: hidden;
-      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+      background: #1e1e1e;
+      border: 1px solid rgb(255 255 255 / 10%);
+      border-radius: 12px;
+      box-shadow: 0 10px 30px rgb(0 0 0 / 50%);
+      flex-direction: column;
       animation: fadeInUp 0.3s ease-out;
   }
 
   .modal-header {
-      padding: 1rem 1.5rem;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
       display: flex;
       justify-content: space-between;
       align-items: center;
+      padding: 1rem 1.5rem;
+      border-bottom: 1px solid rgb(255 255 255 / 10%);
       flex-shrink: 0;
   }
+
   .modal-header h3 {
       margin: 0;
-      color: #f0e68c;
       font-size: 1.2rem;
+      color: #f0e68c;
   }
+
   .close-icon {
       font-size: 1.5rem;
       cursor: pointer;
@@ -2323,10 +2785,10 @@
   }
 
   .modal-body {
-      padding: 1rem;
       overflow-y: auto;
-      flex: 1;
+      padding: 1rem;
       min-height: 0;
+      flex: 1;
       -webkit-overflow-scrolling: touch;
   }
 
@@ -2343,82 +2805,88 @@
   }
 
   .modal-input {
-      background: rgba(255, 255, 255, 0.05);
-      border: 1px solid rgba(255, 255, 255, 0.1);
-      color: #fff;
       padding: 0.6rem;
-      border-radius: 6px;
       font-size: 0.95rem;
+      color: #fff;
+      background: rgb(255 255 255 / 5%);
+      border: 1px solid rgb(255 255 255 / 10%);
+      border-radius: 6px;
       outline: none;
   }
+
   .modal-input:focus {
       border-color: #f0e68c;
   }
+
   .modal-input.code {
       width: 90px;
       text-align: center;
   }
+
   .modal-input.shares {
       width: 80px;
       text-align: center;
   }
 
   .stock-name-display {
-      flex: 1;
-      color: #b0c4de;
-      font-size: 0.9rem;
-      white-space: nowrap;
       overflow: hidden;
-      text-overflow: ellipsis;
+      font-size: 0.9rem;
       text-align: center;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      color: #b0c4de;
+      flex: 1;
   }
 
   .delete-btn {
+      padding: 0 0.5rem;
+      font-size: 1rem;
       background: none;
       border: none;
       cursor: pointer;
-      font-size: 1rem;
-      padding: 0 0.5rem;
   }
 
   .add-row-btn {
-      width: 100%;
       padding: 0.8rem;
-      background: rgba(255, 255, 255, 0.05);
-      border: 1px dashed rgba(255, 255, 255, 0.2);
+      margin-top: 0.5rem;
+      width: 100%;
       color: #8392a5;
+      background: rgb(255 255 255 / 5%);
+      border: 1px dashed rgb(255 255 255 / 20%);
       border-radius: 6px;
       cursor: pointer;
-      margin-top: 0.5rem;
   }
+
   .add-row-btn:hover {
-      background: rgba(255, 255, 255, 0.1);
       color: #fff;
+      background: rgb(255 255 255 / 10%);
   }
 
   .modal-footer {
-      padding: 1rem;
-      border-top: 1px solid rgba(255, 255, 255, 0.1);
       display: flex;
       justify-content: flex-end;
+      padding: 1rem;
+      border-top: 1px solid rgb(255 255 255 / 10%);
       gap: 1rem;
       flex-shrink: 0;
   }
 
   .modal-btn {
       padding: 0.6rem 1.2rem;
-      border-radius: 6px;
       border: none;
+      border-radius: 6px;
       cursor: pointer;
       font-weight: bold;
   }
+
   .modal-btn.cancel {
-      background: transparent;
       color: #8392a5;
+      background: transparent;
   }
+
   .modal-btn.save {
-      background: #f0e68c;
       color: #121212;
+      background: #f0e68c;
   }
 
   /* 移动端适配 */
@@ -2437,25 +2905,29 @@
       .holding-row {
           gap: 0.3rem;
       }
+
       .modal-input.code {
+          padding: 0.5rem 0.2rem;
           width: 70px;
-          padding: 0.5rem 0.2rem;
           font-size: 0.85rem;
       }
+
       .modal-input.shares {
-          width: 60px;
           padding: 0.5rem 0.2rem;
+          width: 60px;
           font-size: 0.85rem;
       }
+
       .stock-name-display {
           font-size: 0.8rem;
       }
 
       /* 调整工具栏按钮，防止挤压 */
       .calc-left {
-          width: 100%;
           justify-content: space-between;
+          width: 100%;
       }
+
       .compact-input {
           width: 100px; /* 进一步缩小输入框 */
       }
@@ -2463,16 +2935,15 @@
 
   /* --- 工具栏整体容器 --- */
   .calculator-toolbar {
-      background: rgba(0, 0, 0, 0.4);
-      border: 1px solid rgba(240, 230, 140, 0.2);
-      border-radius: 8px;
-      padding: 0.8rem 1rem;
-      margin-bottom: 1.5rem;
-
       /* 核心布局：两端对齐，允许换行 */
       display: flex;
       justify-content: space-between;
       align-items: center; /* 垂直居中 */
+      padding: 0.8rem 1rem;
+      margin-bottom: 1.5rem;
+      background: rgb(0 0 0 / 40%);
+      border: 1px solid rgb(240 230 140 / 20%);
+      border-radius: 8px;
       flex-wrap: wrap;
       gap: 1rem;
   }
@@ -2482,6 +2953,7 @@
       display: flex;
       align-items: center;
       gap: 0.8rem;
+
       /* 移动端如果太窄，左侧也不要压缩太厉害 */
       flex-shrink: 0;
   }
@@ -2489,11 +2961,12 @@
   /* --- 右侧组合区 (统计 + 按钮) --- */
   .calc-right-group {
       display: flex;
+      justify-content: flex-end;
       align-items: center;
       gap: 1.5rem;
+
       /* 让右侧在空间不足时自动换行或是占满一行 */
       flex-wrap: wrap;
-      justify-content: flex-end;
   }
 
   /* 统计数据行 */
@@ -2511,21 +2984,22 @@
 
   /* --- [新增] 录入结果按钮样式 --- */
   .apply-result-btn {
-      background: rgba(0, 196, 151, 0.15); /* 淡绿色背景 */
-      color: #00c497;
-      border: 1px solid rgba(0, 196, 151, 0.3);
-      padding: 0.4rem 0.8rem;
-      border-radius: 4px;
-      font-size: 0.85rem;
-      cursor: pointer;
-      transition: all 0.3s;
-      white-space: nowrap; /* 防止文字换行 */
       display: flex;
       align-items: center;
+      padding: 0.4rem 0.8rem;
+      font-size: 0.85rem;
+      white-space: nowrap; /* 防止文字换行 */
+      color: #00c497;
+      background: rgb(0 196 151 / 15%); /* 淡绿色背景 */
+      border: 1px solid rgb(0 196 151 / 30%);
+      border-radius: 4px;
+      transition: all 0.3s;
+      cursor: pointer;
       gap: 4px;
   }
+
   .apply-result-btn:hover {
-      background: rgba(0, 196, 151, 0.25);
+      background: rgb(0 196 151 / 25%);
       transform: translateY(-1px);
   }
 
@@ -2539,8 +3013,8 @@
       }
 
       .calc-left {
-          width: 100%;
           justify-content: space-between; /* 按钮和输入框分散对齐 */
+          width: 100%;
       }
 
       /* 输入框稍微缩短一点，给按钮留位置 */
@@ -2549,15 +3023,16 @@
       }
 
       .calc-right-group {
-          width: 100%;
           justify-content: space-between; /* 统计和按钮分散对齐 */
-          border-top: 1px solid rgba(255, 255, 255, 0.1); /* 加个顶部分割线 */
           padding-top: 1rem;
+          width: 100%;
+          border-top: 1px solid rgb(255 255 255 / 10%); /* 加个顶部分割线 */
       }
 
       .stats-row {
           gap: 1rem; /* 缩小间距 */
       }
+
       .modal-content {
           width: 85%;
       }
@@ -2570,9 +3045,10 @@
           align-items: flex-start;
           gap: 1rem;
       }
+
       .apply-result-btn {
-          width: 100%;
           justify-content: center;
+          width: 100%;
       }
   }
 
@@ -2582,6 +3058,7 @@
       display: flex;
       justify-content: space-between;
       align-items: center;
+
       /* ...原有的背景色等样式保持... */
   }
 
@@ -2601,8 +3078,8 @@
   /* [新增] 股票代码的小字样式 */
   .code-tiny {
       font-size: 0.8rem;
-      color: #bec9d8; /* 灰色 */
       font-family: 'Roboto Mono', monospace; /* 等宽字体更像代码 */
+      color: #bec9d8; /* 灰色 */
       opacity: 0.8;
   }
 
@@ -2613,39 +3090,40 @@
           align-items: flex-start;
           gap: 0;
       }
+
       .code-tiny {
           font-size: 0.75rem;
       }
   }
+
   /* --- 确认弹窗专用样式 --- */
   .confirm-dialog {
       max-width: 360px; /* 小巧一点 */
-
-      border: 1px solid rgba(255, 255, 255, 0.1);
+      border: 1px solid rgb(255 255 255 / 10%);
   }
 
   .modal-header.no-border {
-      border-bottom: none;
-      padding-bottom: 0;
       justify-content: center;
       padding-top: 1.5rem;
+      padding-bottom: 0;
+      border-bottom: none;
   }
 
   .confirm-title {
-      color: #fff; /* 普通白色标题 */
-      font-size: 1.2rem;
       margin: 0;
+      font-size: 1.2rem;
+      color: #fff; /* 普通白色标题 */
   }
 
   .modal-body.text-center {
-      text-align: center;
       padding: 1rem 1.5rem;
+      text-align: center;
   }
 
   .confirm-text {
+      margin-bottom: 0.5rem;
       font-size: 1rem;
       color: #b0c4de;
-      margin-bottom: 0.5rem;
       line-height: 1.6;
   }
 
@@ -2668,10 +3146,11 @@
 
   /* [修改] 确认按钮样式：用主题色，不用红色 */
   .modal-btn.confirm-primary {
-      background: #f0e68c;
-      color: #121212;
       padding: 0.6rem 1.5rem;
+      color: #121212;
+      background: #f0e68c;
   }
+
   .modal-btn.confirm-primary:hover {
       background: #d4c550;
   }
@@ -2679,61 +3158,61 @@
   /* ... 原有的 .action-badge 基础样式保持不变 ... */
   .action-badge {
       padding: 0.2rem 0.6rem;
-      border-radius: 4px;
-      font-size: 0.8rem;
-      font-weight: bold;
-      color: #fff;
       min-width: 3em; /* 保证徽标宽度一致 */
+      font-size: 0.8rem;
       text-align: center;
+      color: #fff;
+      border-radius: 4px;
+      font-weight: bold;
   }
 
   /* 基础徽标样式 */
   .action-badge {
-      padding: 0.25rem 0.5rem; /* 稍微调整内边距 */
-      border-radius: 4px;
-      font-size: 0.8rem;
-      font-weight: bold;
-      color: #fff;
-      text-align: center;
       display: inline-block;
+      padding: 0.25rem 0.5rem; /* 稍微调整内边距 */
       min-width: 4em; /* 稍微宽一点以容纳4个字 */
+      font-size: 0.8rem;
+      text-align: center;
+      color: #fff;
+      border-radius: 4px;
+      font-weight: bold;
   }
 
   /* --- 1. 全新买入 (New Buy) - 4字，视觉最强 --- */
   .action-badge.new-buy {
-      background-color: rgba(0, 196, 151, 0.6); /* 亮绿实心 */
-      box-shadow: 0 2px 6px rgba(0, 196, 151, 0.4); /* 发光投影 */
+      background-color: rgb(0 196 151 / 60%); /* 亮绿实心 */
+      border: 1px solid rgb(0 196 151 / 40%);
+      box-shadow: 0 2px 6px rgb(0 196 151 / 40%); /* 发光投影 */
       font-weight: 800; /* 特别加粗 */
-      border: 1px solid rgba(0, 196, 151, 0.4);
   }
 
   /* --- 2. 增持 (Add Buy) - 2字，视觉稍弱 --- */
   .action-badge.add-buy {
-      background-color: transparent;
       color: #00c497;
-      border: 1px solid rgba(0, 196, 151, 0.6);
+      background-color: transparent;
+      border: 1px solid rgb(0 196 151 / 60%);
   }
 
   /* --- 3. 全部卖出 (Clear Sell) - 4字，视觉最强 --- */
   .action-badge.clear-sell {
-      background-color: rgba(255, 87, 34, 0.6); /* 亮红实心 */
-      box-shadow: 0 2px 6px rgba(255, 87, 34, 0.4); /* 发光投影 */
+      background-color: rgb(255 87 34 / 60%); /* 亮红实心 */
+      border: 1px solid rgb(255 87 34 / 40%);
+      box-shadow: 0 2px 6px rgb(255 87 34 / 40%); /* 发光投影 */
       font-weight: 800; /* 特别加粗 */
-      border: 1px solid rgba(255, 87, 34, 0.4);
   }
 
   /* --- 4. 减持 (Cut Sell) - 2字，视觉稍弱 --- */
   .action-badge.cut-sell {
-      background-color: transparent;
       color: #ff5722;
-      border: 1px solid rgba(255, 87, 34, 0.6);
+      background-color: transparent;
+      border: 1px solid rgb(255 87 34 / 60%);
   }
 
   /* 移动端微调：防止4个字把布局挤坏 */
   @media (max-width: 360px) {
       .action-badge {
-          font-size: 0.75rem; /* 字体稍微改小 */
           padding: 0.2rem 0.3rem;
+          font-size: 0.75rem; /* 字体稍微改小 */
       }
   }
 </style>

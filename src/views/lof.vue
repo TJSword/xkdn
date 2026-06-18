@@ -4,16 +4,20 @@
       <div class="page-header">
         <router-link to="/home" class="back-button">← 返回主页</router-link>
         <h1 class="main-title">
-          <span class="title-icon">📈</span>
+          <FeaturePageIcon class="title-icon" type="lof-monitor" />
           LOF 溢价监控
         </h1>
         <p class="subtitle">聚合公开数据源，观察场内价格、净值估算与溢价状态。</p>
       </div>
 
-      <div v-if="isLoading" class="loading-state">
-        <span class="loader"></span>
-        <p>正在读取最新 LOF 快照...</p>
-      </div>
+      <StrategyLoading
+        v-if="isLoading"
+        title="正在读取 LOF 快照"
+        description="同步场内价格、净值估算与申购状态"
+        monogram="LOF"
+        icon-type="lof-monitor"
+        :steps="['场内价格', '净值估算', '溢价状态']"
+      />
 
       <div v-else class="content-grid">
         <div class="content-card filter-card">

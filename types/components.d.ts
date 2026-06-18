@@ -9,10 +9,14 @@ export {}
 
 declare module '@vue/runtime-core' {
   export interface GlobalComponents {
+    AllWeatherMenuIcon: typeof import('./../src/components/AllWeatherMenuIcon.vue')['default']
     ElConfigProvider: typeof import('element-plus/es')['ElConfigProvider']
+    FeaturePageIcon: typeof import('./../src/components/FeaturePageIcon.vue')['default']
     Main: typeof import('./../src/components/loading/main.vue')['default']
     Message: typeof import('./../src/components/Message.vue')['default']
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']
+    StrategyLoading: typeof import('./../src/components/StrategyLoading.vue')['default']
+    StrategyMenuIcon: typeof import('./../src/components/StrategyMenuIcon.vue')['default']
   }
 }

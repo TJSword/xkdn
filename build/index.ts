@@ -8,7 +8,6 @@
 import dotenv from 'dotenv'
 import fs, { readFile, writeFileSync } from 'fs-extra'
 import path from 'path'
-import { createHtmlPlugin } from 'vite-plugin-html'
 const GLOBAL_CONFIG_FILE_NAME = '_app.config.js'
 
 // 获取开发环境配置
@@ -50,7 +49,8 @@ function getRootPath(...dir: string[]) {
     return path.resolve(process.cwd(), ...dir)
 }
 
-export function createScriptTag(command: string, basePath: string) {
+export async function createScriptTag(command: string, basePath: string) {
+    const { createHtmlPlugin } = await import('vite-plugin-html')
     const isBuild = command === 'build'
     return createHtmlPlugin({
         minify: true,

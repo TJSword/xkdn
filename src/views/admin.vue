@@ -54,7 +54,14 @@
               </thead>
               <tbody>
                 <tr v-if="isLoading">
-                  <td colspan="7" class="no-data">正在加载用户数据...</td>
+                  <td colspan="7" class="no-data">
+                    <StrategyLoading
+                      mode="inline"
+                      title="正在加载用户数据"
+                      description="同步账户与会员信息"
+                      monogram="USR"
+                    />
+                  </td>
                 </tr>
                 <tr v-else v-for="user in users" :key="user.id">
                   <td>{{ user.phone }}</td>
@@ -457,8 +464,8 @@
           label: 'LOF 溢价',
           tagLabel: 'LOF溢价',
           trigger: '交易日 14:30，从实时 LOF 刷新结果里筛选符合条件的基金。',
-          content: '名称、代码、T-2/T-1/实时溢价率；条件为可申购、申购额度小于 1 万元、实时溢价率大于 0。',
-          example: 'XXLOF(161000) T-2:1.20% T-1:0.85% 实时:1.56%。'
+          content: '名称、代码、限购金额、T-2/T-1/实时溢价率；条件为可申购、限购金额小于 1 万元、实时溢价率大于 0。',
+          example: '华宝油气LOF(162411) 限购金额：5,000元；T-2:1.20% T-1:0.85% 实时:1.56%。'
       }
   ] as const
 
@@ -558,6 +565,7 @@
           opacity: 0;
           transform: translateY(20px);
       }
+
       to {
           opacity: 1;
           transform: translateY(0);
@@ -568,54 +576,59 @@
   .page-wrapper {
       display: flex;
       justify-content: center;
-      box-sizing: border-box;
-      width: 100%;
-      font-family: 'Noto Sans SC', sans-serif;
-      background-color: #121212;
-      color: #ffffff;
-      min-height: 100vh;
       padding: 3rem 1rem;
+      width: 100%;
+      min-height: 100vh;
+      font-family: 'Noto Sans SC', sans-serif;
+      color: #fff;
       background: radial-gradient(circle at 15% 50%, #1a2a4a, transparent 40%),
           radial-gradient(circle at 85% 50%, #4a1a2a, transparent 40%), #121212;
+      background-color: #121212;
+      box-sizing: border-box;
   }
 
   .main-container {
+      margin: 0 auto;
       width: min(1400px, 100%);
       max-width: 1400px;
-      margin: 0 auto;
   }
 
   /* 头部样式 */
   .page-header {
-      text-align: center;
       margin-bottom: 3rem;
+      text-align: center;
       animation: fadeInUp 0.5s ease-out forwards;
   }
+
   .back-button {
-      color: #b0c4de;
-      text-decoration: none;
-      font-size: 0.9rem;
-      transition: color 0.3s ease;
       display: inline-block;
       margin-bottom: 1rem;
+      font-size: 0.9rem;
+      text-decoration: none;
+      color: #b0c4de;
+      transition: color 0.3s ease;
   }
+
   .back-button:hover {
-      color: #00aaff;
+      color: #0af;
   }
+
   .main-title {
-      font-size: 2.5rem;
-      font-weight: 700;
-      color: #fff;
       display: flex;
-      align-items: center;
       justify-content: center;
-      gap: 1rem;
+      align-items: center;
       margin-bottom: 0.5rem;
+      font-size: 2.5rem;
+      color: #fff;
+      font-weight: 700;
+      gap: 1rem;
   }
+
   .title-icon {
       font-size: 2.8rem;
-      color: #00aaff;
+      color: #0af;
   }
+
   .subtitle {
       font-size: 1.1rem;
       color: #b0c4de;
@@ -627,18 +640,19 @@
       min-width: 0;
       gap: 1.5rem;
   }
+
   .content-card {
-      box-sizing: border-box;
+      padding: 1.5rem 2rem;
       width: 100%;
       min-width: 0;
-      background: rgba(255, 255, 255, 0.05);
-      border: 1px solid rgba(255, 255, 255, 0.1);
+      background: rgb(255 255 255 / 5%);
+      border: 1px solid rgb(255 255 255 / 10%);
       border-radius: 12px;
-      padding: 1.5rem 2rem;
+      opacity: 0;
+      box-sizing: border-box;
       backdrop-filter: blur(10px);
       animation: fadeInUp 0.5s ease-out forwards;
       animation-delay: 0.2s;
-      opacity: 0;
   }
 
   /* 筛选区域样式 (Modified) */
@@ -650,37 +664,42 @@
       flex-wrap: wrap; /* 允许换行 */
       gap: 1rem;
   }
+
   .card-title.no-border {
-      font-size: 1.4rem;
       margin: 0;
+      font-size: 1.4rem;
   }
+
   .filter-group {
       display: flex;
       align-items: center;
       gap: 1rem;
   }
+
   .checkbox-label {
       display: flex;
       align-items: center;
-      gap: 0.5rem;
-      color: #b0c4de;
       font-size: 0.9rem;
+      color: #b0c4de;
+      gap: 0.5rem;
       cursor: pointer;
       user-select: none;
   }
+
   .filter-checkbox {
       cursor: pointer;
       width: 16px;
       height: 16px;
   }
+
   .search-input {
-      background-color: rgba(0, 0, 0, 0.3);
-      border: 1px solid rgba(255, 255, 255, 0.2);
-      border-radius: 8px;
       padding: 0.5rem 1rem;
-      color: #fff;
-      font-size: 0.9rem;
       min-width: 200px;
+      font-size: 0.9rem;
+      color: #fff;
+      background-color: rgb(0 0 0 / 30%);
+      border: 1px solid rgb(255 255 255 / 20%);
+      border-radius: 8px;
   }
 
   /* 表格样式 */
@@ -688,34 +707,40 @@
       overflow-x: auto;
       width: 100%;
   }
+
   .portfolio-table {
       width: 100%;
       min-width: 1180px;
       border-collapse: collapse;
   }
+
   .portfolio-table th,
   .portfolio-table td {
       padding: 0.9rem 1rem;
       text-align: left;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      border-bottom: 1px solid rgb(255 255 255 / 10%);
   }
+
   .portfolio-table th {
-      color: #ffffff;
+      color: #fff;
       font-weight: bold;
   }
+
   /* 排序表头样式 */
   .sortable-header {
       cursor: pointer;
       user-select: none;
       transition: color 0.2s;
   }
+
   .sortable-header:hover {
-      color: #00aaff;
+      color: #0af;
   }
+
   .sort-icon {
       margin-left: 4px;
       font-size: 0.8em;
-      color: #00aaff;
+      color: #0af;
   }
 
   .portfolio-table td {
@@ -725,15 +750,15 @@
 
   .key-cell,
   .remark-cell {
-      max-width: 170px;
       overflow: hidden;
+      max-width: 170px;
       text-overflow: ellipsis;
       white-space: nowrap;
   }
 
   .key-cell {
-      font-family: monospace;
       font-size: 0.82rem;
+      font-family: monospace;
   }
 
   .remark-cell {
@@ -755,11 +780,11 @@
       align-items: center;
       padding: 0.25rem 0.6rem;
       font-size: 0.75rem;
-      font-weight: 600;
-      line-height: 1;
+      white-space: nowrap;
       border: 1px solid transparent;
       border-radius: 999px;
-      white-space: nowrap;
+      font-weight: 600;
+      line-height: 1;
   }
 
   .subscription-tag-momentum {
@@ -791,22 +816,25 @@
       background: rgb(20 184 166 / 16%);
       border-color: rgb(20 184 166 / 38%);
   }
+
   .portfolio-table tr:last-child td {
       border-bottom: none;
   }
+
   .no-data {
       padding: 2rem;
       color: #888;
   }
+
   .action-button {
-      background-color: #00aaff;
-      color: white;
-      border: none;
-      border-radius: 6px;
       padding: 0.4rem 1rem;
-      cursor: pointer;
       font-size: 0.9rem;
       white-space: nowrap;
+      color: white;
+      background-color: #0af;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
   }
 
   .row-actions {
@@ -825,31 +853,36 @@
       display: flex;
       justify-content: space-between;
       align-items: center;
-      margin-top: 1.5rem;
       padding-top: 1rem;
-      border-top: 1px solid rgba(255, 255, 255, 0.1);
+      margin-top: 1.5rem;
+      border-top: 1px solid rgb(255 255 255 / 10%);
   }
+
   .total-count {
       font-size: 0.9rem;
       color: #b0c4de;
   }
+
   .pagination-buttons {
       display: flex;
       gap: 0.5rem;
   }
+
   .pagination-button {
-      background-color: rgba(255, 255, 255, 0.1);
-      border: 1px solid rgba(255, 255, 255, 0.2);
-      color: #fff;
-      border-radius: 6px;
       min-width: 36px;
       height: 36px;
+      color: #fff;
+      background-color: rgb(255 255 255 / 10%);
+      border: 1px solid rgb(255 255 255 / 20%);
+      border-radius: 6px;
       cursor: pointer;
   }
+
   .pagination-button.active {
-      background-color: #00aaff;
-      border-color: #00aaff;
+      background-color: #0af;
+      border-color: #0af;
   }
+
   .pagination-button:disabled {
       opacity: 0.5;
       cursor: not-allowed;
@@ -860,68 +893,78 @@
       position: fixed;
       top: 0;
       left: 0;
-      width: 100%;
-      height: 100%;
-      background-color: rgba(0, 0, 0, 0.7);
-      backdrop-filter: blur(8px);
+      z-index: 1000;
       display: flex;
       justify-content: center;
       align-items: center;
-      z-index: 1000;
+      width: 100%;
+      height: 100%;
+      background-color: rgb(0 0 0 / 70%);
+      backdrop-filter: blur(8px);
   }
+
   .modal-content {
-      background: #1e1e1e;
-      border: 1px solid rgba(255, 255, 255, 0.2);
-      border-radius: 15px;
       padding: 1.5rem 2rem;
       width: 90%;
       max-width: 500px;
+      background: #1e1e1e;
+      border: 1px solid rgb(255 255 255 / 20%);
+      border-radius: 15px;
   }
+
   .modal-header {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      margin-bottom: 1.5rem;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
       padding-bottom: 1rem;
+      margin-bottom: 1.5rem;
+      border-bottom: 1px solid rgb(255 255 255 / 10%);
   }
+
   .modal-header h3 {
       margin: 0;
   }
+
   .modal-close-button {
+      font-size: 2rem;
+      color: #fff;
       background: transparent;
       border: none;
-      color: #fff;
-      font-size: 2rem;
       cursor: pointer;
   }
+
   .modal-body {
       padding: 0.5rem 0;
   }
+
   .modal-form .form-group {
       margin-bottom: 1.25rem;
   }
+
   .modal-form label {
       display: block;
-      color: #b0c4de;
       margin-bottom: 0.5rem;
+      color: #b0c4de;
   }
+
   .modal-form .info-text {
       font-size: 1rem;
       color: #fff;
   }
+
   .modal-form .info-text.highlight {
-      color: #00aaff;
+      color: #0af;
       font-weight: bold;
   }
+
   .modal-form .form-input {
-      width: 100%;
-      background-color: rgba(0, 0, 0, 0.3);
-      border: 1px solid rgba(255, 255, 255, 0.2);
-      border-radius: 8px;
       padding: 0.75rem 1rem;
-      color: #fff;
+      width: 100%;
       font-size: 1rem;
+      color: #fff;
+      background-color: rgb(0 0 0 / 30%);
+      border: 1px solid rgb(255 255 255 / 20%);
+      border-radius: 8px;
       box-sizing: border-box;
   }
 
@@ -931,24 +974,24 @@
 
   .remark-input {
       min-height: 110px;
-      resize: vertical;
       font-family: inherit;
+      resize: vertical;
       line-height: 1.6;
   }
 
   .character-count {
       display: block;
       margin-top: 0.35rem;
-      color: #8392a5;
       font-size: 0.75rem;
       text-align: right;
+      color: #8392a5;
   }
 
   .form-help {
       display: block;
       margin-top: 0.35rem;
-      color: #8392a5;
       font-size: 0.78rem;
+      color: #8392a5;
   }
 
   .admin-notification-options {
@@ -960,26 +1003,22 @@
   .admin-notification-option {
       position: relative;
       display: flex;
-      gap: 0.55rem;
-      align-items: center;
       justify-content: flex-start;
-      box-sizing: border-box;
+      align-items: center;
+      padding: 0.65rem 0.75rem;
       width: 100%;
       min-height: 42px;
-      padding: 0.65rem 0.75rem;
-      color: #dce8f5;
       font-size: 0.82rem;
+      color: #dce8f5;
       background: rgb(255 255 255 / 6%);
       border: 1px solid rgb(255 255 255 / 10%);
       border-radius: 8px;
+      gap: 0.55rem;
+      box-sizing: border-box;
       cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: flex-start;
   }
 
   .admin-notification-option input {
-    
       margin: 0;
   }
 
@@ -990,41 +1029,41 @@
 
   .admin-notification-popover {
       position: absolute;
-      left: 50%;
       bottom: calc(100% + 10px);
+      left: 50%;
       z-index: 20;
       display: grid;
-      gap: 0.45rem;
-      width: min(310px, 82vw);
       padding: 0.8rem 0.9rem;
-      color: #dce8f5;
+      width: min(310px, 82vw);
       text-align: left;
-      pointer-events: none;
+      color: #dce8f5;
       background: rgb(12 18 28 / 96%);
       border: 1px solid rgb(0 170 255 / 35%);
       border-radius: 10px;
-      box-shadow: 0 12px 28px rgb(0 0 0 / 38%);
       opacity: 0;
-      transform: translate(-50%, 6px);
+      box-shadow: 0 12px 28px rgb(0 0 0 / 38%);
       transition: opacity 0.18s ease, transform 0.18s ease;
+      gap: 0.45rem;
+      pointer-events: none;
+      transform: translate(-50%, 6px);
   }
 
   .admin-notification-popover::after {
-      content: '';
       position: absolute;
-      left: 50%;
       bottom: -6px;
+      left: 50%;
       width: 10px;
       height: 10px;
       background: rgb(12 18 28 / 96%);
+      content: '';
       border-right: 1px solid rgb(0 170 255 / 35%);
       border-bottom: 1px solid rgb(0 170 255 / 35%);
       transform: translateX(-50%) rotate(45deg);
   }
 
   .admin-notification-popover strong {
-      color: #fff;
       font-size: 0.86rem;
+      color: #fff;
   }
 
   .admin-notification-popover span,
@@ -1052,11 +1091,12 @@
   .modal-footer {
       display: flex;
       justify-content: flex-end;
-      gap: 1rem;
-      margin-top: 1.5rem;
       padding-top: 1.5rem;
-      border-top: 1px solid rgba(255, 255, 255, 0.1);
+      margin-top: 1.5rem;
+      gap: 1rem;
+      border-top: 1px solid rgb(255 255 255 / 10%);
   }
+
   .button-secondary,
   .button-primary {
       padding: 0.6rem 1.5rem;
@@ -1064,25 +1104,30 @@
       font-weight: bold;
       cursor: pointer;
   }
+
   .button-secondary {
-      background-color: rgba(255, 255, 255, 0.1);
-      border: 1px solid rgba(255, 255, 255, 0.2);
       color: #fff;
+      background-color: rgb(255 255 255 / 10%);
+      border: 1px solid rgb(255 255 255 / 20%);
   }
+
   .button-primary {
-      background-color: #00aaff;
-      border: 1px solid #00aaff;
       color: #fff;
+      background-color: #0af;
+      border: 1px solid #0af;
   }
+
   .button-primary:disabled {
       background-color: #555;
       border-color: #555;
       cursor: not-allowed;
   }
+
   .modal-fade-enter-active,
   .modal-fade-leave-active {
       transition: opacity 0.3s ease;
   }
+
   .modal-fade-enter-from,
   .modal-fade-leave-to {
       opacity: 0;
@@ -1093,28 +1138,33 @@
       .content-card {
           padding: 1.5rem 1rem;
       }
+
       .table-wrapper::-webkit-scrollbar {
           height: 6px;
       }
+
       .table-wrapper::-webkit-scrollbar-thumb {
-          background: #00aaff;
+          background: #0af;
           border-radius: 3px;
       }
+
       .portfolio-table th,
       .portfolio-table td {
-          white-space: nowrap;
           padding: 0.8rem;
+          white-space: nowrap;
       }
 
       .card-header-with-toggle {
           flex-direction: column;
           align-items: flex-start;
       }
+
       .filter-group {
+          align-items: flex-start;
           width: 100%;
           flex-direction: column;
-          align-items: flex-start;
       }
+
       .search-input {
           width: 100%;
           box-sizing: border-box;
@@ -1124,47 +1174,57 @@
           flex-direction: column;
           gap: 1rem;
       }
+
       .pagination-buttons {
           flex-wrap: wrap;
           justify-content: center;
       }
 
       .modal-content {
-          padding: 1.5rem 1.2rem;
-          max-height: 90vh;
           overflow-y: auto;
+          padding: 1.5rem 1.2rem;
           width: 78%;
+          max-height: 90vh;
       }
+
       .modal-header h3 {
           font-size: 1.2rem;
       }
+
       .modal-form .form-group {
           margin-bottom: 1.5rem;
       }
+
       .modal-form label {
           font-size: 0.9rem;
       }
+
       .modal-form .info-text {
           font-size: 1.05rem;
       }
+
       .modal-form .form-input {
           padding: 0.9rem;
           font-size: 1.05rem;
       }
+
       .modal-footer {
+          padding-top: 1.2rem;
+          margin-top: 2rem;
           flex-direction: column-reverse;
           gap: 0.8rem;
-          margin-top: 2rem;
-          padding-top: 1.2rem;
       }
+
       .button-secondary,
       .button-primary {
-          width: 100%;
           padding: 0.9rem;
+          width: 100%;
       }
+
       .main-title {
           font-size: 2rem;
       }
+
       .subtitle {
           font-size: 1rem;
       }

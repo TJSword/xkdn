@@ -8,7 +8,7 @@
         </router-link>
 
         <h1 class="main-title">
-          <span class="title-icon">⚡</span>
+          <FeaturePageIcon class="title-icon" type="momentum" />
           动量策略
         </h1>
         <p class="subtitle">
@@ -16,7 +16,16 @@
         </p>
       </div>
 
-      <div class="content-grid">
+      <StrategyLoading
+        v-if="isLoading"
+        title="正在同步动量策略"
+        description="计算强度排名、轮动信号与回测表现"
+        monogram="MOM"
+        icon-type="momentum"
+        :steps="['强度排名', '轮动信号', '回测表现']"
+      />
+
+      <div v-else class="content-grid">
         <div class="content-card">
           <h2 class="card-title">策略简介</h2>
           <p class="card-description">
@@ -117,7 +126,75 @@
         <div class="content-card">
           <div class="card-header-row">
             <h2 class="card-title no-margin">动量策略 vs 沪深300全收益</h2>
-            <span class="period-badge">{{ backtestPeriodText }}</span>
+            <div class="chart-range-picker">
+              <div class="range-date-field">
+                <input
+                  v-model="dateRangeStart"
+                  class="range-date-input"
+                  type="text"
+                  inputmode="numeric"
+                  maxlength="10"
+                  placeholder="YYYY-MM-DD"
+                  aria-label="选择开始日期"
+                  @input="handleDateRangeInput('start')"
+                  @keydown.enter="applyDateRangeSelection"
+                  @blur="applyDateRangeSelection"
+                />
+                <button
+                  class="range-date-button"
+                  type="button"
+                  aria-label="打开开始日期选择器"
+                  @click="openDatePicker('start')"
+                >
+                  <span class="range-calendar-icon" aria-hidden="true"></span>
+                </button>
+                <input
+                  ref="dateRangeStartPicker"
+                  v-model="dateRangeStart"
+                  class="native-date-input"
+                  type="date"
+                  :min="chartMinDate"
+                  :max="chartMaxDate"
+                  tabindex="-1"
+                  aria-hidden="true"
+                  @change="applyDateRangeSelection"
+                />
+              </div>
+              <span class="range-separator">~</span>
+              <div class="range-date-field">
+                <input
+                  v-model="dateRangeEnd"
+                  class="range-date-input"
+                  type="text"
+                  inputmode="numeric"
+                  maxlength="10"
+                  placeholder="YYYY-MM-DD"
+                  aria-label="选择结束日期"
+                  @input="handleDateRangeInput('end')"
+                  @keydown.enter="applyDateRangeSelection"
+                  @blur="applyDateRangeSelection"
+                />
+                <button
+                  class="range-date-button"
+                  type="button"
+                  aria-label="打开结束日期选择器"
+                  @click="openDatePicker('end')"
+                >
+                  <span class="range-calendar-icon" aria-hidden="true"></span>
+                </button>
+                <input
+                  ref="dateRangeEndPicker"
+                  v-model="dateRangeEnd"
+                  class="native-date-input"
+                  type="date"
+                  :min="chartMinDate"
+                  :max="chartMaxDate"
+                  tabindex="-1"
+                  aria-hidden="true"
+                  @change="applyDateRangeSelection"
+                />
+              </div>
+            </div>
           </div>
 
           <div ref="chartContainer" class="echart-container"></div>
@@ -300,9 +377,16 @@
   const dataUpdateTime = ref('')
   const signalUpdateTime = ref('')
   const backtestPeriodText = ref('回测周期: --')
+  const dateRangeStart = ref('')
+  const dateRangeEnd = ref('')
+  const dateRangeStartPicker = ref<HTMLInputElement | null>(null)
+  const dateRangeEndPicker = ref<HTMLInputElement | null>(null)
+  const chartMinDate = ref('')
+  const chartMaxDate = ref('')
   const currentHolding = ref('')
   const currentHoldingCode = ref('')
   const isToday = ref(false)
+  const isLoading = ref(true)
 
   const momentumList: any = ref([])
 
@@ -330,9 +414,9 @@
           name: 'fetchEtfData',
           parse: true
       }).then((res: any) => {
-          console.log(res)
-          momentumList.value = res.result.list
-          dataUpdateTime.value = res.result.updateTime
+          const result = res.result || {}
+          momentumList.value = Array.isArray(result.list) ? result.list : []
+          dataUpdateTime.value = result.updateTime || '--'
       })
   }
 
@@ -341,9 +425,7 @@
       getEtfData()
   }
 
-  const getlocalData = () => {
-      axios.get('./static/momentumData.json').then(res => {
-          const data = res.data
+  const applyStrategyData = (data: any) => {
           const series = prepareStrategySeries(data.dateList, data.strategyData)
           const benchmarkData = Array.isArray(data.hs300) ? data.hs300.slice(0, series.dates.length) : []
           const drawdownAnalysis = calculateDrawdownAnalysis(series.values, series.dates)
@@ -355,9 +437,41 @@
           drawdownDist.value = drawdownAnalysis.distribution
           topDrawdowns.value = drawdownAnalysis.drawdowns
           initChart(series.dates, series.values, benchmarkData)
-      })
   }
-  getlocalData()
+
+  const getlocalData = async () => {
+      isLoading.value = true
+      let resolvedData: any = null
+
+      try {
+          const response: any = await app.callFunction({
+              name: 'getMomentumStrategyData',
+              data: { action: 'get' }
+          })
+          const payload = response.result?.data
+          if (response.result?.success && payload) {
+              resolvedData = payload
+          }
+      } catch (error) {
+          console.warn('动量策略后端走势读取失败，使用本地静态数据:', error)
+      }
+
+      try {
+          if (!resolvedData) {
+              const res = await axios.get('./static/momentumData.json')
+              resolvedData = res.data
+          }
+      } catch (error) {
+          console.error('动量策略数据加载失败:', error)
+      } finally {
+          isLoading.value = false
+      }
+
+      if (resolvedData) {
+          await nextTick()
+          applyStrategyData(resolvedData)
+      }
+  }
   // --- 2. 收益热力图数据 ---
   const monthlyReturns: any = ref([])
   const generateMockData = () => {
@@ -776,8 +890,183 @@
       }
   }
 
+  const CHART_REBASE_VALUE = 1000
+  const chartDates = ref<string[]>([])
+  const chartStrategyValues = ref<number[]>([])
+  const chartBenchmarkValues = ref<number[]>([])
+
+  const toFiniteSeries = (data: any[] = [], length: number) =>
+      Array.from({ length }, (_, index) => {
+          const value = Number(data[index])
+          return Number.isFinite(value) ? value : NaN
+      })
+
+  const rebaseSeries = (data: number[], startIndex: number) => {
+      const startValue = data[startIndex]
+      if (!Number.isFinite(startValue) || startValue <= 0) {
+          return data.map(value => (Number.isFinite(value) ? value : null))
+      }
+
+      return data.map(value =>
+          Number.isFinite(value) ? Number(((value / startValue) * CHART_REBASE_VALUE).toFixed(2)) : null
+      )
+  }
+
+  const getAdaptiveYAxisRange = (...seriesList: Array<Array<number | null>>) => {
+      const values = seriesList.flat().filter((value): value is number => Number.isFinite(value))
+      if (!values.length) return {}
+
+      const visibleMin = Math.min(...values)
+      const visibleMax = Math.max(...values)
+      const visibleRange = Math.max(visibleMax - visibleMin, CHART_REBASE_VALUE * 0.025)
+      const min = Math.min(visibleMin - visibleRange * 0.08, CHART_REBASE_VALUE - visibleRange * 0.22)
+      const max = Math.max(visibleMax + visibleRange * 0.14, CHART_REBASE_VALUE + visibleRange * 0.72)
+
+      return {
+          min: Math.floor(min / 10) * 10,
+          max: Math.ceil(max / 10) * 10
+      }
+  }
+
+  const clampIndex = (index: number, maxIndex: number) =>
+      Math.min(Math.max(Math.round(index), 0), Math.max(maxIndex, 0))
+
+  const formatDateInputText = (value: string) => {
+      const digits = value.replace(/\D/g, '').slice(0, 8)
+      const parts = [digits.slice(0, 4), digits.slice(4, 6), digits.slice(6, 8)].filter(Boolean)
+      return parts.join('-')
+  }
+
+  const isCompleteDateInput = (value: string) => {
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false
+
+      const [year, month, day] = value.split('-').map(Number)
+      const date = new Date(year, month - 1, day)
+      return date.getFullYear() === year && date.getMonth() === month - 1 && date.getDate() === day
+  }
+
+  const getCommittedDateInput = (value: string, fallback: string) =>
+      isCompleteDateInput(value) ? value : fallback
+
+  const handleDateRangeInput = (side: 'start' | 'end') => {
+      const target = side === 'start' ? dateRangeStart : dateRangeEnd
+      target.value = formatDateInputText(target.value)
+  }
+
+  const openDatePicker = (side: 'start' | 'end') => {
+      const picker = side === 'start' ? dateRangeStartPicker.value : dateRangeEndPicker.value
+      if (!picker) return
+
+      const pickerWithShowPicker = picker as HTMLInputElement & { showPicker?: () => void }
+      if (pickerWithShowPicker.showPicker) {
+          pickerWithShowPicker.showPicker()
+          return
+      }
+
+      picker.focus()
+      picker.click()
+  }
+
+  const getDateIndex = (date: string, mode: 'start' | 'end') => {
+      const maxIndex = chartDates.value.length - 1
+      if (maxIndex < 0 || !date) return mode === 'start' ? 0 : maxIndex
+
+      const exactIndex = chartDates.value.indexOf(date)
+      if (exactIndex >= 0) return exactIndex
+
+      if (mode === 'start') {
+          const nextIndex = chartDates.value.findIndex(item => item >= date)
+          return nextIndex >= 0 ? nextIndex : maxIndex
+      }
+
+      for (let index = maxIndex; index >= 0; index--) {
+          if (chartDates.value[index] <= date) return index
+      }
+
+      return 0
+  }
+
+  const updateRangeMetrics = (startIndex: number, endIndex: number) => {
+      const selectedPairs = chartDates.value
+          .slice(startIndex, endIndex + 1)
+          .map((date, index) => ({ date, value: chartStrategyValues.value[startIndex + index] }))
+          .filter(item => Number.isFinite(item.value))
+
+      const selectedDates = selectedPairs.map(item => item.date)
+      const selectedValues = selectedPairs.map(item => item.value)
+      const drawdownAnalysis = calculateDrawdownAnalysis(selectedValues, selectedDates)
+
+      backtestPeriodText.value = formatBacktestPeriod(selectedDates)
+      strategyStats.value = calculateStats(selectedValues)
+      monthlyReturns.value = calculateMonthlyReturns(selectedValues, selectedDates)
+      monthlySummary.value = calculateMonthlySummary(monthlyReturns.value)
+      drawdownDist.value = drawdownAnalysis.distribution
+      topDrawdowns.value = drawdownAnalysis.drawdowns
+  }
+
+  const applyChartRange = (startIndex: number, endIndex: number, shouldUpdateChart = true) => {
+      const maxIndex = chartDates.value.length - 1
+      if (maxIndex < 0) return
+
+      const boundedStartIndex = clampIndex(startIndex, maxIndex)
+      const boundedEndIndex = clampIndex(Math.max(endIndex, boundedStartIndex), maxIndex)
+      const selectedDates = chartDates.value.slice(boundedStartIndex, boundedEndIndex + 1)
+      const strategyDisplayData = rebaseSeries(chartStrategyValues.value, boundedStartIndex).slice(
+          boundedStartIndex,
+          boundedEndIndex + 1
+      )
+      const benchmarkDisplayData = rebaseSeries(chartBenchmarkValues.value, boundedStartIndex).slice(
+          boundedStartIndex,
+          boundedEndIndex + 1
+      )
+
+      dateRangeStart.value = chartDates.value[boundedStartIndex] || ''
+      dateRangeEnd.value = chartDates.value[boundedEndIndex] || ''
+      updateRangeMetrics(boundedStartIndex, boundedEndIndex)
+
+      if (!myChart || !shouldUpdateChart) return
+
+      myChart.setOption({
+          xAxis: { data: selectedDates },
+          yAxis: getAdaptiveYAxisRange(strategyDisplayData, benchmarkDisplayData),
+          series: [{ data: strategyDisplayData }, { data: benchmarkDisplayData }]
+      })
+  }
+
+  const applyDateRangeSelection = () => {
+      const maxIndex = chartDates.value.length - 1
+      if (maxIndex < 0) return
+
+      const committedStartDate = getCommittedDateInput(dateRangeStart.value, chartMinDate.value)
+      const committedEndDate = getCommittedDateInput(dateRangeEnd.value, chartMaxDate.value)
+
+      dateRangeStart.value = committedStartDate
+      dateRangeEnd.value = committedEndDate
+
+      let startIndex = getDateIndex(committedStartDate, 'start')
+      let endIndex = getDateIndex(committedEndDate, 'end')
+      if (startIndex > endIndex) {
+          if (committedStartDate > committedEndDate) {
+              endIndex = startIndex
+          } else {
+              startIndex = endIndex
+          }
+      }
+      applyChartRange(startIndex, endIndex)
+  }
+
   const initChart = (xAxis: any, strategyData: any, hs300: any) => {
       if (!chartContainer.value) return
+      if (myChart) myChart.dispose()
+
+      chartDates.value = Array.isArray(xAxis) ? xAxis : []
+      chartStrategyValues.value = toFiniteSeries(strategyData, chartDates.value.length)
+      chartBenchmarkValues.value = toFiniteSeries(hs300, chartDates.value.length)
+      chartMinDate.value = chartDates.value[0] || ''
+      chartMaxDate.value = chartDates.value[chartDates.value.length - 1] || ''
+
+      const initialStrategyDisplayData = rebaseSeries(chartStrategyValues.value, 0)
+      const initialBenchmarkDisplayData = rebaseSeries(chartBenchmarkValues.value, 0)
       myChart = echarts.init(chartContainer.value)
       // const dateList = Array.from(
       //     { length: 100 },
@@ -790,26 +1079,33 @@
       const option = {
           backgroundColor: 'transparent',
           tooltip: { trigger: 'axis' },
-          grid: { top: '10%', left: '3%', right: '4%', bottom: '15%', containLabel: true },
+          grid: { top: 52, left: '3%', right: '4%', bottom: 42, containLabel: true },
+          legend: {
+              data: ['动量策略', '沪深300全收益'],
+              textStyle: { color: '#b0c4de' },
+              top: 0
+          },
           xAxis: { type: 'category', data: xAxis, axisLine: { lineStyle: { color: '#8392A5' } } },
           yAxis: {
               type: 'value',
               splitLine: { lineStyle: { color: 'rgba(255,255,255,0.1)' } },
-              axisLabel: { color: '#8392A5' }
+              axisLabel: { color: '#8392A5' },
+              scale: true,
+              ...getAdaptiveYAxisRange(initialStrategyDisplayData, initialBenchmarkDisplayData)
           },
           series: [
               {
-                  name: '动能策略',
+                  name: '动量策略',
                   type: 'line',
-                  data: strategyData,
+                  data: initialStrategyDisplayData,
                   itemStyle: { color: '#FF5722' },
                   showSymbol: false,
                   lineStyle: { width: 2 }
               },
               {
-                  name: '沪深300',
+                  name: '沪深300全收益',
                   type: 'line',
-                  data: hs300,
+                  data: initialBenchmarkDisplayData,
                   itemStyle: { color: '#00bcd4' },
                   showSymbol: false,
                   lineStyle: { width: 1, type: 'dashed' }
@@ -817,6 +1113,7 @@
           ]
       }
       myChart.setOption(option)
+      applyChartRange(0, chartDates.value.length - 1, false)
   }
 </script>
 
@@ -827,8 +1124,8 @@
   :global(body),
   :global(html) {
       overflow-x: hidden;
-      margin: 0;
       padding: 0;
+      margin: 0;
   }
 
   @keyframes fadeInUp {
@@ -836,6 +1133,7 @@
           opacity: 0;
           transform: translateY(20px);
       }
+
       to {
           opacity: 1;
           transform: translateY(0);
@@ -843,37 +1141,37 @@
   }
 
   .page-wrapper {
-      font-family: 'Noto Sans SC', sans-serif;
-      background-color: #121212;
-      color: #ffffff;
-      min-height: 100vh;
       padding: 3rem 1rem;
+      min-height: 100vh;
+      font-family: 'Noto Sans SC', sans-serif;
+      color: #fff;
       background: radial-gradient(circle at 15% 50%, #2b120a, transparent 40%),
           radial-gradient(circle at 85% 50%, #2b1a0a, transparent 40%), #121212;
+      background-color: #121212;
       box-sizing: border-box;
   }
 
   .main-container {
-      max-width: 960px;
       margin: 0 auto;
+      max-width: 960px;
   }
 
   /* =========================================
                                                  2. 页面头部 (Header)
                                                  ========================================= */
   .page-header {
-      text-align: center;
       margin-bottom: 3rem;
+      text-align: center;
       animation: fadeInUp 0.5s ease-out forwards;
   }
 
   .back-button {
-      color: #b0c4de;
-      text-decoration: none;
-      font-size: 0.9rem;
-      transition: color 0.3s ease;
       display: inline-block;
       margin-bottom: 1rem;
+      font-size: 0.9rem;
+      text-decoration: none;
+      color: #b0c4de;
+      transition: color 0.3s ease;
   }
 
   .back-button:hover {
@@ -881,14 +1179,14 @@
   }
 
   .main-title {
-      font-size: 2.5rem;
-      font-weight: 700;
-      color: #fff;
       display: flex;
-      align-items: center;
       justify-content: center;
-      gap: 1rem;
+      align-items: center;
       margin-bottom: 0.5rem;
+      font-size: 2.5rem;
+      color: #fff;
+      font-weight: 700;
+      gap: 1rem;
   }
 
   .title-icon {
@@ -910,17 +1208,17 @@
   }
 
   .content-card {
-      background: rgba(255, 255, 255, 0.05);
-      border: 1px solid rgba(255, 255, 255, 0.1);
-      border-radius: 12px;
       padding: 1.5rem 2rem;
+      min-width: 0;
+      background: rgb(255 255 255 / 5%);
+      border: 1px solid rgb(255 255 255 / 10%);
+      border-radius: 12px;
       backdrop-filter: blur(10px);
       animation: fadeInUp 0.5s ease-out forwards;
-      min-width: 0;
   }
 
   .content-card:hover {
-      border-color: rgba(255, 87, 34, 0.5);
+      border-color: rgb(255 87 34 / 50%);
   }
 
   .card-header-row {
@@ -933,13 +1231,13 @@
   }
 
   .card-title {
-      font-size: 1.4rem;
-      font-weight: bold;
-      color: #ffffff;
+      padding-left: 1rem;
       margin-top: 0;
       margin-bottom: 1rem;
+      font-size: 1.4rem;
+      color: #fff;
+      font-weight: bold;
       border-left: 4px solid #ff5722;
-      padding-left: 1rem;
   }
 
   .card-title.no-margin {
@@ -947,19 +1245,116 @@
   }
 
   .card-description {
+      margin-bottom: 1rem;
       font-size: 0.95rem;
       color: #b0c4de;
       line-height: 1.7;
-      margin-bottom: 1rem;
   }
 
-  .period-badge {
-      font-size: 0.8rem;
+  .chart-range-picker {
+      display: flex;
+      justify-content: flex-end;
+      align-items: center;
+      gap: 0.45rem;
+      flex-wrap: wrap;
+  }
+
+  .range-separator {
+      font-size: 0.9rem;
       color: #8392a5;
-      background: rgba(0, 0, 0, 0.3);
-      padding: 0.3rem 0.8rem;
+  }
+
+  .range-date-field {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+      width: 110px;
+      height: 32px;
+      flex: 0 0 auto;
+  }
+
+  .range-date-input {
+      box-sizing: border-box;
+      width: 100%;
+      height: 32px;
+      padding: 0 0rem 0 0.7rem;
+      font-size: 0.82rem;
+      font-family: inherit;
+      line-height: 32px;
+      color: #d8e8ff;
+      background: rgb(0 0 0 / 28%);
+      border: 1px solid rgb(176 196 222 / 24%);
+      border-radius: 6px;
+      outline: none;
+      font-variant-numeric: tabular-nums;
+  }
+
+  .range-date-input:focus {
+      border-color: #ff5722;
+      box-shadow: 0 0 0 2px rgb(255 87 34 / 16%);
+  }
+
+  .range-date-button {
+      position: absolute;
+      top: 50%;
+      right: 6px;
+      display: inline-flex;
+      justify-content: center;
+      align-items: center;
+      padding: 0;
+      width: 20px;
+      height: 20px;
+      color: #b7c9e0;
+      background: transparent;
+      border: 0;
       border-radius: 4px;
-      border: 1px solid rgba(255, 255, 255, 0.05);
+      transform: translateY(-50%);
+      cursor: pointer;
+  }
+
+  .range-date-button:hover {
+      color: #fff;
+      background: rgb(255 255 255 / 8%);
+  }
+
+  .range-calendar-icon {
+      position: relative;
+      display: block;
+      width: 14px;
+      height: 14px;
+      border: 1.5px solid currentColor;
+      border-radius: 3px;
+      box-sizing: border-box;
+  }
+
+  .range-calendar-icon::before {
+      content: '';
+      position: absolute;
+      top: 3px;
+      left: 0;
+      width: 100%;
+      border-top: 1.5px solid currentColor;
+  }
+
+  .range-calendar-icon::after {
+      content: '';
+      position: absolute;
+      top: -3px;
+      left: 3px;
+      width: 6px;
+      height: 4px;
+      border-right: 1.5px solid currentColor;
+      border-left: 1.5px solid currentColor;
+  }
+
+  .native-date-input {
+      position: absolute;
+      right: 0;
+      bottom: 0;
+      width: 1px;
+      height: 1px;
+      opacity: 0;
+      pointer-events: none;
   }
 
   .idea-list {
@@ -975,37 +1370,37 @@
   }
 
   .idea-list li::before {
-      content: '⚡ ';
-      color: #ff5722;
-      font-weight: bold;
       position: absolute;
       left: -1.5rem;
+      color: #ff5722;
+      content: '⚡ ';
+      font-weight: bold;
   }
 
   /* =========================================
                                                  4. 动量监控卡片 (Monitor Card) - 核心修改区域
                                                  ========================================= */
   .monitor-card {
-      background: linear-gradient(145deg, rgba(255, 87, 34, 0.03), rgba(255, 255, 255, 0.05));
+      background: linear-gradient(145deg, rgb(255 87 34 / 3%), rgb(255 255 255 / 5%));
   }
 
   /* --- 4.1 监控顶部标题栏 --- */
   .monitor-header {
-      margin-bottom: 1rem;
       display: flex;
       justify-content: space-between;
       align-items: center;
+      margin-bottom: 1rem;
       flex-wrap: wrap; /* 允许小屏幕换行 */
       gap: 0.8rem;
   }
 
   .premium-lock-card {
-      min-height: 280px;
       display: flex;
-      flex-direction: column;
-      align-items: center;
       justify-content: center;
+      align-items: center;
+      min-height: 280px;
       text-align: center;
+      flex-direction: column;
   }
 
   .premium-lock-card .card-title {
@@ -1014,24 +1409,24 @@
   }
 
   .premium-lock-icon {
+      display: grid;
+      margin-bottom: 1rem;
       width: 54px;
       height: 54px;
-      display: grid;
-      place-items: center;
-      margin-bottom: 1rem;
-      border-radius: 50%;
-      background: rgba(255, 87, 34, 0.1);
-      border: 1px solid rgba(255, 87, 34, 0.25);
       font-size: 1.6rem;
+      background: rgb(255 87 34 / 10%);
+      border: 1px solid rgb(255 87 34 / 25%);
+      border-radius: 50%;
+      place-items: center;
   }
 
   .premium-lock-button {
-      margin-top: 1rem;
       padding: 0.7rem 1.2rem;
-      border: 0;
-      border-radius: 6px;
+      margin-top: 1rem;
       color: #fff;
       background: #ff5722;
+      border: 0;
+      border-radius: 6px;
       font-weight: 700;
       cursor: pointer;
   }
@@ -1050,23 +1445,23 @@
   /* 信号更新时间 (灰色死时间) */
   .signal-time {
       font-size: 0.8rem;
-      color: #8392a5;
       font-family: 'Roboto Mono', monospace;
+      color: #8392a5;
       letter-spacing: 0.5px;
   }
 
   /* 策略信号标签 */
   .signal-tag {
-      font-size: 0.85rem;
-      color: #ff5722;
-      background: rgba(255, 87, 34, 0.1);
-      padding: 0.2rem 0.6rem;
-      border-radius: 4px;
-      border: 1px solid rgba(255, 87, 34, 0.2);
       display: flex;
       align-items: center;
-      gap: 4px;
+      padding: 0.2rem 0.6rem;
+      font-size: 0.85rem;
       white-space: nowrap;
+      color: #ff5722;
+      background: rgb(255 87 34 / 10%);
+      border: 1px solid rgb(255 87 34 / 20%);
+      border-radius: 4px;
+      gap: 4px;
   }
 
   /* --- 4.2 仪表盘 Grid --- */
@@ -1078,52 +1473,52 @@
   }
 
   .dash-item {
-      background: rgba(0, 0, 0, 0.2);
-      border: 1px solid rgba(255, 255, 255, 0.08);
-      border-radius: 8px;
-      padding: 1.2rem;
       display: flex;
-      flex-direction: column;
-      align-items: center;
       justify-content: center;
+      align-items: center;
+      padding: 1.2rem;
       text-align: center;
+      background: rgb(0 0 0 / 20%);
+      border: 1px solid rgb(255 255 255 / 8%);
+      border-radius: 8px;
+      flex-direction: column;
   }
 
   .holding-box {
-      background: rgba(255, 87, 34, 0.08);
-      border-color: rgba(255, 87, 34, 0.2);
+      background: rgb(255 87 34 / 8%);
+      border-color: rgb(255 87 34 / 20%);
   }
 
   .dash-label {
+      margin-bottom: 0.5rem;
       font-size: 0.8rem;
       color: #8392a5;
-      margin-bottom: 0.5rem;
   }
 
   .dash-value {
       font-size: 1.3rem;
-      font-weight: bold;
-      color: #fff;
       font-family: 'Roboto Mono', monospace;
+      color: #fff;
+      font-weight: bold;
   }
 
   .dash-value.highlight {
-      color: #ff5722;
       font-size: 1.5rem;
+      color: #ff5722;
   }
 
   .dash-sub {
+      margin-top: 0.5rem;
       font-size: 0.8rem;
       color: #bae4f9;
-      margin-top: 0.5rem;
   }
 
   /* --- 4.3 中间分割线 --- */
   .section-divider {
-      height: 1px;
-      background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
       margin: 1.5rem 0;
       width: 100%;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, rgb(255 255 255 / 10%), transparent);
   }
 
   /* --- 4.4 数据区域头部 --- */
@@ -1137,11 +1532,11 @@
   }
 
   .section-title {
-      font-size: 1rem;
-      font-weight: bold;
-      color: #fff;
       display: flex;
       align-items: center;
+      font-size: 1rem;
+      color: #fff;
+      font-weight: bold;
       gap: 0.5rem;
   }
 
@@ -1155,20 +1550,20 @@
   .system-status {
       display: flex;
       align-items: center;
+      padding: 0.2rem 0.6rem;
       font-size: 0.75rem;
       color: #8392a5;
-      background: rgba(0, 0, 0, 0.2);
-      padding: 0.2rem 0.6rem;
+      background: rgb(0 0 0 / 20%);
+      border: 1px solid rgb(255 255 255 / 5%);
       border-radius: 4px;
-      border: 1px solid rgba(255, 255, 255, 0.05);
   }
 
   .status-dot {
+      margin-right: 6px;
       width: 6px;
       height: 6px;
       background: #00c497;
       border-radius: 50%;
-      margin-right: 6px;
       box-shadow: 0 0 5px #00c497;
   }
 
@@ -1176,10 +1571,10 @@
                                                  5. 表格与排名 (Tables)
                                                  ========================================= */
   .table-container {
-      width: 100%;
       overflow-x: auto;
-      border-radius: 8px;
       margin-bottom: 1rem;
+      width: 100%;
+      border-radius: 8px;
       -webkit-overflow-scrolling: touch;
   }
 
@@ -1193,7 +1588,7 @@
   }
 
   .table-container::-webkit-scrollbar-track {
-      background: rgba(255, 255, 255, 0.05);
+      background: rgb(255 255 255 / 5%);
   }
 
   .momentum-table {
@@ -1205,16 +1600,16 @@
   .momentum-table th,
   .momentum-table td {
       padding: 1rem;
-      text-align: left;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
       font-size: 0.95rem;
+      text-align: left;
+      border-bottom: 1px solid rgb(255 255 255 / 10%);
   }
 
   .momentum-table th {
-      color: #ffffff;
-      font-weight: bold;
-      border-bottom: 2px solid rgba(255, 255, 255, 0.1);
       white-space: nowrap;
+      color: #fff;
+      font-weight: bold;
+      border-bottom: 2px solid rgb(255 255 255 / 10%);
   }
 
   .momentum-table td {
@@ -1222,7 +1617,7 @@
   }
 
   .active-row {
-      background: rgba(255, 87, 34, 0.05);
+      background: rgb(255 87 34 / 5%);
   }
 
   .active-row td {
@@ -1234,28 +1629,28 @@
       display: inline-block;
       width: 24px;
       height: 24px;
-      line-height: 24px;
-      text-align: center;
-      border-radius: 4px;
-      background: rgba(255, 255, 255, 0.1);
-      color: #aaa;
       font-size: 0.8rem;
+      text-align: center;
+      color: #aaa;
+      background: rgb(255 255 255 / 10%);
+      border-radius: 4px;
+      line-height: 24px;
       font-weight: bold;
   }
 
   .rank-1 {
-      background: #ff5722;
       color: #fff;
+      background: #ff5722;
   }
 
   .rank-2 {
-      background: rgba(255, 160, 0, 0.8);
       color: #fff;
+      background: rgb(255 160 0 / 80%);
   }
 
   .rank-3 {
-      background: rgba(255, 202, 40, 0.6);
       color: #fff;
+      background: rgb(255 202 40 / 60%);
   }
 
   .growth-col {
@@ -1277,26 +1672,26 @@
                                                  6. 图表与统计 (Charts & Stats)
                                                  ========================================= */
   .echart-container {
+      margin-top: 1rem;
       width: 100%;
       height: 350px;
-      margin-top: 1rem;
   }
 
   .stats-bar {
       display: grid;
-      grid-template-columns: repeat(5, 1fr);
-      background: rgba(0, 0, 0, 0.2);
-      margin-top: 1rem;
       padding: 1rem;
-      border-radius: 8px;
+      margin-top: 1rem;
       text-align: center;
+      background: rgb(0 0 0 / 20%);
+      border-radius: 8px;
+      grid-template-columns: repeat(5, 1fr);
       gap: 1rem;
   }
 
   .stat-label {
-      color: #8392a5;
-      font-size: 0.8rem;
       margin-bottom: 0.3rem;
+      font-size: 0.8rem;
+      color: #8392a5;
   }
 
   .stat-value {
@@ -1326,21 +1721,21 @@
   .heatmap-table th {
       padding: 0.8rem 0.2rem;
       font-size: 0.85rem;
-      color: #fff;
-      border: 1px solid rgba(255, 255, 255, 0.1);
       white-space: nowrap;
+      color: #fff;
+      border: 1px solid rgb(255 255 255 / 10%);
   }
 
   .heatmap-table td {
       padding: 0.6rem 0.2rem;
-      text-align: center;
       font-size: 0.85rem;
-      border: 1px solid rgba(255, 255, 255, 0.1);
+      text-align: center;
+      border: 1px solid rgb(255 255 255 / 10%);
   }
 
   .year-col {
       font-weight: bold;
-      background: rgba(255, 255, 255, 0.02);
+      background: rgb(255 255 255 / 2%);
   }
 
   .year-total {
@@ -1359,24 +1754,24 @@
   }
 
   .risk-box {
-      background: rgba(255, 255, 255, 0.03);
-      border: 1px solid rgba(255, 255, 255, 0.05);
       padding: 1.5rem 1rem;
-      border-radius: 8px;
       text-align: center;
+      background: rgb(255 255 255 / 3%);
+      border: 1px solid rgb(255 255 255 / 5%);
+      border-radius: 8px;
   }
 
   .risk-label {
+      margin-bottom: 0.5rem;
       font-size: 0.85rem;
       color: #8392a5;
-      margin-bottom: 0.5rem;
   }
 
   .risk-main-val {
-      font-size: 1.4rem;
-      font-weight: bold;
-      color: #ff5722;
       margin-bottom: 0.3rem;
+      font-size: 1.4rem;
+      color: #ff5722;
+      font-weight: bold;
   }
 
   .risk-sub-val {
@@ -1400,12 +1795,12 @@
   }
 
   .dist-col {
-      flex: 1;
-      text-align: center;
       padding: 0.5rem;
       font-size: 0.8rem;
+      text-align: center;
       color: #8392a5;
-      border-right: 1px solid rgba(255, 255, 255, 0.05);
+      flex: 1;
+      border-right: 1px solid rgb(255 255 255 / 5%);
   }
 
   .dist-col:last-child {
@@ -1413,30 +1808,30 @@
   }
 
   .dist-bar-row {
-      height: 40px;
       align-items: center;
-      background: rgba(0, 0, 0, 0.2);
+      height: 40px;
+      background: rgb(0 0 0 / 20%);
   }
 
   .dist-block.teal-theme {
-      background: linear-gradient(145deg, #438a83, #24e3cd);
-      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
-      color: #fff;
-      font-weight: bold;
       padding: 0.3rem 0;
+      color: #fff;
+      background: linear-gradient(145deg, #438a83, #24e3cd);
       border-radius: 4px;
-      text-shadow: 0 1px 1px rgba(0, 0, 0, 0.2);
+      box-shadow: 0 2px 5px rgb(0 0 0 / 20%);
+      text-shadow: 0 1px 1px rgb(0 0 0 / 20%);
+      font-weight: bold;
   }
 
   .dist-header-row .dist-col {
-      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-      background: rgba(255, 255, 255, 0.02);
+      border-bottom: 1px solid rgb(255 255 255 / 5%);
+      background: rgb(255 255 255 / 2%);
   }
 
   .sub-title {
+      margin-bottom: 1.2rem;
       font-size: 1.1rem;
       color: #fff;
-      margin-bottom: 1.2rem;
       font-weight: bold;
   }
 
@@ -1447,22 +1842,22 @@
   }
 
   .risk-table th {
-      background: rgba(0, 0, 0, 0.2);
-      color: #fff;
-      font-weight: bold;
       padding: 0.8rem;
       text-align: center;
-      border: 1px solid rgba(255, 255, 255, 0.1);
       white-space: nowrap;
+      color: #fff;
+      background: rgb(0 0 0 / 20%);
+      border: 1px solid rgb(255 255 255 / 10%);
+      font-weight: bold;
   }
 
   .risk-table td {
-      border: 1px solid rgba(255, 255, 255, 0.1);
       padding: 0.8rem;
-      text-align: center;
-      color: #b0c4de;
       font-size: 0.9rem;
+      text-align: center;
       white-space: nowrap;
+      color: #b0c4de;
+      border: 1px solid rgb(255 255 255 / 10%);
   }
 
   /* =========================================
@@ -1475,7 +1870,7 @@
   }
 
   .faq-item {
-      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      border-bottom: 1px solid rgb(255 255 255 / 10%);
   }
 
   .faq-item:last-child {
@@ -1483,24 +1878,24 @@
   }
 
   .faq-question {
-      width: 100%;
-      text-align: left;
-      padding: 1rem 0;
-      background: none;
-      border: none;
-      color: #fff;
-      font-size: 1rem;
-      cursor: pointer;
       display: flex;
       justify-content: space-between;
       align-items: center;
+      padding: 1rem 0;
+      width: 100%;
+      font-size: 1rem;
+      text-align: left;
+      color: #fff;
+      background: none;
+      border: none;
+      cursor: pointer;
   }
 
   .faq-icon {
       font-size: 1.5rem;
-      font-weight: bold;
-      transition: transform 0.3s ease;
       color: #ff5722;
+      transition: transform 0.3s ease;
+      font-weight: bold;
   }
 
   .faq-icon.is-open {
@@ -1535,7 +1930,6 @@
   /* 手机 (<= 768px) */
   @media (max-width: 768px) {
       .table-container {
-          mask-image: linear-gradient(to right, transparent, black 15px, black 95%, transparent);
           -webkit-mask-image: linear-gradient(
               to right,
               transparent,
@@ -1543,6 +1937,7 @@
               black 95%,
               transparent
           );
+          mask-image: linear-gradient(to right, transparent, black 15px, black 95%, transparent);
       }
 
       .page-wrapper {
@@ -1580,10 +1975,10 @@
       }
 
       .monitor-meta {
-          width: 100%; /* 占满整行 */
           justify-content: space-between; /* 时间在左，标签在右 */
           padding-top: 0.5rem;
-          border-top: 1px solid rgba(255, 255, 255, 0.05); /* 淡淡的分隔线，美观 */
+          width: 100%; /* 占满整行 */
+          border-top: 1px solid rgb(255 255 255 / 5%); /* 淡淡的分隔线，美观 */
       }
 
       .signal-time {
@@ -1603,9 +1998,9 @@
       }
 
       .system-status {
-          width: 100%;
           justify-content: center;
           margin-top: 0.2rem;
+          width: 100%;
       }
 
       /* 统计条改为 2x2 */
@@ -1620,11 +2015,25 @@
           gap: 1rem;
       }
 
-      .risk-box {
-          padding: 1.2rem;
-          display: flex;
+      .card-header-row {
+          align-items: flex-start;
           flex-direction: column;
+      }
+
+      .chart-range-picker {
+          justify-content: flex-start;
+          width: 100%;
+      }
+
+      .range-date-field {
+          width: 110px;
+      }
+
+      .risk-box {
+          display: flex;
           align-items: center;
+          padding: 1.2rem;
+          flex-direction: column;
       }
 
       .faq-question {

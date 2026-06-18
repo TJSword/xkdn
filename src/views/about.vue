@@ -9,7 +9,7 @@
         </router-link>
 
         <h1 class="main-title">
-          <span class="title-icon">💡</span>
+          <FeaturePageIcon class="title-icon" type="about" />
           关于本站
         </h1>
         <p class="subtitle">

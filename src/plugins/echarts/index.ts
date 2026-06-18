@@ -45,6 +45,7 @@ import {
     VisualMapComponent,
     DatasetComponent,
     TransformComponent,
+    DataZoomComponent,
     GridComponent
 } from 'echarts/components'
 
@@ -83,6 +84,7 @@ const components = [
     AriaComponent,
     DatasetComponent,
     TransformComponent,
+    DataZoomComponent,
     GridComponent
 ]
 
