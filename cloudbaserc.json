@@ -293,9 +293,9 @@
           "config": "0 * 10 * * MON-FRI *"
         },
         {
-          "name": "refreshLofWeekday1100",
+          "name": "refreshLofWeekday1100To1131",
           "type": "timer",
-          "config": "0 0-30 11 * * MON-FRI *"
+          "config": "0 0-31 11 * * MON-FRI *"
         },
         {
           "name": "refreshLofWeekdayAfternoon",
@@ -303,9 +303,9 @@
           "config": "0 * 13-14 * * MON-FRI *"
         },
         {
-          "name": "refreshLofWeekdayClose1500",
+          "name": "refreshLofWeekdayClose1500To1501",
           "type": "timer",
-          "config": "0 0 15 * * MON-FRI *"
+          "config": "0 0-1 15 * * MON-FRI *"
         }
       ]
     },
