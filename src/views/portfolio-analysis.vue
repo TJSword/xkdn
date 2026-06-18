@@ -664,6 +664,10 @@
   const JINGHONG_ID = 'jinghong'
   const RIGHTS_ID = 'rights_strategy'
   const FINANCING_DAYS = 365
+  const PORTFOLIO_ANALYSIS_CACHE_KEY = 'portfolio-analysis:strategy-data:v1'
+  const PORTFOLIO_ANALYSIS_CACHE_VERSION = 1
+  const PORTFOLIO_ANALYSIS_CACHE_MAX_AGE = 1000 * 60 * 60 * 24 * 14
+  const PORTFOLIO_ANALYSIS_DATA_READY_MINUTE = 15 * 60 + 20
   const metricHelpText = {
       returnSkewness:
           '衡量日收益分布是否偏向右侧。数值越高，说明极端正收益相对更多；数值为负时，说明极端负收益更突出。',
@@ -731,6 +735,12 @@
 
   // --- 原始数据存储 ---
   const rawDataMap = ref<Record<string, any>>({})
+
+  const debugPortfolioCache = (...args: any[]) => {
+      if (import.meta.env.DEV) {
+          console.info('[portfolio-analysis-cache]', ...args)
+      }
+  }
 
   // --- 日期控制 ---
   const minDate = ref('')
@@ -1242,6 +1252,147 @@
       return data && Array.isArray(data.dateList) && Array.isArray(data.strategyData) && data.dateList.length > 0
   }
 
+  const getStrategyLatestDate = (data: any) => {
+      if (!isValidStrategyData(data)) return ''
+      const latestDate = typeof data.latestDate === 'string' ? data.latestDate : ''
+      return latestDate || data.dateList[data.dateList.length - 1] || ''
+  }
+
+  const getShanghaiParts = (date = new Date()) => {
+      const parts = new Intl.DateTimeFormat('en-US', {
+          timeZone: 'Asia/Shanghai',
+          weekday: 'short',
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit',
+          hour: '2-digit',
+          minute: '2-digit',
+          hour12: false,
+          hourCycle: 'h23'
+      }).formatToParts(date)
+
+      return Object.fromEntries(parts.map(part => [part.type, part.value]))
+  }
+
+  const getShanghaiDateString = (date = new Date()) => {
+      const parts = getShanghaiParts(date)
+      return `${parts.year}-${parts.month}-${parts.day}`
+  }
+
+  const addDays = (dateString: string, days: number) => {
+      const date = new Date(`${dateString}T12:00:00+08:00`)
+      date.setUTCDate(date.getUTCDate() + days)
+      return getShanghaiDateString(date)
+  }
+
+  const isWeekday = (dateString: string) => {
+      const weekday = getShanghaiParts(new Date(`${dateString}T12:00:00+08:00`)).weekday
+      return weekday !== 'Sat' && weekday !== 'Sun'
+  }
+
+  const getPreviousWeekday = (dateString: string) => {
+      let current = dateString
+      while (!isWeekday(current)) {
+          current = addDays(current, -1)
+      }
+      return current
+  }
+
+  const getExpectedLatestTradingDate = () => {
+      const parts = getShanghaiParts()
+      const today = `${parts.year}-${parts.month}-${parts.day}`
+      const minuteOfDay = Number(parts.hour) * 60 + Number(parts.minute)
+      const candidate = isWeekday(today) && minuteOfDay >= PORTFOLIO_ANALYSIS_DATA_READY_MINUTE
+          ? today
+          : addDays(today, -1)
+      return getPreviousWeekday(candidate)
+  }
+
+  const readStrategyDataCache = () => {
+      try {
+          const raw = window.localStorage.getItem(PORTFOLIO_ANALYSIS_CACHE_KEY)
+          if (!raw) return null
+
+          const cache = JSON.parse(raw)
+          if (
+              cache?.version !== PORTFOLIO_ANALYSIS_CACHE_VERSION ||
+              !cache?.strategies ||
+              Date.now() - Number(cache.updatedAt || 0) > PORTFOLIO_ANALYSIS_CACHE_MAX_AGE
+          ) {
+              return null
+          }
+
+          return cache
+      } catch (error) {
+          console.warn('portfolio analysis cache read failed:', error)
+          return null
+      }
+  }
+
+  const writeStrategyDataCache = () => {
+      try {
+          const cache = readStrategyDataCache()
+          const strategiesCache = {
+              ...(cache?.strategies || {}),
+              ...rawDataMap.value
+          }
+
+          window.localStorage.setItem(
+              PORTFOLIO_ANALYSIS_CACHE_KEY,
+              JSON.stringify({
+                  version: PORTFOLIO_ANALYSIS_CACHE_VERSION,
+                  updatedAt: Date.now(),
+                  strategies: strategiesCache
+              })
+          )
+          debugPortfolioCache('write', {
+              strategyIds: Object.keys(strategiesCache),
+              latestDates: Object.fromEntries(
+                  Object.entries(strategiesCache).map(([id, data]) => [id, getStrategyLatestDate(data)])
+              )
+          })
+      } catch (error) {
+          console.warn('portfolio analysis cache write failed:', error)
+      }
+  }
+
+  const loadCachedStrategyData = (targetStrategies: any[]) => {
+      const cache = readStrategyDataCache()
+      if (!cache?.strategies) {
+          debugPortfolioCache('read', {
+              expectedLatestDate: getExpectedLatestTradingDate(),
+              hitIds: [],
+              missReasons: Object.fromEntries(targetStrategies.map(strategy => [strategy.id, 'empty']))
+          })
+          return []
+      }
+
+      const expectedLatestDate = getExpectedLatestTradingDate()
+      const hitStrategies: any[] = []
+      const missReasons: Record<string, string> = {}
+
+      targetStrategies.forEach(strategy => {
+          const data = cache.strategies[strategy.id]
+          const latestDate = getStrategyLatestDate(data)
+          if (isValidStrategyData(data) && latestDate >= expectedLatestDate) {
+              rawDataMap.value[strategy.id] = data
+              hitStrategies.push(strategy)
+          } else {
+              missReasons[strategy.id] = !isValidStrategyData(data)
+                  ? 'missing-or-invalid'
+                  : `stale:${latestDate || 'empty'}<${expectedLatestDate}`
+          }
+      })
+
+      debugPortfolioCache('read', {
+          expectedLatestDate,
+          hitIds: hitStrategies.map(strategy => strategy.id),
+          missReasons
+      })
+
+      return hitStrategies
+  }
+
   const loadStrategyData = async (strategy: any) => {
       if (!strategy.functionName) {
           throw new Error(`${strategy.id} has no cloud function configured`)
@@ -1256,6 +1407,55 @@
       throw new Error(`${strategy.functionName} returned no valid strategy data`)
   }
 
+  const loadStrategyDataBatch = async (targetStrategies: any[]) => {
+      if (targetStrategies.length === 0) return
+
+      const cacheHitStrategies = loadCachedStrategyData(targetStrategies)
+      const cacheHitIds = new Set(cacheHitStrategies.map(strategy => strategy.id))
+      const strategiesToFetch = targetStrategies.filter(strategy => !cacheHitIds.has(strategy.id))
+      debugPortfolioCache('batch', {
+          targetIds: targetStrategies.map(strategy => strategy.id),
+          fetchIds: strategiesToFetch.map(strategy => strategy.id)
+      })
+      if (strategiesToFetch.length === 0) return
+
+      try {
+          const response: any = await app.callFunction({
+              name: 'getPortfolioAnalysisData',
+              data: {
+                  strategyIds: strategiesToFetch.map(strategy => strategy.id)
+              }
+          })
+          const strategyDataMap = response.result?.data?.strategies || {}
+          const missingStrategies: any[] = []
+
+          strategiesToFetch.forEach(strategy => {
+              const data = strategyDataMap[strategy.id]
+              if (isValidStrategyData(data)) {
+                  rawDataMap.value[strategy.id] = data
+              } else {
+                  missingStrategies.push(strategy)
+              }
+          })
+
+          if (missingStrategies.length > 0) {
+              const fallbackResponses = await Promise.all(missingStrategies.map(strategy => loadStrategyData(strategy)))
+              fallbackResponses.forEach((data, index) => {
+                  rawDataMap.value[missingStrategies[index].id] = data
+              })
+          }
+
+          writeStrategyDataCache()
+      } catch (error) {
+          console.warn('getPortfolioAnalysisData failed, fallback to per-strategy requests:', error)
+          const responses = await Promise.all(strategiesToFetch.map(strategy => loadStrategyData(strategy)))
+          responses.forEach((data, index) => {
+              rawDataMap.value[strategiesToFetch[index].id] = data
+          })
+          writeStrategyDataCache()
+      }
+  }
+
   const loadStrategyDataIntoMap = async (strategy: any) => {
       rawDataMap.value[strategy.id] = await loadStrategyData(strategy)
   }
@@ -1266,7 +1466,7 @@
       )
 
       if (missingStrategies.length === 0) return
-      await Promise.all(missingStrategies.map(loadStrategyDataIntoMap))
+      await loadStrategyDataBatch(missingStrategies)
   }
 
   // =======================================================
@@ -1276,14 +1476,7 @@
       try {
           isLoading.value = true
           const cloudStrategies = strategies.value.filter(s => s.functionName && s.selected)
-          const requests = cloudStrategies.map(s => loadStrategyData(s))
-          const responses = await Promise.all(requests)
-
-          responses.forEach((data, index) => {
-              const stratId = cloudStrategies[index].id
-              // 保存原始数据
-              rawDataMap.value[stratId] = data
-          })
+          await loadStrategyDataBatch(cloudStrategies)
 
           dataReady.value = true
           updateDateRangeLimits() // 计算初始日期范围

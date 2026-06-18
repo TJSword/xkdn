@@ -989,14 +989,13 @@
       return minuteText === '15:05' ? '15:00' : minuteText
   }
 
-  const fetchAllWeatherRealtime = async () => {
+  const fetchAllWeatherRealtime = async (sourcePayload?: any) => {
       try {
-          const response: any = await app.callFunction({
+          const payload = sourcePayload || (await app.callFunction({
               name: 'getAllWeatherRealtimeInfo',
               data: { action: 'get' }
-          })
-          const payload = response.result?.data
-          if (!response.result?.success || !payload) return
+          })).result?.data
+          if (!payload) return
 
           const allWeatherItem = strategyRealtimeNavs.value.find(item => item.id === 'all-weather')
           if (!allWeatherItem) return
@@ -1052,14 +1051,13 @@
   }
 
   // --- 卡片数据定义 (已恢复原状) ---
-  const fetchBondRealtime = async () => {
+  const fetchBondRealtime = async (sourcePayload?: any) => {
       try {
-          const response: any = await app.callFunction({
+          const payload = sourcePayload || (await app.callFunction({
               name: 'getBondRealtimeInfo',
               data: { action: 'get' }
-          })
-          const payload = response.result?.data
-          if (!response.result?.success || !payload) return
+          })).result?.data
+          if (!payload) return
 
           const bondItem = strategyRealtimeNavs.value.find(item => item.id === 'convertible')
           if (!bondItem) return
@@ -1103,14 +1101,13 @@
       }
   }
 
-  const fetchRightsRealtime = async () => {
+  const fetchRightsRealtime = async (sourcePayload?: any) => {
       try {
-          const response: any = await app.callFunction({
+          const payload = sourcePayload || (await app.callFunction({
               name: 'getRightsRealtimeInfo',
               data: { action: 'get' }
-          })
-          const payload = response.result?.data
-          if (!response.result?.success || !payload) return
+          })).result?.data
+          if (!payload) return
 
           const rightsItem = strategyRealtimeNavs.value.find(item => item.id === 'rights')
           if (!rightsItem) return
@@ -1154,14 +1151,13 @@
       }
   }
 
-  const fetchMomentumRealtime = async () => {
+  const fetchMomentumRealtime = async (sourcePayload?: any) => {
       try {
-          const response: any = await app.callFunction({
+          const payload = sourcePayload || (await app.callFunction({
               name: 'getMomentumRealtimeInfo',
               data: { action: 'get' }
-          })
-          const payload = response.result?.data
-          if (!response.result?.success || !payload) return
+          })).result?.data
+          if (!payload) return
 
           const momentumItem = strategyRealtimeNavs.value.find(item => item.id === 'momentum')
           if (!momentumItem) return
@@ -1205,14 +1201,13 @@
       }
   }
 
-  const fetchMicroCapRealtime = async () => {
+  const fetchMicroCapRealtime = async (sourcePayload?: any) => {
       try {
-          const response: any = await app.callFunction({
+          const payload = sourcePayload || (await app.callFunction({
               name: 'getMicroCapRealtimeInfo',
               data: { action: 'get' }
-          })
-          const payload = response.result?.data
-          if (!response.result?.success || !payload) return
+          })).result?.data
+          if (!payload) return
 
           const microCapItem = strategyRealtimeNavs.value.find(item => item.id === 'microcap')
           if (!microCapItem) return
@@ -1441,6 +1436,20 @@
       latestTemperature.value = 100 - ((starRating - minStar.value) / range) * 100
   }
 
+  const applyMarketData = (marketData: any) => {
+      const { today, history } = marketData || {}
+
+      if (today?.result) {
+          latestStar.value = today.result.star
+          latestDate.value = today.result.update_time
+      }
+
+      if (history?.result) {
+          rawHistoryData.value = history.result
+          processDataWithLinearMapping()
+      }
+  }
+
   /**
    * [新函数] 通过一次调用获取所有市场数据（今日和历史）
    */
@@ -1452,22 +1461,7 @@
           })
           .then((res: any) => {
               if (res.result?.success) {
-                  const { today, history } = res.result.data
-
-                  // --- 从单个响应中填充所有数据 ---
-
-                  // 1. 设置今日星级数据
-                  if (today?.result) {
-                      latestStar.value = today.result.star
-                      latestDate.value = today.result.update_time
-                  }
-
-                  // 2. 设置历史星级数据
-                  if (history?.result) {
-                      rawHistoryData.value = history.result
-                      // 设置完历史数据后，处理它以计算温度
-                      processDataWithLinearMapping()
-                  }
+                  applyMarketData(res.result.data)
               } else {
                   // 处理云函数本身返回错误的情况
                   console.log(router)
@@ -1483,6 +1477,41 @@
               latestDate.value = '数据加载失败'
           })
   }
+
+  const fetchHomeDashboardData = async () => {
+      try {
+          const response: any = await app.callFunction({
+              name: 'getHomeDashboardData',
+              data: {}
+          })
+          const payload = response.result?.data
+          if (!response.result?.success || !payload) {
+              throw new Error(response.result?.message || 'getHomeDashboardData returned no data')
+          }
+
+          applyMarketData(payload.market)
+
+          const realtime = payload.realtime || {}
+          await Promise.all([
+              fetchAllWeatherRealtime(realtime.allWeather),
+              fetchBondRealtime(realtime.bond),
+              fetchRightsRealtime(realtime.rights),
+              fetchMomentumRealtime(realtime.momentum),
+              fetchMicroCapRealtime(realtime.microCap)
+          ])
+      } catch (error) {
+          console.warn('getHomeDashboardData failed, fallback to split requests:', error)
+          await fetchMarketData()
+          await Promise.all([
+              fetchAllWeatherRealtime(),
+              fetchBondRealtime(),
+              fetchRightsRealtime(),
+              fetchMomentumRealtime(),
+              fetchMicroCapRealtime()
+          ])
+      }
+  }
+
   const isWelcomeModalVisible = ref(false)
   const closeWelcomeModal = () => {
       isWelcomeModalVisible.value = false
@@ -1697,12 +1726,7 @@
 
   onMounted(async () => {
       // 现在我们并行获取会员信息和所有的市场数据
-      await fetchMarketData()
-      fetchAllWeatherRealtime()
-      fetchBondRealtime()
-      fetchRightsRealtime()
-      fetchMomentumRealtime()
-      fetchMicroCapRealtime()
+      await fetchHomeDashboardData()
 
       // --- 您 onMounted 中的其余逻辑保持不变 ---
       if (window.history.state && window.history.state.newUser) {

@@ -210,7 +210,7 @@ router.beforeEach(async (to, from, next) => {
     }
 
     // A-2: 检查 Pinia 中是否已有用户信息，以避免不必要的网络请求
-    const hasUserInfo = userStore.userInfo && Object.keys(userStore.userInfo).length > 0;
+    const hasUserInfo = userStore.userInfo && Object.keys(userStore.userInfo).length > 0 && userStore.isUserInfoFresh;
 
     if (hasUserInfo) {
       // A-2-a: Pinia 中有用户信息，直接进行权限检查
@@ -235,6 +235,9 @@ router.beforeEach(async (to, from, next) => {
     }
   } else {
     // --- 情况 B：SDK 认为用户未登录 ---
+    if (userStore.userInfo) {
+      await userStore.logout();
+    }
 
     if (whiteList.includes(to.path)) {
       // B-1: 如果要去的是白名单页面（例如登录页），直接放行

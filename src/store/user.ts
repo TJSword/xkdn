@@ -2,15 +2,88 @@
 
 import { defineStore } from 'pinia'
 import app, { auth } from '@/lib/cloudbase'
+
+const USER_INFO_CACHE_KEY = 'xkdn:user-info:v1'
+const USER_INFO_CACHE_TTL = 30 * 60 * 1000
+
+function canUseLocalStorage() {
+  return typeof window !== 'undefined' && !!window.localStorage
+}
+
+function readUserInfoCache() {
+  if (!canUseLocalStorage()) return null
+
+  try {
+    const raw = window.localStorage.getItem(USER_INFO_CACHE_KEY)
+    if (!raw) return null
+
+    const cache = JSON.parse(raw)
+    if (!cache?.userInfo || typeof cache.syncedAt !== 'number') return null
+
+    return cache
+  } catch (error) {
+    window.localStorage.removeItem(USER_INFO_CACHE_KEY)
+    return null
+  }
+}
+
+function writeUserInfoCache(userInfo: any) {
+  if (!canUseLocalStorage()) return 0
+
+  const syncedAt = Date.now()
+  window.localStorage.setItem(
+    USER_INFO_CACHE_KEY,
+    JSON.stringify({
+      userInfo,
+      syncedAt
+    })
+  )
+
+  return syncedAt
+}
+
+function clearUserInfoCache() {
+  if (!canUseLocalStorage()) return
+  window.localStorage.removeItem(USER_INFO_CACHE_KEY)
+}
+
+function isCacheFresh(syncedAt: number) {
+  return syncedAt > 0 && Date.now() - syncedAt < USER_INFO_CACHE_TTL
+}
+
+function isActiveVip(userInfo: any) {
+  if (!userInfo?.isVip) return false
+  if (!userInfo.vipExpiry) return true
+
+  const expiry = Number(userInfo.vipExpiry)
+  return Number.isFinite(expiry) && expiry > Date.now()
+}
+
+function getInitialUserState() {
+  const cache = readUserInfoCache()
+
+  if (cache && isCacheFresh(cache.syncedAt)) {
+    return {
+      userInfo: cache.userInfo,
+      lastSyncedAt: cache.syncedAt,
+      hasAttemptedLogin: true
+    }
+  }
+
+  return {
+    userInfo: null,
+    lastSyncedAt: 0,
+    hasAttemptedLogin: false
+  }
+}
+
 export const useUserStore = defineStore('user', {
-  state: (): any => ({
-    userInfo: null, // 存储从我们自己数据库（通过云函数）获取的用户信息
-    hasAttemptedLogin: false // 标记是否已尝试获取用户信息
-  }),
+  state: (): any => getInitialUserState(),
 
   getters: {
-    isVip: (state) => !!state.userInfo?.isVip,
-    isLoggedIn: (state) => state.userInfo !== null
+    isVip: (state) => isActiveVip(state.userInfo),
+    isLoggedIn: (state) => state.userInfo !== null,
+    isUserInfoFresh: (state) => !!state.userInfo && isCacheFresh(state.lastSyncedAt)
   },
 
   actions: {
@@ -23,6 +96,7 @@ export const useUserStore = defineStore('user', {
         // 调用我们自定义的云函数，它会根据当前登录的 tcb 用户，查找或创建我们自己数据库的记录
         const res = await app.callFunction({ name: 'loginOrRegister', data: { phone: phoneNumber } })
         this.userInfo = res.result
+        this.lastSyncedAt = writeUserInfoCache(this.userInfo)
         this.hasAttemptedLogin = true
         return this.userInfo
       } catch (error) {
@@ -47,7 +121,7 @@ export const useUserStore = defineStore('user', {
       })
 
       // 2. tcb 登录成功后，同步我们自己数据库的用户信息
-      return this._syncUserInfo()
+      return this._syncUserInfo(phoneNumber)
     },
 
     /**
@@ -138,8 +212,21 @@ export const useUserStore = defineStore('user', {
      * 【保留并优化】应用初始化时检查用户登录状态
      */
     async fetchUserInfo() {
-      if (this.hasAttemptedLogin) {
-        return
+      if (this.userInfo && isCacheFresh(this.lastSyncedAt)) {
+        this.hasAttemptedLogin = true
+        return this.userInfo
+      }
+
+      const cache = readUserInfoCache()
+      if (cache && isCacheFresh(cache.syncedAt)) {
+        this.userInfo = cache.userInfo
+        this.lastSyncedAt = cache.syncedAt
+        this.hasAttemptedLogin = true
+        return this.userInfo
+      }
+
+      if (this.hasAttemptedLogin && !this.userInfo) {
+        return null
       }
 
       // 检查 tcb 的登录状态
@@ -150,6 +237,8 @@ export const useUserStore = defineStore('user', {
         // 如果未登录，则标记为已尝试
         this.hasAttemptedLogin = true
         this.userInfo = null
+        this.lastSyncedAt = 0
+        clearUserInfoCache()
       }
     },
 
@@ -166,6 +255,8 @@ export const useUserStore = defineStore('user', {
         // 无论 SDK 是否成功，都必须重置 Pinia 的 state
         this.userInfo = null
         this.hasAttemptedLogin = false
+        this.lastSyncedAt = 0
+        clearUserInfoCache()
         // this.isVip = false; // 等等，重置所有用户相关状态
       }
     },
@@ -204,6 +295,7 @@ export const useUserStore = defineStore('user', {
         // 这样你的所有页面都能立即看到最新的持仓，而不用重新拉取用户信息
         if (this.userInfo) {
           this.userInfo.holdings = res.result.data
+          this.lastSyncedAt = writeUserInfoCache(this.userInfo)
         }
         return res.result
       } else {
