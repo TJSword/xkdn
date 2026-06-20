@@ -120,6 +120,16 @@
       </g>
     </g>
 
+    <g v-else-if="type === 'ledger'" class="ledger-glyph">
+      <path class="ledger-page ledger-page-back" d="M15 8h22a3 3 0 0 1 3 3v27H15Z" />
+      <rect class="ledger-page ledger-page-front" x="8" y="13" width="27" height="27" rx="4" />
+      <path class="ledger-binding" d="M13 19h-3M13 25h-3M13 31h-3" />
+      <path class="ledger-axis" d="M15 34V22M15 34h15" />
+      <path class="ledger-line" d="m16 31 4-4 3 2 6-7" />
+      <circle class="ledger-dot ledger-dot-one" cx="20" cy="27" r="1.5" />
+      <circle class="ledger-dot ledger-dot-two" cx="29" cy="22" r="1.5" />
+    </g>
+
     <g v-else-if="type === 'notification'" class="notification-glyph">
       <path class="notification-wave notification-wave-left" d="M13 18c-3 4-3 8 0 12" />
       <path class="notification-wave notification-wave-right" d="M35 18c3 4 3 8 0 12" />
@@ -165,6 +175,42 @@
       height: 48px;
       color: var(--menu-accent, #60a5fa);
       filter: drop-shadow(0 0 7px color-mix(in srgb, currentcolor 32%, transparent));
+  }
+
+  .ledger-page,
+  .ledger-binding,
+  .ledger-axis,
+  .ledger-line {
+      stroke: currentcolor;
+      stroke-width: 1.8;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+  }
+
+  .ledger-page {
+      fill: color-mix(in srgb, currentcolor 9%, transparent);
+      transform: translateY(var(--ledger-page-shift, 0));
+      transition: transform 0.25s ease, filter 0.25s ease;
+  }
+
+  .ledger-page-back {
+      opacity: 0.45;
+  }
+
+  .ledger-page-front {
+      fill: #121a22;
+  }
+
+  .ledger-line {
+      filter: drop-shadow(0 0 var(--ledger-line-glow, 2px) currentcolor);
+  }
+
+  .ledger-dot {
+      fill: currentcolor;
+      transform: scale(var(--ledger-dot-scale, 1));
+      transform-box: fill-box;
+      transform-origin: center;
+      transition: transform 0.25s ease;
   }
 
   .icon-orbit {

@@ -6,26 +6,80 @@
         戒掉情绪交易 从这里开始
       </p>
 
-      <div class="market-thermometer-container clickable" @click="openModal" title="点击查看详细图表">
-        <div class="thermometer-header">
-          <h2 class="section-title">
-            当前市场温度: {{ latestTemperature.toFixed(2) }}°C
-          </h2>
-        </div>
+      <section class="status-overview-strip" aria-label="市场与策略状态">
+        <article
+          class="status-overview-card market-thermometer-container clickable"
+          role="button"
+          tabindex="0"
+          title="点击查看详细图表"
+          @click="openModal"
+          @keydown.enter="openModal"
+          @keydown.space.prevent="openModal"
+        >
+          <div class="status-overview-head">
+            <div class="status-overview-heading">
+              <h2 class="status-overview-title">市场温度</h2>
+              <span>市场情绪</span>
+            </div>
+            <time class="status-update-time">{{ latestDateTimeText }}</time>
+          </div>
 
-        <p class="thermometer-desc">更新时间: {{ latestDate }}</p>
-
-        <div class="thermometer-gauge">
-          <span class="label cheap">冷</span>
-          <div class="gauge-bar">
-            <div class="indicator" :style="{ left: marketTemperaturePercent }">
-              <div class="indicator-head"></div>
-              <div class="indicator-line"></div>
+          <div class="market-overview-body">
+            <div class="market-temperature-value">
+              <strong>{{ latestTemperature.toFixed(2) }}<small>°C</small></strong>
+            </div>
+            <div class="market-temperature-scale">
+              <div class="thermometer-gauge">
+                <span class="label cheap">冷</span>
+                <div class="gauge-bar">
+                  <div class="indicator" :style="{ left: marketTemperaturePercent }">
+                    <div class="indicator-head"></div>
+                    <div class="indicator-line"></div>
+                  </div>
+                </div>
+                <span class="label expensive">热</span>
+              </div>
             </div>
           </div>
-          <span class="label expensive">热</span>
-        </div>
-      </div>
+        </article>
+
+        <article
+          class="status-overview-card strategy-observation-card"
+          :aria-busy="!isStrategyObservationReady"
+          role="button"
+          tabindex="0"
+          title="点击查看策略横向观察"
+          @click="openStrategyObservationModal"
+          @keydown.enter="openStrategyObservationModal"
+          @keydown.space.prevent="openStrategyObservationModal"
+        >
+          <div class="status-overview-head">
+            <div class="status-overview-heading">
+              <h2 class="status-overview-title">策略状态</h2>
+              <span>当前回撤</span>
+            </div>
+            <time class="status-update-time">{{ strategyObservationUpdatedAt || latestDateTimeText }}</time>
+          </div>
+          <div v-if="isStrategyObservationReady" class="strategy-status-list" aria-label="各策略当前回撤">
+            <span
+              v-for="item in strategyObservationSummary"
+              :key="item.id"
+              class="strategy-status-item"
+              :class="item.statusClass"
+              :title="`${item.name}：${item.status}，当前回撤 ${item.drawdownValue}`"
+            >
+              <span class="strategy-status-name"><i></i><em>{{ item.name }}</em></span>
+              <strong>{{ item.displayValue }}</strong>
+            </span>
+          </div>
+          <div v-else class="strategy-status-list strategy-status-list-loading" aria-label="策略状态加载中">
+            <span v-for="item in 5" :key="`strategy-status-loading-${item}`" class="strategy-status-placeholder">
+              <span class="strategy-status-placeholder-name"></span>
+              <span class="strategy-status-placeholder-value"></span>
+            </span>
+          </div>
+        </article>
+      </section>
 
       <section class="realtime-nav-panel" aria-label="策略实时净值">
         <div class="realtime-nav-grid">
@@ -158,6 +212,112 @@
     </Transition>
 
     <Transition name="modal-fade">
+      <div
+        v-if="isStrategyObservationModalVisible"
+        class="modal-backdrop strategy-observation-backdrop"
+        @click="closeStrategyObservationModal"
+      >
+        <div class="modal-content strategy-observation-modal-content" @click.stop>
+          <div class="modal-header">
+            <div>
+              <h3>策略观察</h3>
+            </div>
+            <button class="modal-close-button" @click="closeStrategyObservationModal">×</button>
+          </div>
+          <div class="strategy-observation-modal-intro">
+            <span>{{ strategyObservationUpdatedAt ? `更新至 ${strategyObservationUpdatedAt}` : '暂无数据' }}</span>
+            <p>
+              横向观察各策略状态、当前回撤、回撤历史百分位、回撤时长与修复进度。
+            </p>
+          </div>
+          <div class="strategy-observation-modal-list">
+            <article
+              v-for="item in strategyObservationItems"
+              :key="item.id"
+              class="strategy-observation-modal-item"
+              :class="item.statusClass"
+            >
+              <div class="strategy-observation-modal-top">
+                <strong>{{ item.name }}</strong>
+                <span>{{ item.status }}</span>
+              </div>
+              <div class="strategy-observation-primary">
+                <div>
+                  <span>当前回撤</span>
+                  <strong :class="{ neutral: item.isNewHigh }">{{ formatObservationDrawdown(item.drawdownPercent) }}</strong>
+                </div>
+                <div>
+                  <span>距上次创新高</span>
+                  <strong>{{ item.daysSinceLastHigh }} 天</strong>
+                </div>
+                <div>
+                  <span>本轮回撤</span>
+                  <strong>{{ item.currentDrawdownDays }} 天</strong>
+                </div>
+                <div>
+                  <span>本轮修复</span>
+                  <strong>{{ formatObservationDays(item.currentRecoveryDays) }}</strong>
+                </div>
+                <div>
+                  <span>修复进度</span>
+                  <strong>{{ formatObservationPercent(item.recoveryProgressPercent) }}</strong>
+                </div>
+                <div>
+                  <span>连续创新高</span>
+                  <strong>{{ item.isNewHigh ? `${item.consecutiveHighDays} 天` : '--' }}</strong>
+                </div>
+              </div>
+              <div
+                class="strategy-drawdown-percentile"
+                :style="{ '--drawdown-percentile': `${item.drawdownPercentile}%` }"
+              >
+                <div class="strategy-percentile-label">
+                  <span class="strategy-percentile-title">
+                    回撤历史百分位
+                    <button
+                      type="button"
+                      class="strategy-observation-help"
+                      aria-label="查看回撤历史百分位说明"
+                      @mouseenter="showStrategyObservationTooltip($event)"
+                      @focus="showStrategyObservationTooltip($event)"
+                      @mouseleave="hideStrategyObservationTooltip"
+                      @blur="hideStrategyObservationTooltip"
+                    >
+                      ?
+                    </button>
+                  </span>
+                  <strong>{{ item.drawdownPercentile }}%</strong>
+                </div>
+                <div class="strategy-percentile-track" aria-hidden="true">
+                  <span></span>
+                </div>
+                <div class="strategy-percentile-axis">
+                  <span>低百分位</span>
+                  <span>高百分位</span>
+                </div>
+              </div>
+            </article>
+          </div>
+          <p class="strategy-observation-disclaimer">
+            以上数据根据策略历史净值计算，仅用于观察策略所处阶段，不代表明确交易建议。
+          </p>
+        </div>
+      </div>
+    </Transition>
+
+    <div
+      v-if="strategyObservationTooltip.visible"
+      :class="[
+        'strategy-observation-tooltip',
+        `strategy-observation-tooltip--${strategyObservationTooltip.placement}`
+      ]"
+      :style="{ left: `${strategyObservationTooltip.x}px`, top: `${strategyObservationTooltip.y}px` }"
+      role="tooltip"
+    >
+      {{ strategyObservationTooltip.text }}
+    </div>
+
+    <Transition name="modal-fade">
       <div v-if="selectedRealtimeNav" class="modal-backdrop realtime-chart-backdrop" @click="closeRealtimeChartModal">
         <div
           class="modal-content realtime-chart-modal-content"
@@ -166,7 +326,6 @@
         >
           <div class="modal-header realtime-chart-header">
             <div>
-              <span class="panel-kicker">分时估值</span>
               <h3>{{ selectedRealtimeNav.name }}</h3>
             </div>
             <button class="modal-close-button" @click="closeRealtimeChartModal">×</button>
@@ -625,6 +784,104 @@
       change: number
   }
 
+  interface FloatingTooltip {
+      visible: boolean
+      text: string
+      x: number
+      y: number
+      placement: 'top' | 'bottom'
+  }
+
+  interface StrategyObservationItem {
+      id: string
+      name: string
+      status: '回撤中' | '修复中' | '创新高'
+      statusClass: 'drawdown' | 'repairing' | 'new-high'
+      isNewHigh: boolean
+      drawdownPercent: number
+      drawdownPercentile: number
+      daysSinceLastHigh: number
+      currentDrawdownDays: number
+      currentRecoveryDays: number
+      recoveryProgressPercent: number
+      consecutiveHighDays: number
+  }
+
+  const strategyObservationItems = ref<StrategyObservationItem[]>([])
+  const strategyObservationUpdatedAt = ref('')
+  const strategyObservationPercentileHelpText =
+      '回撤历史百分位用来观察当前回撤在历史每日回撤中的严重程度。创新高或无回撤时固定显示为 0%；数值越高，说明当前回撤比越多历史交易日更深，越接近历史极端回撤区间。它是状态观察指标，不代表交易建议。'
+  const strategyObservationTooltip = ref<FloatingTooltip>({
+      visible: false,
+      text: '',
+      x: 0,
+      y: 0,
+      placement: 'top'
+  })
+
+  const applyStrategyObservation = (observation: any) => {
+      if (!Array.isArray(observation?.items)) return
+      strategyObservationItems.value = observation.items
+      strategyObservationUpdatedAt.value = observation.updatedAt || ''
+  }
+
+  const strategyObservationSummary = computed(() => {
+      return strategyObservationItems.value.map(item => ({
+          id: item.id,
+          name: item.name,
+          status: item.status,
+          statusClass: item.statusClass,
+          displayValue: item.isNewHigh ? '创新高' : `${item.drawdownPercent.toFixed(2)}%`,
+          drawdownValue: `${item.drawdownPercent.toFixed(2)}%`
+      }))
+  })
+  const isStrategyObservationReady = computed(() => strategyObservationSummary.value.length > 0)
+
+  const formatObservationDrawdown = (value: number) => {
+      return value === 0 ? '0.00%' : `${value.toFixed(2)}%`
+  }
+
+  const formatObservationPercent = (value: number) => {
+      return `${Math.max(0, Math.min(100, value)).toFixed(0)}%`
+  }
+
+  const formatObservationDays = (value: number) => {
+      return value > 0 ? `${value} 天` : '--'
+  }
+
+  const showStrategyObservationTooltip = (event: MouseEvent | FocusEvent) => {
+      const target = event.currentTarget as HTMLElement
+      const rect = target.getBoundingClientRect()
+      const tooltipHalfWidth = 160
+      const viewportWidth = window.innerWidth || document.documentElement.clientWidth
+      const placement = rect.top < 150 ? 'bottom' : 'top'
+      const x = Math.min(
+          Math.max(rect.left + rect.width / 2, tooltipHalfWidth + 12),
+          viewportWidth - tooltipHalfWidth - 12
+      )
+
+      strategyObservationTooltip.value = {
+          visible: true,
+          text: strategyObservationPercentileHelpText,
+          x,
+          y: placement === 'bottom' ? rect.bottom + 10 : rect.top - 10,
+          placement
+      }
+  }
+
+  const hideStrategyObservationTooltip = () => {
+      strategyObservationTooltip.value.visible = false
+  }
+
+  const isStrategyObservationModalVisible = ref(false)
+  const openStrategyObservationModal = () => {
+      isStrategyObservationModalVisible.value = true
+  }
+  const closeStrategyObservationModal = () => {
+      isStrategyObservationModalVisible.value = false
+      hideStrategyObservationTooltip()
+  }
+
   const strategyRealtimeNavs = ref<StrategyRealtimeNav[]>([
       {
           id: 'all-weather',
@@ -684,7 +941,7 @@
       },
       {
           id: 'microcap',
-          name: '微盘策略',
+          name: '微盘股策略',
           nav: 1.9388,
           amount: 0,
           dailyReturn: 0,
@@ -1263,7 +1520,7 @@
       {
           id: 1,
           title: '全天候策略',
-          description: '多元化资产配置，追求全环境稳定回报。',
+          description: '多元化资产配置，穿越不同市场环境，追求稳健回报。',
           iconType: 'all-weather',
           cssClass: 'all-weather',
           link: '/all-weather'
@@ -1288,7 +1545,7 @@
       {
           id: 12,
           title: '含权策略',
-          description: '按动态含权量轮动，捕捉正股配债价值。',
+          description: '按动态含权量轮动，捕捉正股配债价值与阶段机会。',
           iconType: 'rights',
           cssClass: 'rights-strategy',
           link: '/rights-strategy'
@@ -1338,18 +1595,18 @@
       {
           id: 3,
           title: '投资小工具',
-          description: '提供再平衡计算器等，辅助科学决策。',
+          description: '提供再平衡计算器等工具，辅助组合管理与科学决策。',
           iconType: 'tools',
           cssClass: 'handy-tools',
           link: '/tools'
       },
       {
-          id: 7,
-          title: '财富版图',
-          description: '将您的资产目标具象化，一步步点亮全国版图。',
-          iconType: 'wealth-map',
-          cssClass: 'wealth-map',
-          link: '/wealth-map'
+          id: 15,
+          title: '投资账本',
+          description: '记录策略净值，诊断仓位偏移、回撤与创新高状态。',
+          iconType: 'ledger',
+          cssClass: 'investment-ledger',
+          link: '/investment-ledger'
       },
       {
           id: 14,
@@ -1490,6 +1747,7 @@
           }
 
           applyMarketData(payload.market)
+          applyStrategyObservation(payload.strategyObservation)
 
           const realtime = payload.realtime || {}
           await Promise.all([
@@ -1761,6 +2019,11 @@
       return `${Math.max(0, Math.min(100, latestTemperature.value))}%`
   })
 
+  const latestDateTimeText = computed(() => {
+      const match = latestDate.value.match(/(\d{4}-\d{1,2}-\d{1,2})\s+(\d{1,2}:\d{2})/)
+      return match ? `${match[1]} ${match[2]}` : latestDate.value
+  })
+
   // --- 模态框与 ECharts 逻辑 (无变化) ---
   const isModalVisible = ref(false)
   const echartContainer = ref<HTMLElement | null>(null)
@@ -1866,8 +2129,8 @@
                           }
                       ],
                       dataZoom: [
-                          { type: 'inside', start: 93, end: 100 },
-                          { show: true, type: 'slider', start: 80, end: 100, bottom: 10 }
+                          { type: 'inside', start: 0, end: 100 },
+                          { show: true, type: 'slider', start: 0, end: 100, bottom: 10 }
                       ],
                       series: [
                           {
@@ -2288,19 +2551,62 @@
       animation: fadeInUp 0.5s ease-out 0.2s forwards;
   }
 
-  .market-thermometer-container {
-      padding: 0.8rem 1rem;
-      margin: 0 auto 1.28rem;
+  .status-overview-strip {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 0.9rem;
+      margin: 0 auto 1.05rem;
       text-align: left;
-      background: rgb(255 255 255 / 5%);
-      border: 1px solid rgb(255 255 255 / 10%);
-      border-radius: 15px;
       opacity: 0;
-      transition: transform 0.3s ease, border-color 0.3s ease;
-      backdrop-filter: blur(10px);
-
-      /* 应用加载动画, 延迟0.4秒 */
       animation: fadeInUp 0.5s ease-out 0.4s forwards;
+  }
+
+  .status-overview-card {
+      --overview-accent: #38bdf8;
+
+      position: relative;
+      overflow: hidden;
+      padding: 0.9rem 1rem 0;
+      min-width: 0;
+      min-height: 96px;
+      background:
+          linear-gradient(135deg, color-mix(in srgb, var(--overview-accent) 9%, transparent), transparent 58%),
+          rgb(15 23 42 / 52%);
+      border: 1px solid rgb(148 163 184 / 16%);
+      border-radius: 8px;
+      transition: transform 0.25s ease, border-color 0.25s ease, background 0.25s ease;
+      backdrop-filter: blur(10px);
+      cursor: pointer;
+  }
+
+  .status-overview-card::before {
+      position: absolute;
+      top: 0;
+      right: 0;
+      left: 0;
+      height: 2px;
+      background: linear-gradient(90deg, var(--overview-accent), transparent 72%);
+      content: '';
+      opacity: 0.8;
+  }
+
+  .status-overview-card:hover {
+      transform: translateY(-2px);
+      background:
+          linear-gradient(135deg, color-mix(in srgb, var(--overview-accent) 14%, transparent), transparent 62%),
+          rgb(15 23 42 / 62%);
+      border-color: color-mix(in srgb, var(--overview-accent) 58%, transparent);
+  }
+
+  .status-overview-card:focus-visible {
+      outline: 2px solid #0af;
+      outline-offset: 3px;
+  }
+
+  .status-overview-card.market-thermometer-container {
+      --overview-accent: #38bdf8;
+
+      text-align: left;
   }
 
   .market-thermometer-container.clickable {
@@ -2308,40 +2614,96 @@
   }
 
   .market-thermometer-container.clickable:hover {
-      transform: scale(1.02);
-      border-color: #0af;
+      border-color: rgb(56 189 248 / 58%);
   }
 
-  .thermometer-header {
+  .status-overview-head {
       display: flex;
-      justify-content: center;
+      justify-content: space-between;
+      align-items: center;
+      gap: 0.75rem;
+  }
+
+  .status-overview-heading {
+      display: flex;
       align-items: baseline;
-      margin-bottom: 0.8rem;
+      overflow: hidden;
+      min-width: 0;
+      gap: 0.55rem;
   }
 
-  .section-title {
+  .status-overview-title {
+      overflow: hidden;
       margin: 0;
-      font-size: 1rem;
-      color: rgb(255 255 255 / 90%);
-      font-weight: bold;
+      min-width: 0;
+      font-size: 1.08rem;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      color: #fff;
+      line-height: 1.25;
+      font-weight: 700;
   }
 
-  .thermometer-desc {
-      margin: 0 0 0.85rem;
-      font-size: 0.75rem;
-      text-align: center;
-      color: #b0c4de;
+  .status-overview-heading > span {
+      flex: 0 0 auto;
+      font-size: 0.7rem;
+      color: var(--overview-accent);
+      line-height: 1;
+      font-weight: 600;
+  }
+
+  .status-update-time {
+      flex: 0 0 auto;
+      font-size: 0.72rem;
+      color: #94a3b8;
+      line-height: 1;
+      font-variant-numeric: tabular-nums;
+  }
+
+  .market-overview-body {
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr);
+      align-items: center;
+      gap: 1.15rem;
+      margin-top: 1.55rem;
+  }
+
+  .market-temperature-value {
+      display: flex;
+      align-items: baseline;
+  }
+
+  .market-temperature-value strong {
+      font-size: 1.55rem;
+      white-space: nowrap;
+      color: #f8fafc;
+      line-height: 1;
+      font-weight: 800;
+      font-variant-numeric: tabular-nums;
+  }
+
+  .market-temperature-value small {
+      margin-left: 0.08rem;
+      font-size: 0.72rem;
+      color: #94a3b8;
+      font-weight: 700;
+  }
+
+  .market-temperature-scale {
+      padding-bottom: 0.2rem;
+      margin-top: 0.5rem;
+      min-width: 0;
   }
 
   .thermometer-gauge {
       display: flex;
       align-items: center;
-      gap: 0.8rem;
+      gap: 0.55rem;
       width: 100%;
   }
 
   .label {
-      font-size: 0.8rem;
+      font-size: 0.7rem;
       font-weight: bold;
   }
 
@@ -2355,9 +2717,9 @@
 
   .gauge-bar {
       position: relative;
-      height: 10px;
+      height: 8px;
       background: linear-gradient(to right, #28a745, #ffc107 50%, #ff4081);
-      border-radius: 5px;
+      border-radius: 4px;
       flex-grow: 1;
   }
 
@@ -2373,9 +2735,9 @@
 
   .indicator-head {
       position: absolute;
-      top: -22px;
-      width: 14px;
-      height: 14px;
+      top: -17px;
+      width: 12px;
+      height: 12px;
       background-color: #fff;
       border: 2px solid #121212;
       border-radius: 50%;
@@ -2383,10 +2745,184 @@
 
   .indicator-line {
       position: absolute;
-      top: -14px;
+      top: -10px;
       width: 2px;
-      height: 28px;
+      height: 20px;
       background-color: #fff;
+  }
+
+  .strategy-observation-card {
+      --overview-accent: #2dd4bf;
+  }
+
+  .strategy-status-list {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 0;
+      align-items: center;
+      margin-top: 0.76rem;
+      width: 100%;
+      min-height: 49px;
+  }
+
+  .strategy-status-list-loading {
+      pointer-events: none;
+  }
+
+  .strategy-status-item {
+      position: relative;
+      display: grid;
+      justify-items: center;
+      align-content: center;
+      overflow: hidden;
+      padding: 0.1rem 0.28rem;
+      min-width: 0;
+      text-align: center;
+      gap: 0.38rem;
+  }
+
+  .strategy-status-placeholder {
+      position: relative;
+      display: grid;
+      justify-items: center;
+      align-content: center;
+      padding: 0.1rem 0.28rem;
+      min-width: 0;
+      gap: 0.46rem;
+  }
+
+  .strategy-status-item + .strategy-status-item::before {
+      position: absolute;
+      top: 8%;
+      bottom: 8%;
+      left: 0;
+      width: 1px;
+      background: linear-gradient(180deg, transparent, rgb(255 255 255 / 12%), transparent);
+      content: '';
+  }
+
+  .strategy-status-placeholder + .strategy-status-placeholder::before {
+      position: absolute;
+      top: 8%;
+      bottom: 8%;
+      left: 0;
+      width: 1px;
+      background: linear-gradient(180deg, transparent, rgb(255 255 255 / 10%), transparent);
+      content: '';
+  }
+
+  .strategy-status-placeholder-name,
+  .strategy-status-placeholder-value {
+      position: relative;
+      overflow: hidden;
+      background:
+          linear-gradient(90deg, transparent, rgb(255 255 255 / 18%), transparent),
+          rgb(148 163 184 / 16%);
+      background-position: -120% 0, 0 0;
+      background-size: 120% 100%, 100% 100%;
+      border-radius: 999px;
+      animation: strategy-status-skeleton 1.35s ease-in-out infinite;
+  }
+
+  .strategy-status-placeholder-name {
+      width: min(64px, 82%);
+      height: 9px;
+  }
+
+  .strategy-status-placeholder-value {
+      width: min(74px, 88%);
+      height: 17px;
+      background:
+          linear-gradient(90deg, transparent, rgb(45 212 191 / 24%), transparent),
+          rgb(45 212 191 / 14%);
+      background-position: -120% 0, 0 0;
+      background-size: 120% 100%, 100% 100%;
+  }
+
+  .strategy-status-placeholder:nth-child(2n) .strategy-status-placeholder-value {
+      width: min(66px, 82%);
+  }
+
+  .strategy-status-placeholder:nth-child(3n) .strategy-status-placeholder-name {
+      width: min(54px, 72%);
+  }
+
+  .strategy-status-name {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      overflow: hidden;
+      min-width: 0;
+      max-width: 100%;
+      gap: 0.3rem;
+  }
+
+  .strategy-status-name i {
+      width: 5px;
+      height: 5px;
+      background: #94a3b8;
+      border-radius: 50%;
+      box-shadow: 0 0 8px currentcolor;
+      flex: 0 0 auto;
+  }
+
+  .strategy-status-name em {
+      overflow: hidden;
+      font-size: 0.76rem;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      color: #94a3b8;
+      font-style: normal;
+      line-height: 1.15;
+  }
+
+  .strategy-status-item strong {
+      overflow: hidden;
+      max-width: 100%;
+      font-size: 1.02rem;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      color: #e2e8f0;
+      line-height: 1.1;
+      font-weight: 800;
+      font-variant-numeric: tabular-nums;
+  }
+
+  .strategy-status-item.new-high .strategy-status-name i {
+      color: #5eead4;
+      background-color: #5eead4;
+  }
+
+  .strategy-status-item.new-high strong {
+      color: #5eead4;
+  }
+
+  .strategy-status-item.repairing .strategy-status-name i {
+      color: #93c5fd;
+      background-color: #93c5fd;
+  }
+
+  .strategy-status-item.repairing strong {
+      color: #93c5fd;
+  }
+
+  .strategy-status-item.drawdown .strategy-status-name i {
+      color: #fda4af;
+      background-color: #fda4af;
+  }
+
+  .strategy-status-item.drawdown strong {
+      color: #fda4af;
+  }
+
+  @keyframes strategy-status-skeleton {
+      0% {
+          background-position: -120% 0, 0 0;
+      }
+
+      100% {
+          background-position: 220% 0, 0 0;
+      }
   }
 
   .realtime-nav-panel {
@@ -2645,12 +3181,42 @@
       gap: 0.95rem;
   }
 
+  .quick-menu-card::before,
+  .quick-menu-card::after {
+      position: absolute;
+      border-radius: inherit;
+      content: '';
+      pointer-events: none;
+  }
+
+  .quick-menu-card::before {
+      background:
+          radial-gradient(circle at 22% 20%, color-mix(in srgb, var(--menu-accent, #60a5fa) 24%, transparent), transparent 42%),
+          radial-gradient(circle at 82% 82%, color-mix(in srgb, var(--menu-accent, #60a5fa) 16%, transparent), transparent 48%);
+      opacity: 0;
+      transition: opacity 0.2s ease;
+      inset: -1px;
+  }
+
+  .quick-menu-card::after {
+      border: 1px solid color-mix(in srgb, var(--menu-accent, #60a5fa) 22%, transparent);
+      opacity: 0;
+      box-shadow: inset 0 0 24px color-mix(in srgb, var(--menu-accent, #60a5fa) 8%, transparent);
+      transition: opacity 0.2s ease;
+      inset: 1px;
+  }
+
   .quick-menu-card:hover {
       background:
           linear-gradient(135deg, color-mix(in srgb, var(--menu-accent, #60a5fa) 22%, transparent), transparent 58%),
           rgb(30 41 59 / 62%);
       border-color: var(--menu-accent, rgb(96 165 250 / 55%));
       transform: translateY(-2px);
+  }
+
+  .quick-menu-card:hover::before,
+  .quick-menu-card:hover::after {
+      opacity: 1;
   }
 
   .quick-menu-icon {
@@ -2747,6 +3313,12 @@
       --wealth-pin-shift: -2px;
   }
 
+  .quick-menu-card.investment-ledger:hover .strategy-menu-icon {
+      --ledger-page-shift: -1.5px;
+      --ledger-line-glow: 8px;
+      --ledger-dot-scale: 1.35;
+  }
+
   .quick-menu-card.about-us:hover .strategy-menu-icon {
       --about-card-glow: 5px;
       --about-spark-glow: 6px;
@@ -2832,6 +3404,24 @@
 
   .quick-menu-card.wealth-map {
       --menu-accent: #2dd4bf;
+  }
+
+  .quick-menu-card.investment-ledger {
+      --menu-accent: #4ecdc4;
+
+      background:
+          linear-gradient(135deg, rgb(78 205 196 / 18%), transparent 56%),
+          radial-gradient(circle at 18% 24%, rgb(78 205 196 / 10%), transparent 38%),
+          rgb(15 23 42 / 44%);
+      border-color: rgb(78 205 196 / 36%);
+  }
+
+  .quick-menu-card.investment-ledger:hover {
+      background:
+          linear-gradient(135deg, rgb(78 205 196 / 24%), transparent 58%),
+          radial-gradient(circle at 18% 24%, rgb(78 205 196 / 15%), transparent 40%),
+          rgb(30 41 59 / 62%);
+      border-color: rgb(78 205 196 / 72%);
   }
 
   .features-grid {
@@ -3334,7 +3924,7 @@
   }
 
   .realtime-chart-header h3 {
-      margin: 0.38rem 0 0;
+      margin: 0;
       font-size: 1.45rem;
       color: #fff;
       line-height: 1.2;
@@ -3562,6 +4152,284 @@
       line-height: 1.2;
   }
 
+  .strategy-observation-backdrop {
+      padding: 1rem;
+  }
+
+  .strategy-observation-modal-content {
+      overflow-y: auto;
+      padding: 1.15rem 1.25rem;
+      width: min(720px, calc(100vw - 2rem));
+      max-width: 720px;
+      max-height: calc(100vh - 2rem);
+      background: linear-gradient(180deg, rgb(17 28 46 / 99%), rgb(10 18 32 / 99%));
+      border-color: rgb(148 163 184 / 22%);
+      border-radius: 10px;
+  }
+
+  .strategy-observation-modal-content .modal-header {
+      align-items: flex-start;
+      padding-bottom: 0.85rem;
+      margin-bottom: 0.75rem;
+  }
+
+  .strategy-observation-modal-content .modal-header h3 {
+      margin: 0;
+      font-size: 1.24rem;
+      color: #fff;
+      line-height: 1.2;
+  }
+
+  .strategy-observation-modal-intro {
+      display: flex;
+      gap: 0.6rem;
+      align-items: center;
+      padding: 0 0 0.7rem;
+      margin-bottom: 0.7rem;
+      border-bottom: 1px solid rgb(148 163 184 / 14%);
+  }
+
+  .strategy-observation-modal-intro span {
+      flex: 0 0 auto;
+      padding: 0.14rem 0.42rem;
+      font-size: 0.72rem;
+      color: #dbeafe;
+      background: rgb(59 130 246 / 12%);
+      border-radius: 4px;
+      line-height: 1.2;
+  }
+
+  .strategy-observation-modal-intro p {
+      margin: 0;
+      font-size: 0.76rem;
+      color: #cbd5e1;
+      line-height: 1.4;
+  }
+
+  .strategy-observation-modal-list {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 0.5rem;
+  }
+
+  .strategy-observation-modal-item {
+      --status-accent: #94a3b8;
+
+      padding: 0.62rem 0.72rem;
+      min-width: 0;
+      background: rgb(15 23 42 / 62%);
+      border: 1px solid rgb(148 163 184 / 14%);
+      border-left: 3px solid var(--status-accent);
+      border-radius: 6px;
+  }
+
+  .strategy-observation-modal-item.new-high {
+      --status-accent: #2dd4bf;
+  }
+
+  .strategy-observation-modal-item.repairing {
+      --status-accent: #60a5fa;
+  }
+
+  .strategy-observation-modal-item.drawdown {
+      --status-accent: #fb7185;
+  }
+
+  .strategy-observation-modal-top {
+      display: flex;
+      justify-content: space-between;
+      gap: 0.45rem;
+      align-items: center;
+      margin-bottom: 0.38rem;
+  }
+
+  .strategy-observation-modal-top strong {
+      overflow: hidden;
+      min-width: 0;
+      font-size: 1.04rem;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      color: #f8fafc;
+      line-height: 1.2;
+  }
+
+  .strategy-observation-modal-top span {
+      flex: 0 0 auto;
+      padding: 0.18rem 0.5rem;
+      font-size: 0.76rem;
+      color: var(--status-accent);
+      background: color-mix(in srgb, var(--status-accent) 10%, transparent);
+      border: 1px solid color-mix(in srgb, var(--status-accent) 26%, transparent);
+      border-radius: 999px;
+      line-height: 1.2;
+  }
+
+  .strategy-observation-primary {
+      display: grid;
+      grid-template-columns: repeat(6, minmax(0, 1fr));
+      gap: 0;
+      padding: 0.48rem 0;
+      margin-bottom: 0.42rem;
+      border-top: 1px solid rgb(148 163 184 / 12%);
+      border-bottom: 1px solid rgb(148 163 184 / 12%);
+  }
+
+  .strategy-observation-primary div {
+      padding: 0.05rem 0.52rem;
+      min-width: 0;
+      border-left: 1px solid rgb(148 163 184 / 12%);
+  }
+
+  .strategy-observation-primary div:first-child {
+      padding-left: 0;
+      border-left: 0;
+  }
+
+  .strategy-observation-primary span {
+      display: block;
+      margin-bottom: 0.2rem;
+      font-size: 0.72rem;
+      color: #cbd5e1;
+      line-height: 1.2;
+      font-weight: 400;
+  }
+
+  .strategy-observation-primary strong {
+      display: block;
+      overflow: hidden;
+      font-size: 0.98rem;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      color: #f8fafc;
+      line-height: 1.15;
+  }
+
+  .strategy-drawdown-percentile {
+      margin-bottom: 0.22rem;
+  }
+
+  .strategy-percentile-label {
+      display: flex;
+      justify-content: space-between;
+      gap: 0.65rem;
+      align-items: center;
+      margin-bottom: 0.22rem;
+      font-size: 0.72rem;
+      color: #cbd5e1;
+      line-height: 1.2;
+  }
+
+  .strategy-percentile-title {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.26rem;
+      min-width: 0;
+  }
+
+  .strategy-observation-help {
+      display: inline-flex;
+      justify-content: center;
+      align-items: center;
+      padding: 0;
+      width: 13px;
+      height: 13px;
+      font: inherit;
+      font-size: 9px;
+      color: #94a3b8;
+      background: rgb(15 23 42 / 62%);
+      border: 1px solid rgb(148 163 184 / 58%);
+      border-radius: 50%;
+      cursor: help;
+      line-height: 1;
+      font-weight: 800;
+  }
+
+  .strategy-observation-help:hover,
+  .strategy-observation-help:focus {
+      color: var(--status-accent);
+      border-color: var(--status-accent);
+      outline: none;
+      box-shadow: 0 0 8px color-mix(in srgb, var(--status-accent) 34%, transparent);
+  }
+
+  .strategy-observation-tooltip {
+      position: fixed;
+      z-index: 5000;
+      padding: 0.66rem 0.78rem;
+      width: 320px;
+      max-width: calc(100vw - 24px);
+      font-size: 0.78rem;
+      text-align: left;
+      white-space: normal;
+      color: #dbeafe;
+      background: rgb(15 23 42 / 98%);
+      border: 1px solid rgb(96 165 250 / 42%);
+      border-radius: 8px;
+      box-shadow: 0 14px 36px rgb(0 0 0 / 42%), 0 0 18px rgb(96 165 250 / 14%);
+      line-height: 1.58;
+      pointer-events: none;
+      backdrop-filter: blur(12px);
+  }
+
+  .strategy-observation-tooltip--top {
+      transform: translate(-50%, -100%);
+  }
+
+  .strategy-observation-tooltip--bottom {
+      transform: translate(-50%, 0);
+  }
+
+  .strategy-percentile-label strong {
+      font-size: 0.9rem;
+      color: #f8fafc;
+  }
+
+  .strategy-percentile-track {
+      position: relative;
+      height: 6px;
+      background: rgb(148 163 184 / 16%);
+      border-radius: 999px;
+  }
+
+  .strategy-percentile-track::before {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      left: 0;
+      width: clamp(0%, var(--drawdown-percentile), 100%);
+      background: var(--status-accent);
+      border-radius: inherit;
+      content: '';
+  }
+
+  .strategy-percentile-track span {
+      position: absolute;
+      top: 50%;
+      left: clamp(0%, var(--drawdown-percentile), 100%);
+      width: 10px;
+      height: 10px;
+      background: #fff;
+      border: 2px solid var(--status-accent);
+      border-radius: 50%;
+      transform: translate(-50%, -50%);
+  }
+
+  .strategy-percentile-axis {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 0.22rem;
+      font-size: 0.62rem;
+      color: #94a3b8;
+      line-height: 1.2;
+  }
+
+  .strategy-observation-disclaimer {
+      margin: 0.5rem 0 0;
+      font-size: 0.74rem;
+      color: #94a3b8;
+      line-height: 1.45;
+  }
+
   .echart-container {
       width: 100%;
       height: 450px;
@@ -3724,14 +4592,14 @@
 
   .notification-test-button {
       padding: 0.55rem 0.75rem;
+      font-size: 0.8rem;
+      white-space: nowrap;
       color: #bde9ff;
       background: rgb(0 170 255 / 10%);
       border: 1px solid rgb(0 170 255 / 28%);
       border-radius: 8px;
       box-sizing: border-box;
-      font-size: 0.8rem;
       font-weight: 700;
-      white-space: nowrap;
       cursor: pointer;
   }
 
@@ -4515,17 +5383,12 @@
           margin-bottom: 0.9rem;
       }
 
-      .market-thermometer-container {
+      .status-overview-strip {
+          margin-bottom: 0.8rem;
+      }
+
+      .status-overview-card {
           padding: 0.65rem 0.9rem;
-          margin-bottom: 0.9rem;
-      }
-
-      .thermometer-header {
-          margin-bottom: 0.55rem;
-      }
-
-      .thermometer-desc {
-          margin-bottom: 0.65rem;
       }
 
       .realtime-nav-panel {
@@ -4609,6 +5472,32 @@
           grid-template-columns: repeat(3, minmax(0, 1fr));
       }
 
+      .strategy-observation-primary {
+          grid-template-columns: repeat(6, minmax(0, 1fr));
+      }
+
+      .strategy-status-item {
+          padding-right: 0.06rem;
+          padding-left: 0.06rem;
+      }
+
+      .strategy-status-name {
+          gap: 0.16rem;
+      }
+
+      .strategy-status-name i {
+          width: 4px;
+          height: 4px;
+      }
+
+      .strategy-status-name em {
+          font-size: 0.68rem;
+      }
+
+      .strategy-status-item strong {
+          font-size: 0.88rem;
+      }
+
       .quick-menu-grid {
           grid-template-columns: repeat(3, minmax(0, 1fr));
       }
@@ -4631,6 +5520,26 @@
 
       .main-container {
           width: 100%;
+      }
+
+      .status-overview-strip {
+          grid-template-columns: 1fr;
+          gap: 0.75rem;
+      }
+
+      .strategy-observation-primary {
+          grid-template-columns: repeat(3, minmax(0, 1fr));
+      }
+
+      .strategy-observation-primary div:nth-child(3n + 1) {
+          padding-left: 0;
+          border-left: 0;
+      }
+
+      .strategy-observation-primary div:nth-child(n + 4) {
+          padding-top: 0.42rem;
+          margin-top: 0.42rem;
+          border-top: 1px solid rgb(148 163 184 / 12%);
       }
 
       .realtime-nav-grid {
@@ -4764,8 +5673,60 @@
           font-size: 0.82rem;
       }
 
-      .market-thermometer-container {
-          padding: 0.75rem;
+      .status-overview-card {
+          padding: 0.78rem;
+          min-height: 80px;
+      }
+
+      .market-overview-body {
+          gap: 0.75rem;
+          margin-top: 1.45rem;
+      }
+
+      .market-temperature-value strong {
+          font-size: 1.35rem;
+      }
+
+      .strategy-status-list {
+          margin-top: 0.68rem;
+          min-height: 45px;
+      }
+
+      .strategy-status-item {
+          padding: 0.08rem 0.1rem;
+          gap: 0.3rem;
+      }
+
+      .strategy-status-name {
+          gap: 0.2rem;
+      }
+
+      .strategy-status-name em {
+          font-size: 0.64rem;
+      }
+
+      .strategy-status-item strong {
+          font-size: 0.82rem;
+      }
+
+      .status-overview-head {
+          gap: 0.45rem;
+      }
+
+      .status-overview-heading {
+          gap: 0.35rem;
+      }
+
+      .status-overview-title {
+          font-size: 0.9rem;
+      }
+
+      .status-overview-heading > span {
+          font-size: 0.6rem;
+      }
+
+      .status-update-time {
+          font-size: 0.6rem;
       }
 
       .realtime-nav-panel {
@@ -4854,6 +5815,36 @@
           padding: 1rem;
       }
 
+      .strategy-observation-modal-content {
+          padding: 1rem;
+      }
+
+      .strategy-observation-modal-intro {
+          align-items: flex-start;
+          flex-direction: column;
+          gap: 0.5rem;
+      }
+
+      .strategy-observation-primary {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .strategy-observation-primary div:nth-child(3n + 1) {
+          padding-left: 0.52rem;
+          border-left: 1px solid rgb(148 163 184 / 12%);
+      }
+
+      .strategy-observation-primary div:nth-child(odd) {
+          padding-left: 0;
+          border-left: 0;
+      }
+
+      .strategy-observation-primary div:nth-child(n + 3) {
+          padding-top: 0.42rem;
+          margin-top: 0.42rem;
+          border-top: 1px solid rgb(148 163 184 / 12%);
+      }
+
       .realtime-chart-metrics {
           grid-template-columns: repeat(2, minmax(0, 1fr));
           gap: 0.55rem;
@@ -4870,19 +5861,6 @@
 
       .realtime-large-chart svg {
           height: 230px;
-      }
-
-      .thermometer-header {
-          justify-content: center;
-          align-items: flex-start;
-          margin-bottom: 0.5rem;
-          gap: 0.25rem;
-      }
-
-      .thermometer-desc {
-          margin-top: 0.1rem;
-          margin-bottom: 1.2rem;
-          text-align: center;
       }
 
       .features-grid {

@@ -105,6 +105,15 @@ export const constantRoutes = [
     }
   },
   {
+    path: '/investment-ledger',
+    component: () => import('@/views/investment-ledger.vue'),
+    meta: {
+      requiresAuth: true,
+      title: '投资账本',
+      description: '记录策略期末金额，分析资产占比、目标偏移、组合回撤、创新高状态与风险收益特征。'
+    }
+  },
+  {
     path: '/about',
     component: () => import('@/views/about.vue'),
     meta: {
@@ -183,6 +192,7 @@ const nonVipAccessibleRoutes = [
   '/all-weather',
   '/tools',
   '/wealth-map',
+  '/investment-ledger',
   '/about',
   '/bonds',
   '/rights-strategy',

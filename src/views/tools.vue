@@ -726,39 +726,40 @@
   /* 定义页面主题色 */
   :root {
       --theme-color: #8a2be2;
+
       /* 蓝紫色 */
   }
 
   .page-wrapper {
-      font-family: 'Noto Sans SC', sans-serif;
-      background-color: #121212;
-      color: #ffffff;
-      min-height: 100vh;
       padding: 3rem 1rem;
+      min-height: 100vh;
+      font-family: 'Noto Sans SC', sans-serif;
+      color: #fff;
       background: radial-gradient(circle at 50% 15%, #2a1a4a, transparent 40%),
           radial-gradient(circle at 15% 85%, #4a2a1a, transparent 40%), #121212;
+      background-color: #121212;
   }
 
   .main-container {
-      max-width: 900px;
       margin: 0 auto;
+      max-width: 900px;
   }
 
   /* 页面头部 */
   .page-header {
-      text-align: center;
       margin-bottom: 3rem;
-      animation: fadeInUp 0.5s ease-out forwards;
+      text-align: center;
       opacity: 0;
+      animation: fadeInUp 0.5s ease-out forwards;
   }
 
   .back-button {
-      color: #b0c4de;
-      text-decoration: none;
-      font-size: 0.9rem;
-      transition: color 0.3s ease;
       display: inline-block;
       margin-bottom: 1rem;
+      font-size: 0.9rem;
+      text-decoration: none;
+      color: #b0c4de;
+      transition: color 0.3s ease;
   }
 
   .back-button:hover {
@@ -766,13 +767,13 @@
   }
 
   .main-title {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      margin-bottom: 0.5rem;
       font-size: 2.5rem;
       font-weight: 700;
-      display: flex;
-      align-items: center;
-      justify-content: center;
       gap: 1rem;
-      margin-bottom: 0.5rem;
   }
 
   .title-icon {
@@ -793,20 +794,20 @@
   }
 
   .content-card {
-      background: rgba(255, 255, 255, 0.05);
-      border: 1px solid rgba(255, 255, 255, 0.1);
-      border-radius: 12px;
-      padding: 1.5rem 2rem;
-      backdrop-filter: blur(10px);
-      transition: border-color 0.3s ease;
       display: flex;
+      padding: 1.5rem 2rem;
+      background: rgb(255 255 255 / 5%);
+      border: 1px solid rgb(255 255 255 / 10%);
+      border-radius: 12px;
+      opacity: 0;
+      transition: border-color 0.3s ease;
+      backdrop-filter: blur(10px);
       flex-direction: column;
       animation: fadeInUp 0.5s ease-out forwards;
-      opacity: 0;
   }
 
   .content-card:hover {
-      border-color: rgba(138, 43, 226, 0.5);
+      border-color: rgb(138 43 226 / 50%);
   }
 
   .tools-grid .content-card:nth-child(1) {
@@ -822,19 +823,19 @@
   }
 
   .card-title {
-      font-size: 1.4rem;
-      font-weight: bold;
+      padding-left: 1rem;
       margin-top: 0;
       margin-bottom: 0.5rem;
+      font-size: 1.4rem;
+      font-weight: bold;
       border-left: 4px solid #8a2be2;
-      padding-left: 1rem;
   }
 
   .card-description {
+      margin-bottom: 1.5rem;
       font-size: 0.95rem;
       color: #b0c4de;
       line-height: 1.7;
-      margin-bottom: 1.5rem;
   }
 
   /* 表格和输入框样式 */
@@ -856,22 +857,22 @@
   }
 
   .data-table th {
+      padding-bottom: 1rem;
+      font-size: 0.8rem;
       color: #b0c4de;
       font-weight: normal;
-      font-size: 0.8rem;
-      padding-bottom: 1rem;
   }
 
   .data-table input[type='text'],
   .data-table input[type='number'] {
-      width: 100%;
-      background: rgba(0, 0, 0, 0.3);
-      border: 1px solid rgba(255, 255, 255, 0.2);
-      border-radius: 6px;
-      color: #fff;
       padding: 0.6rem;
+      width: 100%;
       font-size: 0.9rem;
       text-align: center;
+      color: #fff;
+      background: rgb(0 0 0 / 30%);
+      border: 1px solid rgb(255 255 255 / 20%);
+      border-radius: 6px;
       box-sizing: border-box;
   }
 
@@ -881,12 +882,12 @@
   }
 
   .delete-btn {
+      font-size: 1.5rem;
+      color: #ff4081;
       background: none;
       border: none;
-      color: #ff4081;
-      font-size: 1.5rem;
-      cursor: pointer;
       transition: color 0.2s;
+      cursor: pointer;
       line-height: 1;
   }
 
@@ -895,21 +896,24 @@
   }
 
   .add-asset-btn {
+      padding: 0.5rem 1rem;
       margin-top: 1rem;
       margin-bottom: 1rem;
-      background: rgba(138, 43, 226, 0.2);
-      border: 1px dashed #8a2be2;
-      color: #8a2be2;
-      padding: 0.5rem 1rem;
+      color: #d9c2f2;
+      background: linear-gradient(90deg, rgb(138 43 226 / 9%), transparent);
+      border: 1px solid rgb(138 43 226 / 54%);
       border-radius: 8px;
-      cursor: pointer;
+      box-shadow: 0 0 0 1px rgb(138 43 226 / 8%), 0 0 12px rgb(138 43 226 / 14%);
       transition: all 0.3s;
+      cursor: pointer;
       align-self: flex-start;
   }
 
   .add-asset-btn:hover {
-      background: rgba(138, 43, 226, 0.4);
       color: #fff;
+      background: linear-gradient(90deg, rgb(138 43 226 / 18%), transparent);
+      border-color: rgb(138 43 226 / 78%);
+      box-shadow: 0 0 0 1px rgb(138 43 226 / 16%), 0 0 18px rgb(138 43 226 / 24%);
   }
 
   /* 复利计算器输入区域 */
@@ -931,19 +935,20 @@
   }
 
   .calculator-inputs .input-group input {
-      max-width: none;
       width: 100%;
+      max-width: none;
   }
 
   /* 通用计算区域 */
   .calculation-zone {
-      margin-top: auto;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+
       /* Push to the bottom */
       padding-top: 1.5rem;
-      border-top: 1px solid rgba(255, 255, 255, 0.1);
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
+      margin-top: auto;
+      border-top: 1px solid rgb(255 255 255 / 10%);
       gap: 1rem;
       flex-wrap: wrap;
   }
@@ -963,17 +968,17 @@
   }
 
   .input-group label {
-      color: #b0c4de;
       font-size: 0.9rem;
+      color: #b0c4de;
   }
 
   .input-group input {
-      background: rgba(0, 0, 0, 0.3);
-      border: 1px solid rgba(255, 255, 255, 0.2);
-      border-radius: 6px;
-      color: #fff;
       padding: 0.6rem;
       max-width: 180px;
+      color: #fff;
+      background: rgb(0 0 0 / 30%);
+      border: 1px solid rgb(255 255 255 / 20%);
+      border-radius: 6px;
       box-sizing: border-box;
   }
 
@@ -991,15 +996,15 @@
   }
 
   .checkbox-group input[type='checkbox'] {
-      cursor: pointer;
-      appearance: none;
-      -webkit-appearance: none;
+      position: relative;
       width: 1.2em;
       height: 1.2em;
       border: 2px solid #8a2be2;
       border-radius: 4px;
-      position: relative;
       transition: background-color 0.2s;
+      cursor: pointer;
+      -webkit-appearance: none;
+      appearance: none;
       vertical-align: middle;
   }
 
@@ -1008,18 +1013,18 @@
   }
 
   .checkbox-group input[type='checkbox']:checked::after {
-      content: '✔';
-      color: #fff;
-      font-size: 0.8em;
       position: absolute;
       top: 50%;
       left: 50%;
+      font-size: 0.8em;
+      color: #fff;
+      content: '✔';
       transform: translate(-50%, -50%);
   }
 
   .checkbox-group label {
-      color: #b0c4de;
       font-size: 0.9rem;
+      color: #b0c4de;
   }
 
   .button-group {
@@ -1030,70 +1035,73 @@
   }
 
   .calculate-btn {
-      background-color: #8a2be2;
-      color: #ffffff;
-      border: none;
-      border-radius: 8px;
       padding: 0.8rem 1.5rem;
       font-size: 0.9rem;
+      color: #fbf7ff;
+      background: linear-gradient(90deg, rgb(138 43 226 / 16%), transparent);
+      border: 1px solid rgb(138 43 226 / 76%);
+      border-radius: 8px;
+      box-shadow: 0 0 0 1px rgb(138 43 226 / 12%), 0 0 16px rgb(138 43 226 / 24%);
+      transition: all 0.3s ease;
       font-weight: bold;
       cursor: pointer;
-      transition: all 0.3s ease;
-      box-shadow: 0 0 15px rgba(138, 43, 226, 0.3);
   }
 
   .calculate-btn:hover {
       transform: translateY(-2px);
-      box-shadow: 0 4px 20px rgba(138, 43, 226, 0.5);
+      background: linear-gradient(90deg, rgb(138 43 226 / 24%), transparent);
+      box-shadow: 0 0 0 1px rgb(138 43 226 / 22%), 0 0 24px rgb(138 43 226 / 36%);
   }
 
   .calculate-btn.secondary {
-      background-color: transparent;
-      border: 1px solid #8a2be2;
-      color: #8a2be2;
-      box-shadow: none;
+      color: #d9c2f2;
+      background: linear-gradient(90deg, rgb(138 43 226 / 9%), transparent);
+      border-color: rgb(138 43 226 / 54%);
+      box-shadow: 0 0 0 1px rgb(138 43 226 / 8%), 0 0 12px rgb(138 43 226 / 14%);
   }
 
   .calculate-btn.secondary:hover {
-      background-color: rgba(138, 43, 226, 0.2);
       color: #fff;
+      background: linear-gradient(90deg, rgb(138 43 226 / 18%), transparent);
       transform: translateY(-2px);
   }
 
   .min-invest-result {
-      margin-top: 1rem;
-      padding: 0.75rem 1rem;
-      background: rgba(138, 43, 226, 0.1);
-      border-left: 3px solid #8a2be2;
-      border-radius: 4px;
       display: flex;
       justify-content: space-between;
       align-items: center;
+      padding: 0.75rem 1rem;
+      margin-top: 1rem;
       font-size: 0.9rem;
       color: #b0c4de;
+      background: rgb(138 43 226 / 10%);
+      border-radius: 4px;
+      border-left: 3px solid #8a2be2;
   }
 
   .apply-btn {
-      background: none;
-      border: 1px solid #b0c4de;
-      color: #b0c4de;
-      border-radius: 4px;
       padding: 0.25rem 0.75rem;
-      cursor: pointer;
+      color: #f7efff;
+      background: linear-gradient(90deg, rgb(138 43 226 / 13%), transparent);
+      border: 1px solid rgb(138 43 226 / 68%);
+      border-radius: 4px;
+      box-shadow: 0 0 12px rgb(138 43 226 / 18%);
       transition: all 0.2s ease;
+      cursor: pointer;
   }
 
   .apply-btn:hover {
-      background: #8a2be2;
-      border-color: #8a2be2;
       color: #fff;
+      background: linear-gradient(90deg, rgb(138 43 226 / 22%), transparent);
+      border-color: #8a2be2;
+      box-shadow: 0 0 18px rgb(138 43 226 / 32%);
   }
 
   /* 结果区域 */
   .result-container {
-      margin-top: 2rem;
       padding: 1.5rem;
-      background: rgba(0, 0, 0, 0.2);
+      margin-top: 2rem;
+      background: rgb(0 0 0 / 20%);
       border-radius: 8px;
       border-left: 3px solid #8a2be2;
   }
@@ -1104,9 +1112,9 @@
   }
 
   .result-summary {
-      color: #b0c4de;
       margin-bottom: 1rem;
       font-size: 0.9rem;
+      color: #b0c4de;
   }
 
   .buy-action {
@@ -1126,13 +1134,13 @@
 
   .mode-indicator {
       display: inline-block;
-      font-size: 0.8rem;
-      font-weight: normal;
-      color: #b0c4de;
-      background-color: rgba(255, 255, 255, 0.1);
       padding: 2px 8px;
-      border-radius: 4px;
       margin-left: 0.5rem;
+      font-size: 0.8rem;
+      color: #b0c4de;
+      background-color: rgb(255 255 255 / 10%);
+      border-radius: 4px;
+      font-weight: normal;
       vertical-align: middle;
   }
 
@@ -1141,17 +1149,17 @@
   }
 
   .result-table {
-      width: 100%;
-      border-collapse: collapse;
       margin-top: 1rem;
+      width: 100%;
       font-size: 0.9rem;
+      border-collapse: collapse;
   }
 
   .result-table th,
   .result-table td {
       padding: 0.75rem 0.5rem;
       text-align: center;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      border-bottom: 1px solid rgb(255 255 255 / 10%);
   }
 
   .result-table th {
@@ -1179,9 +1187,9 @@
 
   /* 待开发卡片样式 */
   .coming-soon {
-      opacity: 0.6;
       position: relative;
       overflow: hidden;
+      opacity: 0.6;
       cursor: not-allowed;
   }
 
@@ -1189,16 +1197,18 @@
       position: absolute;
       top: 1.5rem;
       right: -50px;
-      background: #8a2be2;
-      color: white;
       padding: 0.25rem 4rem;
-      transform: rotate(45deg);
       font-size: 0.8rem;
+      color: white;
+      background: #8a2be2;
+      transform: rotate(45deg);
       font-weight: bold;
   }
 
   /* ======================================================= */
+
   /* ========           移动端适配 (<= 768px)         ======== */
+
   /* ======================================================= */
   @media (max-width: 768px) {
       .page-wrapper {
@@ -1235,33 +1245,33 @@
 
       .data-table thead,
       .result-table thead {
-          border: none;
-          clip: rect(0 0 0 0);
-          height: 1px;
-          margin: -1px;
+          position: absolute;
           overflow: hidden;
           padding: 0;
-          position: absolute;
+          margin: -1px;
           width: 1px;
+          height: 1px;
+          border: none;
+          clip: rect(0 0 0 0);
       }
 
       .data-table tr,
       .result-table tr {
           display: block;
-          border: 1px solid rgba(255, 255, 255, 0.1);
-          border-radius: 8px;
-          margin-bottom: 1rem;
           padding: 0.5rem 1rem;
+          margin-bottom: 1rem;
+          border: 1px solid rgb(255 255 255 / 10%);
+          border-radius: 8px;
       }
 
       .data-table td,
       .result-table td {
-          display: block;
-          text-align: right;
           position: relative;
+          display: block;
           padding: 0.75rem 0;
           padding-left: 50%;
-          border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+          text-align: right;
+          border-bottom: 1px solid rgb(255 255 255 / 8%);
       }
 
       .data-table td:last-child,
@@ -1275,23 +1285,23 @@
 
       .data-table td::before,
       .result-table td::before {
-          content: attr(data-label);
           position: absolute;
           left: 0;
-          width: 45%;
           padding-right: 10px;
-          white-space: nowrap;
-          text-align: left;
-          font-weight: normal;
-          color: #b0c4de;
+          width: 45%;
           font-size: 0.9em;
+          text-align: left;
+          white-space: nowrap;
+          color: #b0c4de;
+          content: attr(data-label);
+          font-weight: normal;
       }
 
       .data-table input[type='text'],
       .data-table input[type='number'] {
+          padding: 0.5rem;
           width: 100%;
           text-align: right;
-          padding: 0.5rem;
       }
 
       .data-table td[data-label='操作'] {
@@ -1322,8 +1332,8 @@
       }
 
       .checkbox-group {
-          margin-bottom: 0.5rem;
           justify-content: flex-start;
+          margin-bottom: 0.5rem;
       }
 
       .button-group {
@@ -1331,9 +1341,9 @@
       }
 
       .input-group {
+          align-items: flex-start;
           width: 100%;
           flex-direction: column;
-          align-items: flex-start;
           gap: 0.5rem;
       }
 
@@ -1347,8 +1357,8 @@
       }
 
       .chart-container {
-          height: 350px;
           margin-top: 1.5rem;
+          height: 350px;
       }
   }
 

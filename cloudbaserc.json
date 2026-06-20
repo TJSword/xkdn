@@ -14,17 +14,17 @@
         {
           "name": "momentumEtfMorningEarly",
           "type": "timer",
-          "config": "0 * 9-10 * * MON-FRI *"
+          "config": "0 0,5,10,15,20,25,30,35,40,45,50,55 9-10 * * MON-FRI *"
         },
         {
           "name": "momentumEtfMorningLate",
           "type": "timer",
-          "config": "0 0-30 11 * * MON-FRI *"
+          "config": "0 0,5,10,15,20,25,30 11 * * MON-FRI *"
         },
         {
           "name": "momentumEtfAfternoonMain",
           "type": "timer",
-          "config": "0 * 13-14 * * MON-FRI *"
+          "config": "0 0,5,10,15,20,25,30,35,40,45,50,55 13-14 * * MON-FRI *"
         },
         {
           "name": "momentumEtfClose",
@@ -83,32 +83,32 @@
         {
           "name": "refreshMomentumRealtimeWeekday0900",
           "type": "timer",
-          "config": "0 * 9 * * MON-FRI *"
+          "config": "0 0,5,10,15,20,25,30,35,40,45,50,55 9 * * MON-FRI *"
         },
         {
           "name": "refreshMomentumRealtimeWeekday1000",
           "type": "timer",
-          "config": "0 * 10 * * MON-FRI *"
+          "config": "0 0,5,10,15,20,25,30,35,40,45,50,55 10 * * MON-FRI *"
         },
         {
           "name": "refreshMomentumRealtimeWeekday1130",
           "type": "timer",
-          "config": "0 0-30 11 * * MON-FRI *"
+          "config": "0 0,5,10,15,20,25,30 11 * * MON-FRI *"
         },
         {
           "name": "refreshMomentumRealtimeWeekday1300",
           "type": "timer",
-          "config": "0 * 13 * * MON-FRI *"
+          "config": "0 0,5,10,15,20,25,30,35,40,45,50,55 13 * * MON-FRI *"
         },
         {
           "name": "refreshMomentumRealtimeWeekdayBeforeRebalance",
           "type": "timer",
-          "config": "0 0-49 14 * * MON-FRI *"
+          "config": "0 0,5,10,15,20,25,30,35,40,45 14 * * MON-FRI *"
         },
         {
           "name": "refreshMomentumRealtimeWeekdayAfterRebalance",
           "type": "timer",
-          "config": "0 52-59 14 * * MON-FRI *"
+          "config": "0 55 14 * * MON-FRI *"
         },
         {
           "name": "refreshMomentumRealtimeWeekdayClose1500",
@@ -116,9 +116,9 @@
           "config": "0 0 15 * * MON-FRI *"
         },
         {
-          "name": "refreshMomentumRealtimeWeekdayClose1505",
+          "name": "refreshMomentumRealtimeWeekdayClose1502",
           "type": "timer",
-          "config": "0 5 15 * * MON-FRI *"
+          "config": "0 2 15 * * MON-FRI *"
         }
       ]
     },
@@ -149,22 +149,22 @@
         {
           "name": "refreshMicroCapRealtimeWeekday0900",
           "type": "timer",
-          "config": "0 * 9 * * MON-FRI *"
+          "config": "0 0,5,10,15,20,25,30,35,40,45,50,55 9 * * MON-FRI *"
         },
         {
           "name": "refreshMicroCapRealtimeWeekday1000",
           "type": "timer",
-          "config": "0 * 10 * * MON-FRI *"
+          "config": "0 0,5,10,15,20,25,30,35,40,45,50,55 10 * * MON-FRI *"
         },
         {
           "name": "refreshMicroCapRealtimeWeekday1130",
           "type": "timer",
-          "config": "0 0-30 11 * * MON-FRI *"
+          "config": "0 0,5,10,15,20,25,30 11 * * MON-FRI *"
         },
         {
           "name": "refreshMicroCapRealtimeWeekdayAfternoon",
           "type": "timer",
-          "config": "0 * 13-14 * * MON-FRI *"
+          "config": "0 0,5,10,15,20,25,30,35,40,45,50,55 13-14 * * MON-FRI *"
         },
         {
           "name": "refreshMicroCapRealtimeWeekdayClose1500",
@@ -172,9 +172,9 @@
           "config": "0 0 15 * * MON-FRI *"
         },
         {
-          "name": "refreshMicroCapRealtimeWeekdayClose1505",
+          "name": "refreshMicroCapRealtimeWeekdayClose1502",
           "type": "timer",
-          "config": "0 5 15 * * MON-FRI *"
+          "config": "0 2 15 * * MON-FRI *"
         }
       ]
     },
@@ -189,22 +189,22 @@
         {
           "name": "refreshAllWeatherWeekday0900",
           "type": "timer",
-          "config": "0 * 9 * * MON-FRI *"
+          "config": "0 0,5,10,15,20,25,30,35,40,45,50,55 9 * * MON-FRI *"
         },
         {
           "name": "refreshAllWeatherWeekday1000",
           "type": "timer",
-          "config": "0 * 10 * * MON-FRI *"
+          "config": "0 0,5,10,15,20,25,30,35,40,45,50,55 10 * * MON-FRI *"
         },
         {
           "name": "refreshAllWeatherWeekday1130",
           "type": "timer",
-          "config": "0 0-30 11 * * MON-FRI *"
+          "config": "0 0,5,10,15,20,25,30 11 * * MON-FRI *"
         },
         {
           "name": "refreshAllWeatherWeekdayAfternoon",
           "type": "timer",
-          "config": "0 * 13-14 * * MON-FRI *"
+          "config": "0 0,5,10,15,20,25,30,35,40,45,50,55 13-14 * * MON-FRI *"
         },
         {
           "name": "refreshAllWeatherWeekdayClose1500",
@@ -212,9 +212,9 @@
           "config": "0 0 15 * * MON-FRI *"
         },
         {
-          "name": "refreshAllWeatherWeekdayPostClose1505",
+          "name": "refreshAllWeatherWeekdayPostClose1502",
           "type": "timer",
-          "config": "0 5 15 * * MON-FRI *"
+          "config": "0 2 15 * * MON-FRI *"
         }
       ]
     },
@@ -285,27 +285,27 @@
         {
           "name": "refreshLofWeekday0930",
           "type": "timer",
-          "config": "0 30-59 9 * * MON-FRI *"
+          "config": "0 30,35,40,45,50,55 9 * * MON-FRI *"
         },
         {
           "name": "refreshLofWeekday1000",
           "type": "timer",
-          "config": "0 * 10 * * MON-FRI *"
+          "config": "0 0,5,10,15,20,25,30,35,40,45,50,55 10 * * MON-FRI *"
         },
         {
           "name": "refreshLofWeekday1100To1131",
           "type": "timer",
-          "config": "0 0-31 11 * * MON-FRI *"
+          "config": "0 0,5,10,15,20,25,30 11 * * MON-FRI *"
         },
         {
           "name": "refreshLofWeekdayAfternoon",
           "type": "timer",
-          "config": "0 * 13-14 * * MON-FRI *"
+          "config": "0 0,5,10,15,20,25,30,35,40,45,50,55 13-14 * * MON-FRI *"
         },
         {
           "name": "refreshLofWeekdayClose1500To1501",
           "type": "timer",
-          "config": "0 0-1 15 * * MON-FRI *"
+          "config": "0 0 15 * * MON-FRI *"
         }
       ]
     },
@@ -351,32 +351,32 @@
         {
           "name": "refreshRightsRealtimeWeekday0900",
           "type": "timer",
-          "config": "0 * 9 * * MON-FRI *"
+          "config": "0 0,5,10,15,20,25,30,35,40,45,50,55 9 * * MON-FRI *"
         },
         {
           "name": "refreshRightsRealtimeWeekday1000",
           "type": "timer",
-          "config": "0 * 10 * * MON-FRI *"
+          "config": "0 0,5,10,15,20,25,30,35,40,45,50,55 10 * * MON-FRI *"
         },
         {
           "name": "refreshRightsRealtimeWeekday1130",
           "type": "timer",
-          "config": "0 0-30 11 * * MON-FRI *"
+          "config": "0 0,5,10,15,20,25,30 11 * * MON-FRI *"
         },
         {
           "name": "refreshRightsRealtimeWeekday1300",
           "type": "timer",
-          "config": "0 * 13 * * MON-FRI *"
+          "config": "0 0,5,10,15,20,25,30,35,40,45,50,55 13 * * MON-FRI *"
         },
         {
           "name": "refreshRightsRealtimeWeekdayBeforeRebalance",
           "type": "timer",
-          "config": "0 0-39 14 * * MON-FRI *"
+          "config": "0 0,5,10,15,20,25,30,35 14 * * MON-FRI *"
         },
         {
           "name": "refreshRightsRealtimeWeekdayAfterRebalance",
           "type": "timer",
-          "config": "0 42-59 14 * * MON-FRI *"
+          "config": "0 45,50,55 14 * * MON-FRI *"
         },
         {
           "name": "refreshRightsRealtimeWeekdayClose1500",
@@ -384,9 +384,9 @@
           "config": "0 0 15 * * MON-FRI *"
         },
         {
-          "name": "refreshRightsRealtimeWeekdayClose1505",
+          "name": "refreshRightsRealtimeWeekdayClose1502",
           "type": "timer",
-          "config": "0 5 15 * * MON-FRI *"
+          "config": "0 2 15 * * MON-FRI *"
         }
       ]
     },
@@ -432,32 +432,32 @@
         {
           "name": "refreshBondStrategyWeekday0900",
           "type": "timer",
-          "config": "0 * 9 * * MON-FRI *"
+          "config": "0 0,5,10,15,20,25,30,35,40,45,50,55 9 * * MON-FRI *"
         },
         {
           "name": "refreshBondStrategyWeekday1000",
           "type": "timer",
-          "config": "0 * 10 * * MON-FRI *"
+          "config": "0 0,5,10,15,20,25,30,35,40,45,50,55 10 * * MON-FRI *"
         },
         {
           "name": "refreshBondStrategyWeekday1130",
           "type": "timer",
-          "config": "0 0-30 11 * * MON-FRI *"
+          "config": "0 0,5,10,15,20,25,30 11 * * MON-FRI *"
         },
         {
           "name": "refreshBondStrategyWeekday1300",
           "type": "timer",
-          "config": "0 * 13 * * MON-FRI *"
+          "config": "0 0,5,10,15,20,25,30,35,40,45,50,55 13 * * MON-FRI *"
         },
         {
           "name": "refreshBondStrategyWeekdayBeforeRebalance",
           "type": "timer",
-          "config": "0 0-39 14 * * MON-FRI *"
+          "config": "0 0,5,10,15,20,25,30,35 14 * * MON-FRI *"
         },
         {
           "name": "refreshBondStrategyWeekdayAfterRebalance",
           "type": "timer",
-          "config": "0 42-59 14 * * MON-FRI *"
+          "config": "0 45,50,55 14 * * MON-FRI *"
         },
         {
           "name": "refreshBondStrategyWeekdayClose1500",
@@ -465,9 +465,9 @@
           "config": "0 0 15 * * MON-FRI *"
         },
         {
-          "name": "refreshBondStrategyWeekdayClose1505",
+          "name": "refreshBondStrategyWeekdayClose1502",
           "type": "timer",
-          "config": "0 5 15 * * MON-FRI *"
+          "config": "0 2 15 * * MON-FRI *"
         }
       ]
     },
@@ -518,6 +518,30 @@
           "config": "0 0 22 * * MON-FRI *"
         }
       ]
+    },
+    {
+      "name": "getMarketData",
+      "runtime": "Nodejs18.15",
+      "handler": "index.main",
+      "timeout": 3,
+      "memorySize": 256,
+      "description": "获取首页市场行情"
+    },
+    {
+      "name": "getHomeDashboardData",
+      "runtime": "Nodejs18.15",
+      "handler": "index.main",
+      "timeout": 30,
+      "memorySize": 256,
+      "description": "Home market, realtime strategy and strategy observation data"
+    },
+    {
+      "name": "investmentLedger",
+      "runtime": "Nodejs18.15",
+      "handler": "index.main",
+      "timeout": 60,
+      "memorySize": 256,
+      "description": "User-isolated investment ledger storage and append-only audit API"
     }
   ]
 }

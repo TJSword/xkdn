@@ -19,6 +19,7 @@
     "echarts": "^5.4.2",
     "element-plus": "^2.3.1",
     "fs-extra": "^11.1.1",
+    "html2canvas": "^1.4.1",
     "mapbox-gl": "^2.15.0",
     "pinia": "^3.0.3",
     "qs": "^6.11.1",

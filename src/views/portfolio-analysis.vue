@@ -877,7 +877,7 @@
       if (isLoading.value) return '正在计算...'
       if (!dataReady.value) return '正在加载数据...'
       if (totalWeight.value !== 100) return '请调整权重至 100%'
-      return '开始回测分析 🚀'
+      return '开始回测'
   })
 
   // --- 结果数据 ---
@@ -2373,23 +2373,23 @@
 
   .config-header-actions {
       display: flex;
-      align-items: center;
       justify-content: flex-end;
+      align-items: center;
       gap: 1rem;
       flex-wrap: wrap;
   }
 
   .conservative-help-trigger {
       display: inline-flex;
-      align-items: center;
       justify-content: center;
-      gap: 0.4rem;
+      align-items: center;
       padding: 0;
+      font-size: 0.86rem;
       color: #b0c4de;
       background: transparent;
       border: none;
+      gap: 0.4rem;
       font: inherit;
-      font-size: 0.86rem;
       cursor: help;
       line-height: 1;
   }
@@ -2498,11 +2498,11 @@
   .conservative-field {
       display: flex;
       align-items: center;
-      gap: 0.45rem;
-      flex-shrink: 0;
-      color: #b0c4de;
       font-size: 0.82rem;
       white-space: nowrap;
+      color: #b0c4de;
+      gap: 0.45rem;
+      flex-shrink: 0;
   }
 
   .conservative-field.disabled {
@@ -2511,15 +2511,15 @@
   }
 
   .conservative-field input {
-      width: 74px;
-      box-sizing: border-box;
       padding: 0.42rem 0.45rem;
+      width: 74px;
+      text-align: center;
       color: #fff;
       background: rgb(0 0 0 / 28%);
       border: 1px solid rgb(255 255 255 / 14%);
       border-radius: 4px;
       outline: none;
-      text-align: center;
+      box-sizing: border-box;
   }
 
   .conservative-field input:focus {
@@ -2582,9 +2582,9 @@
   .date-inputs .cyber-input {
       display: inline-flex;
       align-items: center;
-      box-sizing: border-box;
-      height: 38px;
       padding: 0 0.6rem;
+      height: 38px;
+      box-sizing: border-box;
       line-height: 1;
   }
 
@@ -2595,10 +2595,10 @@
   }
 
   .date-inputs .cyber-input::-webkit-calendar-picker-indicator {
-      width: 16px;
-      height: 16px;
       padding: 0;
       margin: 0;
+      width: 16px;
+      height: 16px;
       cursor: pointer;
   }
 
@@ -2623,11 +2623,16 @@
   .run-btn {
       padding: 0.6rem 1.5rem;
       white-space: nowrap;
-      color: #fff;
-      background: var(--theme-color);
-      border: none;
+      color: #f4f5ff;
+      background: linear-gradient(
+          90deg,
+          color-mix(in srgb, var(--theme-color) 13%, transparent),
+          transparent
+      );
+      border: 1px solid color-mix(in srgb, var(--theme-color) 72%, transparent);
       border-radius: 6px;
-      box-shadow: 0 0 10px var(--theme-shadow);
+      box-shadow: 0 0 0 1px color-mix(in srgb, var(--theme-color) 12%, transparent),
+          0 0 16px var(--theme-shadow);
       transition: all 0.3s;
       font-weight: bold;
       cursor: pointer;
@@ -2635,11 +2640,19 @@
 
   .run-btn:hover:not(:disabled) {
       transform: translateY(-2px);
-      box-shadow: 0 0 20px var(--theme-shadow);
+      background: linear-gradient(
+          90deg,
+          color-mix(in srgb, var(--theme-color) 20%, transparent),
+          transparent
+      );
+      box-shadow: 0 0 0 1px color-mix(in srgb, var(--theme-color) 24%, transparent),
+          0 0 24px var(--theme-shadow);
   }
 
   .run-btn:disabled {
-      background: #444;
+      color: #7f8997;
+      background: rgb(255 255 255 / 3%);
+      border-color: rgb(255 255 255 / 12%);
       opacity: 0.7;
       box-shadow: none;
       cursor: not-allowed;
@@ -2829,9 +2842,15 @@
   }
 
   .modal-primary-btn {
-      color: #fff;
-      background: var(--theme-color);
-      box-shadow: 0 0 10px var(--theme-shadow);
+      color: #f4f5ff;
+      background: linear-gradient(
+          90deg,
+          color-mix(in srgb, var(--theme-color) 13%, transparent),
+          transparent
+      );
+      border-color: color-mix(in srgb, var(--theme-color) 72%, transparent);
+      box-shadow: 0 0 0 1px color-mix(in srgb, var(--theme-color) 12%, transparent),
+          0 0 14px var(--theme-shadow);
   }
 
   .modal-secondary-btn:hover {
@@ -2840,7 +2859,13 @@
   }
 
   .modal-primary-btn:hover {
-      box-shadow: 0 0 18px var(--theme-shadow);
+      background: linear-gradient(
+          90deg,
+          color-mix(in srgb, var(--theme-color) 20%, transparent),
+          transparent
+      );
+      box-shadow: 0 0 0 1px color-mix(in srgb, var(--theme-color) 24%, transparent),
+          0 0 20px var(--theme-shadow);
   }
 
   .leverage-result-strip {
@@ -3041,8 +3066,8 @@
   }
 
   .experience-table {
-      font-size: 0.82rem;
       min-width: 760px;
+      font-size: 0.82rem;
   }
 
   .experience-table th,
