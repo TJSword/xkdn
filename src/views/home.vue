@@ -1478,7 +1478,9 @@
               .filter((time: string) => typeof time === 'string' && time.length > 0)
           const canViewHoldings = payload.hasHoldingsAccess !== false
           const showDisciplineCash = payload.disciplineCash === true
-          const holdings = canViewHoldings && Array.isArray(payload.activeHoldings) ? payload.activeHoldings : []
+          const activeHoldings = Array.isArray(payload.activeHoldings) ? payload.activeHoldings : []
+          const driftedHoldings = Array.isArray(payload.closingHoldings) ? payload.closingHoldings : []
+          const holdings = canViewHoldings ? (driftedHoldings.length ? driftedHoldings : activeHoldings) : []
           const assetReturnMap = buildAssetReturnMap(payload)
           const allocation = !canViewHoldings && !showDisciplineCash
               ? []

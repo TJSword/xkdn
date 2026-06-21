@@ -73,7 +73,7 @@
                         <strong>{{ displayMoney(totalAssets) }}</strong>
                         <div v-if="hasLedgerData" class="change-line">
                             <em :class="returnClass(todayAssetChange)">
-                                今日 {{ displayMoneyChange(todayAssetChange) }}
+                                当日 {{ displayMoneyChange(todayAssetChange) }}
                             </em>
                             <span :class="returnClass(todayAccountReturn)">
                                 {{ formatPercent(todayAccountReturn) }}
@@ -522,7 +522,6 @@
                                 <i :style="{ backgroundColor: item.color }"></i>
                                 <div>
                                     <strong>{{ item.name }}</strong>
-                                    <span>{{ item.note }}</span>
                                 </div>
                             </div>
                             <div class="attribution-track" :class="{ positive: item.contribution > 0 }">
@@ -628,7 +627,7 @@
                 </div>
                 <div class="cash-flow-list">
                     <div class="cash-flow-row cash-flow-head">
-                        <span>日期</span><span>类型</span><span>策略名称</span><span>备注</span><span>金额</span>
+                        <span>日期</span><span>类型</span><span>策略名称</span><span>金额</span><span>备注</span>
                     </div>
                     <div
                         v-for="item in paginatedCashFlowEvents"
@@ -637,10 +636,10 @@
                         <strong>{{ displayText(item.date) }}</strong>
                         <span :class="item.amount >= 0 ? 'positive' : 'negative'">{{ item.type }}</span>
                         <strong>{{ item.strategy }}</strong>
-                        <span>{{ item.note }}</span>
                         <strong :class="item.amount >= 0 ? 'positive' : 'negative'">
                             {{ displayMoneyChange(item.amount) }}
                         </strong>
+                        <span>{{ item.note }}</span>
                     </div>
                     <div v-if="filteredCashFlowEvents.length === 0" class="cash-flow-empty">
                         当前区间没有资金流记录
@@ -759,15 +758,27 @@
                             <span>记录日期</span>
                             <strong>{{ displayText(latestLedgerDate) }}</strong>
                         </div>
-                        <button
-                            class="button secondary compact-action"
-                            type="button"
-                            @click="showDailyNewStrategy = !showDailyNewStrategy">
-                            {{ showDailyNewStrategy ? '收起新策略' : '新增策略' }}
-                        </button>
+                        <div class="daily-toolbar-actions">
+                            <button
+                                class="button secondary featured-action compact-action"
+                                type="button"
+                                @click="showDailyAdvancedFields = !showDailyAdvancedFields">
+                                {{ showDailyAdvancedFields ? '收起' : '现金流/备注' }}
+                            </button>
+                            <button
+                                class="button secondary compact-action"
+                                type="button"
+                                @click="showDailyNewStrategy = !showDailyNewStrategy">
+                                {{ showDailyNewStrategy ? '收起新策略' : '新增策略' }}
+                            </button>
+                        </div>
                     </div>
                     <div class="entry-grid modal-entry-grid">
-                        <div v-for="strategy in strategies" :key="strategy.id" class="entry-item">
+                        <div
+                            v-for="strategy in strategies"
+                            :key="strategy.id"
+                            class="entry-item"
+                            :class="{ 'has-advanced-fields': showDailyAdvancedFields }">
                             <div class="entry-name">
                                 <i :style="{ backgroundColor: strategy.color }"></i>
                                 <div>
@@ -783,7 +794,7 @@
                                     step="0.01"
                                     inputmode="decimal" />
                             </label>
-                            <label>
+                            <label v-if="showDailyAdvancedFields">
                                 <span>当日现金流</span>
                                 <input
                                     v-model.number="strategy.cashFlow"
@@ -798,7 +809,7 @@
                                     {{ formatPercent(estimateDailyReturn(strategy)) }}
                                 </strong>
                             </div>
-                            <label class="entry-note">
+                            <label v-if="showDailyAdvancedFields" class="entry-note">
                                 <span>备注</span>
                                 <input
                                     v-model="strategy.note"
@@ -806,7 +817,10 @@
                                     placeholder="选填，例如定投、调仓或异常说明" />
                             </label>
                         </div>
-                        <div v-if="showDailyNewStrategy" class="entry-item new-strategy-entry">
+                        <div
+                            v-if="showDailyNewStrategy"
+                            class="entry-item new-strategy-entry"
+                            :class="{ 'has-advanced-fields': showDailyAdvancedFields }">
                             <div class="entry-name">
                                 <i :style="{ backgroundColor: dailyNewStrategy.color }"></i>
                                 <div>
@@ -833,7 +847,7 @@
                                     inputmode="decimal"
                                     required />
                             </label>
-                            <label>
+                            <label v-if="showDailyAdvancedFields">
                                 <span>当日现金流</span>
                                 <input
                                     v-model.number="dailyNewStrategy.cashFlow"
@@ -842,7 +856,7 @@
                                     inputmode="decimal"
                                     placeholder="转入为正，转出为负" />
                             </label>
-                            <label class="entry-note">
+                            <label v-if="showDailyAdvancedFields" class="entry-note">
                                 <span>备注</span>
                                 <input
                                     v-model="dailyNewStrategy.note"
@@ -851,12 +865,15 @@
                             </label>
                         </div>
                     </div>
-                    <div class="formula-band">
-                        <div>
-                            <span>当日盈亏</span><code>期末金额 - 期初金额 - 当日现金流</code>
+                    <div class="formula-help">
+                        <button class="formula-help-trigger" type="button">计算说明</button>
+                        <div class="formula-tooltip" role="tooltip">
+                            <div>
+                                <span>当日盈亏</span><code>期末金额 - 期初金额 - 当日现金流</code>
+                            </div>
+                            <div><span>当日收益率</span><code>当日盈亏 ÷ 期初金额</code></div>
+                            <div><span>单位净值</span><code>昨日净值 × (1 + 当日收益率)</code></div>
                         </div>
-                        <div><span>当日收益率</span><code>当日盈亏 ÷ 期初金额</code></div>
-                        <div><span>单位净值</span><code>昨日净值 × (1 + 当日收益率)</code></div>
                     </div>
                     <div class="modal-actions">
                         <button
@@ -1486,6 +1503,7 @@ const periods = ['近30日', '近90日', '本月', '今年', '全部']
 const selectedPeriod = ref('近30日')
 const showDailyEntryModal = ref(false)
 const showDailyNewStrategy = ref(false)
+const showDailyAdvancedFields = ref(false)
 const dailySaving = ref(false)
 const showEntryModal = ref(false)
 const showImportModal = ref(false)
@@ -3277,6 +3295,7 @@ const saveToday = async () => {
 
         showDailyEntryModal.value = false
         showDailyNewStrategy.value = false
+        showDailyAdvancedFields.value = false
         resetDailyNewStrategy()
         await loadLedgerBundle()
         notify('今日策略记录已保存', 'success')
@@ -3321,6 +3340,7 @@ const openNewRecord = () => {
 const openTodayEntry = () => {
     if (hasStrategies.value) {
         showDailyNewStrategy.value = false
+        showDailyAdvancedFields.value = false
         resetDailyNewStrategy()
         showDailyEntryModal.value = true
         return
@@ -4887,12 +4907,25 @@ p {
 
 .change-line {
     display: flex;
-    gap: 12px;
+    align-items: center;
+    gap: clamp(4px, 1.6vw, 8px);
+    min-width: 0;
+    white-space: nowrap;
 }
 
 .change-line em {
+    overflow: hidden;
+    min-width: 0;
     font-size: 12px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    flex: 1 1 auto;
     font-style: normal;
+}
+
+.change-line span {
+    flex: 0 0 auto;
+    white-space: nowrap;
 }
 
 .daily-entry-panel {
@@ -4933,7 +4966,7 @@ p {
 
 .entry-item {
     display: grid;
-    align-items: end;
+    align-items: center;
     padding: 16px;
     min-width: 0;
     border-right: 1px solid #26333f;
@@ -5033,7 +5066,7 @@ select:focus {
 }
 
 .entry-result {
-    padding-bottom: 8px;
+    align-self: center;
     text-align: right;
 }
 
@@ -5063,25 +5096,59 @@ select:focus {
     color: #a8c0fa;
 }
 
-.formula-band {
+.formula-help {
+    position: relative;
+    display: inline-flex;
+    margin-top: 12px;
+}
+
+.formula-help-trigger {
+    padding: 4px 0;
+    color: #7aa2f7;
+    background: transparent;
+    border: 0;
+    cursor: help;
+}
+
+.formula-help-trigger:hover,
+.formula-help-trigger:focus-visible {
+    color: #a8c0fa;
+    outline: none;
+}
+
+.formula-tooltip {
+    position: absolute;
+    z-index: 2;
+    bottom: calc(100% + 10px);
+    left: 0;
     display: grid;
-    margin-top: 14px;
-    border-top: 1px solid #26333f;
-    grid-template-columns: repeat(3, 1fr);
+    width: min(680px, calc(100vw - 64px));
+    padding: 14px;
+    visibility: hidden;
+    background: #0d141b;
+    border: 1px solid #30404f;
+    border-radius: 8px;
+    box-shadow: 0 18px 46px rgb(0 0 0 / 38%);
+    opacity: 0;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 14px;
+    transition: opacity 0.16s ease, visibility 0.16s ease;
 }
 
-.formula-band div {
-    padding: 14px 16px 0 0;
+.formula-help:hover .formula-tooltip,
+.formula-help:focus-within .formula-tooltip {
+    visibility: visible;
+    opacity: 1;
 }
 
-.formula-band span {
+.formula-tooltip span {
     display: block;
     margin-bottom: 6px;
     font-size: 12px;
     color: #8192a3;
 }
 
-.formula-band code {
+.formula-tooltip code {
     font-size: 12px;
     color: #cbd7e2;
 }
@@ -6162,7 +6229,7 @@ select:focus {
     align-items: center;
     padding: 12px 14px;
     border-bottom: 1px solid #26333f;
-    grid-template-columns: 120px 70px minmax(130px, 0.8fr) minmax(180px, 1.4fr) 130px;
+    grid-template-columns: 120px 70px minmax(130px, 0.8fr) 130px minmax(180px, 1.4fr);
     gap: 16px;
     text-align: left;
 }
@@ -6190,11 +6257,13 @@ select:focus {
     font-weight: 700;
 }
 
-.cash-flow-row > span:nth-child(4) {
+.cash-flow-row > span:nth-child(5) {
     color: #cbd7e2;
+    text-align: right;
 }
 
-.cash-flow-head span:last-child {
+.cash-flow-head span:nth-child(4),
+.cash-flow-head span:nth-child(5) {
     text-align: right;
 }
 
@@ -6207,7 +6276,7 @@ select:focus {
     font-size: 14px;
 }
 
-.cash-flow-row > strong:last-child {
+.cash-flow-row > strong:nth-child(4) {
     text-align: right;
 }
 
@@ -6355,7 +6424,9 @@ td {
 }
 
 .daily-modal {
+    overflow-y: auto;
     width: min(920px, 100%);
+    max-height: calc(100vh - 40px);
 }
 
 .range-modal {
@@ -6420,9 +6491,20 @@ td {
 .compact-action {
     padding: 7px 12px;
     min-height: 34px;
+    white-space: nowrap;
+}
+
+.daily-toolbar-actions {
+    display: flex;
+    flex: 0 1 auto;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+    gap: 8px;
 }
 
 .daily-modal .entry-date {
+    flex: 1 1 auto;
+    min-width: 0;
     padding-left: 0;
     border-left: 0;
     text-align: left;
@@ -6436,6 +6518,40 @@ td {
 .modal-entry-grid .entry-item {
     border-right: 0;
     border-bottom: 1px solid #26333f;
+    grid-template-columns: minmax(140px, 0.9fr) minmax(180px, 1fr) auto;
+}
+
+.modal-entry-grid .entry-name {
+    grid-column: 1;
+}
+
+.modal-entry-grid .entry-result {
+    grid-column: 3;
+    justify-self: end;
+}
+
+.modal-entry-grid .entry-item.has-advanced-fields {
+    grid-template-columns:
+        minmax(150px, 0.85fr) minmax(180px, 1fr) minmax(180px, 1fr)
+        minmax(82px, auto);
+}
+
+.modal-entry-grid .entry-item.has-advanced-fields .entry-name {
+    align-self: center;
+    grid-row: 1 / span 2;
+}
+
+.modal-entry-grid .entry-item.has-advanced-fields .entry-result {
+    grid-column: 4;
+    grid-row: 1;
+}
+
+.modal-entry-grid .entry-item.has-advanced-fields .entry-note {
+    grid-column: 2 / 5;
+}
+
+.modal-entry-grid .new-strategy-entry.has-advanced-fields .entry-note {
+    grid-column: 2 / 5;
 }
 
 .modal-entry-grid .entry-item:last-child {
@@ -7076,7 +7192,9 @@ label small {
     }
 
     .recovery-trend-strip {
-        grid-template-columns: 1fr;
+        grid-template-columns: repeat(3, max-content);
+        justify-content: space-between;
+        gap: 0;
     }
 
     .range-select-button {
@@ -7097,6 +7215,46 @@ label small {
         gap: 10px;
     }
 
+    .modal-entry-grid .entry-item,
+    .modal-entry-grid .entry-item.has-advanced-fields {
+        grid-template-columns: 1fr;
+    }
+
+    .modal-entry-grid .entry-name > div,
+    .modal-entry-grid .entry-item:not(.has-advanced-fields) .entry-name > div {
+        display: grid;
+        align-items: baseline;
+        width: 100%;
+        grid-template-columns: auto minmax(0, 1fr);
+        gap: 6px;
+    }
+
+    .modal-entry-grid .entry-name span,
+    .modal-entry-grid .entry-item:not(.has-advanced-fields) .entry-name span {
+        justify-self: end;
+        margin-top: 0;
+        text-align: right;
+    }
+
+    .modal-entry-grid .entry-name,
+    .modal-entry-grid .entry-result,
+    .modal-entry-grid .entry-item.has-advanced-fields .entry-name,
+    .modal-entry-grid .entry-item.has-advanced-fields .entry-result,
+    .modal-entry-grid .entry-item.has-advanced-fields .entry-note,
+    .modal-entry-grid .new-strategy-entry.has-advanced-fields .entry-note {
+        grid-column: auto;
+        grid-row: auto;
+    }
+
+    .modal-entry-grid .entry-result {
+        justify-self: stretch;
+    }
+
+    .modal-entry-grid .entry-item.has-advanced-fields .entry-result {
+        justify-self: stretch;
+        order: 5;
+    }
+
     .entry-result {
         display: flex;
         justify-content: space-between;
@@ -7112,11 +7270,16 @@ label small {
         grid-column: auto;
     }
 
+    .modal-entry-grid .entry-item.has-advanced-fields .entry-note {
+        order: 4;
+    }
+
     .new-strategy-entry .entry-note {
         grid-column: auto;
     }
 
-    .formula-band {
+    .formula-tooltip {
+        width: min(300px, calc(100vw - 48px));
         grid-template-columns: 1fr;
     }
 
@@ -7125,7 +7288,53 @@ label small {
     }
 
     .return-row {
-        min-width: 680px;
+        width: max-content;
+        min-width: 100%;
+        grid-template-columns: minmax(88px, 25vw) repeat(4, minmax(60px, 18vw));
+    }
+
+    .return-row.has-range {
+        grid-template-columns: minmax(88px, 25vw) repeat(5, minmax(56px, 16vw));
+    }
+
+    .return-row > span,
+    .return-row > strong,
+    .return-name {
+        padding: 0 8px;
+    }
+
+    .return-row > span:first-child,
+    .return-name {
+        position: sticky;
+        left: 0;
+        z-index: 1;
+        display: flex;
+        align-items: center;
+        min-height: inherit;
+        background: #151515;
+    }
+
+    .return-head span:first-child {
+        z-index: 2;
+        background: #0f161d;
+    }
+
+    .return-row.account .return-name {
+        background: #17211e;
+    }
+
+    .return-row > strong {
+        font-size: 12px;
+    }
+
+    .return-name {
+        gap: 7px;
+    }
+
+    .return-name strong {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
     }
 
     .signal-grid {
@@ -7145,8 +7354,29 @@ label small {
     }
 
     .daily-modal-toolbar {
-        align-items: flex-start;
-        flex-direction: column;
+        align-items: center;
+        flex-wrap: nowrap;
+        padding: 10px 12px;
+        gap: 10px;
+    }
+
+    .daily-modal .entry-date {
+        flex: 1 1 auto;
+    }
+
+    .daily-modal .entry-date strong {
+        white-space: nowrap;
+    }
+
+    .daily-toolbar-actions {
+        flex: 0 0 auto;
+        justify-content: flex-end;
+        flex-wrap: nowrap;
+        gap: 6px;
+    }
+
+    .daily-toolbar-actions .compact-action {
+        padding: 7px 9px;
     }
 
     .allocation-layout {
@@ -7182,24 +7412,76 @@ label small {
     }
 
     .attribution-copy {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
         text-align: left;
+        gap: 10px;
+    }
+
+    .attribution-copy span {
+        margin-top: 0;
+        text-align: right;
     }
 
     .cash-flow-head {
-        display: none;
+        display: grid;
+    }
+
+    .cash-flow-list {
+        overflow-x: auto;
     }
 
     .cash-flow-row {
-        grid-template-columns: 90px 55px minmax(0, 1fr);
-        gap: 8px 10px;
+        width: max-content;
+        min-width: 100%;
+        min-height: 42px;
+        padding: 0;
+        grid-template-columns: minmax(76px, 22vw) minmax(44px, 12vw) minmax(86px, 23vw) minmax(96px, 27vw) minmax(76px, 18vw);
+        column-gap: 0;
+        align-items: stretch;
     }
 
-    .cash-flow-row > span:nth-child(4) {
-        grid-column: 1 / 3;
-    }
-
-    .cash-flow-row > strong:last-child {
+    .cash-flow-row > span:nth-child(5),
+    .cash-flow-head span:nth-child(5) {
+        justify-content: flex-end;
         text-align: right;
+    }
+
+    .cash-flow-row > strong:nth-child(4),
+    .cash-flow-head span:nth-child(4) {
+        justify-content: flex-start;
+        text-align: left;
+    }
+
+    .cash-flow-row > strong:first-child,
+    .cash-flow-head span:first-child {
+        position: sticky;
+        left: 0;
+        z-index: 1;
+        align-self: stretch;
+        display: flex;
+        align-items: center;
+        padding: 0 8px;
+        background: #151515;
+    }
+
+    .cash-flow-head span:first-child {
+        z-index: 2;
+        background: #0f161d;
+    }
+
+    .cash-flow-row > span,
+    .cash-flow-row > strong {
+        display: flex;
+        align-items: center;
+        padding: 0 8px;
+        font-size: 12px;
+    }
+
+    .cash-flow-row > strong:first-child,
+    .cash-flow-head span:first-child {
+        padding: 0 8px;
     }
 
     .recovery-summary,
@@ -7215,6 +7497,29 @@ label small {
     .recovery-summary div:nth-child(n + 3),
     .cash-flow-summary article:nth-child(n + 3) {
         border-top: 1px solid rgb(255 255 255 / 10%);
+    }
+
+    .record-table-wrap table {
+        min-width: 760px;
+    }
+
+    .record-table-wrap th,
+    .record-table-wrap td {
+        padding: 10px 10px;
+        vertical-align: middle;
+    }
+
+    .record-table-wrap th:first-child,
+    .record-table-wrap td:first-child {
+        position: sticky;
+        left: 0;
+        z-index: 1;
+        background: #151515;
+    }
+
+    .record-table-wrap th:first-child {
+        z-index: 2;
+        background: #0f161d;
     }
 
     .target-total {
@@ -7242,11 +7547,29 @@ label small {
     }
 
     .detail-metrics {
-        grid-template-columns: 1fr 1fr;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 6px;
+    }
+
+    .detail-metrics span {
+        padding: 8px 9px;
+    }
+
+    .detail-metrics strong {
+        font-size: 13px;
     }
 
     .detail-status {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
         text-align: left;
+        gap: 10px;
+    }
+
+    .detail-status span {
+        margin-top: 0;
+        text-align: right;
     }
 
     .form-grid {
