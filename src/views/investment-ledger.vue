@@ -128,35 +128,35 @@
                     </article>
                 </div>
                 <div
-                    v-if="hasAnnualProfitTarget && hasLedgerData"
+                    v-if="hasAnnualTargetPreview && hasLedgerData"
                     class="annual-target-panel"
-                    :class="{ achieved: annualTargetProgress >= 100 }">
+                    :class="{ achieved: annualTargetDisplayProgress >= 100 }">
                     <div class="annual-target-heading">
                         <div>
                             <span>{{ annualTargetYearLabel }} 年收益目标</span>
-                            <strong :class="returnClass(annualTargetProfit)">
-                                {{ annualTargetProgressLabel }}
+                            <strong :class="returnClass(annualTargetDisplayProfit)">
+                                {{ annualTargetDisplayProgressLabel }}
                             </strong>
                         </div>
                     </div>
                     <div class="annual-target-track" aria-hidden="true">
-                        <i :style="{ width: `${annualTargetProgressWidth}%` }"></i>
+                        <i :style="{ width: `${annualTargetDisplayProgressWidth}%` }"></i>
                     </div>
                     <div class="annual-target-meta">
                         <span>
                             今年收益
-                            <strong :class="returnClass(annualTargetProfit)">
-                                {{ displayMoneyChange(annualTargetProfit) }}
+                            <strong :class="returnClass(annualTargetDisplayProfit)">
+                                {{ displayMoneyChange(annualTargetDisplayProfit) }}
                             </strong>
                         </span>
                         <span>
                             目标
-                            <strong>{{ displayMoney(annualProfitTarget) }}</strong>
+                            <strong>{{ displayMoney(annualTargetDisplayTarget) }}</strong>
                         </span>
                         <span>
-                            {{ annualTargetGap >= 0 ? '还差' : '已超出' }}
-                            <strong :class="annualTargetGap >= 0 ? 'warning' : 'positive'">
-                                {{ displayMoney(Math.abs(annualTargetGap)) }}
+                            {{ annualTargetDisplayGap >= 0 ? '还差' : '已超出' }}
+                            <strong :class="annualTargetDisplayGap >= 0 ? 'warning' : 'positive'">
+                                {{ displayMoney(Math.abs(annualTargetDisplayGap)) }}
                             </strong>
                         </span>
                     </div>
@@ -397,7 +397,7 @@
                                 class="allocation-row">
                                 <div class="allocation-label">
                                     <i :style="{ backgroundColor: item.color }"></i>
-                                    <strong>{{ item.name }}</strong>
+                                    <strong :title="item.name">{{ formatCompactName(item.name, 5) }}</strong>
                                 </div>
                                 <div class="weight-track">
                                     <span
@@ -479,9 +479,9 @@
             <section class="content-card performance-panel">
                 <div class="panel-heading">
                     <div>
-                        <h2 class="card-title">净值曲线与水下回撤</h2>
+                        <h2 class="card-title">净值曲线与资产走势</h2>
                         <p class="card-description">
-                            同时展示组合净值和各子策略净值，方便看清是谁在拖累或贡献。
+                            在时间加权净值、账户总金额和累计盈亏之间切换，区分表现走势和真实收益。
                         </p>
                     </div>
                     <button
@@ -490,6 +490,17 @@
                         @click="openRangeModal('performance')">
                         <span>时间范围</span>
                         <strong>{{ rangeLabel(selectedPeriod, normalizedDateRange) }}</strong>
+                    </button>
+                </div>
+                <div class="chart-mode-switch" role="group" aria-label="图表维度">
+                    <button
+                        v-for="mode in performanceChartModes"
+                        :key="mode.value"
+                        type="button"
+                        :class="{ active: performanceChartMode === mode.value }"
+                        @click="setPerformanceChartMode(mode.value)">
+                        <span>{{ mode.label }}</span>
+                        <small>{{ mode.hint }}</small>
                     </button>
                 </div>
                 <div class="benchmark-strip">
@@ -521,6 +532,159 @@
                     </article>
                 </div>
                 <v-chart class="performance-chart" :option="performanceOption" autoresize />
+            </section>
+
+            <section
+                class="content-card return-heatmap-panel"
+                :class="{ 'single-metric-view': !showHeatmapCellSub }">
+                <div class="panel-heading">
+                    <div>
+                        <h2 class="card-title">收益热力报表</h2>
+                        <p class="card-description">
+                            用颜色深浅表达阶段实际盈亏，同时保留收益率和收益金额，方便看出哪月、哪天贡献更大。
+                        </p>
+                    </div>
+                    <div class="heatmap-controls">
+                        <label class="heatmap-select-control">
+                            <select v-model="heatmapView" aria-label="热力周期">
+                                <option
+                                    v-for="view in heatmapViews"
+                                    :key="view.value"
+                                    :value="view.value">
+                                    {{ view.label }}
+                                </option>
+                            </select>
+                        </label>
+                        <label class="heatmap-select-control wide">
+                            <select v-model="heatmapDisplayMode" aria-label="热力指标视图">
+                                <option
+                                    v-for="mode in heatmapDisplayModes"
+                                    :key="mode.value"
+                                    :value="mode.value">
+                                    {{ mode.label }}
+                                </option>
+                            </select>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="heatmap-summary-strip">
+                    <article>
+                        <span>{{ heatmapView === 'year' ? '年度样本' : '当前月份' }}</span>
+                        <strong>{{ heatmapSummary.period }}</strong>
+                    </article>
+                    <article>
+                        <span>收益金额</span>
+                        <strong :class="returnClass(heatmapSummary.profit)">
+                            {{ displayMoneyChange(heatmapSummary.profit) }}
+                        </strong>
+                    </article>
+                    <article>
+                        <span>收益率</span>
+                        <strong :class="returnClass(heatmapSummary.return)">
+                            {{ formatPercent(heatmapSummary.return) }}
+                        </strong>
+                    </article>
+                    <article>
+                        <span>净转入</span>
+                        <strong>{{ displayMoneyChange(heatmapSummary.cashFlow) }}</strong>
+                    </article>
+                </div>
+
+                <div v-if="heatmapView === 'year'" class="heatmap-table-wrap">
+                    <table class="return-heatmap-table">
+                        <thead>
+                            <tr>
+                                <th>年度</th>
+                                <th v-for="month in heatmapMonthLabels" :key="month">{{ month }}</th>
+                                <th>全年</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr v-for="row in annualHeatmapRows" :key="row.year">
+                                <th>{{ row.year }}</th>
+                                <td
+                                    v-for="cell in row.months"
+                                    :key="`${row.year}-${cell.month}`"
+                                    :class="{ empty: !cell.hasData }"
+                                    :style="getReturnHeatmapStyle(cell)"
+                                    @click="cell.hasData && selectHeatmapMonth(cell.period)">
+                                    <span>{{ formatHeatmapCellMain(cell) }}</span>
+                                    <small v-if="showHeatmapCellSub">{{ formatHeatmapCellSub(cell) }}</small>
+                                </td>
+                                <td
+                                    class="year-total-cell"
+                                    :class="{ empty: !row.total.hasData }"
+                                    :style="getReturnHeatmapStyle(row.total)">
+                                    <span>{{ formatHeatmapCellMain(row.total) }}</span>
+                                    <small v-if="showHeatmapCellSub">{{ formatHeatmapCellSub(row.total) }}</small>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div v-else class="monthly-heatmap-layout">
+                    <div class="month-picker-strip">
+                        <button
+                            v-for="month in availableHeatmapMonths"
+                            :key="month"
+                            type="button"
+                            :class="{ active: selectedHeatmapMonthValue === month }"
+                            @click="selectedHeatmapMonth = month">
+                            {{ month.slice(2) }}
+                        </button>
+                    </div>
+                    <div class="monthly-calendar-scroll">
+                        <div class="monthly-calendar">
+                            <div
+                                v-for="weekday in heatmapWeekdays"
+                                :key="weekday"
+                                class="calendar-weekday">
+                                {{ weekday }}
+                            </div>
+                            <div
+                                v-for="cell in monthlyCalendarCells"
+                                :key="cell.key"
+                                class="calendar-day"
+                                :class="{ empty: cell.empty, active: cell.hasData }"
+                                :style="getReturnHeatmapStyle(cell)">
+                                <span>{{ cell.dayLabel }}</span>
+                                <strong v-if="cell.hasData">{{ formatCalendarHeatmapCellMain(cell) }}</strong>
+                                <small v-if="cell.hasData && showHeatmapCellSub">
+                                    {{ formatHeatmapCellSub(cell) }}
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="monthly-extreme-list">
+                        <article>
+                            <span>最大盈利日</span>
+                            <strong class="positive">{{ monthlyHeatmapExtremes.best.label }}</strong>
+                            <small>{{ monthlyHeatmapExtremes.best.date }}</small>
+                        </article>
+                        <article>
+                            <span>最大亏损日</span>
+                            <strong class="negative">{{ monthlyHeatmapExtremes.worst.label }}</strong>
+                            <small>{{ monthlyHeatmapExtremes.worst.date }}</small>
+                        </article>
+                        <article>
+                            <span>盈利 / 亏损天数</span>
+                            <strong>{{ monthlyHeatmapExtremes.winDays }} / {{ monthlyHeatmapExtremes.lossDays }}</strong>
+                            <small>按有记录的日期统计</small>
+                        </article>
+                        <article>
+                            <span>平均盈利日</span>
+                            <strong class="positive">{{ monthlyHeatmapExtremes.averageWin }}</strong>
+                            <small>仅统计盈利日期</small>
+                        </article>
+                        <article>
+                            <span>平均亏损日</span>
+                            <strong class="negative">{{ monthlyHeatmapExtremes.averageLoss }}</strong>
+                            <small>仅统计亏损日期</small>
+                        </article>
+                    </div>
+                </div>
             </section>
 
             <section class="detail-grid ledger-insight-grid">
@@ -1539,7 +1703,7 @@ import {
     deleteLedgerStrategy,
     getLedgerBundle,
     renameLedgerStrategy,
-    saveAnnualProfitTarget,
+    saveLedgerAccount,
     saveLedgerRecord,
     saveLedgerRecords,
     saveDailyLedgerRecords,
@@ -1597,6 +1761,24 @@ interface ImportPreviewRow {
 
 type WorksheetCell = string | number | boolean | null
 type LedgerMoreAction = () => void | Promise<void>
+type PerformanceChartMode = 'nav' | 'assets' | 'profit'
+type HeatmapView = 'year' | 'month'
+type HeatmapMetric = 'amount' | 'rate'
+type HeatmapDisplayMode = 'amount' | 'rate' | 'both'
+type ReturnHeatmapCell = {
+    key?: string
+    period: string
+    month?: string
+    date?: string
+    dayLabel?: string
+    profit: number
+    return: number
+    cashFlow: number
+    startAmount: number
+    endAmount: number
+    hasData: boolean
+    empty?: boolean
+}
 function loadIgnoredMissingKeys() {
     try {
         const value = JSON.parse(localStorage.getItem('investment-ledger-ignored-missing') || '[]')
@@ -1608,6 +1790,29 @@ function loadIgnoredMissingKeys() {
 
 const periods = ['近30日', '近90日', '本月', '今年', '全部']
 const selectedPeriod = ref('近30日')
+const performanceChartMode = ref<PerformanceChartMode>('nav')
+const performanceChartModes: Array<{ value: PerformanceChartMode; label: string; hint: string }> = [
+    { value: 'nav', label: '时间加权净值', hint: '扣除资金流' },
+    { value: 'assets', label: '总金额', hint: '账户规模' },
+    { value: 'profit', label: '累计盈亏', hint: '实际赚亏' }
+]
+const heatmapView = ref<HeatmapView>('month')
+const heatmapDisplayMode = ref<HeatmapDisplayMode>('both')
+const selectedHeatmapMonth = ref('')
+const heatmapViews: Array<{ value: HeatmapView; label: string }> = [
+    { value: 'year', label: '年度视图' },
+    { value: 'month', label: '月度视图' }
+]
+const heatmapDisplayModes: Array<{ value: HeatmapDisplayMode; label: string }> = [
+    { value: 'both', label: '双指标' },
+    { value: 'rate', label: '收益率' },
+    { value: 'amount', label: '收益金额' }
+]
+const heatmapMonthLabels = ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月']
+const heatmapWeekdays = ['日', '一', '二', '三', '四', '五', '六']
+const setPerformanceChartMode = (mode: PerformanceChartMode) => {
+    performanceChartMode.value = mode
+}
 const showDailyEntryModal = ref(false)
 const showDailyNewStrategy = ref(false)
 const showDailyAdvancedFields = ref(false)
@@ -2128,6 +2333,30 @@ const annualTargetProgressLabel = computed(() =>
     `${annualTargetProgress.value > 0 ? '+' : ''}${annualTargetProgress.value.toFixed(2)}%`
 )
 const annualTargetGap = computed(() => annualProfitTarget.value - annualTargetProfit.value)
+const hasAnnualTargetPreview = computed(
+    () => hasAnnualProfitTarget.value
+)
+const annualTargetDisplayTarget = computed(() =>
+    annualProfitTarget.value
+)
+const annualTargetDisplayProfit = computed(() =>
+    annualTargetProfit.value
+)
+const annualTargetDisplayProgress = computed(() =>
+    annualTargetDisplayTarget.value
+        ? (annualTargetDisplayProfit.value / annualTargetDisplayTarget.value) * 100
+        : 0
+)
+const annualTargetDisplayProgressWidth = computed(() =>
+    Math.max(0, Math.min(100, annualTargetDisplayProgress.value))
+)
+const annualTargetDisplayProgressLabel = computed(
+    () =>
+        `${annualTargetDisplayProgress.value > 0 ? '+' : ''}${annualTargetDisplayProgress.value.toFixed(2)}%`
+)
+const annualTargetDisplayGap = computed(
+    () => annualTargetDisplayTarget.value - annualTargetDisplayProfit.value
+)
 
 const duplicateRecordGroups = computed(() => {
     const counts = new Map<string, number>()
@@ -2294,6 +2523,225 @@ const aggregateRecordsByDate = computed(() => {
             }
         })
 })
+const calculateActualReturnPeriod = (startDate: string, endDate: string): ReturnHeatmapCell => {
+    const records = aggregateRecordsByDate.value
+    const rows = records.filter(item => item.date >= startDate && item.date <= endDate)
+
+    if (!rows.length) {
+        return {
+            period: startDate,
+            profit: 0,
+            return: 0,
+            cashFlow: 0,
+            startAmount: 0,
+            endAmount: 0,
+            hasData: false
+        }
+    }
+
+    const first = rows[0]
+    const last = rows.at(-1) || first
+    const previous = records.filter(item => item.date < startDate).at(-1)
+    const startAmount = previous ? previous.amount : Math.max(first.amount - first.cashFlow, 0)
+    const cashFlow = rows.reduce((total, item) => total + Number(item.cashFlow || 0), 0)
+    const profit = last.amount - startAmount - cashFlow
+
+    return {
+        period: startDate,
+        profit,
+        return: startAmount ? (profit / startAmount) * 100 : 0,
+        cashFlow,
+        startAmount,
+        endAmount: last.amount,
+        hasData: true
+    }
+}
+const dailyActualReturnRows = computed<ReturnHeatmapCell[]>(() =>
+    aggregateRecordsByDate.value.map((item, index) => {
+        const previous = aggregateRecordsByDate.value[index - 1]
+        const startAmount = previous ? previous.amount : Math.max(item.amount - item.cashFlow, 0)
+        const profit = previous ? item.amount - previous.amount - item.cashFlow : 0
+
+        return {
+            key: item.date,
+            period: item.date,
+            date: item.date,
+            profit,
+            return: startAmount ? (profit / startAmount) * 100 : 0,
+            cashFlow: item.cashFlow,
+            startAmount,
+            endAmount: item.amount,
+            hasData: true
+        }
+    })
+)
+const annualHeatmapRows = computed(() => {
+    const years = [
+        ...new Set(aggregateRecordsByDate.value.map(item => item.date.slice(0, 4)))
+    ].sort((a, b) => b.localeCompare(a))
+
+    return years.map(year => {
+        const months = Array.from({ length: 12 }, (_, index) => {
+            const month = String(index + 1).padStart(2, '0')
+            const period = `${year}-${month}`
+            const cell = calculateActualReturnPeriod(`${period}-01`, `${period}-31`)
+
+            return {
+                ...cell,
+                key: period,
+                period,
+                month
+            }
+        })
+        const total = calculateActualReturnPeriod(`${year}-01-01`, `${year}-12-31`)
+
+        return {
+            year,
+            months,
+            total: {
+                ...total,
+                key: `${year}-total`,
+                period: year
+            }
+        }
+    })
+})
+const availableHeatmapMonths = computed(() =>
+    [
+        ...new Set(
+            aggregateRecordsByDate.value
+                .filter(item => item.date)
+                .map(item => item.date.slice(0, 7))
+        )
+    ].sort((a, b) => b.localeCompare(a))
+)
+const selectedHeatmapMonthValue = computed(
+    () => selectedHeatmapMonth.value || availableHeatmapMonths.value[0] || todayDate.slice(0, 7)
+)
+const selectedMonthReturn = computed(() =>
+    calculateActualReturnPeriod(
+        `${selectedHeatmapMonthValue.value}-01`,
+        `${selectedHeatmapMonthValue.value}-31`
+    )
+)
+const monthlyCalendarCells = computed<ReturnHeatmapCell[]>(() => {
+    const month = selectedHeatmapMonthValue.value
+    const [yearValue, monthValue] = month.split('-').map(Number)
+    const daysInMonth = new Date(Date.UTC(yearValue, monthValue, 0)).getUTCDate()
+    const firstWeekday = new Date(Date.UTC(yearValue, monthValue - 1, 1)).getUTCDay()
+    const leadingBlanks = firstWeekday
+    const rowByDate = new Map(dailyActualReturnRows.value.map(item => [item.date || '', item]))
+    const cells: ReturnHeatmapCell[] = Array.from({ length: leadingBlanks }, (_, index) => ({
+        key: `blank-${month}-${index}`,
+        period: '',
+        dayLabel: '',
+        profit: 0,
+        return: 0,
+        cashFlow: 0,
+        startAmount: 0,
+        endAmount: 0,
+        hasData: false,
+        empty: true
+    }))
+
+    for (let day = 1; day <= daysInMonth; day += 1) {
+        const date = `${month}-${String(day).padStart(2, '0')}`
+        const row = rowByDate.get(date)
+        cells.push({
+            ...(row || {
+                period: date,
+                date,
+                profit: 0,
+                return: 0,
+                cashFlow: 0,
+                startAmount: 0,
+                endAmount: 0,
+                hasData: false
+            }),
+            key: date,
+            period: date,
+            date,
+            dayLabel: String(day),
+            empty: false
+        })
+    }
+
+    return cells
+})
+const activeHeatmapCells = computed(() =>
+    heatmapView.value === 'year'
+        ? annualHeatmapRows.value.flatMap(row => [...row.months, row.total]).filter(item => item.hasData)
+        : monthlyCalendarCells.value.filter(item => item.hasData)
+)
+const heatmapAmountScale = computed(() =>
+    Math.max(...activeHeatmapCells.value.map(item => Math.abs(item.profit)), 1)
+)
+const heatmapRateScale = computed(() =>
+    Math.max(...activeHeatmapCells.value.map(item => Math.abs(item.return)), 1)
+)
+const heatmapSummary = computed(() => {
+    if (heatmapView.value === 'month') {
+        return {
+            period: selectedHeatmapMonthValue.value,
+            profit: selectedMonthReturn.value.profit,
+            return: selectedMonthReturn.value.return,
+            cashFlow: selectedMonthReturn.value.cashFlow
+        }
+    }
+
+    const latestYear = annualHeatmapRows.value[0]
+    const profit = annualHeatmapRows.value.reduce((total, row) => total + row.total.profit, 0)
+    const cashFlow = annualHeatmapRows.value.reduce((total, row) => total + row.total.cashFlow, 0)
+    const startAmount = annualHeatmapRows.value.at(-1)?.total.startAmount || 0
+    const endAmount = latestYear?.total.endAmount || 0
+
+    return {
+        period: annualHeatmapRows.value.length ? `${annualHeatmapRows.value.at(-1)?.year} - ${latestYear?.year}` : '暂无数据',
+        profit,
+        return: startAmount ? ((endAmount - startAmount - cashFlow) / startAmount) * 100 : 0,
+        cashFlow
+    }
+})
+const monthlyHeatmapExtremes = computed(() => {
+    const rows = monthlyCalendarCells.value.filter(item => item.hasData)
+    const winRows = rows.filter(item => item.profit > 0)
+    const lossRows = rows.filter(item => item.profit < 0)
+    const best = rows.reduce<ReturnHeatmapCell | null>(
+        (current, item) => (!current || item.profit > current.profit ? item : current),
+        null
+    )
+    const worst = rows.reduce<ReturnHeatmapCell | null>(
+        (current, item) => (!current || item.profit < current.profit ? item : current),
+        null
+    )
+
+    return {
+        best: {
+            date: best?.date?.slice(5) || '--',
+            label: best ? displayMoneyChange(best.profit) : '--'
+        },
+        worst: {
+            date: worst?.date?.slice(5) || '--',
+            label: worst ? displayMoneyChange(worst.profit) : '--'
+        },
+        winDays: winRows.length,
+        lossDays: lossRows.length,
+        averageWin: winRows.length
+            ? displayMoneyChange(
+                  winRows.reduce((total, item) => total + item.profit, 0) / winRows.length
+              )
+            : '--',
+        averageLoss: lossRows.length
+            ? displayMoneyChange(
+                  lossRows.reduce((total, item) => total + item.profit, 0) / lossRows.length
+              )
+            : '--'
+    }
+})
+const selectHeatmapMonth = (month: string) => {
+    selectedHeatmapMonth.value = month
+    heatmapView.value = 'month'
+}
 const performanceDates = computed(() => aggregateRecordsByDate.value.map(item => item.date))
 const benchmarkSeries = ref<number[]>([])
 const benchmarkSourceDate = ref('—')
@@ -2314,6 +2762,13 @@ const clampDate = (date: string) => {
 const shiftDate = (date: string, dayOffset: number) => {
     const current = new Date(`${date}T00:00:00`)
     current.setDate(current.getDate() + dayOffset)
+    return current.toISOString().slice(0, 10)
+}
+const getWeekStartDate = (date: string) => {
+    const current = new Date(`${date}T00:00:00`)
+    const weekday = current.getDay()
+    const mondayOffset = weekday === 0 ? -6 : 1 - weekday
+    current.setDate(current.getDate() + mondayOffset)
     return current.toISOString().slice(0, 10)
 }
 const applyDateRangePeriod = (
@@ -2466,6 +2921,26 @@ const filteredPerformanceData = computed(() => {
     const points = performancePoints.value.filter(item => item.date >= start && item.date <= end)
 
     return points
+})
+const filteredActualPerformanceData = computed(() => {
+    const { start, end } = normalizedDateRange.value
+    const rows = aggregateRecordsByDate.value.filter(item => item.date >= start && item.date <= end)
+    const first = rows[0]
+    const previous = aggregateRecordsByDate.value.filter(item => item.date < start).at(-1)
+    const baselineAmount = first ? (previous ? previous.amount : Math.max(first.amount - first.cashFlow, 0)) : 0
+    let cumulativeCashFlow = 0
+
+    return rows.map(item => {
+        cumulativeCashFlow += Number(item.cashFlow || 0)
+
+        return {
+            date: item.date,
+            label: item.date.slice(5),
+            amount: item.amount,
+            cumulativeProfit: item.amount - baselineAmount - cumulativeCashFlow,
+            cashFlow: item.cashFlow
+        }
+    })
 })
 
 const benchmarkComparison = computed(() => {
@@ -2773,7 +3248,7 @@ const syncDerivedState = () => {
     const latestDate = latestLedgerDate.value
     const monthStart = `${latestDate.slice(0, 8)}01`
     const yearStart = `${latestDate.slice(0, 5)}01-01`
-    const weekStart = shiftDate(latestDate, -6)
+    const weekStart = getWeekStartDate(latestDate)
     const attributionEndRecords = strategies
         .map(strategy =>
             recentRecords.value
@@ -3114,23 +3589,46 @@ const applyAnnualProfitTargets = (targets: Record<string, number> = {}) => {
         accountConfig.annualProfitTargets[annualTargetYearLabel.value] || 0
     )
 }
+const saveAnnualProfitTargetsToAccount = async (targets: Record<string, number>) =>
+    saveLedgerAccount({
+        currency: 'CNY',
+        openingPrincipal: accountConfig.openingPrincipal,
+        openingDate: accountConfig.openingDate,
+        annualProfitTargets: targets
+    })
+const getSavedAnnualProfitTargets = (
+    savedTargets: Record<string, number> | undefined,
+    expectedTargets: Record<string, number>
+) => {
+    const expected = Number(expectedTargets[annualTargetYearLabel.value] || 0)
+    const saved = Number(savedTargets?.[annualTargetYearLabel.value] || 0)
+
+    if (expected > 0 && saved !== expected) {
+        throw new Error('云端账户配置暂未写入年度目标字段，请同步投资账本云函数后重试')
+    }
+
+    return savedTargets || {}
+}
 const saveAnnualTarget = async () => {
     if (annualTargetSaving.value) return
 
     const value = Number(annualProfitTargetDraft.value || 0)
 
     if (!Number.isFinite(value) || value <= 0) {
-        await clearAnnualTarget()
+        notify('请输入大于 0 的年度收益目标', 'error')
         return
     }
 
     annualTargetSaving.value = true
     try {
-        const result = await saveAnnualProfitTarget(
-            annualTargetYearLabel.value,
-            Number(value.toFixed(2))
+        const targets = {
+            ...accountConfig.annualProfitTargets,
+            [annualTargetYearLabel.value]: Number(value.toFixed(2))
+        }
+        const result = await saveAnnualProfitTargetsToAccount(targets)
+        applyAnnualProfitTargets(
+            getSavedAnnualProfitTargets(result.account.annualProfitTargets, targets)
         )
-        applyAnnualProfitTargets(result.account.annualProfitTargets)
         showAnnualTargetModal.value = false
         notify('年度收益目标已保存', 'success')
     } catch (error) {
@@ -3144,8 +3642,12 @@ const clearAnnualTarget = async () => {
 
     annualTargetSaving.value = true
     try {
-        const result = await saveAnnualProfitTarget(annualTargetYearLabel.value, 0)
-        applyAnnualProfitTargets(result.account.annualProfitTargets)
+        const targets = { ...accountConfig.annualProfitTargets }
+        delete targets[annualTargetYearLabel.value]
+        const result = await saveAnnualProfitTargetsToAccount(targets)
+        applyAnnualProfitTargets(
+            getSavedAnnualProfitTargets(result.account.annualProfitTargets, targets)
+        )
         annualProfitTargetDraft.value = ''
         showAnnualTargetModal.value = false
         notify('年度收益目标已清除')
@@ -3256,6 +3758,8 @@ const strategyPerformanceSeries = computed(() =>
 const performanceSeriesColorMap = computed(() => {
     const colorMap: Record<string, string> = {
         组合净值: performanceFixedSeriesColors.portfolio,
+        总金额: performanceFixedSeriesColors.portfolio,
+        累计盈亏: '#f4c95d',
         沪深300全收益: performanceFixedSeriesColors.benchmark,
         回撤: performanceFixedSeriesColors.drawdown
     }
@@ -3270,124 +3774,215 @@ const performanceSeriesColorMap = computed(() => {
 const renderTooltipMarker = (color: string) =>
     `<span style="display:inline-block;margin-right:6px;width:8px;height:8px;border-radius:50%;background-color:${color};vertical-align:1px;"></span>`
 
-const performanceOption = computed(() => ({
-    animationDuration: 500,
-    tooltip: {
-        ...baseTooltip,
-        trigger: 'axis',
-        formatter: (
-            params: Array<{
-                axisValueLabel?: string
-                marker?: string
-                color?: string
-                seriesName: string
-                value: number
-            }>
-        ) => {
-            const title = params[0]?.axisValueLabel || ''
-            const rows = params.map(item => {
-                const value = Number(item.value)
-                const formatted =
-                    item.seriesName === '回撤' ? `${value.toFixed(2)}%` : value.toFixed(4)
-                const color =
-                    performanceSeriesColorMap.value[item.seriesName] ||
-                    (typeof item.color === 'string' ? item.color : '#9aabba')
-                return `${renderTooltipMarker(color)}${item.seriesName}&nbsp;&nbsp;<strong>${formatted}</strong>`
-            })
-            return [title, ...rows].join('<br/>')
-        }
-    },
-    legend: {
-        top: 0,
-        left: 'center',
-        textStyle: { color: '#9aabba' },
-        itemWidth: 16,
-        itemHeight: 3
-    },
-    grid: [
-        { left: 42, right: 16, top: 38, height: '53%' },
-        { left: 42, right: 16, top: '72%', height: '18%' }
-    ],
-    xAxis: [
-        {
-            type: 'category',
-            data: filteredPerformanceData.value.map(item => displayText(item.label)),
-            boundaryGap: false,
-            axisLine: { lineStyle: { color: '#30404f' } },
-            axisLabel: { color: '#718294' },
-            splitLine: { show: false }
-        },
-        {
-            type: 'category',
-            gridIndex: 1,
-            data: filteredPerformanceData.value.map(item => displayText(item.label)),
-            boundaryGap: false,
-            axisLine: { lineStyle: { color: '#30404f' } },
-            axisLabel: { color: '#718294' }
-        }
-    ],
-    yAxis: [
-        {
-            type: 'value',
-            min: (value: { min: number }) => Math.min(0.98, value.min),
-            axisLabel: {
-                color: '#718294',
-                formatter: (value: number) => value.toFixed(2)
+const performanceOption = computed(() => {
+    const isNavMode = performanceChartMode.value === 'nav'
+    const moneySeriesName = performanceChartMode.value === 'assets' ? '总金额' : '累计盈亏'
+    const moneySeriesColor =
+        performanceChartMode.value === 'assets'
+            ? performanceFixedSeriesColors.portfolio
+            : '#f4c95d'
+
+    if (!isNavMode) {
+        return {
+            animationDuration: 500,
+            tooltip: {
+                ...baseTooltip,
+                trigger: 'axis',
+                formatter: (
+                    params: Array<{
+                        axisValueLabel?: string
+                        color?: string
+                        seriesName: string
+                        value: number
+                    }>
+                ) => {
+                    const title = params[0]?.axisValueLabel || ''
+                    const rows = params.map(item => {
+                        const color =
+                            performanceSeriesColorMap.value[item.seriesName] ||
+                            (typeof item.color === 'string' ? item.color : '#9aabba')
+                        return `${renderTooltipMarker(color)}${item.seriesName}&nbsp;&nbsp;<strong>${displayMoney(Number(item.value))}</strong>`
+                    })
+                    return [title, ...rows].join('<br/>')
+                }
             },
-            splitLine: { lineStyle: { color: '#23303c', type: 'dashed' } }
-        },
-        {
-            type: 'value',
-            gridIndex: 1,
-            max: 0,
-            min: (value: { min: number }) => Math.min(-1, value.min),
-            axisLabel: { color: '#718294', formatter: '{value}%' },
-            splitLine: { lineStyle: { color: '#23303c', type: 'dashed' } }
+            legend: {
+                top: 0,
+                left: 'center',
+                textStyle: { color: '#9aabba' },
+                itemWidth: 16,
+                itemHeight: 3
+            },
+            grid: { left: 58, right: 20, top: 42, bottom: 34 },
+            xAxis: {
+                type: 'category',
+                data: filteredActualPerformanceData.value.map(item => displayText(item.label)),
+                boundaryGap: false,
+                axisLine: { lineStyle: { color: '#30404f' } },
+                axisLabel: { color: '#718294' },
+                splitLine: { show: false }
+            },
+            yAxis: {
+                type: 'value',
+                axisLabel: {
+                    color: '#718294',
+                    formatter: (value: number) => formatCompactMoney(value)
+                },
+                splitLine: { lineStyle: { color: '#23303c', type: 'dashed' } }
+            },
+            series: [
+                {
+                    name: moneySeriesName,
+                    type: 'line',
+                    smooth: 0.28,
+                    symbol: 'none',
+                    data: filteredActualPerformanceData.value.map(item =>
+                        performanceChartMode.value === 'assets'
+                            ? item.amount
+                            : item.cumulativeProfit
+                    ),
+                    itemStyle: { color: moneySeriesColor },
+                    lineStyle: { width: 3, color: moneySeriesColor },
+                    areaStyle: { color: 'rgba(244,201,93,.10)' }
+                }
+            ]
         }
-    ],
-    series: [
-        {
-            name: '组合净值',
-            type: 'line',
-            smooth: 0.3,
-            symbol: 'none',
-            data: filteredPerformanceData.value.map(item => item.nav),
-            itemStyle: { color: performanceFixedSeriesColors.portfolio },
-            lineStyle: { width: 3, color: performanceFixedSeriesColors.portfolio },
-            areaStyle: { color: 'rgba(244,247,251,.08)' },
-            markPoint: {
-                symbolSize: 42,
-                label: { color: '#101820', fontWeight: 700, formatter: '高' },
-                itemStyle: { color: '#f4c95d' },
-                data: [{ type: 'max' }]
+    }
+
+    return {
+        animationDuration: 500,
+        tooltip: {
+            ...baseTooltip,
+            trigger: 'axis',
+            formatter: (
+                params: Array<{
+                    axisValueLabel?: string
+                    marker?: string
+                    color?: string
+                    seriesName: string
+                    value: number
+                }>
+            ) => {
+                const title = params[0]?.axisValueLabel || ''
+                const rows = params.map(item => {
+                    const value = Number(item.value)
+                    const formatted =
+                        item.seriesName === '回撤' ? `${value.toFixed(2)}%` : value.toFixed(4)
+                    const color =
+                        performanceSeriesColorMap.value[item.seriesName] ||
+                        (typeof item.color === 'string' ? item.color : '#9aabba')
+                    return `${renderTooltipMarker(color)}${item.seriesName}&nbsp;&nbsp;<strong>${formatted}</strong>`
+                })
+                return [title, ...rows].join('<br/>')
             }
         },
-        ...strategyPerformanceSeries.value,
-        {
-            name: '沪深300全收益',
-            type: 'line',
-            smooth: 0.2,
-            symbol: 'none',
-            data: filteredPerformanceData.value.map(item => item.benchmark || null),
-            itemStyle: { color: performanceFixedSeriesColors.benchmark },
-            lineStyle: { width: 2, color: performanceFixedSeriesColors.benchmark, type: 'dashed' }
+        legend: {
+            top: 0,
+            left: 'center',
+            textStyle: { color: '#9aabba' },
+            itemWidth: 16,
+            itemHeight: 3
         },
-        {
-            name: '回撤',
-            type: 'line',
-            xAxisIndex: 1,
-            yAxisIndex: 1,
-            symbol: 'none',
-            data: filteredPerformanceData.value.map(item => item.drawdown),
-            itemStyle: { color: performanceFixedSeriesColors.drawdown },
-            lineStyle: { width: 2, color: performanceFixedSeriesColors.drawdown },
-            areaStyle: { color: 'rgba(53,194,232,.18)' }
-        }
-    ]
-}))
+        grid: [
+            { left: 42, right: 16, top: 38, height: '53%' },
+            { left: 42, right: 16, top: '72%', height: '18%' }
+        ],
+        xAxis: [
+            {
+                type: 'category',
+                data: filteredPerformanceData.value.map(item => displayText(item.label)),
+                boundaryGap: false,
+                axisLine: { lineStyle: { color: '#30404f' } },
+                axisLabel: { color: '#718294' },
+                splitLine: { show: false }
+            },
+            {
+                type: 'category',
+                gridIndex: 1,
+                data: filteredPerformanceData.value.map(item => displayText(item.label)),
+                boundaryGap: false,
+                axisLine: { lineStyle: { color: '#30404f' } },
+                axisLabel: { color: '#718294' }
+            }
+        ],
+        yAxis: [
+            {
+                type: 'value',
+                min: (value: { min: number }) => Math.min(0.98, value.min),
+                axisLabel: {
+                    color: '#718294',
+                    formatter: (value: number) => value.toFixed(2)
+                },
+                splitLine: { lineStyle: { color: '#23303c', type: 'dashed' } }
+            },
+            {
+                type: 'value',
+                gridIndex: 1,
+                max: 0,
+                min: (value: { min: number }) => Math.min(-1, value.min),
+                axisLabel: { color: '#718294', formatter: '{value}%' },
+                splitLine: { lineStyle: { color: '#23303c', type: 'dashed' } }
+            }
+        ],
+        series: [
+            {
+                name: '组合净值',
+                type: 'line',
+                smooth: 0.3,
+                symbol: 'none',
+                data: filteredPerformanceData.value.map(item => item.nav),
+                itemStyle: { color: performanceFixedSeriesColors.portfolio },
+                lineStyle: { width: 3, color: performanceFixedSeriesColors.portfolio },
+                areaStyle: { color: 'rgba(244,247,251,.08)' },
+                markPoint: {
+                    symbolSize: 42,
+                    label: { color: '#101820', fontWeight: 700, formatter: '高' },
+                    itemStyle: { color: '#f4c95d' },
+                    data: [{ type: 'max' }]
+                }
+            },
+            ...strategyPerformanceSeries.value,
+            {
+                name: '沪深300全收益',
+                type: 'line',
+                smooth: 0.2,
+                symbol: 'none',
+                data: filteredPerformanceData.value.map(item => item.benchmark || null),
+                itemStyle: { color: performanceFixedSeriesColors.benchmark },
+                lineStyle: { width: 2, color: performanceFixedSeriesColors.benchmark, type: 'dashed' }
+            },
+            {
+                name: '回撤',
+                type: 'line',
+                xAxisIndex: 1,
+                yAxisIndex: 1,
+                symbol: 'none',
+                data: filteredPerformanceData.value.map(item => item.drawdown),
+                itemStyle: { color: performanceFixedSeriesColors.drawdown },
+                lineStyle: { width: 2, color: performanceFixedSeriesColors.drawdown },
+                areaStyle: { color: 'rgba(53,194,232,.18)' }
+            }
+        ]
+    }
+})
 
 const formatMoney = (value: number) =>
     `¥${Number(value).toLocaleString('zh-CN', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+    })}`
+const formatCompactMoney = (value: number) => {
+    const sign = value < 0 ? '-' : ''
+    const absolute = Math.abs(Number(value) || 0)
+
+    if (absolute >= 100000000) return `${sign}${(absolute / 100000000).toFixed(2)}亿`
+    if (absolute >= 10000) return `${sign}${(absolute / 10000).toFixed(2)}万`
+    return `${sign}${absolute.toFixed(2)}`
+}
+const displayCompactMoneyChange = (value: number) =>
+    `${value > 0 ? '+' : ''}${formatCompactMoney(value)}`
+const displayPlainMoneyChange = (value: number) =>
+    `${value > 0 ? '+' : value < 0 ? '-' : ''}${Number(Math.abs(value)).toLocaleString('zh-CN', {
         minimumFractionDigits: 2,
         maximumFractionDigits: 2
     })}`
@@ -3396,11 +3991,46 @@ const displayMoneyChange = (value: number) =>
     `${value > 0 ? '+' : value < 0 ? '-' : ''}${formatMoney(Math.abs(value))}`
 const displayNumber = (value: string | number) => String(value)
 const displayText = (value: string | number) => String(value)
+const formatCompactName = (value: string, maxLength = 6) =>
+    value.length > maxLength ? `${value.slice(0, maxLength)}…` : value
 const formatPercent = (value: number) => `${value > 0 ? '+' : ''}${value.toFixed(2)}%`
 const formatPlainPercent = (value: number) => `${Math.max(0, Math.min(100, Number(value) || 0)).toFixed(2)}%`
 const formatContribution = (value: number) => `${value > 0 ? '+' : ''}${value.toFixed(2)}%`
 const returnClass = (value: number) =>
     value > 0 ? 'positive' : value < 0 ? 'negative' : 'muted-return'
+const primaryHeatmapMetric = computed<HeatmapMetric>(() =>
+    heatmapDisplayMode.value === 'rate' ? 'rate' : 'amount'
+)
+const showHeatmapCellSub = computed(() => heatmapDisplayMode.value === 'both')
+const formatHeatmapCellMain = (cell: ReturnHeatmapCell) => {
+    if (!cell.hasData) return '—'
+    if (primaryHeatmapMetric.value === 'rate') return formatPercent(cell.return)
+    return displayCompactMoneyChange(cell.profit)
+}
+const formatCalendarHeatmapCellMain = (cell: ReturnHeatmapCell) => {
+    if (!cell.hasData) return '—'
+    if (primaryHeatmapMetric.value === 'rate') return formatPercent(cell.return)
+    return displayPlainMoneyChange(cell.profit)
+}
+const formatHeatmapCellSub = (cell: ReturnHeatmapCell) => {
+    if (!cell.hasData) return ''
+    return formatPercent(cell.return)
+}
+const getReturnHeatmapStyle = (cell: ReturnHeatmapCell) => {
+    if (!cell.hasData) return {}
+
+    const value = primaryHeatmapMetric.value === 'rate' ? cell.return : cell.profit
+    const scale = primaryHeatmapMetric.value === 'rate' ? heatmapRateScale.value : heatmapAmountScale.value
+    const intensity = Math.min(Math.abs(value) / Math.max(scale, 1), 1)
+    const alpha = 0.08 + intensity * 0.48
+    const borderAlpha = 0.18 + intensity * 0.35
+    const color = value >= 0 ? '239 111 108' : '78 205 196'
+
+    return {
+        background: `rgb(${color} / ${alpha})`,
+        borderColor: `rgb(${color} / ${borderAlpha})`
+    }
+}
 const estimateDailyReturn = (strategy: { amount: number; previous: number; cashFlow: number }) =>
     strategy.previous === 0
         ? 0
@@ -5821,11 +6451,16 @@ select:focus {
 .allocation-label {
     display: flex;
     align-items: center;
+    min-width: 0;
     gap: 8px;
 }
 
 .allocation-label strong {
+    overflow: hidden;
+    max-width: 5em;
     font-size: 12px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .weight-track {
@@ -6048,6 +6683,47 @@ select:focus {
     animation-delay: 0.3s;
 }
 
+.chart-mode-switch {
+    display: grid;
+    padding: 6px;
+    margin: 18px 0 16px;
+    background: rgb(0 0 0 / 18%);
+    border: 1px solid rgb(255 255 255 / 9%);
+    border-radius: 8px;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 6px;
+}
+
+.chart-mode-switch button {
+    display: grid;
+    padding: 10px 12px;
+    min-width: 0;
+    color: #9fb0c2;
+    text-align: left;
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 6px;
+    cursor: pointer;
+    gap: 3px;
+}
+
+.chart-mode-switch button.active {
+    color: #f4f7fb;
+    background: rgb(var(--ledger-accent-rgb) / 10%);
+    border-color: rgb(var(--ledger-accent-rgb) / 42%);
+    box-shadow: inset 0 0 18px rgb(var(--ledger-accent-rgb) / 6%);
+}
+
+.chart-mode-switch span {
+    font-size: 13px;
+    font-weight: 700;
+}
+
+.chart-mode-switch small {
+    font-size: 12px;
+    color: #718294;
+}
+
 .benchmark-strip {
     display: grid;
     align-items: center;
@@ -6092,6 +6768,303 @@ select:focus {
     padding: 0 10px 6px;
     width: 100%;
     height: 410px;
+}
+
+.return-heatmap-panel {
+    animation-delay: 0.34s;
+}
+
+.heatmap-controls {
+    display: flex;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.heatmap-select-control {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    overflow: hidden;
+    min-height: 36px;
+    background: rgb(13 20 28 / 98%);
+    border: 1px solid rgb(255 255 255 / 12%);
+    border-radius: 6px;
+    box-shadow: 0 10px 24px rgb(0 0 0 / 24%);
+    transition: background 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.heatmap-select-control::after {
+    position: absolute;
+    top: 50%;
+    right: 11px;
+    width: 7px;
+    height: 7px;
+    border-right: 2px solid #9fb7c9;
+    border-bottom: 2px solid #9fb7c9;
+    content: '';
+    pointer-events: none;
+    transform: translateY(-65%) rotate(45deg);
+}
+
+.heatmap-select-control select {
+    padding: 0 28px 0 12px;
+    width: 108px;
+    height: 34px;
+    color: #e8fffd;
+    background: transparent;
+    border: 0;
+    outline: 0;
+    appearance: none;
+    cursor: pointer;
+    font-weight: 700;
+}
+
+.heatmap-select-control.wide select {
+    width: 108px;
+}
+
+.heatmap-select-control option {
+    color: #dfe8f1;
+    background: #0d141c;
+}
+
+.heatmap-select-control:hover,
+.heatmap-select-control:focus-within {
+    background: rgb(var(--ledger-accent-rgb) / 10%);
+    border-color: rgb(var(--ledger-accent-rgb) / 72%);
+    box-shadow: 0 0 0 1px rgb(var(--ledger-accent-rgb) / 10%);
+}
+
+.heatmap-summary-strip {
+    display: grid;
+    overflow: hidden;
+    margin: 16px 0;
+    background: rgb(0 0 0 / 18%);
+    border: 1px solid rgb(255 255 255 / 9%);
+    border-radius: 8px;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.heatmap-summary-strip article {
+    padding: 12px 14px;
+    border-right: 1px solid rgb(255 255 255 / 9%);
+}
+
+.heatmap-summary-strip article:last-child {
+    border-right: 0;
+}
+
+.heatmap-summary-strip span {
+    display: block;
+    font-size: 12px;
+    color: #718294;
+}
+
+.heatmap-summary-strip strong {
+    display: block;
+    overflow: hidden;
+    margin-top: 5px;
+    font-size: 16px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.heatmap-table-wrap {
+    overflow-x: auto;
+    padding-bottom: 4px;
+}
+
+.return-heatmap-table {
+    width: 100%;
+    min-width: 980px;
+    border-spacing: 7px;
+    table-layout: fixed;
+    border-collapse: separate;
+}
+
+.return-heatmap-table th {
+    padding: 8px 6px;
+    font-size: 12px;
+    color: #8fa1b2;
+    text-align: center;
+    font-weight: 600;
+}
+
+.return-heatmap-table tbody th {
+    color: #f4f7fb;
+    background: rgb(255 255 255 / 5%);
+    border: 1px solid rgb(255 255 255 / 8%);
+    border-radius: 7px;
+}
+
+.return-heatmap-table td,
+.calendar-day {
+    border: 1px solid rgb(255 255 255 / 8%);
+    transition: transform 0.18s ease, border-color 0.18s ease;
+}
+
+.return-heatmap-table td {
+    padding: 9px 6px;
+    height: 58px;
+    text-align: center;
+    border-radius: 8px;
+    cursor: pointer;
+}
+
+.return-heatmap-table td:not(.empty):hover,
+.calendar-day.active:hover {
+    border-color: rgb(255 255 255 / 28%);
+    transform: translateY(-1px);
+}
+
+.return-heatmap-table td.empty,
+.calendar-day.empty {
+    color: #536273;
+    background: rgb(255 255 255 / 3%);
+}
+
+.return-heatmap-table td span,
+.return-heatmap-table td small,
+.calendar-day strong,
+.calendar-day small {
+    display: block;
+}
+
+.return-heatmap-table td span,
+.calendar-day strong {
+    font-size: 13px;
+    color: #f4f7fb;
+    font-weight: 700;
+}
+
+.return-heatmap-table td small,
+.calendar-day small {
+    margin-top: 3px;
+    font-size: 11.5px;
+    color: #b9c6d4;
+}
+
+.single-metric-view .return-heatmap-table td span {
+    font-size: 14px;
+}
+
+.return-heatmap-table .year-total-cell {
+    box-shadow: inset 0 0 0 1px rgb(255 255 255 / 10%);
+}
+
+.monthly-heatmap-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 220px;
+    gap: 16px;
+}
+
+.month-picker-strip {
+    display: flex;
+    overflow-x: auto;
+    padding-bottom: 2px;
+    grid-column: 1 / -1;
+    gap: 8px;
+}
+
+.month-picker-strip button {
+    padding: 7px 10px;
+    min-width: 64px;
+    color: #8fa1b2;
+    white-space: nowrap;
+    background: #0d141b;
+    border: 1px solid #2b3946;
+    border-radius: 6px;
+    cursor: pointer;
+}
+
+.month-picker-strip button.active {
+    color: #e8fffd;
+    background: rgb(var(--ledger-accent-rgb) / 8%);
+    border-color: rgb(var(--ledger-accent-rgb) / 72%);
+    box-shadow: 0 0 0 1px rgb(var(--ledger-accent-rgb) / 10%);
+    font-weight: 700;
+}
+
+.monthly-calendar {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    gap: 8px;
+}
+
+.monthly-calendar-scroll {
+    min-width: 0;
+    overflow-x: auto;
+    padding-bottom: 3px;
+}
+
+.calendar-weekday {
+    padding: 2px 0 5px;
+    font-size: 12px;
+    color: #718294;
+    text-align: center;
+}
+
+.calendar-day {
+    position: relative;
+    display: grid;
+    align-content: center;
+    padding: 8px;
+    min-height: 82px;
+    background: rgb(255 255 255 / 4%);
+    border-radius: 8px;
+    gap: 4px;
+    text-align: center;
+}
+
+.calendar-day > span {
+    position: absolute;
+    top: 8px;
+    left: 8px;
+    font-size: 12px;
+    color: #8fa1b2;
+}
+
+.calendar-day strong {
+    overflow: hidden;
+    font-size: 13px;
+    line-height: 1.2;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.single-metric-view .calendar-day strong {
+    font-size: 14px;
+}
+
+.calendar-day.empty {
+    border-color: transparent;
+}
+
+.monthly-extreme-list {
+    display: grid;
+    align-content: start;
+    gap: 8px;
+}
+
+.monthly-extreme-list article {
+    padding: 10px 12px;
+    background: rgb(0 0 0 / 18%);
+    border: 1px solid rgb(255 255 255 / 9%);
+    border-radius: 8px;
+}
+
+.monthly-extreme-list span,
+.monthly-extreme-list small {
+    display: block;
+    font-size: 12px;
+    color: #718294;
+}
+
+.monthly-extreme-list strong {
+    display: block;
+    margin: 5px 0 2px;
+    font-size: 14px;
 }
 
 .range-select-button {
@@ -6842,18 +7815,22 @@ td {
 }
 
 .range-option-grid button {
-    padding: 9px 8px;
+    padding: 8px 12px;
+    min-height: 34px;
     color: #8fa1b2;
-    background: #0d141b;
+    white-space: nowrap;
+    background: rgb(13 20 27 / 72%);
     border: 1px solid #2b3946;
     border-radius: 6px;
+    transition: color 0.18s ease, border-color 0.18s ease, background 0.18s ease, box-shadow 0.18s ease;
     cursor: pointer;
 }
 
 .range-option-grid button.active {
-    color: #071412;
-    background: #4ecdc4;
-    border-color: #4ecdc4;
+    color: #e8fffd;
+    background: rgb(var(--ledger-accent-rgb) / 8%);
+    border-color: rgb(var(--ledger-accent-rgb) / 72%);
+    box-shadow: 0 0 0 1px rgb(var(--ledger-accent-rgb) / 10%);
     font-weight: 700;
 }
 
@@ -7571,6 +8548,14 @@ label small {
         grid-template-columns: repeat(2, 1fr);
     }
 
+    .monthly-heatmap-layout {
+        grid-template-columns: 1fr;
+    }
+
+    .monthly-extreme-list {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
 }
 
 @media (max-width: 760px) {
@@ -7695,9 +8680,63 @@ label small {
         gap: 6px 12px;
     }
 
+    .chart-mode-switch {
+        grid-template-columns: 1fr;
+    }
+
+    .chart-mode-switch button {
+        grid-template-columns: minmax(0, 1fr) auto;
+        align-items: center;
+    }
+
     .panel-heading {
         align-items: flex-start;
         flex-wrap: wrap;
+    }
+
+    .heatmap-controls {
+        justify-content: stretch;
+        width: 100%;
+    }
+
+    .heatmap-select-control {
+        flex: 1 1 108px;
+    }
+
+    .heatmap-select-control select,
+    .heatmap-select-control.wide select {
+        width: 100%;
+        min-width: 108px;
+    }
+
+    .heatmap-summary-strip {
+        grid-template-columns: 1fr 1fr;
+    }
+
+    .heatmap-summary-strip article:nth-child(2n) {
+        border-right: 0;
+    }
+
+    .heatmap-summary-strip article:nth-child(n + 3) {
+        border-top: 1px solid rgb(255 255 255 / 9%);
+    }
+
+    .monthly-calendar {
+        min-width: 620px;
+        gap: 6px;
+    }
+
+    .calendar-day {
+        padding: 7px 6px;
+        min-height: 72px;
+    }
+
+    .calendar-day strong {
+        font-size: 11px;
+    }
+
+    .monthly-extreme-list {
+        grid-template-columns: 1fr;
     }
 
     .recovery-trend-strip {
@@ -7899,7 +8938,7 @@ label small {
     }
 
     .allocation-row {
-        grid-template-columns: 72px minmax(80px, 1fr) 72px;
+        grid-template-columns: 84px minmax(76px, 1fr) 72px;
         gap: 8px;
     }
 
@@ -8142,10 +9181,10 @@ label small {
     }
 
     .card-description {
-        overflow: hidden;
-        max-width: 160px;
-        text-overflow: ellipsis;
-        white-space: nowrap;
+        overflow: visible;
+        max-width: none;
+        text-overflow: clip;
+        white-space: normal;
     }
 
     .asset-summary-grid article {
