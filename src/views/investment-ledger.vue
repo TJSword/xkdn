@@ -59,6 +59,10 @@
                                     <span class="more-action-icon import"></span>
                                     导入 Excel
                                 </button>
+                                <button type="button" @click="runLedgerMoreAction(openAnnualTargetModal)">
+                                    <span class="more-action-icon target"></span>
+                                    年度目标
+                                </button>
                                 <button type="button" @click="runLedgerMoreAction(openNewRecord)">
                                     <span class="more-action-icon add"></span>
                                     补录历史
@@ -122,6 +126,40 @@
                         </strong>
                         <small>计入资金流时间</small>
                     </article>
+                </div>
+                <div
+                    v-if="hasAnnualProfitTarget && hasLedgerData"
+                    class="annual-target-panel"
+                    :class="{ achieved: annualTargetProgress >= 100 }">
+                    <div class="annual-target-heading">
+                        <div>
+                            <span>{{ annualTargetYearLabel }} 年收益目标</span>
+                            <strong :class="returnClass(annualTargetProfit)">
+                                {{ annualTargetProgressLabel }}
+                            </strong>
+                        </div>
+                    </div>
+                    <div class="annual-target-track" aria-hidden="true">
+                        <i :style="{ width: `${annualTargetProgressWidth}%` }"></i>
+                    </div>
+                    <div class="annual-target-meta">
+                        <span>
+                            今年收益
+                            <strong :class="returnClass(annualTargetProfit)">
+                                {{ displayMoneyChange(annualTargetProfit) }}
+                            </strong>
+                        </span>
+                        <span>
+                            目标
+                            <strong>{{ displayMoney(annualProfitTarget) }}</strong>
+                        </span>
+                        <span>
+                            {{ annualTargetGap >= 0 ? '还差' : '已超出' }}
+                            <strong :class="annualTargetGap >= 0 ? 'warning' : 'positive'">
+                                {{ displayMoney(Math.abs(annualTargetGap)) }}
+                            </strong>
+                        </span>
+                    </div>
                 </div>
                 <div v-if="hasLedgerData" class="account-status-line">
                     <strong>{{ accountDrawdownStatus }}</strong>
@@ -1423,6 +1461,69 @@
             </div>
         </Transition>
 
+        <Transition name="modal-fade">
+            <div v-if="showAnnualTargetModal" class="modal-backdrop">
+                <form class="modal-panel compact-modal annual-target-modal" @submit.prevent="saveAnnualTarget">
+                    <div class="modal-header">
+                        <div>
+                            <span>年度目标</span>
+                            <h3>设置 {{ annualTargetYearLabel }} 年收益目标</h3>
+                        </div>
+                        <button
+                            type="button"
+                            class="icon-button"
+                            aria-label="关闭"
+                            title="关闭"
+                            @click="closeAnnualTargetModal">
+                            ×
+                        </button>
+                    </div>
+                    <label class="annual-target-field">
+                        <span>目标收益金额</span>
+                        <div>
+                            <b>¥</b>
+                            <input
+                                v-model.number="annualProfitTargetDraft"
+                                type="number"
+                                min="0"
+                                step="1000"
+                                placeholder="例如 100000" />
+                        </div>
+                        <small>保存到云端账户配置中，同一账号下会自动同步。</small>
+                    </label>
+                    <div class="annual-target-preview">
+                        <span>当前今年收益</span>
+                        <strong :class="returnClass(annualTargetProfit)">
+                            {{ displayMoneyChange(annualTargetProfit) }}
+                        </strong>
+                    </div>
+                    <div class="modal-actions">
+                        <button
+                            v-if="hasAnnualProfitTarget"
+                            type="button"
+                            class="button secondary"
+                            :disabled="annualTargetSaving"
+                            @click="clearAnnualTarget">
+                            清除目标
+                        </button>
+                        <button
+                            type="button"
+                            class="button secondary"
+                            :disabled="annualTargetSaving"
+                            @click="closeAnnualTargetModal">
+                            取消
+                        </button>
+                        <button
+                            class="button secondary featured-action"
+                            type="submit"
+                            :disabled="annualTargetSaving">
+                            {{ annualTargetSaving ? '保存中...' : '保存目标' }}
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </Transition>
+
     </div>
 </template>
 
@@ -1438,6 +1539,7 @@ import {
     deleteLedgerStrategy,
     getLedgerBundle,
     renameLedgerStrategy,
+    saveAnnualProfitTarget,
     saveLedgerRecord,
     saveLedgerRecords,
     saveDailyLedgerRecords,
@@ -1518,6 +1620,8 @@ const showStrategyModal = ref(false)
 const showDeleteStrategyModal = ref(false)
 const showArchiveStrategyModal = ref(false)
 const showMissingDetailModal = ref(false)
+const showAnnualTargetModal = ref(false)
+const annualTargetSaving = ref(false)
 const editingRecordId = ref('')
 const pendingDeleteRecord = ref<LedgerRecord | null>(null)
 const pendingDeleteStrategy = ref<StrategyDraft | null>(null)
@@ -1534,6 +1638,8 @@ const modalRange = reactive({
     end: ''
 })
 const targetMode = ref(false)
+const annualProfitTarget = ref(0)
+const annualProfitTargetDraft = ref<number | ''>('')
 const selectedFileName = ref('')
 const selectedImportFile = ref<File | null>(null)
 const importDragActive = ref(false)
@@ -1601,7 +1707,8 @@ const emptyDemoOption = {
 }
 const accountConfig = reactive({
     openingPrincipal: 0,
-    openingDate: ''
+    openingDate: '',
+    annualProfitTargets: {} as Record<string, number>
 })
 const strategies = reactive<StrategyDraft[]>([])
 const archivedStrategies = reactive<StrategyDraft[]>([])
@@ -1966,6 +2073,61 @@ const accountSummary = computed(() => {
         moneyWeightedReturn: calculateXirr(investorCashFlows)
     }
 })
+const annualTargetYearLabel = computed(() => todayDate.slice(0, 4))
+const annualTargetYearStart = computed(() => `${annualTargetYearLabel.value}-01-01`)
+const hasAnnualProfitTarget = computed(() => annualProfitTarget.value > 0)
+const recordsGroupedByDate = computed(() => {
+    const groups = new Map<string, LedgerRecord[]>()
+
+    sortedRecordsAsc.value.forEach(record => {
+        if (!groups.has(record.date)) groups.set(record.date, [])
+        groups.get(record.date)?.push(record)
+    })
+
+    return [...groups.entries()]
+        .map(([date, records]) => ({
+            date,
+            records,
+            total: records.reduce((sum, record) => sum + Number(record.amount || 0), 0),
+            cashFlow: records.reduce((sum, record) => sum + Number(record.cashFlow || 0), 0)
+        }))
+        .sort((a, b) => a.date.localeCompare(b.date))
+})
+const annualTargetProfit = computed(() => {
+    const yearStart = annualTargetYearStart.value
+    const yearEnd = `${annualTargetYearLabel.value}-12-31`
+    const yearGroups = recordsGroupedByDate.value.filter(
+        group => group.date >= yearStart && group.date <= yearEnd
+    )
+
+    if (!yearGroups.length) return 0
+
+    const latestGroup = yearGroups.at(-1)
+    if (!latestGroup) return 0
+
+    const previousGroup = recordsGroupedByDate.value
+        .filter(group => group.date < yearStart)
+        .at(-1)
+    const firstYearGroup = yearGroups[0]
+    const baselineAssets = previousGroup
+        ? previousGroup.total
+        : Math.max(firstYearGroup.total - firstYearGroup.cashFlow, 0)
+    const netCashFlow = cashFlowEvents.value
+        .filter(item => item.date >= yearStart && item.date <= latestGroup.date)
+        .reduce((sum, item) => sum + Number(item.amount || 0), 0)
+
+    return latestGroup.total - baselineAssets - netCashFlow
+})
+const annualTargetProgress = computed(() =>
+    annualProfitTarget.value ? (annualTargetProfit.value / annualProfitTarget.value) * 100 : 0
+)
+const annualTargetProgressWidth = computed(() =>
+    Math.max(0, Math.min(100, annualTargetProgress.value))
+)
+const annualTargetProgressLabel = computed(() =>
+    `${annualTargetProgress.value > 0 ? '+' : ''}${annualTargetProgress.value.toFixed(2)}%`
+)
+const annualTargetGap = computed(() => annualProfitTarget.value - annualTargetProfit.value)
 
 const duplicateRecordGroups = computed(() => {
     const counts = new Map<string, number>()
@@ -2815,10 +2977,18 @@ const syncDerivedState = () => {
 const applyLedgerBundle = (
     remoteStrategies: RemoteLedgerStrategy[],
     remoteRecords: RemoteLedgerRecord[],
-    account: { openingPrincipal?: number; openingDate?: string }
+    account: {
+        openingPrincipal?: number
+        openingDate?: string
+        annualProfitTargets?: Record<string, number>
+    }
 ) => {
     accountConfig.openingPrincipal = Number(account.openingPrincipal || 0)
     accountConfig.openingDate = account.openingDate || ''
+    accountConfig.annualProfitTargets = { ...(account.annualProfitTargets || {}) }
+    annualProfitTarget.value = Number(
+        accountConfig.annualProfitTargets[annualTargetYearLabel.value] || 0
+    )
 
     const mapStrategyDraft = (strategy: RemoteLedgerStrategy, index: number): StrategyDraft => ({
         id: strategy.strategyId,
@@ -2930,6 +3100,61 @@ const runLedgerMoreAction = async (action: LedgerMoreAction) => {
     closeLedgerMoreMenu()
     await action()
 }
+const openAnnualTargetModal = () => {
+    annualProfitTargetDraft.value = annualProfitTarget.value || ''
+    showAnnualTargetModal.value = true
+}
+const closeAnnualTargetModal = () => {
+    if (annualTargetSaving.value) return
+    showAnnualTargetModal.value = false
+}
+const applyAnnualProfitTargets = (targets: Record<string, number> = {}) => {
+    accountConfig.annualProfitTargets = { ...targets }
+    annualProfitTarget.value = Number(
+        accountConfig.annualProfitTargets[annualTargetYearLabel.value] || 0
+    )
+}
+const saveAnnualTarget = async () => {
+    if (annualTargetSaving.value) return
+
+    const value = Number(annualProfitTargetDraft.value || 0)
+
+    if (!Number.isFinite(value) || value <= 0) {
+        await clearAnnualTarget()
+        return
+    }
+
+    annualTargetSaving.value = true
+    try {
+        const result = await saveAnnualProfitTarget(
+            annualTargetYearLabel.value,
+            Number(value.toFixed(2))
+        )
+        applyAnnualProfitTargets(result.account.annualProfitTargets)
+        showAnnualTargetModal.value = false
+        notify('年度收益目标已保存', 'success')
+    } catch (error) {
+        notify(error instanceof Error ? error.message : '年度收益目标保存失败', 'error')
+    } finally {
+        annualTargetSaving.value = false
+    }
+}
+const clearAnnualTarget = async () => {
+    if (annualTargetSaving.value) return
+
+    annualTargetSaving.value = true
+    try {
+        const result = await saveAnnualProfitTarget(annualTargetYearLabel.value, 0)
+        applyAnnualProfitTargets(result.account.annualProfitTargets)
+        annualProfitTargetDraft.value = ''
+        showAnnualTargetModal.value = false
+        notify('年度收益目标已清除')
+    } catch (error) {
+        notify(error instanceof Error ? error.message : '年度收益目标清除失败', 'error')
+    } finally {
+        annualTargetSaving.value = false
+    }
+}
 const handleLedgerMoreOutsideClick = (event: MouseEvent) => {
     if (!showLedgerMoreMenu.value) return
     const target = event.target as Node | null
@@ -2937,7 +3162,10 @@ const handleLedgerMoreOutsideClick = (event: MouseEvent) => {
     closeLedgerMoreMenu()
 }
 const handleLedgerMoreKeydown = (event: KeyboardEvent) => {
-    if (event.key === 'Escape') closeLedgerMoreMenu()
+    if (event.key === 'Escape') {
+        closeLedgerMoreMenu()
+        closeAnnualTargetModal()
+    }
 }
 
 onMounted(() => {
@@ -4593,6 +4821,8 @@ p {
 .more-action-icon.capture::before,
 .more-action-icon.export::before,
 .more-action-icon.import::before,
+.more-action-icon.target::before,
+.more-action-icon.target::after,
 .more-action-icon.add::before,
 .more-action-icon.add::after {
     position: absolute;
@@ -4633,25 +4863,47 @@ p {
     transform: rotate(225deg);
 }
 
+.more-action-icon.target {
+    border: 1.5px solid currentcolor;
+    border-radius: 50%;
+}
+
+.more-action-icon.target::before {
+    inset: 3px;
+    border: 1.5px solid currentcolor;
+    border-radius: 50%;
+}
+
+.more-action-icon.target::after {
+    top: 6px;
+    left: 6px;
+    width: 4px;
+    height: 4px;
+    background: currentcolor;
+    border-radius: 50%;
+}
+
 .more-action-icon.add {
     border: 1.5px solid currentcolor;
     border-radius: 50%;
 }
 
 .more-action-icon.add::before {
-    top: 7px;
-    left: 4px;
+    top: 50%;
+    left: 50%;
     width: 8px;
     height: 1.5px;
     background: currentcolor;
+    transform: translate(-50%, -50%);
 }
 
 .more-action-icon.add::after {
-    top: 4px;
-    left: 7px;
+    top: 50%;
+    left: 50%;
     width: 1.5px;
     height: 8px;
     background: currentcolor;
+    transform: translate(-50%, -50%);
 }
 
 .button {
@@ -4957,6 +5209,70 @@ p {
 
 .asset-summary-primary strong {
     font-size: 22px;
+}
+
+.annual-target-panel {
+    padding: 14px 16px;
+    margin-top: 12px;
+    background: linear-gradient(90deg, rgb(var(--ledger-accent-rgb) / 10%), rgb(255 255 255 / 3%));
+    border: 1px solid rgb(var(--ledger-accent-rgb) / 22%);
+    border-radius: 8px;
+}
+
+.annual-target-panel.achieved {
+    border-color: rgb(244 201 93 / 42%);
+    background: linear-gradient(90deg, rgb(244 201 93 / 10%), rgb(var(--ledger-accent-rgb) / 5%));
+}
+
+.annual-target-heading,
+.annual-target-meta {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 16px;
+}
+
+.annual-target-heading > div span,
+.annual-target-meta span {
+    display: block;
+    font-size: 12px;
+    color: #8fa1b2;
+}
+
+.annual-target-heading > div strong {
+    display: block;
+    margin-top: 4px;
+    font-size: 22px;
+}
+
+.annual-target-track {
+    overflow: hidden;
+    margin: 12px 0 10px;
+    height: 9px;
+    background: rgb(0 0 0 / 32%);
+    border: 1px solid rgb(255 255 255 / 8%);
+    border-radius: 999px;
+}
+
+.annual-target-track i {
+    display: block;
+    width: 0;
+    height: 100%;
+    background: linear-gradient(90deg, var(--ledger-accent), #f4c95d);
+    border-radius: inherit;
+    box-shadow: 0 0 16px rgb(var(--ledger-accent-rgb) / 35%);
+    transition: width 0.35s ease;
+}
+
+.annual-target-meta {
+    justify-content: flex-start;
+    flex-wrap: wrap;
+    gap: 10px 22px;
+}
+
+.annual-target-meta strong {
+    margin-left: 5px;
+    font-size: 13px;
 }
 
 .account-status-line {
@@ -6700,6 +7016,84 @@ label small {
     border-left: 3px solid #f4c95d;
 }
 
+.annual-target-modal .modal-actions {
+    justify-content: flex-end;
+    flex-wrap: nowrap;
+    gap: 8px;
+}
+
+.annual-target-modal .modal-actions .button {
+    padding: 0 12px;
+    min-width: 0;
+    white-space: nowrap;
+}
+
+.annual-target-field {
+    display: grid;
+    gap: 8px;
+}
+
+.annual-target-field > span {
+    font-size: 13px;
+    color: #a9b8c7;
+}
+
+.annual-target-field > div {
+    display: flex;
+    align-items: center;
+    padding: 0 12px;
+    background: #0d141b;
+    border: 1px solid #2b3946;
+    border-radius: 6px;
+    transition: border-color 0.2s, box-shadow 0.2s;
+    gap: 8px;
+}
+
+.annual-target-field > div:focus-within {
+    border-color: #4ecdc4;
+    box-shadow: 0 0 0 2px rgb(78 205 196 / 12%);
+}
+
+.annual-target-field b {
+    color: var(--ledger-accent);
+}
+
+.annual-target-field input {
+    padding: 0;
+    width: 100%;
+    height: 42px;
+    min-height: 42px;
+    color: #f4f7fb;
+    background: transparent;
+    border: 0;
+    outline: 0;
+}
+
+.annual-target-field input:focus {
+    box-shadow: none;
+}
+
+.annual-target-preview {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 14px;
+    margin-top: 16px;
+    background: rgb(0 0 0 / 18%);
+    border: 1px solid rgb(255 255 255 / 8%);
+    border-radius: 8px;
+    gap: 14px;
+}
+
+.annual-target-preview span {
+    font-size: 13px;
+    color: #8fa1b2;
+}
+
+.annual-target-preview strong {
+    font-size: 18px;
+}
+
 .strategy-name-list {
     display: grid;
     gap: 16px;
@@ -7283,6 +7677,16 @@ label small {
 
     .change-line span {
         font-size: 10px;
+    }
+
+    .annual-target-heading {
+        align-items: flex-start;
+    }
+
+    .annual-target-meta {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 6px;
     }
 
     .account-status-line {

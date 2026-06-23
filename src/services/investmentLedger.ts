@@ -5,6 +5,7 @@ export interface LedgerAccountConfig {
     currency: 'CNY'
     openingPrincipal: number
     openingDate: string
+    annualProfitTargets?: Record<string, number>
 }
 
 export interface LedgerStrategy {
@@ -78,6 +79,9 @@ export const getLedgerRecords = (
 
 export const saveLedgerAccount = (account: LedgerAccountConfig) =>
     callLedger<{ account: LedgerAccountConfig }>('saveAccount', { account })
+
+export const saveAnnualProfitTarget = (year: string, amount: number) =>
+    callLedger<{ account: LedgerAccountConfig }>('saveAnnualProfitTarget', { year, amount })
 
 export const createLedgerStrategy = (
     strategy: Omit<LedgerStrategy, 'id' | 'archived'> & { strategyId?: string }
