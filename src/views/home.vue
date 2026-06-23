@@ -178,10 +178,8 @@
           <div href="#" @click.prevent="openRechargeModal" class="action-link">会员充值</div>
           <span class="separator">|</span>
           <div href="#" @click.prevent="openPasswordModal" class="action-link">修改密码</div>
-          <template v-if="userStore.isVip">
-            <span class="separator">|</span>
-            <div href="#" @click.prevent="openNotificationModal" class="action-link">通知设置</div>
-          </template>
+          <span class="separator">|</span>
+          <div href="#" @click.prevent="openNotificationModal" class="action-link">通知设置</div>
           <span class="separator">|</span>
           <div class="wechat-hover-wrapper">
             <button type="button" class="action-link action-button" @click="copyWeChatID">
@@ -286,7 +284,7 @@
                       ?
                     </button>
                   </span>
-                  <strong>{{ item.drawdownPercentile }}%</strong>
+                  <strong>{{ formatPercentilePercent(item.drawdownPercentile) }}</strong>
                 </div>
                 <div class="strategy-percentile-track" aria-hidden="true">
                   <span></span>
@@ -479,6 +477,36 @@
               </div>
               <button type="submit" class="submit-btn">确认修改</button>
             </form>
+          </div>
+        </div>
+      </div>
+    </Transition>
+
+    <Transition name="modal-fade">
+      <div v-if="isNotificationIntroModalVisible" class="modal-backdrop" @click="closeNotificationIntroModal">
+        <div class="modal-content notification-intro-modal-content" @click.stop>
+          <div class="modal-header">
+            <h3>通知设置</h3>
+            <button class="modal-close-button" @click="closeNotificationIntroModal">×</button>
+          </div>
+          <div class="modal-body notification-intro-body">
+            <p>
+              通知设置可以帮助你及时接收策略相关提醒，包括策略信号、调仓信号，以及 LOF 监控提醒。
+            </p>
+            <p>
+              开启后，当系统检测到相关信号或触发监控条件时，会通过通知提醒你，方便你及时关注和处理。
+            </p>
+            <div class="notification-intro-vip">
+              该功能仅会员可用。开通会员后，即可设置通知内容和提醒方式。
+            </div>
+            <div class="notification-intro-actions">
+              <button class="notification-intro-secondary" type="button" @click="closeNotificationIntroModal">
+                知道了
+              </button>
+              <button class="notification-intro-primary" type="button" @click="openNotificationRecharge">
+                开通会员
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -843,6 +871,9 @@
 
   const formatObservationPercent = (value: number) => {
       return `${Math.max(0, Math.min(100, value)).toFixed(0)}%`
+  }
+  const formatPercentilePercent = (value: number) => {
+      return `${Math.max(0, Math.min(100, Number(value) || 0)).toFixed(2)}%`
   }
 
   const formatObservationDays = (value: number) => {
@@ -1243,7 +1274,7 @@
 
   const normalizeRealtimeDisplayMinute = (value?: string) => {
       const minuteText = getMinuteTextFromTimestamp(value)
-      return minuteText === '15:05' ? '15:00' : minuteText
+      return minuteText.startsWith('15:') ? '15:00' : minuteText
   }
 
   const fetchAllWeatherRealtime = async (sourcePayload?: any) => {
@@ -1259,7 +1290,7 @@
 
           const hasIntradayPayload = Array.isArray(payload.intraday)
           const rawIntraday = hasIntradayPayload ? payload.intraday : []
-          const payloadUpdatedMinute = normalizeRealtimeDisplayMinute(payload.updatedMinute || payload.updatedAt)
+          const payloadUpdatedMinute = normalizeRealtimeDisplayMinute(payload.updatedAt || payload.updatedMinute)
           const payloadMinuteValue = getMinuteValueFromTime(payloadUpdatedMinute)
           const intraday =
               payloadMinuteValue === null
@@ -1327,12 +1358,14 @@
               .map((point: any) => point.time)
               .filter((time: string) => typeof time === 'string' && time.length > 0)
           const canViewHoldings = payload.hasHoldingsAccess !== false
-          const holdings = canViewHoldings && Array.isArray(payload.activeHoldings) ? payload.activeHoldings : []
+          const activeHoldings = Array.isArray(payload.activeHoldings) ? payload.activeHoldings : []
+          const driftedHoldings = Array.isArray(payload.closingHoldings) ? payload.closingHoldings : []
+          const holdings = canViewHoldings ? (driftedHoldings.length ? driftedHoldings : activeHoldings) : []
           const assetReturnMap = buildAssetReturnMap(payload)
           const allocation = holdings.map((holding: any, index: number) => ({
               id: holding.code || `bond-${index}`,
               name: holding.name || holding.code || `Bond ${index + 1}`,
-              weight: holdings.length ? 1 / holdings.length : 0,
+              weight: Number.isFinite(Number(holding.weight)) ? Number(holding.weight) : holdings.length ? 1 / holdings.length : 0,
               return: getHoldingReturnPercent(holding, assetReturnMap)
           }))
           const amount = Number(payload.strategyAmount ?? payload.strategyValue ?? payload.strategyIndexValue)
@@ -1345,7 +1378,7 @@
               dailyReturn: Number.isFinite(dailyReturn) ? dailyReturn : bondItem.dailyReturn,
               monthReturn: Number.isFinite(monthReturn) ? monthReturn : bondItem.monthReturn,
               yearReturn: Number.isFinite(yearReturn) ? yearReturn : bondItem.yearReturn,
-              updatedAt: normalizeRealtimeDisplayMinute(payload.updatedMinute || payload.updatedAt) || bondItem.updatedAt,
+              updatedAt: normalizeRealtimeDisplayMinute(payload.updatedAt || payload.updatedMinute) || bondItem.updatedAt,
               trend: intradayAmounts.length >= 2 ? intradayAmounts : bondItem.trend,
               intraday: intradayAmounts.length >= 2 ? intradayAmounts : bondItem.intraday,
               intradayTimes: intradayTimes.length === intradayAmounts.length ? intradayTimes : bondItem.intradayTimes,
@@ -1377,7 +1410,9 @@
               .map((point: any) => point.time)
               .filter((time: string) => typeof time === 'string' && time.length > 0)
           const canViewHoldings = payload.hasHoldingsAccess !== false
-          const holdings = canViewHoldings && Array.isArray(payload.activeHoldings) ? payload.activeHoldings : []
+          const activeHoldings = Array.isArray(payload.activeHoldings) ? payload.activeHoldings : []
+          const driftedHoldings = Array.isArray(payload.closingHoldings) ? payload.closingHoldings : []
+          const holdings = canViewHoldings ? (driftedHoldings.length ? driftedHoldings : activeHoldings) : []
           const assetReturnMap = buildAssetReturnMap(payload)
           const allocation = holdings.map((holding: any, index: number) => ({
               id: holding.code || `rights-${index}`,
@@ -1395,7 +1430,7 @@
               dailyReturn: Number.isFinite(dailyReturn) ? dailyReturn : rightsItem.dailyReturn,
               monthReturn: Number.isFinite(monthReturn) ? monthReturn : rightsItem.monthReturn,
               yearReturn: Number.isFinite(yearReturn) ? yearReturn : rightsItem.yearReturn,
-              updatedAt: normalizeRealtimeDisplayMinute(payload.updatedMinute || payload.updatedAt) || rightsItem.updatedAt,
+              updatedAt: normalizeRealtimeDisplayMinute(payload.updatedAt || payload.updatedMinute) || rightsItem.updatedAt,
               trend: intradayAmounts.length >= 2 ? intradayAmounts : rightsItem.trend,
               intraday: intradayAmounts.length >= 2 ? intradayAmounts : rightsItem.intraday,
               intradayTimes: intradayTimes.length === intradayAmounts.length ? intradayTimes : rightsItem.intradayTimes,
@@ -1445,7 +1480,7 @@
               dailyReturn: Number.isFinite(dailyReturn) ? dailyReturn : momentumItem.dailyReturn,
               monthReturn: Number.isFinite(monthReturn) ? monthReturn : momentumItem.monthReturn,
               yearReturn: Number.isFinite(yearReturn) ? yearReturn : momentumItem.yearReturn,
-              updatedAt: normalizeRealtimeDisplayMinute(payload.updatedMinute || payload.updatedAt) || momentumItem.updatedAt,
+              updatedAt: normalizeRealtimeDisplayMinute(payload.updatedAt || payload.updatedMinute) || momentumItem.updatedAt,
               trend: intradayAmounts.length >= 2 ? intradayAmounts : momentumItem.trend,
               intraday: intradayAmounts.length >= 2 ? intradayAmounts : momentumItem.intraday,
               intradayTimes: intradayTimes.length === intradayAmounts.length ? intradayTimes : momentumItem.intradayTimes,
@@ -1504,7 +1539,7 @@
               yearReturn: Number.isFinite(yearReturn) ? yearReturn : microCapItem.yearReturn,
               updatedAt: showDisciplineCash
                   ? '纪律空仓'
-                  : normalizeRealtimeDisplayMinute(payload.updatedMinute || payload.updatedAt) || microCapItem.updatedAt,
+                  : normalizeRealtimeDisplayMinute(payload.updatedAt || payload.updatedMinute) || microCapItem.updatedAt,
               trend: showDisciplineCash ? [] : intradayAmounts.length >= 2 ? intradayAmounts : microCapItem.trend,
               intraday: showDisciplineCash ? [] : intradayAmounts.length >= 2 ? intradayAmounts : microCapItem.intraday,
               intradayTimes: showDisciplineCash ? [] : intradayTimes.length === intradayAmounts.length ? intradayTimes : microCapItem.intradayTimes,
@@ -2218,6 +2253,7 @@
   }
 
   const isNotificationModalVisible = ref(false)
+  const isNotificationIntroModalVisible = ref(false)
   const notificationLoading = ref(false)
   const notificationSaving = ref(false)
   const notificationTesting = ref(false)
@@ -2330,7 +2366,10 @@
   })
 
   const openNotificationModal = async () => {
-      if (!userStore.isVip) return
+      if (!userStore.isVip) {
+          isNotificationIntroModalVisible.value = true
+          return
+      }
 
       isNotificationModalVisible.value = true
       notificationLoading.value = true
@@ -2354,6 +2393,15 @@
 
   const closeNotificationModal = () => {
       isNotificationModalVisible.value = false
+  }
+
+  const closeNotificationIntroModal = () => {
+      isNotificationIntroModalVisible.value = false
+  }
+
+  const openNotificationRecharge = () => {
+      closeNotificationIntroModal()
+      openRechargeModal()
   }
 
   const openNotificationGuideModal = () => {
@@ -4549,6 +4597,78 @@
       padding: 2rem 0;
       text-align: center;
       color: #b0c4de;
+  }
+
+  .notification-intro-modal-content {
+      padding: 2rem;
+      width: min(460px, calc(100vw - 2rem));
+      background: rgb(30 30 30 / 96%);
+      box-sizing: border-box;
+  }
+
+  .notification-intro-body {
+      text-align: left;
+  }
+
+  .notification-intro-body p {
+      margin: 0 0 0.85rem;
+      font-size: 0.92rem;
+      color: #dce8f5;
+      line-height: 1.75;
+  }
+
+  .notification-intro-vip {
+      padding: 0.85rem 0.95rem;
+      margin: 1rem 0 1.25rem;
+      font-size: 0.86rem;
+      color: #bde9ff;
+      line-height: 1.65;
+      background: rgb(0 170 255 / 10%);
+      border: 1px solid rgb(0 170 255 / 28%);
+      border-radius: 8px;
+  }
+
+  .notification-intro-actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.75rem;
+  }
+
+  .notification-intro-secondary,
+  .notification-intro-primary {
+      padding: 0.75rem 1rem;
+      font-size: 0.9rem;
+      border-radius: 8px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: background 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
+  }
+
+  .notification-intro-secondary {
+      color: #dce8f5;
+      background: rgb(255 255 255 / 7%);
+      border: 1px solid rgb(255 255 255 / 16%);
+  }
+
+  .notification-intro-primary {
+      color: #fff;
+      background: #0af;
+      border: 1px solid #0af;
+  }
+
+  .notification-intro-secondary:hover,
+  .notification-intro-primary:hover {
+      transform: translateY(-2px);
+  }
+
+  .notification-intro-secondary:hover {
+      background: rgb(255 255 255 / 11%);
+      border-color: rgb(255 255 255 / 24%);
+  }
+
+  .notification-intro-primary:hover {
+      background: #0097e6;
+      border-color: #0097e6;
   }
 
   .notification-field {

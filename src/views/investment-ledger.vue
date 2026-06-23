@@ -756,7 +756,7 @@
                     <div class="daily-modal-toolbar">
                         <div class="entry-date">
                             <span>记录日期</span>
-                            <strong>{{ displayText(latestLedgerDate) }}</strong>
+                            <strong>{{ displayText(dailyEntryDate) }}</strong>
                         </div>
                         <div class="daily-toolbar-actions">
                             <button
@@ -783,16 +783,20 @@
                                 <i :style="{ backgroundColor: strategy.color }"></i>
                                 <div>
                                     <strong>{{ strategy.name }}</strong>
-                                    <span>昨日 {{ displayMoney(strategy.previous) }}</span>
+                                    <span class="previous-record">
+                                        {{ displayMoney(strategy.previous) }}
+                                    </span>
                                 </div>
                             </div>
                             <label>
                                 <span>期末金额</span>
                                 <input
-                                    v-model.number="strategy.amount"
+                                    v-model.number="dailyEntryAmounts[strategy.id]"
                                     type="number"
+                                    min="0"
                                     step="0.01"
-                                    inputmode="decimal" />
+                                    inputmode="decimal"
+                                    required />
                             </label>
                             <label v-if="showDailyAdvancedFields">
                                 <span>当日现金流</span>
@@ -805,8 +809,8 @@
                             </label>
                             <div class="entry-result">
                                 <span>预估日收益</span>
-                                <strong :class="estimateDailyReturn(strategy) >= 0 ? 'positive' : 'negative'">
-                                    {{ formatPercent(estimateDailyReturn(strategy)) }}
+                                <strong :class="dailyEstimatedReturnClass(strategy)">
+                                    {{ formatDailyEstimatedReturn(strategy) }}
                                 </strong>
                             </div>
                             <label v-if="showDailyAdvancedFields" class="entry-note">
@@ -1436,6 +1440,7 @@ import {
     renameLedgerStrategy,
     saveLedgerRecord,
     saveLedgerRecords,
+    saveDailyLedgerRecords,
     setLedgerStrategyArchived
 } from '@/services/investmentLedger'
 import type {
@@ -1600,6 +1605,8 @@ const accountConfig = reactive({
 })
 const strategies = reactive<StrategyDraft[]>([])
 const archivedStrategies = reactive<StrategyDraft[]>([])
+const dailyEntryAmounts = reactive<Record<string, number | ''>>({})
+const dailyPreviousDates = reactive<Record<string, string>>({})
 const hasStrategies = computed(() => strategies.length > 0)
 const managedStrategies = computed(() => [...strategies, ...archivedStrategies])
 const showMessage = inject<
@@ -1662,7 +1669,7 @@ const accountSignals = computed(() =>
         ? [
               {
                   label: '回撤历史分位',
-                  value: `${Math.round(drawdownPercentile.value)}%`,
+                  value: formatPlainPercent(drawdownPercentile.value),
                   hint: '越高代表越接近历史深度回撤',
                   help: '算法：统计组合历史每个记录日的回撤深度，计算其中小于或等于当前回撤深度的占比。数值越高，说明当前回撤越接近历史深度区间。',
                   progress: drawdownPercentile.value,
@@ -1871,7 +1878,19 @@ watch(
     }
 )
 
-const todayDate = new Date().toISOString().slice(0, 10)
+const getShanghaiDateString = (date = new Date()) => {
+    const parts = new Intl.DateTimeFormat('en-US', {
+        timeZone: 'Asia/Shanghai',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit'
+    }).formatToParts(date)
+    const values = Object.fromEntries(parts.map(part => [part.type, part.value]))
+    return `${values.year}-${values.month}-${values.day}`
+}
+const todayDate = getShanghaiDateString()
+const defaultLedgerEntryDate = ref(todayDate)
+const dailyEntryDate = computed(() => defaultLedgerEntryDate.value || todayDate)
 const sortedRecordsAsc = computed(() =>
     [...recentRecords.value].sort((a, b) => a.date.localeCompare(b.date) || a.strategy.localeCompare(b.strategy))
 )
@@ -2489,7 +2508,25 @@ const loadBenchmarkData = async () => {
     }
 }
 
-const colorPalette = ['#4ecdc4', '#f4c95d', '#ef6f6c', '#7aa2f7', '#9d7ff9', '#78d6a3']
+const colorPalette = [
+    '#4ecdc4',
+    '#f4c95d',
+    '#ef6f6c',
+    '#7aa2f7',
+    '#9d7ff9',
+    '#78d6a3',
+    '#ff9f43',
+    '#c678dd',
+    '#64d2ff',
+    '#ff7ab6',
+    '#a3e635',
+    '#d19a66'
+]
+const performanceFixedSeriesColors = {
+    portfolio: '#f4f7fb',
+    benchmark: '#b0c4de',
+    drawdown: '#35c2e8'
+}
 const createStrategyId = (name: string, fallback = String(Date.now())) =>
     `strategy-${name
         .trim()
@@ -2626,7 +2663,7 @@ const syncDerivedState = () => {
                 return: 0,
                 nav: point.nav,
                 note: '',
-                color: '#7aa2f7'
+                color: performanceFixedSeriesColors.portfolio
             })), weekStart),
             month: calculateRecordsReturn(performancePoints.value.map(point => ({
                 id: point.date,
@@ -2638,7 +2675,7 @@ const syncDerivedState = () => {
                 return: 0,
                 nav: point.nav,
                 note: '',
-                color: '#7aa2f7'
+                color: performanceFixedSeriesColors.portfolio
             })), monthStart),
             year: calculateRecordsReturn(performancePoints.value.map(point => ({
                 id: point.date,
@@ -2650,7 +2687,7 @@ const syncDerivedState = () => {
                 return: 0,
                 nav: point.nav,
                 note: '',
-                color: '#7aa2f7'
+                color: performanceFixedSeriesColors.portfolio
             })), yearStart),
             range: calculateRecordsReturn(
                 performancePoints.value.map(point => ({
@@ -2663,13 +2700,13 @@ const syncDerivedState = () => {
                     return: 0,
                     nav: point.nav,
                     note: '',
-                    color: '#7aa2f7'
+                    color: performanceFixedSeriesColors.portfolio
                 })),
                 normalizedComparisonRange.value.start,
                 normalizedComparisonRange.value.end
             ),
             note: '扣除现金流',
-            color: '#7aa2f7'
+            color: performanceFixedSeriesColors.portfolio
         })
     }
 
@@ -2692,6 +2729,14 @@ const syncDerivedState = () => {
             (min, point) => Math.min(min, point.drawdown),
             0
         )
+        const currentDrawdownDepth = Math.abs(Math.min(drawdown, 0))
+        const strategyDrawdownPercentile = drawdownPoints.length
+            ? (drawdownPoints.filter(
+                  point => Math.abs(Math.min(point.drawdown, 0)) <= currentDrawdownDepth
+              ).length /
+                  drawdownPoints.length) *
+              100
+            : 0
         const highIndex = drawdownPoints.reduce(
             (lastIndex, point) => (point.drawdown === 0 ? point.index : lastIndex),
             0
@@ -2724,14 +2769,7 @@ const syncDerivedState = () => {
             highDistance: Number(Math.abs(drawdown).toFixed(2)),
             highProgress: Math.max(100 + drawdown, 0),
             highDays: Math.max(rows.length - 1 - highIndex, 0),
-            drawdownPercentile: Number(
-                (rows.length
-                    ? (rows.filter(record => record.nav <= (latest?.nav || 0)).length /
-                          rows.length) *
-                      100
-                    : 0
-                ).toFixed(2)
-            ),
+            drawdownPercentile: Number(strategyDrawdownPercentile.toFixed(2)),
             color: strategy.color
         }
         const existingDetail = strategyDetails.find(item => item.name === strategy.name)
@@ -2869,6 +2907,7 @@ const loadLedgerBundle = async () => {
 
     try {
         const bundle = await getLedgerBundle()
+        defaultLedgerEntryDate.value = bundle.defaultEntryDate || todayDate
         applyLedgerBundle(bundle.strategies, bundle.records, bundle.account)
         ledgerLoaded.value = true
         await loadBenchmarkData()
@@ -2988,9 +3027,9 @@ const strategyPerformanceSeries = computed(() =>
 
 const performanceSeriesColorMap = computed(() => {
     const colorMap: Record<string, string> = {
-        组合净值: '#4ecdc4',
-        沪深300全收益: '#b0c4de',
-        回撤: '#4ecdc4'
+        组合净值: performanceFixedSeriesColors.portfolio,
+        沪深300全收益: performanceFixedSeriesColors.benchmark,
+        回撤: performanceFixedSeriesColors.drawdown
     }
 
     strategies.forEach(strategy => {
@@ -3038,8 +3077,8 @@ const performanceOption = computed(() => ({
         itemHeight: 3
     },
     grid: [
-        { left: 52, right: 24, top: 38, height: '53%' },
-        { left: 52, right: 24, top: '72%', height: '18%' }
+        { left: 42, right: 16, top: 38, height: '53%' },
+        { left: 42, right: 16, top: '72%', height: '18%' }
     ],
     xAxis: [
         {
@@ -3085,9 +3124,9 @@ const performanceOption = computed(() => ({
             smooth: 0.3,
             symbol: 'none',
             data: filteredPerformanceData.value.map(item => item.nav),
-            itemStyle: { color: '#4ecdc4' },
-            lineStyle: { width: 3, color: '#4ecdc4' },
-            areaStyle: { color: 'rgba(78,205,196,.08)' },
+            itemStyle: { color: performanceFixedSeriesColors.portfolio },
+            lineStyle: { width: 3, color: performanceFixedSeriesColors.portfolio },
+            areaStyle: { color: 'rgba(244,247,251,.08)' },
             markPoint: {
                 symbolSize: 42,
                 label: { color: '#101820', fontWeight: 700, formatter: '高' },
@@ -3102,8 +3141,8 @@ const performanceOption = computed(() => ({
             smooth: 0.2,
             symbol: 'none',
             data: filteredPerformanceData.value.map(item => item.benchmark || null),
-            itemStyle: { color: '#b0c4de' },
-            lineStyle: { width: 2, color: '#b0c4de', type: 'dashed' }
+            itemStyle: { color: performanceFixedSeriesColors.benchmark },
+            lineStyle: { width: 2, color: performanceFixedSeriesColors.benchmark, type: 'dashed' }
         },
         {
             name: '回撤',
@@ -3112,9 +3151,9 @@ const performanceOption = computed(() => ({
             yAxisIndex: 1,
             symbol: 'none',
             data: filteredPerformanceData.value.map(item => item.drawdown),
-            itemStyle: { color: '#4ecdc4' },
-            lineStyle: { width: 2, color: '#4ecdc4' },
-            areaStyle: { color: 'rgba(78,205,196,.18)' }
+            itemStyle: { color: performanceFixedSeriesColors.drawdown },
+            lineStyle: { width: 2, color: performanceFixedSeriesColors.drawdown },
+            areaStyle: { color: 'rgba(53,194,232,.18)' }
         }
     ]
 }))
@@ -3130,6 +3169,7 @@ const displayMoneyChange = (value: number) =>
 const displayNumber = (value: string | number) => String(value)
 const displayText = (value: string | number) => String(value)
 const formatPercent = (value: number) => `${value > 0 ? '+' : ''}${value.toFixed(2)}%`
+const formatPlainPercent = (value: number) => `${Math.max(0, Math.min(100, Number(value) || 0)).toFixed(2)}%`
 const formatContribution = (value: number) => `${value > 0 ? '+' : ''}${value.toFixed(2)}%`
 const returnClass = (value: number) =>
     value > 0 ? 'positive' : value < 0 ? 'negative' : 'muted-return'
@@ -3139,6 +3179,24 @@ const estimateDailyReturn = (strategy: { amount: number; previous: number; cashF
         : ((Number(strategy.amount || 0) - strategy.previous - Number(strategy.cashFlow || 0)) /
               strategy.previous) *
           100
+
+const getDailyEstimatedReturn = (strategy: StrategyDraft) => {
+    const amount = dailyEntryAmounts[strategy.id]
+    if (amount === '' || amount === undefined) return null
+    return estimateDailyReturn({
+        amount: Number(amount),
+        previous: strategy.previous,
+        cashFlow: strategy.cashFlow
+    })
+}
+const dailyEstimatedReturnClass = (strategy: StrategyDraft) => {
+    const value = getDailyEstimatedReturn(strategy)
+    return value === null ? '' : value >= 0 ? 'positive' : 'negative'
+}
+const formatDailyEstimatedReturn = (strategy: StrategyDraft) => {
+    const value = getDailyEstimatedReturn(strategy)
+    return value === null ? '--' : formatPercent(value)
+}
 
 const notify = (message: string, type: 'info' | 'success' | 'error' = 'info') => {
     showMessage?.(message, type)
@@ -3252,10 +3310,14 @@ const saveToday = async () => {
     try {
         const rows = strategies.map(strategy => ({
             id: strategy.id,
-            amount: Number(strategy.amount || 0),
+            amount: dailyEntryAmounts[strategy.id],
             cashFlow: Number(strategy.cashFlow || 0),
             note: strategy.note?.trim() || ''
         }))
+
+        if (rows.some(row => row.amount === '' || row.amount === undefined)) {
+            throw new Error('请填写全部策略的期末金额')
+        }
 
         if (showDailyNewStrategy.value) {
             if (!newStrategyName) throw new Error('请填写新策略名称')
@@ -3274,24 +3336,15 @@ const saveToday = async () => {
             })
         }
 
-        await Promise.all(
-            rows.map(row => {
-                const existing = recentRecords.value.find(
-                    record =>
-                        record.strategyId === row.id && record.date === latestLedgerDate.value
-                )
-                return saveLedgerRecord(
-                    {
-                        strategyId: row.id,
-                        date: latestLedgerDate.value,
-                        amount: row.amount,
-                        cashFlow: row.cashFlow,
-                        note: row.note
-                    },
-                    existing?.id || ''
-                )
-            })
+        const result = await saveDailyLedgerRecords(
+            rows.map(row => ({
+                strategyId: row.id,
+                amount: Number(row.amount),
+                cashFlow: row.cashFlow,
+                note: row.note
+            }))
         )
+        defaultLedgerEntryDate.value = result.date
 
         showDailyEntryModal.value = false
         showDailyNewStrategy.value = false
@@ -3339,6 +3392,24 @@ const openNewRecord = () => {
 
 const openTodayEntry = () => {
     if (hasStrategies.value) {
+        strategies.forEach(strategy => {
+            const targetRecord = recentRecords.value.find(
+                record =>
+                    record.strategyId === strategy.id && record.date === dailyEntryDate.value
+            )
+            const previousRecord = recentRecords.value
+                .filter(
+                    record =>
+                        record.strategyId === strategy.id && record.date < dailyEntryDate.value
+                )
+                .sort((a, b) => b.date.localeCompare(a.date))[0]
+
+            strategy.previous = previousRecord?.amount || 0
+            strategy.cashFlow = targetRecord?.cashFlow || 0
+            strategy.note = targetRecord?.note || ''
+            dailyPreviousDates[strategy.id] = previousRecord?.date || ''
+            dailyEntryAmounts[strategy.id] = targetRecord?.amount ?? ''
+        })
         showDailyNewStrategy.value = false
         showDailyAdvancedFields.value = false
         resetDailyNewStrategy()
@@ -3348,7 +3419,7 @@ const openTodayEntry = () => {
 
     editingRecordId.value = ''
     resetRecordForm()
-    recordForm.date = todayDate
+    recordForm.date = dailyEntryDate.value
     recordForm.strategyId = ''
     recordForm.strategy = ''
     recordStrategySelection.value = newStrategyOption
@@ -5010,6 +5081,11 @@ label span,
     margin-top: 4px;
     font-size: 12px;
     color: #718294;
+}
+
+.entry-name .previous-record {
+    margin-top: 3px;
+    white-space: nowrap;
 }
 
 label {
@@ -7167,6 +7243,7 @@ label small {
     .asset-summary-grid article {
         padding: 15px;
         border-top: 1px solid #26333f;
+        min-width: 0;
     }
 
     .asset-summary-grid article:nth-child(odd) {
@@ -7183,7 +7260,35 @@ label small {
     }
 
     .asset-summary-grid strong {
-        font-size: 18px;
+        font-size: clamp(15px, 4.2vw, 18px);
+    }
+
+    .asset-summary-primary strong {
+        font-size: clamp(16px, 4.8vw, 20px);
+    }
+
+    .asset-summary-grid span,
+    .asset-summary-grid small {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .change-line em {
+        overflow: visible;
+        font-size: 10px;
+        text-overflow: clip;
+        flex: 0 0 auto;
+    }
+
+    .change-line span {
+        font-size: 10px;
+    }
+
+    .account-status-line {
+        padding: 10px 12px;
+        font-size: 12px;
+        gap: 6px 12px;
     }
 
     .panel-heading {
@@ -7223,7 +7328,7 @@ label small {
     .modal-entry-grid .entry-name > div,
     .modal-entry-grid .entry-item:not(.has-advanced-fields) .entry-name > div {
         display: grid;
-        align-items: baseline;
+        align-items: center;
         width: 100%;
         grid-template-columns: auto minmax(0, 1fr);
         gap: 6px;
@@ -7355,13 +7460,14 @@ label small {
 
     .daily-modal-toolbar {
         align-items: center;
-        flex-wrap: nowrap;
+        flex-wrap: wrap;
         padding: 10px 12px;
         gap: 10px;
     }
 
     .daily-modal .entry-date {
         flex: 1 1 auto;
+        min-width: 82px;
     }
 
     .daily-modal .entry-date strong {
@@ -7372,6 +7478,7 @@ label small {
         flex: 0 0 auto;
         justify-content: flex-end;
         flex-wrap: nowrap;
+        margin-left: auto;
         gap: 6px;
     }
 
@@ -7615,5 +7722,49 @@ label small {
         border-left: 0;
     }
 
+}
+
+@media (max-width: 380px) {
+    .overview-card.content-card {
+        padding: 1rem;
+    }
+
+    .overview-toolbar {
+        gap: 8px;
+    }
+
+    .card-title {
+        font-size: 1.22rem;
+    }
+
+    .card-description {
+        overflow: hidden;
+        max-width: 160px;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .asset-summary-grid article {
+        padding: 13px 12px;
+    }
+
+    .asset-summary-grid strong,
+    .asset-summary-primary strong {
+        margin: 7px 0 4px;
+        font-size: 14px;
+    }
+
+    .asset-summary-grid span,
+    .asset-summary-grid small,
+    .change-line em,
+    .change-line span {
+        font-size: 10px;
+    }
+
+    .account-status-line {
+        padding: 9px 10px;
+        font-size: 11px;
+        gap: 5px 10px;
+    }
 }
 </style>

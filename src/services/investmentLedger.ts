@@ -31,12 +31,15 @@ export interface LedgerRecord extends LedgerRecordInput {
     updatedAtMs?: number
 }
 
+export type DailyLedgerRecordInput = Omit<LedgerRecordInput, 'date'>
+
 export interface LedgerBundle {
     account: LedgerAccountConfig
     strategies: LedgerStrategy[]
     records: LedgerRecord[]
     truncated: boolean
     calculations: 'client'
+    defaultEntryDate: string
 }
 
 export class InvestmentLedgerApiError extends Error {
@@ -100,6 +103,9 @@ export const saveLedgerRecords = (
         records,
         skipExisting: Boolean(options.skipExisting)
     })
+
+export const saveDailyLedgerRecords = (records: DailyLedgerRecordInput[]) =>
+    callLedger<{ date: string; records: LedgerRecord[] }>('saveDailyRecords', { records })
 
 export const deleteLedgerRecord = (recordId: string) =>
     callLedger<{ record: LedgerRecord }>('deleteRecord', { recordId })

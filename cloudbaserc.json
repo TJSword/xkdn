@@ -108,7 +108,7 @@
         {
           "name": "refreshMomentumRealtimeWeekdayAfterRebalance",
           "type": "timer",
-          "config": "0 55 14 * * MON-FRI *"
+          "config": "30 50,55 14 * * MON-FRI *"
         },
         {
           "name": "refreshMomentumRealtimeWeekdayClose1500",
