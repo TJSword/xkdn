@@ -1696,7 +1696,7 @@ import { computed, inject, nextTick, onBeforeUnmount, onMounted, reactive, ref }
 import html2canvas from 'html2canvas'
 import FeaturePageIcon from '@/components/FeaturePageIcon.vue'
 import StrategyLoading from '@/components/StrategyLoading.vue'
-import app from '@/lib/cloudbase'
+import { callCloudFunction } from '@/services/cloudFunction'
 import {
     createLedgerStrategy,
     deleteLedgerRecord,
@@ -3113,7 +3113,7 @@ const requiredReturnToDrawdown = (targetDrawdown: number) => {
 const loadBenchmarkData = async () => {
     try {
         if (!performanceDates.value.length) return
-        const response: any = await app.callFunction({
+        const response: any = await callCloudFunction({
             name: 'getAllWeatherData',
             data: { action: 'get' }
         })
@@ -7843,6 +7843,13 @@ td {
 
 .range-date-fields input {
     color-scheme: dark;
+}
+
+.range-date-fields input[type='date']::-webkit-calendar-picker-indicator {
+    color: #fff;
+    background-color: transparent;
+    opacity: 1;
+    filter: brightness(0) invert(1);
 }
 
 .daily-modal-toolbar {

@@ -1,4 +1,4 @@
-import app from '@/lib/cloudbase'
+import { callCloudFunction } from '@/services/cloudFunction'
 
 export interface LedgerAccountConfig {
     id?: string
@@ -54,7 +54,7 @@ export class InvestmentLedgerApiError extends Error {
 }
 
 const callLedger = async <T>(action: string, payload: Record<string, unknown> = {}) => {
-    const response: any = await app.callFunction({
+    const response: any = await callCloudFunction({
         name: 'investmentLedger',
         data: { action, ...payload }
     })

@@ -1,0 +1,1 @@
+{"error":{"code":"INVALID_PARAM","message":"Command parameter JSON parse failed: Expected property name or '}' in JSON at position 2 (line 1 column 3)","exit_code":3,"solution":["Please ensure --command is a valid JSON array"]}}

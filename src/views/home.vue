@@ -745,7 +745,8 @@
 <script setup lang="ts">
   import { ref, reactive, computed, watch, nextTick, onMounted, onUnmounted, inject } from 'vue'
   import { useRouter } from 'vue-router'
-  import app, { auth } from '@/lib/cloudbase'
+  import { auth } from '@/lib/cloudbase'
+  import { callCloudFunction, throwIfAuthExpired } from '@/services/cloudFunction'
   import * as echarts from 'echarts'
   import { useUserStore } from '@/store/user'
   import StrategyMenuIcon from '@/components/StrategyMenuIcon.vue'
@@ -1279,7 +1280,7 @@
 
   const fetchAllWeatherRealtime = async (sourcePayload?: any) => {
       try {
-          const payload = sourcePayload || (await app.callFunction({
+          const payload = sourcePayload || (await callCloudFunction({
               name: 'getAllWeatherRealtimeInfo',
               data: { action: 'get' }
           })).result?.data
@@ -1334,6 +1335,7 @@
               isLoaded: true
           })
       } catch (error) {
+          throwIfAuthExpired(error)
           console.warn('全天候实时净值读取失败，继续使用本地展示数据:', error)
       }
   }
@@ -1341,7 +1343,7 @@
   // --- 卡片数据定义 (已恢复原状) ---
   const fetchBondRealtime = async (sourcePayload?: any) => {
       try {
-          const payload = sourcePayload || (await app.callFunction({
+          const payload = sourcePayload || (await callCloudFunction({
               name: 'getBondRealtimeInfo',
               data: { action: 'get' }
           })).result?.data
@@ -1387,13 +1389,14 @@
               isLoaded: true
           })
       } catch (error) {
+          throwIfAuthExpired(error)
           console.warn('Bond realtime data failed, fallback to local preview data:', error)
       }
   }
 
   const fetchRightsRealtime = async (sourcePayload?: any) => {
       try {
-          const payload = sourcePayload || (await app.callFunction({
+          const payload = sourcePayload || (await callCloudFunction({
               name: 'getRightsRealtimeInfo',
               data: { action: 'get' }
           })).result?.data
@@ -1439,13 +1442,14 @@
               isLoaded: true
           })
       } catch (error) {
+          throwIfAuthExpired(error)
           console.warn('Rights realtime data failed, fallback to local preview data:', error)
       }
   }
 
   const fetchMomentumRealtime = async (sourcePayload?: any) => {
       try {
-          const payload = sourcePayload || (await app.callFunction({
+          const payload = sourcePayload || (await callCloudFunction({
               name: 'getMomentumRealtimeInfo',
               data: { action: 'get' }
           })).result?.data
@@ -1489,13 +1493,14 @@
               isLoaded: true
           })
       } catch (error) {
+          throwIfAuthExpired(error)
           console.warn('Momentum realtime data failed, fallback to local preview data:', error)
       }
   }
 
   const fetchMicroCapRealtime = async (sourcePayload?: any) => {
       try {
-          const payload = sourcePayload || (await app.callFunction({
+          const payload = sourcePayload || (await callCloudFunction({
               name: 'getMicroCapRealtimeInfo',
               data: { action: 'get' }
           })).result?.data
@@ -1549,6 +1554,7 @@
               isLoaded: true
           })
       } catch (error) {
+          throwIfAuthExpired(error)
           console.warn('Micro-cap realtime data failed, fallback to local preview data:', error)
       }
   }
@@ -1562,15 +1568,6 @@
           cssClass: 'all-weather',
           link: '/all-weather'
       },
-      // {
-      //     id: 2,
-      //     title: '长钱策略',
-      //     description: '关注长期价值投资，忽略短期市场波动。',
-      //     icon: '⌛',
-      //     cssClass: 'long-term',
-      //     link: '/long-term',
-      //     vipOnly: true
-      // },
       {
           id: 3,
           title: '可转债策略',
@@ -1748,8 +1745,7 @@
    * [新函数] 通过一次调用获取所有市场数据（今日和历史）
    */
   const fetchMarketData = () => {
-      return app
-          .callFunction({
+      return callCloudFunction({
               name: 'getMarketData', // 调用我们新的合并函数
               data: {}
           })
@@ -1774,7 +1770,7 @@
 
   const fetchHomeDashboardData = async () => {
       try {
-          const response: any = await app.callFunction({
+          const response: any = await callCloudFunction({
               name: 'getHomeDashboardData',
               data: {}
           })
@@ -1795,6 +1791,7 @@
               fetchMicroCapRealtime(realtime.microCap)
           ])
       } catch (error) {
+          throwIfAuthExpired(error)
           console.warn('getHomeDashboardData failed, fallback to split requests:', error)
           await fetchMarketData()
           await Promise.all([
@@ -1908,7 +1905,7 @@
               userId: realUserId
           }
 
-          const res = await app.callFunction({
+          const res = await callCloudFunction({
               name: 'createAlipayOrder',
               data: requestData
           })
@@ -1931,6 +1928,7 @@
               throw new Error(result?.message || '生成订单失败')
           }
       } catch (error: any) {
+          throwIfAuthExpired(error)
           console.error('支付下单失败:', error)
           showMessage(error.message || '支付服务暂不可用，请稍后再试', 'error')
       } finally {
@@ -1944,7 +1942,7 @@
 
       try {
           // 调用刚才新建的 checkAlipayStatus 云函数
-          const res = await app.callFunction({
+          const res = await callCloudFunction({
               name: 'checkAlipayStatus',
               data: { outTradeNo: currentOutTradeNo.value }
           })
@@ -1971,6 +1969,7 @@
               // 如果是 PENDING，什么都不做，继续等下一次轮询
           }
       } catch (err) {
+          throwIfAuthExpired(err)
           console.error('查询订单状态失败', err)
           // 查询失败不一定要停止轮询，可能是网络波动
       }
@@ -1981,8 +1980,6 @@
 
   // 定义秘籍映射表：代码 -> 路由路径
   const secretCodes: Record<string, string> = {
-      cb: '/cb', // cb = Convertible Bond (惊蛰)
-      mc: '/mc', // mc = Micro Cap (微盘)
       zz: '/admin'
   }
 
@@ -2374,7 +2371,7 @@
       isNotificationModalVisible.value = true
       notificationLoading.value = true
       try {
-          const response: any = await app.callFunction({
+          const response: any = await callCloudFunction({
               name: 'notificationSettings',
               data: { action: 'get' }
           })
@@ -2383,6 +2380,7 @@
           }
           applyNotificationSettings(response.result.settings)
       } catch (error: any) {
+          throwIfAuthExpired(error)
           console.error('通知设置加载失败:', error)
           showMessage(error.message || '通知设置加载失败', 'error')
           closeNotificationModal()
@@ -2453,7 +2451,7 @@
 
       notificationSaving.value = true
       try {
-          const response: any = await app.callFunction({
+          const response: any = await callCloudFunction({
               name: 'notificationSettings',
               data: {
                   action: 'update',
@@ -2471,6 +2469,7 @@
           showMessage('通知设置已保存', 'success')
           closeNotificationModal()
       } catch (error: any) {
+          throwIfAuthExpired(error)
           console.error('通知设置保存失败:', error)
           showMessage(error.message || '通知设置保存失败', 'error')
       } finally {
@@ -2491,7 +2490,7 @@
 
       notificationTesting.value = true
       try {
-          const response: any = await app.callFunction({
+          const response: any = await callCloudFunction({
               name: 'notificationSettings',
               data: {
                   action: 'test',
@@ -2507,6 +2506,7 @@
           }
           showMessage('测试通知已发送，请检查手机或企业微信群', 'success')
       } catch (error: any) {
+          throwIfAuthExpired(error)
           console.error('测试通知发送失败:', error)
           showMessage(error.message || '测试通知发送失败', 'error')
       } finally {
@@ -3564,12 +3564,6 @@
       transform: translateY(-8px) scale(1.03);
   }
 
-  /* 确保特定卡片的 hover 样式也被修改 */
-  .long-term:not(.disabled-card):hover {
-      border-color: #ff4081;
-      box-shadow: 0 0 15px #ff4081;
-  }
-
   .wealth-map:hover {
       border-color: #2dd4bf;
       box-shadow: 0 0 15px #2dd4bf;
@@ -3628,15 +3622,6 @@
 
   .all-weather .card-icon {
       color: #0af;
-  }
-
-  .long-term:hover {
-      border-color: #ff4081;
-      box-shadow: 0 0 15px #ff4081;
-  }
-
-  .long-term .card-icon {
-      color: #ff4081;
   }
 
   /* 选项 A 样式 */
@@ -3728,15 +3713,6 @@
 
   .rights-strategy .card-icon {
       color: #ef4444;
-  }
-
-  .cash-flow-strategy:hover {
-      border-color: #e59866;
-      box-shadow: 0 0 15px #e59866;
-  }
-
-  .cash-flow-strategy .card-icon {
-      color: #e59866;
   }
 
   /* 页面底部会员信息的样式 */

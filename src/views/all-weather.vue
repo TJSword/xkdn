@@ -321,32 +321,10 @@
                 <input
                   v-model="dateRangeStart"
                   class="range-date-input"
-                  type="text"
-                  inputmode="numeric"
-                  maxlength="10"
-                  placeholder="YYYY-MM-DD"
-                  aria-label="选择开始日期"
-                  @input="handleDateRangeInput('start')"
-                  @keydown.enter="applyDateRangeSelection"
-                  @blur="applyDateRangeSelection"
-                />
-                <button
-                  class="range-date-button"
-                  type="button"
-                  aria-label="打开开始日期选择器"
-                  @click="openDatePicker('start')"
-                >
-                  <span class="range-calendar-icon" aria-hidden="true"></span>
-                </button>
-                <input
-                  ref="dateRangeStartPicker"
-                  v-model="dateRangeStart"
-                  class="native-date-input"
                   type="date"
                   :min="chartMinDate"
                   :max="chartMaxDate"
-                  tabindex="-1"
-                  aria-hidden="true"
+                  aria-label="选择开始日期"
                   @change="applyDateRangeSelection"
                 />
               </div>
@@ -355,32 +333,10 @@
                 <input
                   v-model="dateRangeEnd"
                   class="range-date-input"
-                  type="text"
-                  inputmode="numeric"
-                  maxlength="10"
-                  placeholder="YYYY-MM-DD"
-                  aria-label="选择结束日期"
-                  @input="handleDateRangeInput('end')"
-                  @keydown.enter="applyDateRangeSelection"
-                  @blur="applyDateRangeSelection"
-                />
-                <button
-                  class="range-date-button"
-                  type="button"
-                  aria-label="打开结束日期选择器"
-                  @click="openDatePicker('end')"
-                >
-                  <span class="range-calendar-icon" aria-hidden="true"></span>
-                </button>
-                <input
-                  ref="dateRangeEndPicker"
-                  v-model="dateRangeEnd"
-                  class="native-date-input"
                   type="date"
                   :min="chartMinDate"
                   :max="chartMaxDate"
-                  tabindex="-1"
-                  aria-hidden="true"
+                  aria-label="选择结束日期"
                   @change="applyDateRangeSelection"
                 />
               </div>
@@ -428,7 +384,15 @@
                 <tr v-for="yearData in monthlyReturns" :key="yearData.year">
                   <td class="year-col">{{ yearData.year }}</td>
                   <td v-for="(val, idx) in yearData.months" :key="idx" :style="getHeatmapStyle(val)" class="cell-val">
-                    {{ val !== null ? val + '%' : '' }}
+                    <button
+                      v-if="val !== null"
+                      class="month-return-button"
+                      type="button"
+                      :aria-label="`查看 ${yearData.year} 年 ${idx + 1} 月每日涨跌`"
+                      @click="openMonthlyCalendar(yearData.year, idx + 1, val)"
+                    >
+                      {{ val }}%
+                    </button>
                   </td>
                   <td class="year-total" :style="getHeatmapStyle(yearData.total)">
                     {{ yearData.total }}%
@@ -540,14 +504,84 @@
         </div>
       </div>
 
+      <Transition name="modal-fade">
+        <div v-if="selectedMonthlyCalendar" class="modal-backdrop monthly-calendar-backdrop" @click="closeMonthlyCalendar">
+          <div class="modal-content monthly-calendar-modal" @click.stop>
+            <div class="monthly-calendar-header">
+              <div>
+                <span>月度下钻</span>
+                <h3>{{ selectedMonthlyCalendar.title }}</h3>
+              </div>
+              <button class="modal-close-button" type="button" aria-label="关闭" @click="closeMonthlyCalendar">×</button>
+            </div>
+
+            <div class="monthly-calendar-controls">
+              <button type="button" :disabled="!previousCalendarMonth" @click="goToAdjacentCalendarMonth(-1)">
+                上一月
+              </button>
+              <button type="button" :disabled="!nextCalendarMonth" @click="goToAdjacentCalendarMonth(1)">
+                下一月
+              </button>
+            </div>
+
+            <div class="monthly-calendar-summary">
+              <div>
+                <span>本月收益</span>
+                <strong :class="getCalendarTone(selectedMonthlyCalendar.monthReturn)">
+                  {{ selectedMonthlyCalendar.monthReturnLabel }}
+                </strong>
+              </div>
+              <div>
+                <span>上涨 / 下跌</span>
+                <strong>{{ selectedMonthlyCalendar.upDays }} / {{ selectedMonthlyCalendar.downDays }}</strong>
+              </div>
+              <div>
+                <span>最好一天</span>
+                <strong :class="getCalendarTone(selectedMonthlyCalendar.bestDay?.returnValue)">
+                  {{ selectedMonthlyCalendar.bestDay?.returnLabel || '--' }}
+                </strong>
+              </div>
+              <div>
+                <span>最差一天</span>
+                <strong :class="getCalendarTone(selectedMonthlyCalendar.worstDay?.returnValue)">
+                  {{ selectedMonthlyCalendar.worstDay?.returnLabel || '--' }}
+                </strong>
+              </div>
+            </div>
+
+            <div class="monthly-calendar-weekdays">
+              <span v-for="day in calendarWeekdays" :key="day">{{ day }}</span>
+            </div>
+            <div class="monthly-calendar-grid">
+              <div
+                v-for="cell in selectedMonthlyCalendar.cells"
+                :key="cell.key"
+                class="monthly-calendar-cell"
+                :class="{
+                  empty: cell.isEmpty,
+                  trading: cell.isTradingDay,
+                  positive: (cell.returnValue ?? 0) > 0,
+                  negative: (cell.returnValue ?? 0) < 0
+                }"
+                :style="getDailyCalendarCellStyle(cell.returnValue)"
+                :title="cell.tooltip"
+              >
+                <span>{{ cell.day }}</span>
+                <strong>{{ cell.returnLabel }}</strong>
+              </div>
+            </div>
+          </div>
+        </div>
+      </Transition>
+
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-  import { nextTick, onMounted, ref, watch } from 'vue'
+  import { computed, nextTick, onMounted, ref, watch } from 'vue'
   import * as echarts from 'echarts'
-  import app from '@/lib/cloudbase'
+  import { callCloudFunction, throwIfAuthExpired } from '@/services/cloudFunction'
   import axios from 'axios'
   import {
       calculateDrawdownAnalysis,
@@ -559,6 +593,37 @@
       prepareStrategySeries
   } from '@/utils/strategyMetrics'
   import type { MonthlySummary, StrategyStats } from '@/utils/strategyMetrics'
+
+  interface MonthlyCalendarCell {
+      key: string
+      day: string
+      date: string
+      returnValue: number | null
+      returnLabel: string
+      valueLabel: string
+      tooltip: string
+      isTradingDay: boolean
+      isEmpty: boolean
+  }
+
+  interface MonthlyCalendarDetail {
+      year: number
+      month: number
+      title: string
+      monthReturn: number
+      monthReturnLabel: string
+      upDays: number
+      downDays: number
+      bestDay: MonthlyCalendarCell | null
+      worstDay: MonthlyCalendarCell | null
+      cells: MonthlyCalendarCell[]
+  }
+
+  interface SelectableCalendarMonth {
+      year: number
+      month: number
+      value: string
+  }
   // 1. 新增：加载状态，提升用户体验
   const isLoading = ref(true)
   const loadError = ref('')
@@ -584,13 +649,54 @@
   const sortinoRatio = ref('0.000')
   const dateRangeStart = ref('')
   const dateRangeEnd = ref('')
-  const dateRangeStartPicker = ref<HTMLInputElement | null>(null)
-  const dateRangeEndPicker = ref<HTMLInputElement | null>(null)
   const chartMinDate = ref('')
   const chartMaxDate = ref('')
   const backtestPeriodText = ref('回测周期: --')
   // --- 2. 收益热力图数据 (这里用模拟数据，你可以替换为真实全天候数据) ---
   const monthlyReturns: any = ref([])
+  const selectedMonthlyCalendar = ref<MonthlyCalendarDetail | null>(null)
+  const calendarWeekdays = ['日', '一', '二', '三', '四', '五', '六']
+
+  const selectableCalendarMonths = computed<SelectableCalendarMonth[]>(() =>
+      monthlyReturns.value
+          .flatMap((row: any) =>
+              row.months
+                  .map((value: string | null, index: number) =>
+                      value === null
+                          ? null
+                          : {
+                                year: row.year,
+                                month: index + 1,
+                                value
+                            }
+                  )
+                  .filter((item: SelectableCalendarMonth | null): item is SelectableCalendarMonth => item !== null)
+          )
+          .sort((a: SelectableCalendarMonth, b: SelectableCalendarMonth) =>
+              a.year === b.year ? a.month - b.month : a.year - b.year
+          )
+  )
+
+  const selectedCalendarMonthIndex = computed(() => {
+      if (!selectedMonthlyCalendar.value) return -1
+      return selectableCalendarMonths.value.findIndex(
+          item =>
+              item.year === selectedMonthlyCalendar.value?.year &&
+              item.month === selectedMonthlyCalendar.value?.month
+      )
+  })
+
+  const previousCalendarMonth = computed(() => {
+      const index = selectedCalendarMonthIndex.value
+      return index > 0 ? selectableCalendarMonths.value[index - 1] : null
+  })
+
+  const nextCalendarMonth = computed(() => {
+      const index = selectedCalendarMonthIndex.value
+      return index >= 0 && index < selectableCalendarMonths.value.length - 1
+          ? selectableCalendarMonths.value[index + 1]
+          : null
+  })
   const generateMockData = () => {
       // 示例数据：全天候策略通常波动较小，胜率高
       const years = [
@@ -799,6 +905,147 @@
   }
 
   // --- 3. 风险数据 (示例数据) ---
+  const formatCalendarPercent = (value: number | null | undefined) => {
+      if (value === null || value === undefined || !Number.isFinite(value)) return '--'
+      const sign = value > 0 ? '+' : ''
+      return `${sign}${value.toFixed(2)}%`
+  }
+
+  const getCalendarTone = (value: number | null | undefined) => {
+      if (value === null || value === undefined || !Number.isFinite(value) || value === 0) return ''
+      return value > 0 ? 'positive' : 'negative'
+  }
+
+  const getDailyCalendarCellStyle = (value: number | null | undefined) => {
+      if (value === null || value === undefined || !Number.isFinite(value) || value === 0) return {}
+      const opacity = Math.min(Math.abs(value) / 2.5, 1)
+      const color = value > 0 ? '255, 87, 34' : '0, 196, 151'
+      return {
+          backgroundColor: `rgba(${color}, ${0.12 + opacity * 0.58})`,
+          borderColor: `rgba(${color}, ${0.22 + opacity * 0.5})`
+      }
+  }
+
+  const buildEmptyCalendarCell = (key: string): MonthlyCalendarCell => ({
+      key,
+      day: '',
+      date: '',
+      returnValue: null,
+      returnLabel: '',
+      valueLabel: '',
+      tooltip: '',
+      isTradingDay: false,
+      isEmpty: true
+  })
+
+  const buildMonthlyCalendarDetail = (
+      year: number,
+      month: number,
+      monthReturnValue: string
+  ): MonthlyCalendarDetail => {
+      const monthKey = `${year}-${String(month).padStart(2, '0')}`
+      const selectedStartIndex = getDateIndex(dateRangeStart.value, 'start')
+      const selectedEndIndex = getDateIndex(dateRangeEnd.value, 'end')
+      const dailyMap = new Map<string, MonthlyCalendarCell>()
+
+      for (let index = selectedStartIndex; index <= selectedEndIndex; index++) {
+          const date = chartDates.value[index]
+          const value = chartStrategyValues.value[index]
+          if (!date?.startsWith(monthKey) || !Number.isFinite(value)) continue
+
+          const previousValue = index > selectedStartIndex ? chartStrategyValues.value[index - 1] : NaN
+          const returnValue =
+              Number.isFinite(previousValue) && previousValue > 0
+                  ? (value / previousValue - 1) * 100
+                  : null
+          const day = String(Number(date.slice(8, 10)))
+          const returnLabel = formatCalendarPercent(returnValue)
+          const valueLabel = Number.isFinite(value) ? value.toFixed(2) : '--'
+
+          dailyMap.set(date, {
+              key: date,
+              day,
+              date,
+              returnValue,
+              returnLabel,
+              valueLabel,
+              tooltip: `${date} | 日涨跌 ${returnLabel} | 净值 ${valueLabel}`,
+              isTradingDay: true,
+              isEmpty: false
+          })
+      }
+
+      const daysInMonth = new Date(year, month, 0).getDate()
+      const firstDayOffset = new Date(year, month - 1, 1).getDay()
+      const cells: MonthlyCalendarCell[] = Array.from({ length: firstDayOffset }, (_, index) =>
+          buildEmptyCalendarCell(`empty-start-${year}-${month}-${index}`)
+      )
+
+      for (let day = 1; day <= daysInMonth; day++) {
+          const date = `${monthKey}-${String(day).padStart(2, '0')}`
+          const tradingCell = dailyMap.get(date)
+          cells.push(
+              tradingCell || {
+                  key: date,
+                  day: String(day),
+                  date,
+                  returnValue: null,
+                  returnLabel: '',
+                  valueLabel: '',
+                  tooltip: `${date} | 无交易数据`,
+                  isTradingDay: false,
+                  isEmpty: false
+              }
+          )
+      }
+
+      while (cells.length % 7 !== 0) {
+          cells.push(buildEmptyCalendarCell(`empty-end-${year}-${month}-${cells.length}`))
+      }
+
+      const tradingDays = [...dailyMap.values()].filter(
+          cell => cell.returnValue !== null && Number.isFinite(cell.returnValue)
+      )
+      const upDays = tradingDays.filter(cell => (cell.returnValue ?? 0) > 0).length
+      const downDays = tradingDays.filter(cell => (cell.returnValue ?? 0) < 0).length
+      const bestDay =
+          tradingDays.length > 0
+              ? [...tradingDays].sort((a, b) => (b.returnValue ?? 0) - (a.returnValue ?? 0))[0]
+              : null
+      const worstDay =
+          tradingDays.length > 0
+              ? [...tradingDays].sort((a, b) => (a.returnValue ?? 0) - (b.returnValue ?? 0))[0]
+              : null
+      const monthReturn = Number(monthReturnValue)
+
+      return {
+          year,
+          month,
+          title: `${year}年${month}月 每日涨跌`,
+          monthReturn,
+          monthReturnLabel: formatCalendarPercent(monthReturn),
+          upDays,
+          downDays,
+          bestDay,
+          worstDay,
+          cells
+      }
+  }
+
+  const openMonthlyCalendar = (year: number, month: number, value: string) => {
+      selectedMonthlyCalendar.value = buildMonthlyCalendarDetail(year, month, value)
+  }
+
+  const closeMonthlyCalendar = () => {
+      selectedMonthlyCalendar.value = null
+  }
+
+  const goToAdjacentCalendarMonth = (direction: -1 | 1) => {
+      const target = direction < 0 ? previousCalendarMonth.value : nextCalendarMonth.value
+      if (!target) return
+      openMonthlyCalendar(target.year, target.month, target.value)
+  }
+
   const drawdownDist = ref([
       { range: '0% ~ 2%', count: 143 },
       { range: '2% ~ 4%', count: 13 },
@@ -956,12 +1203,6 @@
   const clampIndex = (index: number, maxIndex: number) =>
       Math.min(Math.max(Math.round(index), 0), Math.max(maxIndex, 0))
 
-  const formatDateInputText = (value: string) => {
-      const digits = value.replace(/\D/g, '').slice(0, 8)
-      const parts = [digits.slice(0, 4), digits.slice(4, 6), digits.slice(6, 8)].filter(Boolean)
-      return parts.join('-')
-  }
-
   const isCompleteDateInput = (value: string) => {
       if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false
 
@@ -972,25 +1213,6 @@
 
   const getCommittedDateInput = (value: string, fallback: string) =>
       isCompleteDateInput(value) ? value : fallback
-
-  const handleDateRangeInput = (side: 'start' | 'end') => {
-      const target = side === 'start' ? dateRangeStart : dateRangeEnd
-      target.value = formatDateInputText(target.value)
-  }
-
-  const openDatePicker = (side: 'start' | 'end') => {
-      const picker = side === 'start' ? dateRangeStartPicker.value : dateRangeEndPicker.value
-      if (!picker) return
-
-      const pickerWithShowPicker = picker as HTMLInputElement & { showPicker?: () => void }
-      if (pickerWithShowPicker.showPicker) {
-          pickerWithShowPicker.showPicker()
-          return
-      }
-
-      picker.focus()
-      picker.click()
-  }
 
   const getDateIndex = (date: string, mode: 'start' | 'end') => {
       const maxIndex = chartDates.value.length - 1
@@ -1206,7 +1428,7 @@
 
       try {
           try {
-              const response: any = await app.callFunction({
+              const response: any = await callCloudFunction({
                   name: 'getAllWeatherData',
                   data: { action: 'get' }
               })
@@ -1215,6 +1437,7 @@
                   resolvedData = remoteData
               }
           } catch (error) {
+              throwIfAuthExpired(error)
               console.warn('全天候后端数据读取失败，回退到本地 JSON:', error)
           }
 
@@ -1223,6 +1446,7 @@
               resolvedData = res.data
           }
       } catch (error) {
+          throwIfAuthExpired(error)
           console.error('全天候策略数据加载失败:', error)
           loadError.value = '云端与本地备用数据均无法访问，请检查网络后重试。'
       } finally {
@@ -1685,28 +1909,29 @@
   }
 
   .range-date-field {
-      position: relative;
       display: inline-flex;
       align-items: center;
-      width: 110px;
-      height: 32px;
+      width: 116px;
+      height: 34px;
       flex: 0 0 auto;
   }
 
   .range-date-input {
       box-sizing: border-box;
       width: 100%;
-      height: 32px;
-      padding: 0 0rem 0 0.7rem;
+      min-width: 0;
+      height: 34px;
+      padding: 0 0.55rem;
       font-size: 0.82rem;
       font-family: inherit;
-      line-height: 32px;
+      line-height: 1;
       color: #d8e8ff;
       background: rgb(0 0 0 / 28%);
       border: 1px solid rgb(176 196 222 / 24%);
       border-radius: 6px;
       outline: none;
       font-variant-numeric: tabular-nums;
+      color-scheme: dark;
   }
 
   .range-date-input:focus {
@@ -1714,67 +1939,19 @@
       box-shadow: 0 0 0 2px rgb(0 170 255 / 16%);
   }
 
-  .range-date-button {
-      position: absolute;
-      top: 50%;
-      right: 6px;
+  .range-date-input::-webkit-datetime-edit {
       display: inline-flex;
-      justify-content: center;
       align-items: center;
+      min-height: 100%;
       padding: 0;
-      width: 20px;
-      height: 20px;
-      color: #b7c9e0;
-      background: transparent;
-      border: 0;
-      border-radius: 4px;
-      transform: translateY(-50%);
+  }
+
+  .range-date-input::-webkit-calendar-picker-indicator {
+      padding: 0;
+      margin-left: 0.25rem;
+      width: 16px;
+      height: 16px;
       cursor: pointer;
-  }
-
-  .range-date-button:hover {
-      color: #fff;
-      background: rgb(255 255 255 / 8%);
-  }
-
-  .range-calendar-icon {
-      position: relative;
-      display: block;
-      width: 14px;
-      height: 14px;
-      border: 1.5px solid currentColor;
-      border-radius: 3px;
-      box-sizing: border-box;
-  }
-
-  .range-calendar-icon::before {
-      content: '';
-      position: absolute;
-      top: 3px;
-      left: 0;
-      width: 100%;
-      border-top: 1.5px solid currentColor;
-  }
-
-  .range-calendar-icon::after {
-      content: '';
-      position: absolute;
-      top: -3px;
-      left: 3px;
-      width: 6px;
-      height: 4px;
-      border-right: 1.5px solid currentColor;
-      border-left: 1.5px solid currentColor;
-  }
-
-  .native-date-input {
-      position: absolute;
-      right: 0;
-      bottom: 0;
-      width: 1px;
-      height: 1px;
-      opacity: 0;
-      pointer-events: none;
   }
 
   .idea-list {
@@ -2079,6 +2256,216 @@
       border: 1px solid rgb(255 255 255 / 10%);
   }
 
+  .heatmap-table td.cell-val {
+      padding: 0;
+  }
+
+  .month-return-button {
+      display: inline-flex;
+      justify-content: center;
+      align-items: center;
+      padding: 0.6rem 0.2rem;
+      width: 100%;
+      min-height: 100%;
+      font: inherit;
+      color: inherit;
+      background: transparent;
+      border: 0;
+      cursor: pointer;
+  }
+
+  .month-return-button:hover,
+  .month-return-button:focus-visible {
+      color: #fff;
+      background: rgb(255 255 255 / 14%);
+      outline: none;
+  }
+
+  .modal-fade-enter-active,
+  .modal-fade-leave-active {
+      transition: opacity 0.2s ease;
+  }
+
+  .modal-fade-enter-from,
+  .modal-fade-leave-to {
+      opacity: 0;
+  }
+
+  .modal-backdrop {
+      position: fixed;
+      z-index: 1000;
+      inset: 0;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 1.25rem;
+      background: rgb(0 0 0 / 68%);
+      backdrop-filter: blur(10px);
+  }
+
+  .modal-content {
+      color: #fff;
+      background: #101925;
+      border: 1px solid rgb(124 201 255 / 20%);
+      box-shadow: 0 24px 80px rgb(0 0 0 / 42%);
+  }
+
+  .monthly-calendar-modal {
+      overflow: hidden;
+      width: min(760px, 100%);
+      max-height: min(88vh, 760px);
+      padding: 1.25rem;
+      border-radius: 14px;
+  }
+
+  .monthly-calendar-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 1rem;
+      margin-bottom: 1rem;
+  }
+
+  .monthly-calendar-header span {
+      display: block;
+      margin-bottom: 0.35rem;
+      font-size: 0.76rem;
+      color: #7fbce7;
+      letter-spacing: 0.06em;
+  }
+
+  .monthly-calendar-header h3 {
+      margin: 0;
+      font-size: 1.18rem;
+      line-height: 1.3;
+  }
+
+  .modal-close-button {
+      display: inline-flex;
+      justify-content: center;
+      align-items: center;
+      width: 32px;
+      height: 32px;
+      color: #b8cce2;
+      background: rgb(255 255 255 / 6%);
+      border: 1px solid rgb(255 255 255 / 10%);
+      border-radius: 8px;
+      cursor: pointer;
+  }
+
+  .modal-close-button:hover {
+      color: #fff;
+      background: rgb(255 255 255 / 12%);
+  }
+
+  .monthly-calendar-controls {
+      display: grid;
+      align-items: center;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 0.75rem;
+      margin-bottom: 1rem;
+  }
+
+  .monthly-calendar-controls button {
+      padding: 0.5rem 0.75rem;
+      color: #d7e8fb;
+      background: rgb(255 255 255 / 6%);
+      border: 1px solid rgb(255 255 255 / 12%);
+      border-radius: 8px;
+      cursor: pointer;
+  }
+
+  .monthly-calendar-controls button:disabled {
+      opacity: 0.38;
+      cursor: not-allowed;
+  }
+
+  .monthly-calendar-summary {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 0.7rem;
+      margin-bottom: 1rem;
+  }
+
+  .monthly-calendar-summary div {
+      padding: 0.75rem;
+      background: rgb(0 0 0 / 22%);
+      border: 1px solid rgb(255 255 255 / 8%);
+      border-radius: 8px;
+  }
+
+  .monthly-calendar-summary span {
+      display: block;
+      margin-bottom: 0.32rem;
+      font-size: 0.76rem;
+      color: #8392a5;
+  }
+
+  .monthly-calendar-summary strong,
+  .monthly-calendar-cell strong {
+      font-variant-numeric: tabular-nums;
+  }
+
+  .positive {
+      color: #ff8f66;
+  }
+
+  .negative {
+      color: #35d7b1;
+  }
+
+  .monthly-calendar-weekdays,
+  .monthly-calendar-grid {
+      display: grid;
+      grid-template-columns: repeat(7, minmax(0, 1fr));
+      gap: 0.45rem;
+  }
+
+  .monthly-calendar-weekdays {
+      margin-bottom: 0.45rem;
+  }
+
+  .monthly-calendar-weekdays span {
+      text-align: center;
+      font-size: 0.74rem;
+      color: #7f91a6;
+  }
+
+.monthly-calendar-cell {
+    position: relative;
+    display: grid;
+    min-height: 68px;
+    padding: 0.55rem;
+    color: #6f8094;
+    background: rgb(255 255 255 / 3%);
+      border: 1px solid rgb(255 255 255 / 7%);
+      border-radius: 8px;
+  }
+
+  .monthly-calendar-cell.empty {
+      visibility: hidden;
+  }
+
+  .monthly-calendar-cell.trading {
+      color: #f3f8ff;
+  }
+
+  .monthly-calendar-cell span {
+      position: relative;
+      z-index: 1;
+      font-size: 0.75rem;
+  }
+
+.monthly-calendar-cell strong {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: calc(100% - 1rem);
+    transform: translate(-50%, -50%);
+    font-size: 0.84rem;
+    text-align: center;
+}
+
   .year-col {
       font-weight: bold;
       background: rgb(255 255 255 / 2%);
@@ -2372,7 +2759,46 @@
       }
 
       .range-date-field {
-          width: 110px;
+          width: 116px;
+      }
+
+      .modal-backdrop {
+          align-items: flex-start;
+          overflow-y: auto;
+          padding: 0.75rem;
+      }
+
+      .monthly-calendar-modal {
+          padding: 1rem;
+          max-height: none;
+      }
+
+      .monthly-calendar-controls {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .monthly-calendar-controls button {
+          justify-self: stretch;
+          text-align: center;
+      }
+
+      .monthly-calendar-summary {
+          grid-template-columns: repeat(2, 1fr);
+      }
+
+      .monthly-calendar-weekdays,
+      .monthly-calendar-grid {
+          gap: 0.3rem;
+      }
+
+      .monthly-calendar-cell {
+          min-height: 54px;
+          padding: 0.4rem;
+          border-radius: 6px;
+      }
+
+      .monthly-calendar-cell strong {
+          font-size: 0.72rem;
       }
   }
 </style>

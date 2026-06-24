@@ -139,6 +139,15 @@
       <path class="notification-check" d="m20.5 24 2.2 2.2 4.8-5" />
     </g>
 
+    <g v-else-if="type === 'admin-center'" class="admin-center-glyph">
+      <rect class="admin-panel" x="9" y="11" width="30" height="26" rx="5" />
+      <path class="admin-panel-line" d="M15 18h11M15 24h7M15 30h10" />
+      <circle class="admin-user-dot" cx="33" cy="18" r="2.6" />
+      <path class="admin-user-arc" d="M28.5 27c1.1-3.2 7.9-3.2 9 0" />
+      <path class="admin-shield" d="M24 39c-4-1.8-6-4.2-6-7.5v-3l6-2 6 2v3c0 3.3-2 5.7-6 7.5Z" />
+      <path class="admin-check" d="m21.5 32 1.8 1.8 3.4-4" />
+    </g>
+
     <g v-else class="about-glyph">
       <path class="about-back-card" d="M15 9h22a3 3 0 0 1 3 3v23" />
       <rect class="about-front-card" x="8" y="14" width="27" height="25" rx="5" />
@@ -420,6 +429,11 @@
   .tools-panel,
   .tools-track,
   .tools-balance,
+  .admin-panel,
+  .admin-panel-line,
+  .admin-user-arc,
+  .admin-shield,
+  .admin-check,
   .wealth-map-shape,
   .wealth-route,
   .wealth-pin,
@@ -686,6 +700,45 @@
   .notification-check {
       stroke: #b9f3ff;
       stroke-width: 1.8;
+  }
+
+  .admin-center-glyph {
+      filter: drop-shadow(0 0 7px rgb(96 165 250 / 24%));
+  }
+
+  .admin-panel {
+      fill: rgb(96 165 250 / 8%);
+      filter: drop-shadow(0 0 var(--admin-panel-glow, 2px) currentcolor);
+      transition: transform 0.35s ease, filter 0.3s ease;
+      transform: translateY(var(--admin-panel-shift, 0));
+  }
+
+  .admin-panel-line {
+      stroke: #d9f9ff;
+      opacity: 0.78;
+  }
+
+  .admin-user-dot {
+      fill: #52e3bd;
+      filter: drop-shadow(0 0 var(--admin-user-glow, 3px) rgb(82 227 189 / 65%));
+  }
+
+  .admin-user-arc {
+      stroke: #52e3bd;
+  }
+
+  .admin-shield {
+      fill: rgb(255 209 102 / 10%);
+      stroke: #ffd166;
+      filter: drop-shadow(0 0 var(--admin-shield-glow, 3px) rgb(255 209 102 / 55%));
+      transition: transform 0.35s ease, filter 0.3s ease;
+      transform: scale(var(--admin-shield-scale, 1));
+      transform-origin: 24px 32px;
+  }
+
+  .admin-check {
+      stroke: #fff7c7;
+      stroke-width: 1.4;
   }
 
   @keyframes notification-wave-pulse {

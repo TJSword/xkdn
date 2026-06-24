@@ -630,7 +630,7 @@
 <script setup lang="ts">
   import { ref, computed, onMounted, nextTick, watch } from 'vue'
   import * as echarts from 'echarts'
-  import app from '@/lib/cloudbase'
+  import { callCloudFunction, throwIfAuthExpired } from '@/services/cloudFunction'
   import {
       calculateCorrelation as calculateStrategyCorrelation,
       calculateDrawdownAnalysis as calculateStrategyDrawdownAnalysis,
@@ -738,7 +738,7 @@
 
   const debugPortfolioCache = (...args: any[]) => {
       if (import.meta.env.DEV) {
-          console.info('[portfolio-analysis-cache]', ...args)
+        //   console.info('[portfolio-analysis-cache]', ...args)
       }
   }
 
@@ -1324,7 +1324,7 @@
 
           return cache
       } catch (error) {
-          console.warn('portfolio analysis cache read failed:', error)
+        //   console.warn('portfolio analysis cache read failed:', error)
           return null
       }
   }
@@ -1352,7 +1352,7 @@
               )
           })
       } catch (error) {
-          console.warn('portfolio analysis cache write failed:', error)
+        //   console.warn('portfolio analysis cache write failed:', error)
       }
   }
 
@@ -1398,7 +1398,7 @@
           throw new Error(`${strategy.id} has no cloud function configured`)
       }
 
-      const response: any = await app.callFunction({ name: strategy.functionName, data: {} })
+      const response: any = await callCloudFunction({ name: strategy.functionName, data: {} })
       const backendData = response.result?.data
       if (response.result?.success && isValidStrategyData(backendData)) {
           return backendData
@@ -1407,8 +1407,17 @@
       throw new Error(`${strategy.functionName} returned no valid strategy data`)
   }
 
+  const assertPortfolioLogin = async () => {
+      await callCloudFunction({
+          name: 'getPortfolioAnalysisData',
+          data: { strategyIds: ['__auth_check__'] }
+      })
+  }
+
   const loadStrategyDataBatch = async (targetStrategies: any[]) => {
       if (targetStrategies.length === 0) return
+
+      await assertPortfolioLogin()
 
       const cacheHitStrategies = loadCachedStrategyData(targetStrategies)
       const cacheHitIds = new Set(cacheHitStrategies.map(strategy => strategy.id))
@@ -1420,7 +1429,7 @@
       if (strategiesToFetch.length === 0) return
 
       try {
-          const response: any = await app.callFunction({
+          const response: any = await callCloudFunction({
               name: 'getPortfolioAnalysisData',
               data: {
                   strategyIds: strategiesToFetch.map(strategy => strategy.id)
@@ -1447,7 +1456,8 @@
 
           writeStrategyDataCache()
       } catch (error) {
-          console.warn('getPortfolioAnalysisData failed, fallback to per-strategy requests:', error)
+          throwIfAuthExpired(error)
+        //   console.warn('getPortfolioAnalysisData failed, fallback to per-strategy requests:', error)
           const responses = await Promise.all(strategiesToFetch.map(strategy => loadStrategyData(strategy)))
           responses.forEach((data, index) => {
               rawDataMap.value[strategiesToFetch[index].id] = data
@@ -1482,8 +1492,9 @@
           updateDateRangeLimits() // 计算初始日期范围
           isLoading.value = false
       } catch (error) {
-          console.error('数据加载失败:', error)
-          alert('策略数据加载失败，请检查 static 文件是否存在。')
+          throwIfAuthExpired(error)
+        //   console.error('数据加载失败:', error)
+        //   alert('策略数据加载失败，请检查 static 文件是否存在。')
           isLoading.value = false
       }
 
@@ -1499,8 +1510,9 @@
           await loadMissingSelectedStrategyData()
           updateDateRangeLimits()
       } catch (error) {
-          console.error('策略数据加载失败:', error)
-          alert('所选策略数据加载失败，请稍后重试。')
+          throwIfAuthExpired(error)
+        //   console.error('策略数据加载失败:', error)
+        //   alert('所选策略数据加载失败，请稍后重试。')
       } finally {
           isLoading.value = false
       }
@@ -1743,12 +1755,11 @@
       // 6. Top 10 回撤 & 回撤分布
       const { drawdowns, distribution } = calculateStrategyDrawdownAnalysis(portfolioCurve, calcDateList)
       top10Drawdowns.value = drawdowns
-      console.log(drawdowns)
+    //   console.log(drawdowns)
       drawdownDistribution.value = distribution
 
       // 7. 月度/年度收益
       monthlyReturns.value = calculateStrategyMonthlyReturns(portfolioCurve, calcDateList)
-      console.log(monthlyReturns.value)
 
       // 保存数据给图表
       chartData.value = {
@@ -3225,12 +3236,76 @@
       }
 
       .input-row {
-          flex-wrap: wrap;
+          display: grid;
+          align-items: center;
+          grid-template-columns: minmax(0, 1fr) 70px;
+          gap: 0.7rem 0.85rem;
+          padding: 0.85rem;
+      }
+
+      .strategy-label-cell {
+          min-width: 0;
+          grid-column: 1;
+          grid-row: 1;
+      }
+
+      .strategy-name-label,
+      .strategy-name-action {
+          min-width: 0;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+      }
+
+      .slider-container {
+          display: contents;
+      }
+
+      .slider-container > input[type='range'] {
+          width: 100%;
+          min-width: 0;
+          grid-column: 1 / -1;
+          grid-row: 2;
+      }
+
+      .slider-container .number-input-wrapper {
+          width: 70px;
+          grid-column: 2;
+          grid-row: 1;
+          justify-self: end;
+      }
+
+      .slider-container.disabled input[type='range'],
+      .slider-container.disabled .number-input-wrapper {
+          opacity: 0.3;
+          pointer-events: none;
       }
 
       .conservative-field {
+          grid-column: 1 / -1;
+          grid-row: 3;
           justify-content: flex-end;
           width: 100%;
+      }
+
+      .slider-container .number-input-wrapper input,
+      .conservative-field input {
+          box-sizing: border-box;
+          width: 70px;
+          height: 32px;
+          padding: 4px;
+          font-size: 0.9rem;
+          line-height: 1;
+          background: rgb(0 0 0 / 30%);
+          border: 1px solid rgb(255 255 255 / 20%);
+      }
+
+      .slider-container .number-input-wrapper input {
+          padding-right: 16px;
+      }
+
+      .number-input-wrapper .unit {
+          right: 7px;
       }
 
       .action-area {

@@ -11,6 +11,20 @@ const app = cloudbase.init({
 const auth = app.auth();
 const db = app.database();
 
+declare global {
+  interface Window {
+    app?: typeof app;
+    cloudbaseApp?: typeof app;
+    cloudbaseAuth?: typeof auth;
+  }
+}
+
+if (typeof window !== 'undefined' && import.meta.env.DEV) {
+  window.app = app;
+  window.cloudbaseApp = app;
+  window.cloudbaseAuth = auth;
+}
+
 // 3. 导出这些已经生成的实例
 // 其他文件直接 import { auth } from '@/lib/cloudbase' 即可复用
 export { auth, db };

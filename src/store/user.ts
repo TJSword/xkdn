@@ -1,7 +1,8 @@
 // src/store/user.js
 
 import { defineStore } from 'pinia'
-import app, { auth } from '@/lib/cloudbase'
+import { auth } from '@/lib/cloudbase'
+import { callCloudFunction } from '@/services/cloudFunction'
 
 const USER_INFO_CACHE_KEY = 'xkdn:user-info:v1'
 const USER_INFO_CACHE_TTL = 30 * 60 * 1000
@@ -51,6 +52,17 @@ function isCacheFresh(syncedAt: number) {
   return syncedAt > 0 && Date.now() - syncedAt < USER_INFO_CACHE_TTL
 }
 
+function isCredentialsMissingError(error: any) {
+  const message = String(
+    error?.message ||
+    error?.error_description ||
+    error?.errorDescription ||
+    ''
+  )
+  const code = String(error?.code || error?.error || '')
+  return /credentials not found/i.test(message) || code === 'unauthenticated'
+}
+
 function isActiveVip(userInfo: any) {
   if (!userInfo?.isVip) return false
   if (!userInfo.vipExpiry) return true
@@ -94,7 +106,7 @@ export const useUserStore = defineStore('user', {
     async _syncUserInfo(phoneNumber: any) {
       try {
         // 调用我们自定义的云函数，它会根据当前登录的 tcb 用户，查找或创建我们自己数据库的记录
-        const res = await app.callFunction({ name: 'loginOrRegister', data: { phone: phoneNumber } })
+        const res = await callCloudFunction({ name: 'loginOrRegister', data: { phone: phoneNumber } })
         this.userInfo = res.result
         this.lastSyncedAt = writeUserInfoCache(this.userInfo)
         this.hasAttemptedLogin = true
@@ -248,9 +260,11 @@ export const useUserStore = defineStore('user', {
     async logout() {
       try {
         // 先调用 SDK 的登出方法，清除本地存储的凭证
-        await app.auth().signOut();
+        await auth.signOut();
       } catch (e) {
-        console.error("SDK 登出失败:", e);
+        if (!isCredentialsMissingError(e)) {
+          console.error("SDK 登出失败:", e);
+        }
       } finally {
         // 无论 SDK 是否成功，都必须重置 Pinia 的 state
         this.userInfo = null
@@ -285,7 +299,7 @@ export const useUserStore = defineStore('user', {
    */
     async updateHoldings(holdings: any) {
       // 1. 调用你刚才写的云函数 'updateUserHoldings'
-      const res = await app.callFunction({
+      const res = await callCloudFunction({
         name: 'updateUserHoldings',
         data: { holdings }
       })

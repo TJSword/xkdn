@@ -206,32 +206,10 @@
                 <input
                   v-model="dateRangeStart"
                   class="range-date-input"
-                  type="text"
-                  inputmode="numeric"
-                  maxlength="10"
-                  placeholder="YYYY-MM-DD"
-                  aria-label="选择开始日期"
-                  @input="handleDateRangeInput('start')"
-                  @keydown.enter="applyDateRangeSelection"
-                  @blur="applyDateRangeSelection"
-                />
-                <button
-                  class="range-date-button"
-                  type="button"
-                  aria-label="打开开始日期选择器"
-                  @click="openDatePicker('start')"
-                >
-                  <span class="range-calendar-icon" aria-hidden="true"></span>
-                </button>
-                <input
-                  ref="dateRangeStartPicker"
-                  v-model="dateRangeStart"
-                  class="native-date-input"
                   type="date"
                   :min="chartMinDate"
                   :max="chartMaxDate"
-                  tabindex="-1"
-                  aria-hidden="true"
+                  aria-label="选择开始日期"
                   @change="applyDateRangeSelection"
                 />
               </div>
@@ -240,32 +218,10 @@
                 <input
                   v-model="dateRangeEnd"
                   class="range-date-input"
-                  type="text"
-                  inputmode="numeric"
-                  maxlength="10"
-                  placeholder="YYYY-MM-DD"
-                  aria-label="选择结束日期"
-                  @input="handleDateRangeInput('end')"
-                  @keydown.enter="applyDateRangeSelection"
-                  @blur="applyDateRangeSelection"
-                />
-                <button
-                  class="range-date-button"
-                  type="button"
-                  aria-label="打开结束日期选择器"
-                  @click="openDatePicker('end')"
-                >
-                  <span class="range-calendar-icon" aria-hidden="true"></span>
-                </button>
-                <input
-                  ref="dateRangeEndPicker"
-                  v-model="dateRangeEnd"
-                  class="native-date-input"
                   type="date"
                   :min="chartMinDate"
                   :max="chartMaxDate"
-                  tabindex="-1"
-                  aria-hidden="true"
+                  aria-label="选择结束日期"
                   @change="applyDateRangeSelection"
                 />
               </div>
@@ -313,7 +269,15 @@
                 <tr v-for="yearData in monthlyReturns" :key="yearData.year">
                   <td class="year-col">{{ yearData.year }}</td>
                   <td v-for="(val, idx) in yearData.months" :key="idx" :style="getHeatmapStyle(val)" class="cell-val">
-                    {{ val !== null ? val + '%' : '' }}
+                    <button
+                      v-if="val !== null"
+                      class="month-return-button"
+                      type="button"
+                      :aria-label="`查看 ${yearData.year} 年 ${idx + 1} 月每日涨跌`"
+                      @click="openMonthlyCalendar(yearData.year, idx + 1, val)"
+                    >
+                      {{ val }}%
+                    </button>
                   </td>
                   <td class="year-total" :style="getHeatmapStyle(yearData.total)">
                     {{ yearData.total }}%
@@ -464,6 +428,15 @@
       </div>
     </div>
   </div>
+
+  <MonthlyReturnCalendarModal
+    :calendar="selectedMonthlyCalendar"
+    :has-previous="!!previousCalendarMonth"
+    :has-next="!!nextCalendarMonth"
+    accent="#48c774"
+    @close="closeMonthlyCalendar"
+    @navigate="goToAdjacentCalendarMonth"
+  />
 </template>
 
 <script setup lang="ts">
@@ -471,12 +444,14 @@
   import { useRouter } from 'vue-router'
   import * as echarts from 'echarts'
   import { useUserStore } from '@/store/user'
+  import MonthlyReturnCalendarModal from '@/components/MonthlyReturnCalendarModal.vue'
+  import { useMonthlyReturnCalendar } from '@/composables/useMonthlyReturnCalendar'
   const router = useRouter()
   const userStore = useUserStore()
   const canViewPremiumContent = computed(() => userStore.isVip || userStore.userInfo?.admin === true)
   const canRefreshStrategy = computed(() => userStore.userInfo?.admin === true)
   // 引入云开发 SDK (请确保路径与您项目一致，通常是 @/lib/cloudbase 或类似的)
-  import app from '@/lib/cloudbase'
+  import { callCloudFunction, throwIfAuthExpired } from '@/services/cloudFunction'
   import axios from 'axios'
   import {
       calculateDrawdownAnalysis,
@@ -503,12 +478,11 @@
       totalMonths: 0,
       winRate: '0.0'
   })
+  const monthlyReturns = ref<any[]>([])
   const profitLossRatio = ref('0.000')
   const backtestPeriodText = ref('回测周期: --')
   const dateRangeStart = ref('')
   const dateRangeEnd = ref('')
-  const dateRangeStartPicker = ref<HTMLInputElement | null>(null)
-  const dateRangeEndPicker = ref<HTMLInputElement | null>(null)
   const chartMinDate = ref('')
   const chartMaxDate = ref('')
   const disciplineCash = ref(false)
@@ -637,6 +611,7 @@
               calculateWithCurrentData()
           }
       } catch (err: any) {
+          throwIfAuthExpired(err)
           console.error(err)
           showMessage(err.message || '保存失败', 'error')
       }
@@ -670,6 +645,7 @@
           // 所以下方的“调仓建议”应该会变为空（或显示无操作），这是符合逻辑的。
           calculateWithCurrentData()
       } catch (err: any) {
+          throwIfAuthExpired(err)
           console.error(err)
           showMessage(err.message || '录入失败', 'error')
       }
@@ -858,7 +834,7 @@
 
       const request = (async () => {
           try {
-              const res: any = await app.callFunction({
+              const res: any = await callCloudFunction({
                   name: 'getMicroCapData10'
               })
 
@@ -891,6 +867,7 @@
                   message: res.result.message || res.result.msg || '暂时无法获取策略数据'
               }
           } catch (err) {
+              throwIfAuthExpired(err)
               console.error('云函数调用失败', err)
               return {
                   success: false,
@@ -936,7 +913,7 @@
 
       isStrategyRefreshing.value = true
       try {
-          const res: any = await app.callFunction({
+          const res: any = await callCloudFunction({
               name: 'microCapStrategy10'
           })
           if (res.result?.success === false) {
@@ -946,6 +923,7 @@
           await fetchStrategyData()
           showMessage?.('微盘股策略数据已刷新', 'success')
       } catch (err: any) {
+          throwIfAuthExpired(err)
           console.error('微盘股策略刷新失败', err)
           showMessage?.(err.message || '微盘股策略刷新失败', 'error')
       } finally {
@@ -997,12 +975,6 @@
   const clampIndex = (index: number, maxIndex: number) =>
       Math.min(Math.max(Math.round(index), 0), Math.max(maxIndex, 0))
 
-  const formatDateInputText = (value: string) => {
-      const digits = value.replace(/\D/g, '').slice(0, 8)
-      const parts = [digits.slice(0, 4), digits.slice(4, 6), digits.slice(6, 8)].filter(Boolean)
-      return parts.join('-')
-  }
-
   const isCompleteDateInput = (value: string) => {
       if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false
 
@@ -1013,25 +985,6 @@
 
   const getCommittedDateInput = (value: string, fallback: string) =>
       isCompleteDateInput(value) ? value : fallback
-
-  const handleDateRangeInput = (side: 'start' | 'end') => {
-      const target = side === 'start' ? dateRangeStart : dateRangeEnd
-      target.value = formatDateInputText(target.value)
-  }
-
-  const openDatePicker = (side: 'start' | 'end') => {
-      const picker = side === 'start' ? dateRangeStartPicker.value : dateRangeEndPicker.value
-      if (!picker) return
-
-      const pickerWithShowPicker = picker as HTMLInputElement & { showPicker?: () => void }
-      if (pickerWithShowPicker.showPicker) {
-          pickerWithShowPicker.showPicker()
-          return
-      }
-
-      picker.focus()
-      picker.click()
-  }
 
   const getDateIndex = (date: string, mode: 'start' | 'end') => {
       const maxIndex = chartDates.value.length - 1
@@ -1051,6 +1004,22 @@
 
       return 0
   }
+
+  const {
+      selectedMonthlyCalendar,
+      previousCalendarMonth,
+      nextCalendarMonth,
+      openMonthlyCalendar,
+      closeMonthlyCalendar,
+      goToAdjacentCalendarMonth
+  } = useMonthlyReturnCalendar({
+      monthlyRows: monthlyReturns,
+      chartDates,
+      chartStrategyValues,
+      dateRangeStart,
+      dateRangeEnd,
+      getDateIndex
+  })
 
   const updateRangeMetrics = (startIndex: number, endIndex: number) => {
       const selectedPairs = chartDates.value
@@ -1179,7 +1148,7 @@
   }
 
   // --- 5. 热力图与辅助数据 (保持原样) ---
-  const monthlyReturns = ref([
+  monthlyReturns.value = [
       {
           year: 2025,
           months: [
@@ -1414,7 +1383,7 @@
           ],
           total: '63.62'
       }
-  ])
+  ]
 
   const getHeatmapStyle = (value: any) => {
       if (value === null || value === undefined) return {}
@@ -1583,7 +1552,7 @@
 
   const fetchRealtimeStatus = async () => {
       try {
-          const response: any = await app.callFunction({
+          const response: any = await callCloudFunction({
               name: 'getMicroCapRealtimeInfo',
               data: { action: 'get' }
           })
@@ -1594,13 +1563,14 @@
           disciplineCashReason.value = payload.disciplineCashReason || ''
           realtimeUpdatedAt.value = payload.updatedAt || payload.updatedMinute || ''
       } catch (error) {
+          throwIfAuthExpired(error)
           console.warn('微盘实时状态读取失败:', error)
       }
   }
 
   const getlocalData = async () => {
       try {
-          const response: any = await app.callFunction({
+          const response: any = await callCloudFunction({
               name: 'getMicroCapStrategyData',
               data: { action: 'get' }
           })
@@ -1609,6 +1579,7 @@
               return payload
           }
       } catch (error) {
+          throwIfAuthExpired(error)
           console.warn('微盘后端走势读取失败，使用本地静态数据:', error)
       }
 
@@ -2141,28 +2112,29 @@
   }
 
   .range-date-field {
-      position: relative;
       display: inline-flex;
       align-items: center;
-      width: 110px;
-      height: 32px;
+      width: 116px;
+      height: 34px;
       flex: 0 0 auto;
   }
 
   .range-date-input {
       box-sizing: border-box;
       width: 100%;
-      height: 32px;
-      padding: 0 0rem 0 0.7rem;
+      min-width: 0;
+      height: 34px;
+      padding: 0 0.55rem;
       font-size: 0.82rem;
       font-family: inherit;
-      line-height: 32px;
+      line-height: 1;
       color: #d8e8ff;
       background: rgb(0 0 0 / 28%);
       border: 1px solid rgb(176 196 222 / 24%);
       border-radius: 6px;
       outline: none;
       font-variant-numeric: tabular-nums;
+      color-scheme: dark;
   }
 
   .range-date-input:focus {
@@ -2170,67 +2142,19 @@
       box-shadow: 0 0 0 2px rgb(240 230 140 / 16%);
   }
 
-  .range-date-button {
-      position: absolute;
-      top: 50%;
-      right: 6px;
+  .range-date-input::-webkit-datetime-edit {
       display: inline-flex;
-      justify-content: center;
       align-items: center;
+      min-height: 100%;
       padding: 0;
-      width: 20px;
-      height: 20px;
-      color: #b7c9e0;
-      background: transparent;
-      border: 0;
-      border-radius: 4px;
-      transform: translateY(-50%);
+  }
+
+  .range-date-input::-webkit-calendar-picker-indicator {
+      padding: 0;
+      margin-left: 0.25rem;
+      width: 16px;
+      height: 16px;
       cursor: pointer;
-  }
-
-  .range-date-button:hover {
-      color: #fff;
-      background: rgb(255 255 255 / 8%);
-  }
-
-  .range-calendar-icon {
-      position: relative;
-      display: block;
-      width: 14px;
-      height: 14px;
-      border: 1.5px solid currentColor;
-      border-radius: 3px;
-      box-sizing: border-box;
-  }
-
-  .range-calendar-icon::before {
-      content: '';
-      position: absolute;
-      top: 3px;
-      left: 0;
-      width: 100%;
-      border-top: 1.5px solid currentColor;
-  }
-
-  .range-calendar-icon::after {
-      content: '';
-      position: absolute;
-      top: -3px;
-      left: 3px;
-      width: 6px;
-      height: 4px;
-      border-right: 1.5px solid currentColor;
-      border-left: 1.5px solid currentColor;
-  }
-
-  .native-date-input {
-      position: absolute;
-      right: 0;
-      bottom: 0;
-      width: 1px;
-      height: 1px;
-      opacity: 0;
-      pointer-events: none;
   }
 
   .echart-container {
@@ -2296,6 +2220,31 @@
       font-size: 0.8rem;
       text-align: center;
       border: 1px solid rgb(255 255 255 / 10%);
+  }
+
+  .heatmap-table td.cell-val {
+      padding: 0;
+  }
+
+  .month-return-button {
+      display: inline-flex;
+      justify-content: center;
+      align-items: center;
+      padding: 0.6rem 0.2rem;
+      width: 100%;
+      min-height: 100%;
+      font: inherit;
+      color: inherit;
+      background: transparent;
+      border: 0;
+      cursor: pointer;
+  }
+
+  .month-return-button:hover,
+  .month-return-button:focus-visible {
+      color: #fff;
+      background: rgb(255 255 255 / 14%);
+      outline: none;
   }
 
   .year-col {
@@ -2511,7 +2460,7 @@
       }
 
       .range-date-field {
-          width: 110px;
+          width: 116px;
       }
 
       /* 6. 调仓指引：单列显示 */

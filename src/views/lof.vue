@@ -242,7 +242,7 @@
 
 <script setup lang="ts">
   import { computed, onMounted, ref, watch } from 'vue'
-  import app from '@/lib/cloudbase'
+  import { callCloudFunction } from '@/services/cloudFunction'
   import { useUserStore } from '@/store/user'
 
   interface LofRow {
@@ -551,7 +551,7 @@
       }
 
       try {
-          const res: any = await app.callFunction({
+          const res: any = await callCloudFunction({
               name: 'getLofData',
               data: forceRefresh ? { forceRefresh: true } : {},
               parse: true

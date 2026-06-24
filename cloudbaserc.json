@@ -139,6 +139,14 @@
       "description": "Micro-cap strategy latest intraday snapshot reader"
     },
     {
+      "name": "microCapStrategy10",
+      "runtime": "Nodejs18.15",
+      "handler": "index.main",
+      "timeout": 60,
+      "memorySize": 512,
+      "description": "Micro-cap Top10 strategy manual refresher"
+    },
+    {
       "name": "updateMicroCapStrategyRealtime",
       "runtime": "Nodejs18.15",
       "handler": "index.main",
@@ -267,12 +275,28 @@
       "description": "管理员分页查询用户及通知信息"
     },
     {
+      "name": "loginOrRegister",
+      "runtime": "Nodejs18.15",
+      "handler": "index.main",
+      "timeout": 10,
+      "memorySize": 256,
+      "description": "同步用户信息并返回后端路由权限包"
+    },
+    {
       "name": "updateAdminUser",
       "runtime": "Nodejs18.15",
       "handler": "index.main",
       "timeout": 10,
       "memorySize": 256,
       "description": "管理员更新用户通知 ID 和备注"
+    },
+    {
+      "name": "xueqiuCookieConfig",
+      "runtime": "Nodejs18.15",
+      "handler": "index.main",
+      "timeout": 5,
+      "memorySize": 256,
+      "description": "管理员读取和更新雪球 Cookie 配置"
     },
     {
       "name": "getLofData",

@@ -1,6 +1,6 @@
 import { createWebHashHistory, createRouter } from 'vue-router'
 import { useUserStore } from '@/store/user' // 引入我们刚创建的 user store
-import app from '@/lib/cloudbase'
+import { auth } from '@/lib/cloudbase'
 import { applyRouteSeo } from '@/utils/seo'
 // 路由表
 export const constantRoutes = [
@@ -36,11 +36,6 @@ export const constantRoutes = [
       description: '查看全天候资产配置策略收益走势、月度年度收益、回撤指标和 ETF 配置比例，观察多资产组合的长期表现。'
     }
   },
-  // {
-  //   path: '/long-term',
-  //   component: () => import('@/views/long-term.vue'),
-  //   meta: { requiresAuth: true }
-  // },
   {
     path: '/tools',
     component: () => import('@/views/tools.vue'),
@@ -136,34 +131,8 @@ export const constantRoutes = [
     component: () => import('@/views/admin.vue'),
     meta: {
       requiresAuth: true,
-      title: '用户管理',
-      description: '管理员页面，用于管理会员状态、用户备注、通知渠道和策略通知设置。'
-    }
-  },
-  {
-    path: '/mc',
-    component: () => import('@/views/mc.vue'),
-    meta: {
-      requiresAuth: true,
-      title: '微盘股调仓',
-      description: '查看微盘股调仓计划、持仓明细、市值分布和每日资金再平衡建议。'
-    }
-  },
-  {
-    path: '/cb',
-    component: () => import('@/views/cb.vue'),
-    meta: {
-      requiresAuth: true,
-      title: '惊蛰策略调仓',
-      description: '查看惊蛰策略调仓建议、核心持仓、份数计算和每日资金再平衡信息。'
-    }
-  }, {
-    path: '/zb',
-    component: () => import('@/views/zb.vue'),
-    meta: {
-      requiresAuth: true,
-      title: '策略中枢',
-      description: '聚合展示多策略实时状态、仓位分布、市场环境雷达和系统运行日志。'
+      title: '管理中心',
+      description: '管理员页面，用于管理会员、通知配置、数据源授权和策略刷新。'
     }
   },
   // 404页面必须放在最后
@@ -186,29 +155,11 @@ const router = createRouter({
 // 定义一个不需要登录就能访问的“白名单”
 const whiteList = ['/login']
 
-// 新增：为非 VIP 用户定义登录后可以访问的页面列表
-const nonVipAccessibleRoutes = [
-  '/home',
-  '/all-weather',
-  '/tools',
-  '/wealth-map',
-  '/investment-ledger',
-  '/about',
-  '/bonds',
-  '/rights-strategy',
-  '/micro-cap',
-  '/momentum',
-  '/lof',
-  '/portfolio-analysis'
-]; // 示例列表
-
-const adminRoutes = ['/admin', '/mc', '/cb'];
-
 router.beforeEach(async (to, from, next) => {
   const userStore = useUserStore();
 
   // 1. 使用导入的 app 实例，通过 SDK 获取当前登录状态
-  const loginState = await app.auth().getLoginState();
+  const loginState = await auth.getLoginState();
   const isLoggedIn = !!loginState; // 如果 loginState 不为 null，则认为已登录
 
   if (isLoggedIn) {
@@ -223,14 +174,14 @@ router.beforeEach(async (to, from, next) => {
     const hasUserInfo = userStore.userInfo && Object.keys(userStore.userInfo).length > 0 && userStore.isUserInfoFresh;
 
     if (hasUserInfo) {
-      // A-2-a: Pinia 中有用户信息，直接进行权限检查
-      checkPermissions(to, userStore, next);
+      // A-2-a: Pinia 中有用户信息，使用后端返回的缓存权限包判断
+      await checkPermissions(to, userStore, next);
     } else {
       // A-2-b: Pinia 中没有用户信息（通常是刷新页面后），需要通过 API 获取
       try {
         await userStore.fetchUserInfo(); // 这个 action 内部会调用云函数
-        // 获取用户信息成功后，进行权限检查
-        checkPermissions(to, userStore, next);
+        // 获取用户信息成功后，使用后端返回的缓存权限包判断
+        await checkPermissions(to, userStore, next);
       } catch (error) {
         // 获取用户信息失败，这几乎总是意味着 SDK 的本地凭证在服务器端已失效
         console.error('登录凭证已失效，获取用户信息失败:', error);
@@ -259,40 +210,29 @@ router.beforeEach(async (to, from, next) => {
   }
 });
 
-// 权限检查辅助函数 (这个函数不需要改变)
-// 权限检查辅助函数
-function checkPermissions(to: any, userStore: any, next: any) {
-  // const isAdminRoute = ... (保持不变)
-  const isAdminRoute = adminRoutes.includes(to.path);
-  const isVip = userStore.isVip;
-  const userInfo = userStore.userInfo;
-
-  // 1. 管理员权限检查 (保持不变)
-  if (isAdminRoute) {
-    if (userInfo?.admin === true) {
-      next();
-    } else {
-      // 这里触发跳转到 NotFound，会再次进入这个函数，所以下面必须放行 NotFound
-      next({ name: 'NotFound' });
-    }
+async function checkPermissions(to: any, userStore: any, next: any) {
+  if (to.name === 'NotFound') {
+    next();
     return;
   }
 
-  // 2. VIP 权限检查 (保持不变)
-  if (isVip) {
+  if (!userStore.userInfo?.routePermissions) {
+    await userStore.refreshUserInfo();
+  }
+
+  if (hasCachedRoutePermission(to.path, userStore.userInfo?.routePermissions)) {
     next();
   } else {
-    // --- 非 VIP 用户的权限检查 ---
-
-    // 【修改点在这里】
-    // 逻辑：如果是白名单页面，或者 目标页面本身就是 404 页面，则放行
-    if (nonVipAccessibleRoutes.includes(to.path) || to.name === 'NotFound') {
-      next();
-    } else {
-      // 否则跳转到 404
-      next({ name: 'NotFound' });
-    }
+    next({ name: 'NotFound' });
   }
+}
+
+function hasCachedRoutePermission(path: string, routePermissions: any) {
+  const allowedRoutes = Array.isArray(routePermissions?.allowedRoutes)
+    ? routePermissions.allowedRoutes
+    : [];
+
+  return allowedRoutes.includes(path);
 }
 
 router.afterEach(to => {

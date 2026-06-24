@@ -76,6 +76,10 @@
       --menu-accent: #4ecdc4;
   }
 
+  .feature-page-icon-admin-center {
+      --menu-accent: #60a5fa;
+  }
+
   .feature-page-icon-about {
       --menu-accent: #ffc107;
   }
