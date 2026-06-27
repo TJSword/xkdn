@@ -24,29 +24,64 @@
         <div class="content-card">
           <h2 class="card-title">初衷与理念</h2>
           <p class="card-description">
-            大家好，我是本站的开发者老何。
+            大家好，我是老何。
           </p>
           <p class="card-description">
-            最初，我曾想过搭建一个小程序，因为它足够便捷。但后来发现，无论是小程序还是网站，备案审核的流程都颇为周折（笑）。尽管如此，我依然坚持把这个网站做了出来。
+            做这个网站，不是因为我已经找到了市场的答案。恰恰相反，是因为走过不少弯路，才慢慢明白：投资里最贵的东西，通常不是手续费，而是那些本可以不犯的错。
           </p>
           <p class="card-description">
-            作为一名在市场里摸爬滚滚多年的普通投资者，我走过太多崎岖的弯路。我真心希望通过这个平台，将自己验证过的投资策略和思考系统地分享出来，帮助更多朋友避免重蹈覆辙。过去，我常在交流群里分享一些碎片化的知识，信息一闪而过，效率不高；在其他平台分享，又常常受制于各种规则。
+            市场每天都很热闹，消息、观点和情绪轮番登场。真正有用的东西反而很安静——一组数据、一套规则，以及在该等待的时候，愿意再等一等。
           </p>
           <p class="card-description">
-            恰好我具备一些网站开发的能力，便萌生了“自己动手，丰衣足食”的想法。我希望这个网站能成为一个纯粹、高效的投研工具，也希望每一位到访的朋友，都能在这里 <strong>学有所思，思有所得</strong>。
+            于是有了“何以有数”。这里把策略、持仓、回撤和变化尽量讲清楚，不负责提供捷径，只希望让每一次决定多一点依据，少一点冲动。
+          </p>
+          <p class="card-description">
+            如果它能帮你少走一点我走过的弯路，这个网站就没有白做。
           </p>
         </div>
 
-        <!-- 卡片二：会员服务与支持 -->
+        <!-- 卡片二：公众号 -->
+        <div class="content-card official-account-card">
+          <h2 class="card-title">关注公众号「何以有数」</h2>
+          <div class="official-account-content">
+            <div class="official-account-copy">
+              <span class="official-account-badge">微信公众号</span>
+              <p class="card-description">
+                网站之外，我也会在同名公众号分享市场观察、策略思考、投资复盘与网站更新。
+              </p>
+              <p class="official-account-name">微信搜索：<strong>何以有数</strong></p>
+              <span class="official-account-tip">也可以扫描二维码关注，手机端可长按识别。</span>
+            </div>
+            <div class="official-account-qr-area">
+              <div class="official-account-qr-frame">
+                <img
+                  src="@/assets/images/wechat-official-account-qrcode.jpg"
+                  alt="何以有数公众号二维码"
+                  class="official-account-qr-image"
+                >
+              </div>
+              <span>扫码关注同名公众号</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- 卡片三：会员服务与支持 -->
         <div class="content-card">
           <h2 class="card-title">会员服务与支持</h2>
           <p class="card-description">
-            本站并未开设在线充值入口，因为复杂的审批流程可能会影响网站的纯粹性。我们采用一种更简单直接的方式：
+            本站目前只提供年度会员，不设置短期套餐。我们希望大家用更长的时间观察策略、理解波动，而不是被短期涨跌牵着走。
           </p>
+
+          <h3 class="membership-section-title">开通说明</h3>
           <ul class="idea-list">
-            <li><strong>新用户福利：</strong>首次登录，系统将自动赠送您 <strong>1天全功能VIP体验</strong>。</li>
-            <li><strong>会员到期：</strong>体验期结束后，您将无法访问受保护的策略页面。</li>
-            <!-- <li><strong>核心权益：</strong>会员可享受所有策略模型的每日数据更新、历史回测查看以及未来所有新增功能的使用权。</li> -->
+            <li>新用户可获得 <strong>1天全功能体验</strong>。</li>
+            <li>年度会员有效期为1年，可通过首页“会员充值”开通或续费。</li>
+          </ul>
+
+          <h3 class="membership-section-title">会员专享服务</h3>
+          <ul class="idea-list membership-benefit-list">
+            <li><strong>完整持仓查看：</strong>查看各策略当前持仓与配置，不只看到收益结果，也能了解策略正在做什么。</li>
+            <li><strong>策略变化提醒：</strong>使用通知工具订阅策略变化，发生调仓或配置更新时，由系统主动提醒。</li>
           </ul>
         </div>
         <!-- <div class="content-card cost-card">
@@ -62,12 +97,12 @@
           </p>
         </div> -->
 
-        <!-- 卡片三：如何续费与加入交流群 -->
+        <!-- 卡片四：帮助与加入交流群 -->
         <div class="content-card contact-card">
-          <h2 class="card-title">续费与交流</h2>
+          <h2 class="card-title">帮助与交流</h2>
           <p class="card-description">
-            如果您觉得这个网站对您有帮助，并愿意支持我继续投入服务器、数据接口和开发维护的成本——无论是通过 <strong>续费会员</strong>的方式，或是希望 <strong>加入会员专属交流群</strong>
-            ，与更多志同道合的投资者深度探讨，都请通过以下方式联系我。
+            会员可直接通过首页的 <strong>会员充值</strong> 入口开通或续费。如果您希望 <strong>加入会员专属交流群</strong>
+            ，或在充值和使用过程中需要帮助，请通过以下方式联系我。
           </p>
           <p class="card-description">
             您的每一份支持，都是这个网站能持续运行、不断迭代的动力源泉。感谢！
@@ -274,6 +309,106 @@
       line-height: 1.8;
   }
 
+  .membership-section-title {
+      display: flex;
+      align-items: center;
+      margin: 1.2rem 0 0.45rem;
+      color: #f1f5f9;
+      font-size: 0.95rem;
+      gap: 0.5rem;
+  }
+
+  .membership-section-title::before {
+      width: 6px;
+      height: 6px;
+      background: #ffc107;
+      border-radius: 50%;
+      box-shadow: 0 0 8px rgb(255 193 7 / 55%);
+      content: '';
+  }
+
+  .membership-benefit-list strong {
+      color: #f8fafc;
+  }
+
+  .official-account-card {
+      background:
+          radial-gradient(circle at 86% 22%, rgb(7 193 96 / 14%), transparent 34%),
+          rgb(255 255 255 / 5%);
+  }
+
+  .official-account-card .card-title {
+      border-left-color: #07c160;
+  }
+
+  .official-account-card:hover {
+      border-color: rgb(7 193 96 / 48%);
+  }
+
+  .official-account-content {
+      display: grid;
+      align-items: center;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 2rem;
+  }
+
+  .official-account-copy {
+      min-width: 0;
+  }
+
+  .official-account-badge {
+      display: inline-flex;
+      padding: 0.28rem 0.65rem;
+      margin-bottom: 0.9rem;
+      color: #bff7d7;
+      font-size: 0.76rem;
+      background: rgb(7 193 96 / 12%);
+      border: 1px solid rgb(7 193 96 / 26%);
+      border-radius: 999px;
+  }
+
+  .official-account-name {
+      margin: 1rem 0 0.35rem;
+      color: #b0c4de;
+      font-size: 0.95rem;
+  }
+
+  .official-account-name strong {
+      color: #e7fff1;
+      font-size: 1.08rem;
+      letter-spacing: 0.08em;
+  }
+
+  .official-account-tip {
+      color: #8293a8;
+      font-size: 0.82rem;
+  }
+
+  .official-account-qr-area {
+      display: flex;
+      align-items: center;
+      color: #91a2b6;
+      font-size: 0.78rem;
+      flex-direction: column;
+  }
+
+  .official-account-qr-frame {
+      padding: 0.5rem;
+      margin-bottom: 0.65rem;
+      width: 176px;
+      background: #fff;
+      border-radius: 12px;
+      box-shadow: 0 14px 30px rgb(0 0 0 / 28%);
+  }
+
+  .official-account-qr-image {
+      display: block;
+      width: 100%;
+      border-radius: 7px;
+      aspect-ratio: 1;
+      object-fit: cover;
+  }
+
   /* ======== 新增: 联系方式卡片的专属样式 ======== */
   .contact-card .card-title {
       border-left-color: #00c497; /* 使用一种新的、代表“联系”的颜色 */
@@ -438,6 +573,16 @@
       }
       .content-card {
           padding: 1.5rem;
+      }
+      .official-account-content {
+          grid-template-columns: 1fr;
+          gap: 1.5rem;
+      }
+      .official-account-copy {
+          text-align: center;
+      }
+      .official-account-qr-area {
+          justify-self: center;
       }
       .contact-info-box {
           flex-direction: column;

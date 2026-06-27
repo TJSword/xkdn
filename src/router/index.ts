@@ -14,7 +14,7 @@ export const constantRoutes = [
     component: () => import('@/views/login.vue'),
     meta: {
       title: '登录',
-      description: '登录想亏都难，访问投资策略看板、组合分析、通知设置和会员专属工具。'
+      description: '登录何以有数，访问投资策略看板、组合分析、通知设置和会员专属工具。'
     }
   },
   {
@@ -24,7 +24,7 @@ export const constantRoutes = [
     meta: {
       requiresAuth: true,
       title: '首页',
-      description: '想亏都难首页汇总市场温度、策略实时走势、全天候策略、可转债策略、含权策略、动量策略和微盘股策略入口。'
+      description: '何以有数首页汇总市场温度、策略实时走势、全天候策略、可转债策略、含权策略、动量策略和微盘股策略入口。'
     } // meta 标记所有需要登录才能访问的页面
   },
   {
@@ -114,7 +114,7 @@ export const constantRoutes = [
     meta: {
       requiresAuth: true,
       title: '关于本站',
-      description: '了解想亏都难的建站初衷、投资工具、策略服务、会员权益、开发者信息和联系方式。'
+      description: '了解何以有数的建站初衷、投资工具、策略服务、会员权益、开发者信息和联系方式。'
     }
   },
   {
@@ -142,7 +142,7 @@ export const constantRoutes = [
     component: () => import('@/views/404.vue'),
     meta: {
       title: '页面未找到',
-      description: '所访问的页面不存在、已移动或已删除，请返回想亏都难首页继续浏览。'
+      description: '所访问的页面不存在、已移动或已删除，请返回何以有数首页继续浏览。'
     }
   }
 ]

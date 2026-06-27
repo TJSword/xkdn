@@ -1,9 +1,9 @@
 <template>
-  <div class="home-page-wrapper">
+  <div class="home-page-wrapper" :class="{ 'contact-modal-open': isContactModalVisible }">
     <div class="main-container">
-      <h1 class="main-title">想亏都难</h1>
+      <h1 class="main-title">何以有数</h1>
       <p class="subtitle">
-        戒掉情绪交易 从这里开始
+        用数据理解市场，用纪律面对波动
       </p>
 
       <section class="status-overview-strip" aria-label="市场与策略状态">
@@ -181,19 +181,65 @@
           <span class="separator">|</span>
           <div href="#" @click.prevent="openNotificationModal" class="action-link">通知设置</div>
           <span class="separator">|</span>
-          <div class="wechat-hover-wrapper">
-            <button type="button" class="action-link action-button" @click="copyWeChatID">
-              加入交流群
-            </button>
-            <div class="wechat-qr-popover" role="tooltip">
-              <img :src="wechatQrCode" alt="开发者微信二维码" class="wechat-qr-image">
-              <span class="wechat-qr-title">扫码添加微信</span>
-              <span class="wechat-qr-tip">想手动添加的话，轻点“加入交流群”复制微信号：lib-young</span>
-            </div>
-          </div>
+          <button type="button" class="action-link action-button" @click="openContactModal">
+            关注与交流
+          </button>
         </div>
       </div>
     </div>
+
+    <Transition name="modal-fade">
+      <div
+        v-if="isContactModalVisible"
+        class="modal-backdrop contact-channel-backdrop"
+        @click="closeContactModal"
+        @wheel.self.prevent
+        @touchmove.self.prevent
+      >
+        <section
+          class="modal-content contact-channel-modal-content"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="contact-channel-title"
+          @click.stop
+        >
+          <div class="modal-header contact-channel-header">
+            <div>
+              <span class="contact-channel-kicker">微信上的「何以有数」</span>
+              <h3 id="contact-channel-title">关注与交流</h3>
+            </div>
+            <button class="modal-close-button" aria-label="关闭关注与交流弹窗" @click="closeContactModal">×</button>
+          </div>
+          <p class="contact-channel-intro">
+            关注同名公众号获取市场观察与网站更新，或添加开发者微信加入交流群。
+          </p>
+
+          <div class="contact-channel-grid">
+            <article class="contact-channel-card contact-channel-card--official">
+              <span class="contact-channel-badge">微信公众号</span>
+              <h4>关注「何以有数」</h4>
+              <p>市场观察、策略思考、投资复盘与网站更新。</p>
+              <div class="contact-channel-qr-frame">
+                <img :src="officialAccountQrCode" alt="何以有数公众号二维码" class="contact-channel-qr-image">
+              </div>
+              <small>微信扫码关注 · 手机端可长按识别</small>
+            </article>
+
+            <article class="contact-channel-card contact-channel-card--group">
+              <span class="contact-channel-badge">投资交流群</span>
+              <h4>添加老何微信</h4>
+              <p>添加后请备注“交流群”，我会邀请你加入。</p>
+              <div class="contact-channel-qr-frame">
+                <img :src="wechatQrCode" alt="开发者老何微信二维码" class="contact-channel-qr-image">
+              </div>
+              <button type="button" class="contact-channel-copy" @click="copyWeChatID">
+                复制微信号 lib-young
+              </button>
+            </article>
+          </div>
+        </section>
+      </div>
+    </Transition>
 
     <Transition name="modal-fade">
       <div v-if="isModalVisible" class="modal-backdrop" @click="closeModal">
@@ -225,7 +271,7 @@
           <div class="strategy-observation-modal-intro">
             <span>{{ strategyObservationUpdatedAt ? `更新至 ${strategyObservationUpdatedAt}` : '暂无数据' }}</span>
             <p>
-              横向观察各策略状态、当前回撤、回撤历史百分位、回撤时长与修复进度。
+              横向观察各策略状态、回撤与收益分位、回撤时长与修复进度。
             </p>
           </div>
           <div class="strategy-observation-modal-list">
@@ -265,33 +311,64 @@
                   <strong>{{ item.isNewHigh ? `${item.consecutiveHighDays} 天` : '--' }}</strong>
                 </div>
               </div>
-              <div
-                class="strategy-drawdown-percentile"
-                :style="{ '--drawdown-percentile': `${item.drawdownPercentile}%` }"
-              >
-                <div class="strategy-percentile-label">
-                  <span class="strategy-percentile-title">
-                    回撤历史百分位
-                    <button
-                      type="button"
-                      class="strategy-observation-help"
-                      aria-label="查看回撤历史百分位说明"
-                      @mouseenter="showStrategyObservationTooltip($event)"
-                      @focus="showStrategyObservationTooltip($event)"
-                      @mouseleave="hideStrategyObservationTooltip"
-                      @blur="hideStrategyObservationTooltip"
-                    >
-                      ?
-                    </button>
-                  </span>
-                  <strong>{{ formatPercentilePercent(item.drawdownPercentile) }}</strong>
+              <div class="strategy-percentile-grid">
+                <div
+                  class="strategy-percentile-metric strategy-percentile-metric--drawdown"
+                  :style="{ '--percentile-value': `${item.drawdownPercentile}%` }"
+                >
+                  <div class="strategy-percentile-label">
+                    <span class="strategy-percentile-title">
+                      回撤历史分位
+                      <button
+                        type="button"
+                        class="strategy-observation-help"
+                        aria-label="查看回撤历史分位说明"
+                        @mouseenter="showStrategyObservationTooltip($event, strategyObservationDrawdownHelpText)"
+                        @focus="showStrategyObservationTooltip($event, strategyObservationDrawdownHelpText)"
+                        @mouseleave="hideStrategyObservationTooltip"
+                        @blur="hideStrategyObservationTooltip"
+                      >
+                        ?
+                      </button>
+                    </span>
+                    <strong>{{ formatPercentilePercent(item.drawdownPercentile) }}</strong>
+                  </div>
+                  <div class="strategy-percentile-track" aria-hidden="true">
+                    <span></span>
+                  </div>
+                  <div class="strategy-percentile-axis">
+                    <span>低分位</span>
+                    <span>高分位</span>
+                  </div>
                 </div>
-                <div class="strategy-percentile-track" aria-hidden="true">
-                  <span></span>
-                </div>
-                <div class="strategy-percentile-axis">
-                  <span>低百分位</span>
-                  <span>高百分位</span>
+                <div
+                  class="strategy-percentile-metric strategy-percentile-metric--return"
+                  :style="{ '--percentile-value': `${item.twentyDayReturnPercentile ?? 0}%` }"
+                >
+                  <div class="strategy-percentile-label">
+                    <span class="strategy-percentile-title">
+                      20 日收益分位
+                      <button
+                        type="button"
+                        class="strategy-observation-help"
+                        aria-label="查看 20 日收益分位说明"
+                        @mouseenter="showStrategyObservationTooltip($event, strategyObservationReturnHelpText)"
+                        @focus="showStrategyObservationTooltip($event, strategyObservationReturnHelpText)"
+                        @mouseleave="hideStrategyObservationTooltip"
+                        @blur="hideStrategyObservationTooltip"
+                      >
+                        ?
+                      </button>
+                    </span>
+                    <strong>{{ formatPercentilePercent(item.twentyDayReturnPercentile) }}</strong>
+                  </div>
+                  <div class="strategy-percentile-track" aria-hidden="true">
+                    <span></span>
+                  </div>
+                  <div class="strategy-percentile-axis">
+                    <span>低分位</span>
+                    <span>高分位</span>
+                  </div>
                 </div>
               </div>
             </article>
@@ -752,6 +829,7 @@
   import StrategyMenuIcon from '@/components/StrategyMenuIcon.vue'
   import AllWeatherMenuIcon from '@/components/AllWeatherMenuIcon.vue'
   import wechatQrCode from '@/assets/images/wechat-qrcode.jpg'
+  import officialAccountQrCode from '@/assets/images/wechat-official-account-qrcode.jpg'
 
   const showMessage: any = inject('showMessage')
   const userStore: any = useUserStore()
@@ -829,6 +907,9 @@
       isNewHigh: boolean
       drawdownPercent: number
       drawdownPercentile: number
+      twentyDayReturnPercent: number | null
+      twentyDayReturnPercentile: number | null
+      twentyDayReturnSampleSize: number
       daysSinceLastHigh: number
       currentDrawdownDays: number
       currentRecoveryDays: number
@@ -838,8 +919,10 @@
 
   const strategyObservationItems = ref<StrategyObservationItem[]>([])
   const strategyObservationUpdatedAt = ref('')
-  const strategyObservationPercentileHelpText =
+  const strategyObservationDrawdownHelpText =
       '回撤历史百分位用来观察当前回撤在历史每日回撤中的严重程度。创新高或无回撤时固定显示为 0%；数值越高，说明当前回撤比越多历史交易日更深，越接近历史极端回撤区间。它是状态观察指标，不代表交易建议。'
+  const strategyObservationReturnHelpText =
+      '20 日收益分位将当前 20 个交易日的收益率，与该策略完整历史中所有滚动 20 个交易日收益率比较。数值越高，表示近期 20 日收益在自身历史中越靠前。'
   const strategyObservationTooltip = ref<FloatingTooltip>({
       visible: false,
       text: '',
@@ -873,15 +956,16 @@
   const formatObservationPercent = (value: number) => {
       return `${Math.max(0, Math.min(100, value)).toFixed(0)}%`
   }
-  const formatPercentilePercent = (value: number) => {
-      return `${Math.max(0, Math.min(100, Number(value) || 0)).toFixed(2)}%`
+  const formatPercentilePercent = (value: number | null | undefined) => {
+      if (!Number.isFinite(value)) return '--'
+      return `${Math.max(0, Math.min(100, Number(value))).toFixed(2)}%`
   }
 
   const formatObservationDays = (value: number) => {
       return value > 0 ? `${value} 天` : '--'
   }
 
-  const showStrategyObservationTooltip = (event: MouseEvent | FocusEvent) => {
+  const showStrategyObservationTooltip = (event: MouseEvent | FocusEvent, text: string) => {
       const target = event.currentTarget as HTMLElement
       const rect = target.getBoundingClientRect()
       const tooltipHalfWidth = 160
@@ -894,7 +978,7 @@
 
       strategyObservationTooltip.value = {
           visible: true,
-          text: strategyObservationPercentileHelpText,
+          text,
           x,
           y: placement === 'bottom' ? rect.bottom + 10 : rect.top - 10,
           placement
@@ -1668,7 +1752,31 @@
       isVipModalVisible.value = false
   }
 
-  // 创建一个跳转到“关于”页面的函数，给按钮使用
+  const isContactModalVisible = ref(false)
+  const openContactModal = () => {
+      isContactModalVisible.value = true
+  }
+  const closeContactModal = () => {
+      isContactModalVisible.value = false
+  }
+
+  let pageOverflowBeforeContactModal = ''
+  let bodyOverflowBeforeContactModal = ''
+  const setContactBackgroundScrollLock = (isLocked: boolean) => {
+      if (isLocked) {
+          pageOverflowBeforeContactModal = document.documentElement.style.overflow
+          bodyOverflowBeforeContactModal = document.body.style.overflow
+          document.documentElement.style.overflow = 'hidden'
+          document.body.style.overflow = 'hidden'
+          return
+      }
+
+      document.documentElement.style.overflow = pageOverflowBeforeContactModal
+      document.body.style.overflow = bodyOverflowBeforeContactModal
+  }
+
+  watch(isContactModalVisible, setContactBackgroundScrollLock)
+
   const copyWeChatID = async () => {
       const wechatID = 'lib-young'
       try {
@@ -1676,8 +1784,6 @@
           await navigator.clipboard.writeText(wechatID)
           // 成功后给出提示
           showMessage('微信号已复制到剪贴板！', 'success')
-          // 复制成功后可以自动关闭弹窗，体验更好
-          closeVipModal()
       } catch (err) {
           // 如果失败（例如在非安全环境下），给出错误提示
           console.error('复制失败:', err)
@@ -2033,6 +2139,9 @@
       window.addEventListener('keydown', handleSecretKeydown)
   })
   onUnmounted(() => {
+      if (isContactModalVisible.value) {
+          setContactBackgroundScrollLock(false)
+      }
       if (pollingInterval) {
           clearInterval(pollingInterval)
       }
@@ -2566,6 +2675,10 @@
           radial-gradient(circle at 85% 50%, #4a1a2a, transparent 40%), #121212;
       background-color: #121212;
       box-sizing: border-box;
+  }
+
+  .home-page-wrapper.contact-modal-open {
+      overflow: hidden;
   }
 
   .main-container {
@@ -3791,78 +3904,6 @@
       font: inherit;
   }
 
-  .wechat-hover-wrapper {
-      position: relative;
-      display: inline-flex;
-      align-items: center;
-  }
-
-  .wechat-qr-popover {
-      position: absolute;
-      bottom: calc(100% + 14px);
-      left: 50%;
-      z-index: 20;
-      padding: 0.95rem;
-      width: 220px;
-      background: rgb(15 23 42 / 96%);
-      border: 1px solid rgb(0 170 255 / 35%);
-      border-radius: 16px;
-      opacity: 0;
-      visibility: hidden;
-      box-shadow: 0 18px 45px rgb(0 0 0 / 38%), 0 0 20px rgb(0 170 255 / 16%);
-      transition: opacity 0.22s ease, transform 0.22s ease, visibility 0.22s ease;
-      backdrop-filter: blur(14px);
-      transform: translate(-50%, 8px);
-      pointer-events: none;
-  }
-
-  .wechat-qr-popover::after {
-      position: absolute;
-      bottom: -8px;
-      left: 50%;
-      width: 14px;
-      height: 14px;
-      background: rgb(15 23 42 / 96%);
-      content: '';
-      border-right: 1px solid rgb(0 170 255 / 35%);
-      border-bottom: 1px solid rgb(0 170 255 / 35%);
-      transform: translateX(-50%) rotate(45deg);
-  }
-
-  .wechat-hover-wrapper:hover .wechat-qr-popover,
-  .wechat-hover-wrapper:focus-within .wechat-qr-popover {
-      transform: translate(-50%, 0);
-      opacity: 1;
-      visibility: visible;
-  }
-
-  .wechat-qr-image {
-      display: block;
-      width: 100%;
-      background: #fff;
-      border-radius: 12px;
-      aspect-ratio: 1;
-      object-fit: cover;
-  }
-
-  .wechat-qr-title {
-      display: block;
-      margin-top: 0.75rem;
-      font-size: 0.95rem;
-      text-align: center;
-      color: #fff;
-      font-weight: 700;
-  }
-
-  .wechat-qr-tip {
-      display: block;
-      margin-top: 0.35rem;
-      font-size: 0.78rem;
-      text-align: center;
-      color: #b0c4de;
-      line-height: 1.5;
-  }
-
   /* 鼠标悬停时，链接才变得突出 */
   .user-actions-footer .action-link:hover {
       color: #0af;
@@ -3901,6 +3942,196 @@
       border-radius: 15px;
       box-shadow: 0 10px 30px rgb(0 0 0 / 50%);
       transform: scale(1);
+  }
+
+  .contact-channel-backdrop {
+      inset: 0;
+      padding: 1rem;
+      height: auto;
+      box-sizing: border-box;
+      overscroll-behavior: none;
+  }
+
+  .contact-channel-modal-content {
+      overflow-y: auto;
+      padding: 1.6rem;
+      width: min(760px, calc(100vw - 2rem));
+      max-width: 760px;
+      max-height: min(calc(100dvh - 2rem), 760px);
+      background:
+          radial-gradient(circle at 12% 8%, rgb(7 193 96 / 16%), transparent 32%),
+          radial-gradient(circle at 88% 18%, rgb(0 170 255 / 15%), transparent 32%),
+          #171a20;
+      border-color: rgb(255 255 255 / 14%);
+      box-sizing: border-box;
+      overscroll-behavior: contain;
+      scrollbar-width: thin;
+      scrollbar-color: rgb(148 163 184 / 42%) transparent;
+      -webkit-overflow-scrolling: touch;
+  }
+
+  .contact-channel-modal-content::-webkit-scrollbar {
+      width: 4px;
+  }
+
+  .contact-channel-modal-content::-webkit-scrollbar-track {
+      background: transparent;
+  }
+
+  .contact-channel-modal-content::-webkit-scrollbar-thumb {
+      background: rgb(148 163 184 / 42%);
+      border-radius: 999px;
+  }
+
+  .contact-channel-modal-content::-webkit-scrollbar-thumb:hover {
+      background: rgb(148 163 184 / 62%);
+  }
+
+  .contact-channel-header {
+      position: sticky;
+      top: -1.6rem;
+      z-index: 5;
+      align-items: flex-start;
+      padding: 1.6rem 1.6rem 1rem;
+      margin: -1.6rem -1.6rem 1.25rem;
+      background: linear-gradient(180deg, rgb(19 33 45 / 99%), rgb(18 31 43 / 97%));
+      backdrop-filter: blur(14px);
+  }
+
+  .contact-channel-kicker {
+      display: block;
+      margin-bottom: 0.35rem;
+      color: #8fa1b8;
+      font-size: 0.78rem;
+      letter-spacing: 0.08em;
+  }
+
+  .contact-channel-header h3 {
+      margin: 0;
+      font-size: 1.55rem;
+  }
+
+  .contact-channel-intro {
+      margin: 0 0 1.25rem;
+      color: #aab8c9;
+      font-size: 0.92rem;
+      line-height: 1.7;
+  }
+
+  .contact-channel-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 1rem;
+  }
+
+  .contact-channel-card {
+      display: flex;
+      align-items: center;
+      padding: 1.15rem;
+      min-width: 0;
+      background: rgb(7 12 20 / 56%);
+      border: 1px solid rgb(148 163 184 / 16%);
+      border-radius: 14px;
+      flex-direction: column;
+  }
+
+  .contact-channel-card--official {
+      border-color: rgb(7 193 96 / 32%);
+      box-shadow: inset 0 1px 0 rgb(255 255 255 / 4%);
+  }
+
+  .contact-channel-card--group {
+      border-color: rgb(0 170 255 / 28%);
+  }
+
+  .contact-channel-badge {
+      padding: 0.22rem 0.55rem;
+      color: #d8e3ee;
+      font-size: 0.72rem;
+      background: rgb(255 255 255 / 8%);
+      border-radius: 999px;
+  }
+
+  .contact-channel-card h4 {
+      margin: 0.75rem 0 0.35rem;
+      color: #fff;
+      font-size: 1.12rem;
+  }
+
+  .contact-channel-card p {
+      margin: 0;
+      min-height: 3em;
+      color: #98a8ba;
+      font-size: 0.82rem;
+      text-align: center;
+      line-height: 1.5;
+  }
+
+  .contact-channel-qr-frame {
+      padding: 0.55rem;
+      margin-top: 0.9rem;
+      width: min(100%, 210px);
+      background: #fff;
+      border-radius: 14px;
+      box-shadow: 0 12px 28px rgb(0 0 0 / 28%);
+  }
+
+  .contact-channel-qr-image {
+      display: block;
+      width: 100%;
+      border-radius: 8px;
+      aspect-ratio: 1;
+      object-fit: cover;
+  }
+
+  .contact-channel-card small {
+      margin-top: 0.75rem;
+      color: #8392a5;
+      font-size: 0.74rem;
+  }
+
+  .contact-channel-copy {
+      padding: 0.52rem 0.8rem;
+      margin-top: 0.65rem;
+      color: #cceeff;
+      font: inherit;
+      font-size: 0.78rem;
+      background: rgb(0 170 255 / 10%);
+      border: 1px solid rgb(0 170 255 / 28%);
+      border-radius: 8px;
+      transition: all 0.2s ease;
+      cursor: pointer;
+  }
+
+  .contact-channel-copy:hover {
+      color: #fff;
+      background: rgb(0 170 255 / 18%);
+      border-color: rgb(0 170 255 / 48%);
+  }
+
+  @media (max-width: 700px) {
+      .contact-channel-modal-content {
+          padding: 1.2rem;
+          max-height: calc(100vh - 1.5rem);
+      }
+
+      .contact-channel-header {
+          top: -1.2rem;
+          padding: 1.2rem 1.2rem 0.9rem;
+          margin: -1.2rem -1.2rem 1rem;
+      }
+
+      .contact-channel-grid {
+          grid-template-columns: 1fr;
+      }
+
+      .contact-channel-card p {
+          min-height: auto;
+      }
+
+      .contact-channel-qr-frame {
+          width: min(100%, 180px);
+      }
   }
 
   .modal-header {
@@ -4330,8 +4561,26 @@
       line-height: 1.15;
   }
 
-  .strategy-drawdown-percentile {
+  .strategy-percentile-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 0.9rem;
       margin-bottom: 0.22rem;
+  }
+
+  .strategy-percentile-metric {
+      --percentile-accent: #f59e0b;
+
+      min-width: 0;
+  }
+
+  .strategy-percentile-metric + .strategy-percentile-metric {
+      padding-left: 0.9rem;
+      border-left: 1px solid rgb(148 163 184 / 14%);
+  }
+
+  .strategy-percentile-metric--return {
+      --percentile-accent: #38bdf8;
   }
 
   .strategy-percentile-label {
@@ -4372,10 +4621,10 @@
 
   .strategy-observation-help:hover,
   .strategy-observation-help:focus {
-      color: var(--status-accent);
-      border-color: var(--status-accent);
+      color: var(--percentile-accent);
+      border-color: var(--percentile-accent);
       outline: none;
-      box-shadow: 0 0 8px color-mix(in srgb, var(--status-accent) 34%, transparent);
+      box-shadow: 0 0 8px color-mix(in srgb, var(--percentile-accent) 34%, transparent);
   }
 
   .strategy-observation-tooltip {
@@ -4422,8 +4671,12 @@
       top: 0;
       bottom: 0;
       left: 0;
-      width: clamp(0%, var(--drawdown-percentile), 100%);
-      background: var(--status-accent);
+      width: clamp(0%, var(--percentile-value), 100%);
+      background: linear-gradient(
+          90deg,
+          color-mix(in srgb, var(--percentile-accent) 38%, transparent),
+          var(--percentile-accent)
+      );
       border-radius: inherit;
       content: '';
   }
@@ -4431,11 +4684,11 @@
   .strategy-percentile-track span {
       position: absolute;
       top: 50%;
-      left: clamp(0%, var(--drawdown-percentile), 100%);
+      left: clamp(0%, var(--percentile-value), 100%);
       width: 10px;
       height: 10px;
       background: #fff;
-      border: 2px solid var(--status-accent);
+      border: 2px solid var(--percentile-accent);
       border-radius: 50%;
       transform: translate(-50%, -50%);
   }
@@ -5943,6 +6196,18 @@
           border-top: 1px solid rgb(148 163 184 / 12%);
       }
 
+      .strategy-percentile-grid {
+          grid-template-columns: 1fr;
+          gap: 0.5rem;
+      }
+
+      .strategy-percentile-metric + .strategy-percentile-metric {
+          padding-top: 0.5rem;
+          padding-left: 0;
+          border-top: 1px solid rgb(148 163 184 / 14%);
+          border-left: 0;
+      }
+
       .realtime-chart-metrics {
           grid-template-columns: repeat(2, minmax(0, 1fr));
           gap: 0.55rem;
@@ -6222,6 +6487,19 @@
                                                                                                                                                                               } */
       .recharge-modal-content {
           padding: 1.5rem 1rem;
+      }
+
+      .contact-channel-backdrop {
+          justify-content: center;
+          align-items: center;
+          padding: 0.75rem;
+      }
+
+      .modal-content.contact-channel-modal-content {
+          padding: 1.2rem;
+          margin: auto;
+          width: min(100%, 360px);
+          max-height: calc(100dvh - 1.5rem);
       }
   }
 

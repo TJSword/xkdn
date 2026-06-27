@@ -1,7 +1,7 @@
-const SITE_NAME = '想亏都难'
+const SITE_NAME = '何以有数'
 const DEFAULT_TITLE = `${SITE_NAME} - 投资策略工具与市场温度`
 const DEFAULT_DESCRIPTION =
-  '想亏都难提供投资策略收益走势、市场温度、LOF 溢价监控、组合分析和投资小工具，帮助用户更直观地观察资产配置与风险收益。'
+  '何以有数提供投资策略收益走势、市场温度、LOF 溢价监控、组合分析和投资小工具，帮助用户更直观地观察资产配置与风险收益。'
 
 interface SeoRouteMeta {
   title?: unknown
@@ -36,4 +36,3 @@ export const applyRouteSeo = (meta: SeoRouteMeta = {}) => {
   document.title = formatTitle(meta.title)
   getMetaElement('description').setAttribute('content', formatDescription(meta.description))
 }
-
