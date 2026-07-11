@@ -27,3 +27,7 @@ yarn-error.log*
 # System Files
 Thumbs.db
 package-lock.json
+
+# CloudBase functions are deployed separately and may contain credentials.
+/functions/
+/.codex-cloud-functions/
