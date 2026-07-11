@@ -623,7 +623,7 @@
       display: flex;
       justify-content: center;
       align-items: center;
-      margin: 0 0 0.6rem;
+      margin-bottom: 0.5rem;
       font-size: 2.5rem;
       font-weight: 700;
       gap: 1rem;
@@ -703,8 +703,7 @@
   }
 
   .subtitle {
-      margin: 0;
-      font-size: 1rem;
+      font-size: 1.1rem;
       color: #b0c4de;
   }
 

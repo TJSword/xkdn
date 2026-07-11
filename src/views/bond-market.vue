@@ -1089,7 +1089,7 @@
       justify-content: center;
       align-items: center;
       gap: 1rem;
-      margin: 0 0 0.5rem;
+      margin-bottom: 0.5rem;
       color: #fff;
       font-size: 2.5rem;
       font-weight: 700;
@@ -1104,7 +1104,6 @@
   }
 
   .subtitle {
-      margin: 0;
       color: #b0c4de;
       font-size: 1.1rem;
       line-height: 1.7;

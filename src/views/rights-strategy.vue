@@ -882,8 +882,8 @@
 
   .back-button {
       display: inline-block;
-      margin-bottom: 1.25rem;
-      font-size: 0.92rem;
+      margin-bottom: 1rem;
+      font-size: 0.9rem;
       text-decoration: none;
       color: #b0c4de;
   }
@@ -910,7 +910,11 @@
       text-shadow: 0 0 15px rgb(239 68 68 / 80%);
   }
 
-  .subtitle,
+  .subtitle {
+      font-size: 1.1rem;
+      color: #b0c4de;
+  }
+
   .card-description {
       margin-bottom: 1rem;
       font-size: 0.95rem;

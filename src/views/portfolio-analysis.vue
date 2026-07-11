@@ -2287,7 +2287,7 @@
 
   /* 头部 */
   .page-header {
-      margin-bottom: 2rem;
+      margin-bottom: 3rem;
       text-align: center;
       animation: fadeInUp 0.5s ease-out forwards;
   }
@@ -2310,9 +2310,9 @@
       justify-content: center;
       align-items: center;
       margin-bottom: 0.5rem;
-      font-size: 2rem;
+      font-size: 2.5rem;
       font-weight: 700;
-      gap: 0.8rem;
+      gap: 1rem;
   }
 
   .title-icon {
@@ -2320,9 +2320,10 @@
   }
 
   .subtitle {
-      margin: 0 auto;
+      margin-right: auto;
+      margin-left: auto;
       max-width: 800px;
-      font-size: 0.9rem;
+      font-size: 1.1rem;
       color: #b0c4de;
   }
 

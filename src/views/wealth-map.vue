@@ -423,7 +423,7 @@
   }
 
   .page-header {
-      margin-bottom: 2rem;
+      margin-bottom: 3rem;
       text-align: center;
       opacity: 0;
       animation: fadeInUp 0.5s ease-out forwards;
