@@ -737,52 +737,35 @@
       updateSelectedRangeMetrics(startIndex, endIndex)
   }
 
-  async function loadStaticData() {
+  async function loadStrategyData() {
       try {
           const res: any = await callCloudFunction({
               name: 'getRightsStrategySeries',
               data: { action: 'get' }
           })
-          const backendData = res.result?.success && res.result?.data ? res.result.data as RightsStrategyData : null
-          if (backendData) {
-              const series = prepareStrategySeries(backendData.dateList, backendData.strategyData)
-              const drawdownAnalysis = calculateDrawdownAnalysis(series.values, series.dates)
-
-              strategyData.value = backendData
-              strategySeries.value = series
-              chartMinDate.value = series.dates[0] || ''
-              chartMaxDate.value = series.dates[series.dates.length - 1] || ''
-              strategyStats.value = calculateStats(series.values)
-              monthlyRows.value = calculateMonthlyReturns(series.values, series.dates)
-              monthlySummary.value = calculateMonthlySummary(monthlyRows.value)
-              sortinoRatio.value = calculateSortinoRatio(series.values)
-              drawdownRows.value = drawdownAnalysis.drawdowns.slice(0, 10)
-              drawdownDistribution.value = drawdownAnalysis.distribution
-              updateSelectedRangeMetrics(0, series.dates.length - 1)
-              return
+          const backendData = res.result?.data as RightsStrategyData | undefined
+          if (!res.result?.success || !backendData?.dateList?.length || !backendData?.strategyData?.length) {
+              throw new Error(res.result?.message || '含权策略数据为空')
           }
+          const series = prepareStrategySeries(backendData.dateList, backendData.strategyData)
+          const drawdownAnalysis = calculateDrawdownAnalysis(series.values, series.dates)
+
+          strategyData.value = backendData
+          strategySeries.value = series
+          chartMinDate.value = series.dates[0] || ''
+          chartMaxDate.value = series.dates[series.dates.length - 1] || ''
+          strategyStats.value = calculateStats(series.values)
+          monthlyRows.value = calculateMonthlyReturns(series.values, series.dates)
+          monthlySummary.value = calculateMonthlySummary(monthlyRows.value)
+          sortinoRatio.value = calculateSortinoRatio(series.values)
+          drawdownRows.value = drawdownAnalysis.drawdowns.slice(0, 10)
+          drawdownDistribution.value = drawdownAnalysis.distribution
+          updateSelectedRangeMetrics(0, series.dates.length - 1)
       } catch (error) {
           throwIfAuthExpired(error)
-          console.warn('Rights strategy backend series failed, fallback to static JSON:', error)
+          console.error('含权策略数据加载失败:', error)
+          showMessage?.(error instanceof Error ? error.message : '含权策略数据加载失败', 'error')
       }
-
-      const response = await fetch(`${import.meta.env.BASE_URL || '/'}static/rightsStrategyData.json`)
-      if (!response.ok) throw new Error('rightsStrategyData.json 加载失败')
-      const data = await response.json()
-      const series = prepareStrategySeries(data.dateList, data.strategyData)
-      const drawdownAnalysis = calculateDrawdownAnalysis(series.values, series.dates)
-
-      strategyData.value = data
-      strategySeries.value = series
-      chartMinDate.value = series.dates[0] || ''
-      chartMaxDate.value = series.dates[series.dates.length - 1] || ''
-      strategyStats.value = calculateStats(series.values)
-      monthlyRows.value = calculateMonthlyReturns(series.values, series.dates)
-      monthlySummary.value = calculateMonthlySummary(monthlyRows.value)
-      sortinoRatio.value = calculateSortinoRatio(series.values)
-      drawdownRows.value = drawdownAnalysis.drawdowns.slice(0, 10)
-      drawdownDistribution.value = drawdownAnalysis.distribution
-      updateSelectedRangeMetrics(0, series.dates.length - 1)
   }
 
   async function loadRealtime(forceRefresh = false) {
@@ -856,7 +839,7 @@
   onMounted(async () => {
       window.addEventListener('resize', updateChartViewport)
       try {
-          await loadStaticData()
+          await loadStrategyData()
       } finally {
           isLoading.value = false
       }

@@ -599,10 +599,9 @@
 </template>
 
 <script setup lang="ts">
-  import { computed, nextTick, onMounted, ref, watch } from 'vue'
+  import { computed, inject, nextTick, onMounted, ref, watch } from 'vue'
   import * as echarts from 'echarts'
   import { callCloudFunction, throwIfAuthExpired } from '@/services/cloudFunction'
-  import axios from 'axios'
   import {
       calculateDrawdownAnalysis,
       calculateMonthlyReturns,
@@ -613,6 +612,8 @@
       prepareStrategySeries
   } from '@/utils/strategyMetrics'
   import type { MonthlySummary, StrategyStats } from '@/utils/strategyMetrics'
+
+  const showMessage: any = inject('showMessage')
 
   interface MonthlyCalendarCell {
       key: string
@@ -1545,38 +1546,26 @@
   const getlocalData = async () => {
       isLoading.value = true
       loadError.value = ''
-      let resolvedData: any = null
 
       try {
-          try {
-              const response: any = await callCloudFunction({
-                  name: 'getAllWeatherData',
-                  data: { action: 'get' }
-              })
-              const remoteData = response.result?.data
-              if (response.result?.success && remoteData?.dateList?.length && remoteData?.strategyData?.length) {
-                  resolvedData = remoteData
-              }
-          } catch (error) {
-              throwIfAuthExpired(error)
-              console.warn('全天候后端数据读取失败，回退到本地 JSON:', error)
+          const response: any = await callCloudFunction({
+              name: 'getAllWeatherData',
+              data: { action: 'get' }
+          })
+          const remoteData = response.result?.data
+          if (!response.result?.success || !remoteData?.dateList?.length || !remoteData?.strategyData?.length) {
+              throw new Error(response.result?.message || '全天候策略数据为空')
           }
 
-          if (!resolvedData) {
-              const res = await axios.get('./static/allWeatherData.json')
-              resolvedData = res.data
-          }
+          await nextTick()
+          applyAllWeatherData(remoteData)
       } catch (error) {
           throwIfAuthExpired(error)
           console.error('全天候策略数据加载失败:', error)
-          loadError.value = '云端与本地备用数据均无法访问，请检查网络后重试。'
+          loadError.value = '策略数据加载失败，请稍后重试。'
+          showMessage?.(error instanceof Error ? error.message : '全天候策略数据加载失败', 'error')
       } finally {
           isLoading.value = false
-      }
-
-      if (resolvedData) {
-          await nextTick()
-          applyAllWeatherData(resolvedData)
       }
   }
 

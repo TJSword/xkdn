@@ -1631,19 +1631,14 @@
               data: { action: 'get' }
           })
           const payload = response.result?.data
-          if (response.result?.success && payload) {
-              return payload
+          if (!response.result?.success || !payload?.dateList?.length || !payload?.strategyData?.length) {
+              throw new Error(response.result?.message || '微盘股策略数据为空')
           }
+          return payload
       } catch (error) {
           throwIfAuthExpired(error)
-          console.warn('微盘后端走势读取失败，使用本地静态数据:', error)
-      }
-
-      try {
-          const res = await axios.get('./static/microCapData.json')
-          return res.data
-      } catch (error) {
           console.error('微盘股策略数据加载失败:', error)
+          showMessage?.(error instanceof Error ? error.message : '微盘股策略数据加载失败', 'error')
           return null
       }
   }
@@ -1669,8 +1664,15 @@
 
       const [chartData] = await Promise.all(loadingTasks)
       isLoading.value = false
-      await nextTick()
-      if (chartData) applyStrategyData(chartData)
+      if (chartData) {
+          try {
+              await nextTick()
+              applyStrategyData(chartData)
+          } catch (error) {
+              console.error('微盘股策略数据处理失败:', error)
+              showMessage?.(error instanceof Error ? error.message : '微盘股策略数据处理失败', 'error')
+          }
+      }
 
       document.addEventListener('visibilitychange', refreshStrategyDataOnReturn)
       window.addEventListener('focus', refreshStrategyDataOnReturn)

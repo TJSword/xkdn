@@ -425,12 +425,11 @@
 </template>
 
 <script setup lang="ts">
-  import { computed, nextTick, onMounted, ref, watch } from 'vue'
+  import { computed, inject, nextTick, onMounted, ref, watch } from 'vue'
   import { useRouter } from 'vue-router'
   import * as echarts from 'echarts'
   import { auth } from '@/lib/cloudbase'
   import { callCloudFunction, throwIfAuthExpired } from '@/services/cloudFunction'
-  import axios from 'axios'
   import MonthlyReturnCalendarModal from '@/components/MonthlyReturnCalendarModal.vue'
   import { useMonthlyReturnCalendar } from '@/composables/useMonthlyReturnCalendar'
   import { useUserStore } from '@/store/user'
@@ -446,6 +445,7 @@
   import type { MonthlySummary, StrategyStats } from '@/utils/strategyMetrics'
 
   const router = useRouter()
+  const showMessage: any = inject('showMessage')
   const userStore: any = useUserStore()
   const canViewPremiumContent = computed(() => userStore.isVip || userStore.userInfo?.admin === true)
   const backtestStats = ref<StrategyStats>({
@@ -1197,7 +1197,6 @@
 
   const getlocalData = async () => {
       isLoading.value = true
-      let resolvedData: any = null
 
       try {
           const res: any = await callCloudFunction({
@@ -1205,29 +1204,18 @@
               parse: true
           })
           const payload = res?.result?.data
-          if (res?.result?.success && payload) {
-              resolvedData = payload
+          if (!res?.result?.success || !payload?.dateList?.length || !payload?.strategyData?.length) {
+              throw new Error(res?.result?.message || '可转债策略数据为空')
           }
-      } catch (error) {
-          throwIfAuthExpired(error)
-          console.warn('getBondStrategyData failed, fallback to static JSON', error)
-      }
 
-      try {
-          if (!resolvedData) {
-              const res = await axios.get('./static/bondData.json')
-              resolvedData = res.data
-          }
+          await nextTick()
+          applyBondChartData(payload)
       } catch (error) {
           throwIfAuthExpired(error)
           console.error('可转债策略数据加载失败:', error)
+          showMessage?.(error instanceof Error ? error.message : '可转债策略数据加载失败', 'error')
       } finally {
           isLoading.value = false
-      }
-
-      if (resolvedData) {
-          await nextTick()
-          applyBondChartData(resolvedData)
       }
   }
   onMounted(() => {
