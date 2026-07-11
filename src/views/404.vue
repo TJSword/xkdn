@@ -157,25 +157,28 @@
 
   /* 返回主页按钮 */
   .home-button {
-      display: inline-block;
-      background-color: #00aaff;
-      color: #ffffff;
-      border: none;
-      border-radius: 8px;
-      padding: 0.8rem 2.5rem;
-      font-size: 1.1rem;
+      display: inline-flex;
+      justify-content: center;
+      align-items: center;
+      padding: 0 2.5rem;
+      min-height: 44px;
+      font-size: 0.95rem;
+      color: #e8fffd;
+      background: linear-gradient(90deg, rgb(56 189 248 / 9%), transparent);
+      border: 1px solid rgb(56 189 248 / 72%);
+      border-radius: 7px;
+      box-shadow: 0 0 0 1px rgb(56 189 248 / 12%), 0 0 16px rgb(56 189 248 / 10%);
       font-weight: bold;
       cursor: pointer;
       text-decoration: none;
-      transition: all 0.3s ease;
-      /* 修改：与登录页按钮一致的阴影 */
-      box-shadow: none;
+      transition: border-color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
   }
 
   .home-button:hover {
-      /* 修改：与登录页按钮一致的悬停效果 */
-      transform: translateY(-5px);
-      box-shadow: 0 0 15px #00aaff, 0 0 30px rgba(0, 170, 255, 0.5);
+      background: linear-gradient(90deg, rgb(56 189 248 / 14%), transparent);
+      border-color: #38bdf8;
+      box-shadow: 0 0 0 1px rgb(56 189 248 / 20%), 0 0 22px rgb(56 189 248 / 18%);
+      transform: translateY(-1px);
   }
 
   /* ======================================================= */

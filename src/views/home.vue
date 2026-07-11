@@ -291,6 +291,10 @@
                   <strong :class="{ neutral: item.isNewHigh }">{{ formatObservationDrawdown(item.drawdownPercent) }}</strong>
                 </div>
                 <div>
+                  <span>本轮最大回撤</span>
+                  <strong :class="{ neutral: item.isNewHigh }">{{ formatOptionalObservationDrawdown(item.currentMaxDrawdownPercent) }}</strong>
+                </div>
+                <div>
                   <span>距上次创新高</span>
                   <strong>{{ item.daysSinceLastHigh }} 天</strong>
                 </div>
@@ -464,6 +468,20 @@
                 class="realtime-chart-area"
                 :points="largeChartAreaPoints(selectedRealtimeNav)"
               />
+              <line
+                v-if="selectedRealtimeNav.isLoaded"
+                class="zero-baseline"
+                x1="0"
+                :y1="largeChartZeroY(selectedRealtimeNav)"
+                x2="640"
+                :y2="largeChartZeroY(selectedRealtimeNav)"
+              />
+              <text
+                v-if="selectedRealtimeNav.isLoaded"
+                class="zero-baseline-label"
+                x="8"
+                :y="largeChartZeroLabelY(selectedRealtimeNav)"
+              >0%</text>
               <polyline
                 v-if="selectedRealtimeNav.isLoaded"
                 :key="`${selectedRealtimeNav.id}-large-line-${selectedRealtimeNav.updatedAt}-${selectedRealtimeNav.intraday.length}`"
@@ -471,6 +489,21 @@
                 :points="largeChartPoints(selectedRealtimeNav)"
                 pathLength="1"
               />
+              <template v-if="realtimeChartHover">
+                <line
+                  class="hover-guide"
+                  :x1="realtimeChartHover.plotX"
+                  y1="0"
+                  :x2="realtimeChartHover.plotX"
+                  y2="260"
+                />
+                <circle
+                  class="hover-point"
+                  :cx="realtimeChartHover.plotX"
+                  :cy="realtimeChartHover.plotY"
+                  r="5"
+                />
+              </template>
             </svg>
             <div class="realtime-chart-axis">
               <span
@@ -540,16 +573,17 @@
             <form @submit.prevent="handlePasswordChange">
               <div class="form-group">
                 <input type="password" id="currentPassword" class="input-field" v-model="passwordData.currentPassword" placeholder=" "
-                  required>
+                  autocomplete="current-password" required>
                 <label for="currentPassword" class="input-label">当前密码</label>
               </div>
               <div class="form-group">
-                <input type="password" id="newPassword" class="input-field" v-model="passwordData.newPassword" placeholder=" " required>
+                <input type="password" id="newPassword" class="input-field" v-model="passwordData.newPassword" placeholder=" "
+                  autocomplete="new-password" required>
                 <label for="newPassword" class="input-label">新密码</label>
               </div>
               <div class="form-group">
                 <input type="password" id="confirmNewPassword" class="input-field" v-model="passwordData.confirmNewPassword" placeholder=" "
-                  required>
+                  autocomplete="new-password" required>
                 <label for="confirmNewPassword" class="input-label">确认新密码</label>
               </div>
               <button type="submit" class="submit-btn">确认修改</button>
@@ -869,6 +903,7 @@
       name: string
       nav: number
       amount: number
+      baseAmount?: number
       dailyReturn: number
       monthReturn: number
       yearReturn: number
@@ -886,6 +921,8 @@
   interface RealtimeChartHover {
       x: number
       y: number
+      plotX: number
+      plotY: number
       time: string
       amount: number
       change: number
@@ -906,6 +943,7 @@
       statusClass: 'drawdown' | 'repairing' | 'new-high'
       isNewHigh: boolean
       drawdownPercent: number
+      currentMaxDrawdownPercent?: number
       drawdownPercentile: number
       twentyDayReturnPercent: number | null
       twentyDayReturnPercentile: number | null
@@ -951,6 +989,11 @@
 
   const formatObservationDrawdown = (value: number) => {
       return value === 0 ? '0.00%' : `${value.toFixed(2)}%`
+  }
+
+  const formatOptionalObservationDrawdown = (value: number | null | undefined) => {
+      if (!Number.isFinite(value)) return '--'
+      return formatObservationDrawdown(Number(value))
   }
 
   const formatObservationPercent = (value: number) => {
@@ -1165,6 +1208,21 @@
       return undefined
   }
 
+  const getRealtimeBaseAmount = (item: StrategyRealtimeNav) => {
+      if (Number.isFinite(item.baseAmount) && Number(item.baseAmount) > 0) return Number(item.baseAmount)
+
+      const denominator = 1 + item.dailyReturn / 100
+      if (Number.isFinite(item.amount) && item.amount > 0 && denominator > 0) return item.amount / denominator
+
+      return getRealtimeChartValues(item)[0] || 0
+  }
+
+  const getLargeChartScaleValues = (item: StrategyRealtimeNav) => {
+      const values = getRealtimeChartValues(item)
+      const baseAmount = getRealtimeBaseAmount(item)
+      return baseAmount > 0 ? [...values, baseAmount] : values
+  }
+
   const findNearestRealtimePoint = (item: StrategyRealtimeNav, ratio: number) => {
       const values = getRealtimeChartValues(item)
       const times = getRealtimeChartTimes(item)
@@ -1202,13 +1260,27 @@
 
       const values = getRealtimeChartValues(item)
       const amount = nearestPoint.value
-      const baseAmount = values[0] || amount
+      const baseAmount = getRealtimeBaseAmount(item) || amount
       const change = baseAmount ? ((amount - baseAmount) / baseAmount) * 100 : 0
       const chartRect = chart.getBoundingClientRect()
+      const chartPoints = buildChartPointList(
+          values,
+          640,
+          260,
+          18,
+          getRealtimeChartTimes(item),
+          getLargeChartScaleValues(item)
+      )
+      const selectedPoint = chartPoints[nearestPoint.index]
+      if (!selectedPoint) return
+      const renderedX = (selectedPoint.x / 640) * rect.width + rect.left - chartRect.left
+      const renderedY = (selectedPoint.y / 260) * rect.height + rect.top - chartRect.top
 
       realtimeChartHover.value = {
-          x: clampNumber(event.clientX - chartRect.left, 88, chartRect.width - 88),
-          y: clampNumber(event.clientY - chartRect.top, 58, chartRect.height - 28),
+          x: clampNumber(renderedX, 88, chartRect.width - 88),
+          y: clampNumber(renderedY, 58, chartRect.height - 28),
+          plotX: selectedPoint.x,
+          plotY: selectedPoint.y,
           time: nearestPoint.time,
           amount,
           change
@@ -1219,10 +1291,17 @@
       realtimeChartHover.value = null
   }
 
-  const buildChartPointList = (values: number[], width: number, height: number, padding: number, times?: string[]) => {
+  const buildChartPointList = (
+      values: number[],
+      width: number,
+      height: number,
+      padding: number,
+      times?: string[],
+      scaleValues: number[] = values
+  ) => {
       if (values.length === 0) return []
-      const min = Math.min(...values)
-      const max = Math.max(...values)
+      const min = Math.min(...scaleValues)
+      const max = Math.max(...scaleValues)
       const range = max - min || 1
 
       return values.map((value, index) => {
@@ -1232,8 +1311,15 @@
       })
   }
 
-  const buildChartPoints = (values: number[], width: number, height: number, padding: number, times?: string[]) => {
-      return buildChartPointList(values, width, height, padding, times)
+  const buildChartPoints = (
+      values: number[],
+      width: number,
+      height: number,
+      padding: number,
+      times?: string[],
+      scaleValues?: number[]
+  ) => {
+      return buildChartPointList(values, width, height, padding, times, scaleValues)
           .map(point => `${point.x.toFixed(2)},${point.y.toFixed(2)}`)
           .join(' ')
   }
@@ -1266,13 +1352,42 @@
   }
 
   const largeChartPoints = (item: StrategyRealtimeNav) => {
-      return buildChartPoints(getRealtimeChartValues(item), 640, 260, 18, getRealtimeChartTimes(item))
+      return buildChartPoints(
+          getRealtimeChartValues(item),
+          640,
+          260,
+          18,
+          getRealtimeChartTimes(item),
+          getLargeChartScaleValues(item)
+      )
   }
 
   const largeChartAreaPoints = (item: StrategyRealtimeNav) => {
       const values = getRealtimeChartValues(item)
-      const chartPoints = buildChartPointList(values, 640, 260, 18, getRealtimeChartTimes(item))
+      const chartPoints = buildChartPointList(
+          values,
+          640,
+          260,
+          18,
+          getRealtimeChartTimes(item),
+          getLargeChartScaleValues(item)
+      )
       return buildChartAreaPoints(chartPoints, 260, 2)
+  }
+
+  const largeChartZeroY = (item: StrategyRealtimeNav) => {
+      const values = getRealtimeChartValues(item)
+      if (values.length === 0) return 130
+      const scaleValues = getLargeChartScaleValues(item)
+      const min = Math.min(...scaleValues)
+      const max = Math.max(...scaleValues)
+      const range = max - min || 1
+      const baseAmount = getRealtimeBaseAmount(item) || values[0]
+      return 260 - 18 - ((baseAmount - min) / range) * (260 - 36)
+  }
+
+  const largeChartZeroLabelY = (item: StrategyRealtimeNav) => {
+      return clampNumber(largeChartZeroY(item) - 7, 14, 250)
   }
 
   const allWeatherAssetNameMap: Record<string, string> = {
@@ -1401,12 +1516,14 @@
               return: assetReturnMap.get(id) ?? null
           }))
           const amount = Number(payload.strategyAmount ?? payload.strategyValue ?? payload.strategyIndexValue)
+          const baseAmount = Number(payload.baseAmount ?? payload.baseIndexValue)
           const dailyReturn = Number(payload.dailyReturn) * 100
           const monthReturn = Number(payload.monthReturn) * 100
           const yearReturn = Number(payload.yearReturn) * 100
 
           Object.assign(allWeatherItem, {
               amount: Number.isFinite(amount) ? amount : allWeatherItem.amount,
+              baseAmount: Number.isFinite(baseAmount) && baseAmount > 0 ? baseAmount : allWeatherItem.baseAmount,
               dailyReturn: Number.isFinite(dailyReturn) ? dailyReturn : allWeatherItem.dailyReturn,
               monthReturn: Number.isFinite(monthReturn) ? monthReturn : allWeatherItem.monthReturn,
               yearReturn: Number.isFinite(yearReturn) ? yearReturn : allWeatherItem.yearReturn,
@@ -1455,12 +1572,14 @@
               return: getHoldingReturnPercent(holding, assetReturnMap)
           }))
           const amount = Number(payload.strategyAmount ?? payload.strategyValue ?? payload.strategyIndexValue)
+          const baseAmount = Number(payload.baseAmount ?? payload.baseIndexValue)
           const dailyReturn = Number(payload.dailyReturn) * 100
           const monthReturn = Number(payload.monthReturn) * 100
           const yearReturn = Number(payload.yearReturn) * 100
 
           Object.assign(bondItem, {
               amount: Number.isFinite(amount) ? amount : bondItem.amount,
+              baseAmount: Number.isFinite(baseAmount) && baseAmount > 0 ? baseAmount : bondItem.baseAmount,
               dailyReturn: Number.isFinite(dailyReturn) ? dailyReturn : bondItem.dailyReturn,
               monthReturn: Number.isFinite(monthReturn) ? monthReturn : bondItem.monthReturn,
               yearReturn: Number.isFinite(yearReturn) ? yearReturn : bondItem.yearReturn,
@@ -1508,12 +1627,14 @@
               return: getHoldingReturnPercent(holding, assetReturnMap)
           }))
           const amount = Number(payload.strategyAmount ?? payload.strategyValue ?? payload.strategyIndexValue)
+          const baseAmount = Number(payload.baseAmount ?? payload.baseIndexValue)
           const dailyReturn = Number(payload.dailyReturn) * 100
           const monthReturn = Number(payload.monthReturn) * 100
           const yearReturn = Number(payload.yearReturn) * 100
 
           Object.assign(rightsItem, {
               amount: Number.isFinite(amount) ? amount : rightsItem.amount,
+              baseAmount: Number.isFinite(baseAmount) && baseAmount > 0 ? baseAmount : rightsItem.baseAmount,
               dailyReturn: Number.isFinite(dailyReturn) ? dailyReturn : rightsItem.dailyReturn,
               monthReturn: Number.isFinite(monthReturn) ? monthReturn : rightsItem.monthReturn,
               yearReturn: Number.isFinite(yearReturn) ? yearReturn : rightsItem.yearReturn,
@@ -1559,12 +1680,14 @@
               return: getHoldingReturnPercent(holding, assetReturnMap)
           }))
           const amount = Number(payload.strategyAmount ?? payload.strategyValue ?? payload.strategyIndexValue)
+          const baseAmount = Number(payload.baseAmount ?? payload.baseIndexValue)
           const dailyReturn = Number(payload.dailyReturn) * 100
           const monthReturn = Number(payload.monthReturn) * 100
           const yearReturn = Number(payload.yearReturn) * 100
 
           Object.assign(momentumItem, {
               amount: Number.isFinite(amount) ? amount : momentumItem.amount,
+              baseAmount: Number.isFinite(baseAmount) && baseAmount > 0 ? baseAmount : momentumItem.baseAmount,
               dailyReturn: Number.isFinite(dailyReturn) ? dailyReturn : momentumItem.dailyReturn,
               monthReturn: Number.isFinite(monthReturn) ? monthReturn : momentumItem.monthReturn,
               yearReturn: Number.isFinite(yearReturn) ? yearReturn : momentumItem.yearReturn,
@@ -1617,12 +1740,14 @@
                   return: getHoldingReturnPercent(holding, assetReturnMap)
               }))
           const amount = Number(payload.strategyAmount ?? payload.strategyValue ?? payload.strategyIndexValue)
+          const baseAmount = Number(payload.baseAmount ?? payload.baseIndexValue)
           const dailyReturn = Number(payload.dailyReturn) * 100
           const monthReturn = Number(payload.monthReturn) * 100
           const yearReturn = Number(payload.yearReturn) * 100
 
           Object.assign(microCapItem, {
               amount: Number.isFinite(amount) ? amount : microCapItem.amount,
+              baseAmount: Number.isFinite(baseAmount) && baseAmount > 0 ? baseAmount : microCapItem.baseAmount,
               dailyReturn: Number.isFinite(dailyReturn) ? dailyReturn : microCapItem.dailyReturn,
               monthReturn: Number.isFinite(monthReturn) ? monthReturn : microCapItem.monthReturn,
               yearReturn: Number.isFinite(yearReturn) ? yearReturn : microCapItem.yearReturn,
@@ -1701,6 +1826,14 @@
           iconType: 'portfolio-lab',
           cssClass: 'portfolio-lab', // 对应下面的 CSS
           link: '/portfolio-analysis' // 记得在 router 中注册这个路由
+      },
+      {
+          id: 16,
+          title: '转债全景',
+          description: '跟踪价格分层、市场广度、估值位置与成交热度。',
+          iconType: 'bond-market',
+          cssClass: 'bond-market',
+          link: '/bond-market'
       },
       {
           id: 11,
@@ -3541,6 +3674,10 @@
       --menu-accent: #add8e6;
   }
 
+  .quick-menu-card.bond-market {
+      --menu-accent: #f59e0b;
+  }
+
   .quick-menu-card.rights-strategy {
       --menu-accent: #ef4444;
   }
@@ -3571,20 +3708,6 @@
 
   .quick-menu-card.investment-ledger {
       --menu-accent: #4ecdc4;
-
-      background:
-          linear-gradient(135deg, rgb(78 205 196 / 18%), transparent 56%),
-          radial-gradient(circle at 18% 24%, rgb(78 205 196 / 10%), transparent 38%),
-          rgb(15 23 42 / 44%);
-      border-color: rgb(78 205 196 / 36%);
-  }
-
-  .quick-menu-card.investment-ledger:hover {
-      background:
-          linear-gradient(135deg, rgb(78 205 196 / 24%), transparent 58%),
-          radial-gradient(circle at 18% 24%, rgb(78 205 196 / 15%), transparent 40%),
-          rgb(30 41 59 / 62%);
-      border-color: rgb(78 205 196 / 72%);
   }
 
   .features-grid {
@@ -3817,6 +3940,11 @@
 
   .convertible-bond .card-icon {
       color: #add8e6;
+  }
+
+  .bond-market:hover {
+      border-color: #f59e0b;
+      box-shadow: 0 0 15px rgb(245 158 11 / 70%);
   }
 
   .rights-strategy:hover {
@@ -4310,6 +4438,38 @@
       stroke-dasharray: 5 5;
    }
 
+  .realtime-large-chart .zero-baseline {
+      stroke: rgb(226 232 240 / 62%);
+      stroke-width: 1.25;
+      stroke-dasharray: 6 5;
+  }
+
+  .realtime-large-chart .zero-baseline-label {
+      fill: rgb(226 232 240 / 82%);
+      font-size: 11px;
+      font-weight: 700;
+      paint-order: stroke;
+      pointer-events: none;
+      stroke: rgb(2 6 23 / 88%);
+      stroke-width: 3px;
+  }
+
+  .realtime-large-chart .hover-guide {
+      stroke: color-mix(in srgb, var(--accent-color) 72%, white);
+      stroke-width: 1.25;
+      stroke-dasharray: 4 4;
+      filter: drop-shadow(0 0 4px color-mix(in srgb, var(--accent-color) 48%, transparent));
+      pointer-events: none;
+  }
+
+  .realtime-large-chart .hover-point {
+      fill: var(--accent-color);
+      stroke: #fff;
+      stroke-width: 2;
+      filter: drop-shadow(0 0 6px color-mix(in srgb, var(--accent-color) 68%, transparent));
+      pointer-events: none;
+  }
+
   .realtime-large-chart polygon {
       fill: var(--accent-color);
       opacity: 0.16;
@@ -4523,7 +4683,7 @@
 
   .strategy-observation-primary {
       display: grid;
-      grid-template-columns: repeat(6, minmax(0, 1fr));
+      grid-template-columns: repeat(7, minmax(0, 1fr));
       gap: 0;
       padding: 0.48rem 0;
       margin-bottom: 0.42rem;
@@ -4735,82 +4895,100 @@
   }
 
   .password-modal-content {
-      /* 确保在小屏幕上不会过宽 */
+      position: relative;
+      overflow: hidden;
+      padding: 2rem;
+      width: min(420px, calc(100vw - 2rem));
+      max-width: 420px !important;
+      background:
+          linear-gradient(135deg, rgb(56 189 248 / 8%), transparent 58%),
+          rgb(15 23 42 / 96%);
+      border: 1px solid rgb(148 163 184 / 18%);
+      border-radius: 10px;
+      box-shadow: 0 18px 48px rgb(0 0 0 / 38%);
+      -webkit-backdrop-filter: blur(14px);
+      backdrop-filter: blur(14px);
+      box-sizing: border-box;
+  }
 
-      /* 修改：调整内边距和圆角，使其更精致 */
-      padding: 2.5rem;
-      width: 90%;
-
-      /* 修改：减小最大宽度，使其更协调 */
-      max-width: 450px !important;
-
-      /* 新增：应用与登录页一致的玻璃拟态效果 */
-      background: rgb(255 255 255 / 8%);
-      border: 1px solid rgb(255 255 255 / 15%);
-      border-radius: 20px;
-      box-shadow: 0 8px 32px 0 rgb(0 0 0 / 37%);
-      -webkit-backdrop-filter: blur(15px);
-      backdrop-filter: blur(15px);
+  .password-modal-content::before {
+      position: absolute;
+      top: 0;
+      right: 0;
+      left: 0;
+      height: 2px;
+      background: linear-gradient(90deg, #38bdf8, #2dd4bf 58%, transparent);
+      content: '';
+      opacity: 0.9;
   }
 
   /* --- 弹窗头部样式 --- */
   .password-modal-content .modal-header {
-      padding-bottom: 1.2rem;
-      margin-bottom: 2rem;
-
-      /* 增加与表单的距离 */
-      text-align: center;
-
-      /* 让标题居中 */
-      border-bottom: 1px solid rgb(255 255 255 / 20%);
+      padding-bottom: 1rem;
+      margin-bottom: 1.75rem;
+      text-align: left;
+      border-bottom: 1px solid rgb(148 163 184 / 16%);
   }
 
   .password-modal-content .modal-header h3 {
-      font-size: 1.5rem;
-
-      /* 适当增大标题字号 */
+      font-size: 1.25rem;
+      color: #f8fafc;
       font-weight: 700;
   }
 
-  /* 隐藏默认的关闭按钮，因为头部已经居中，不再需要它在角落 */
   .password-modal-content .modal-close-button {
-      /* display: none; */
+      display: inline-flex;
+      justify-content: center;
+      align-items: center;
+      width: 32px;
+      height: 32px;
+      font-size: 1.5rem;
+      color: #94a3b8;
+      background: rgb(255 255 255 / 4%);
+      border: 1px solid rgb(148 163 184 / 14%);
+      border-radius: 6px;
+      transition: color 0.2s ease, border-color 0.2s ease, background 0.2s ease;
+  }
+
+  .password-modal-content .modal-close-button:hover {
+      color: #e8fffd;
+      background: rgb(56 189 248 / 8%);
+      border-color: rgb(56 189 248 / 45%);
   }
 
   /* --- 弹窗内表单的样式 --- */
   .password-modal-content .form-group {
       position: relative;
-      margin-bottom: 2.2rem;
-
-      /* 增加输入框之间的垂直间距 */
+      margin-bottom: 1.8rem;
   }
 
-  /* 复用登录页的输入框和标签样式，确保统一 */
   .password-modal-content .input-field {
-      padding: 10px 5px;
+      padding: 10px 0;
       width: 100%;
-      font-size: 1.1rem;
+      font-size: 0.875rem;
+      line-height: 1.4;
       color: #fff;
       background: transparent;
       border: none;
       outline: none;
-      transition: all 0.3s ease;
-      border-bottom: 2px solid rgb(255 255 255 / 30%);
-      caret-color: #0af;
+      transition: border-color 0.2s ease;
+      border-bottom: 1px solid rgb(148 163 184 / 38%);
+      caret-color: #38bdf8;
+      box-sizing: border-box;
   }
 
   .password-modal-content .input-field:focus {
-      border-bottom-color: #0af;
+      border-bottom-color: #38bdf8;
   }
 
   .password-modal-content .input-label {
       position: absolute;
       top: 10px;
-      left: 5px;
-      font-size: 1.1rem;
-      color: #b0c4de;
+      left: 0;
+      font-size: 1rem;
+      color: #94a3b8;
       pointer-events: none;
-      transition: all 0.3s ease;
+      transition: top 0.2s ease, font-size 0.2s ease, color 0.2s ease;
   }
 
   .notification-modal-content {
@@ -4870,7 +5048,7 @@
       border-radius: 8px;
       font-weight: 700;
       cursor: pointer;
-      transition: background 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
+      transition: background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
   }
 
   .notification-intro-secondary {
@@ -4880,14 +5058,15 @@
   }
 
   .notification-intro-primary {
-      color: #fff;
-      background: #0af;
-      border: 1px solid #0af;
+      color: #e8fffd;
+      background: linear-gradient(90deg, rgb(56 189 248 / 9%), transparent);
+      border: 1px solid rgb(56 189 248 / 72%);
+      box-shadow: 0 0 0 1px rgb(56 189 248 / 12%), 0 0 16px rgb(56 189 248 / 10%);
   }
 
   .notification-intro-secondary:hover,
   .notification-intro-primary:hover {
-      transform: translateY(-2px);
+      transform: translateY(-1px);
   }
 
   .notification-intro-secondary:hover {
@@ -4896,8 +5075,9 @@
   }
 
   .notification-intro-primary:hover {
-      background: #0097e6;
-      border-color: #0097e6;
+      background: linear-gradient(90deg, rgb(56 189 248 / 14%), transparent);
+      border-color: #38bdf8;
+      box-shadow: 0 0 0 1px rgb(56 189 248 / 20%), 0 0 22px rgb(56 189 248 / 18%);
   }
 
   .notification-field {
@@ -5297,19 +5477,25 @@
   }
 
   .notification-save-button {
-      padding: 0.85rem;
+      padding: 0 16px;
       margin-top: 0;
       width: 100%;
-      color: #fff;
-      background: #0af;
-      border: none;
-      border-radius: 8px;
+      min-height: 44px;
+      color: #e8fffd;
+      background: linear-gradient(90deg, rgb(56 189 248 / 9%), transparent);
+      border: 1px solid rgb(56 189 248 / 72%);
+      border-radius: 7px;
+      box-shadow: 0 0 0 1px rgb(56 189 248 / 12%), 0 0 16px rgb(56 189 248 / 10%);
+      transition: border-color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
       font-weight: 700;
       cursor: pointer;
   }
 
   .notification-save-button:hover:not(:disabled) {
-      box-shadow: 0 0 12px rgb(0 170 255 / 45%);
+      background: linear-gradient(90deg, rgb(56 189 248 / 14%), transparent);
+      border-color: #38bdf8;
+      box-shadow: 0 0 0 1px rgb(56 189 248 / 20%), 0 0 22px rgb(56 189 248 / 18%);
+      transform: translateY(-1px);
   }
 
   .notification-save-button:disabled {
@@ -5328,32 +5514,34 @@
   }
 
   .password-modal-content .input-field:focus + .input-label,
-  .password-modal-content .input-field:not(:placeholder-shown) + .input-label {
-      top: -18px;
-      font-size: 0.9rem;
-      color: #0af;
+  .password-modal-content .input-field:not(:placeholder-shown) + .input-label,
+  .password-modal-content .input-field:-webkit-autofill + .input-label {
+      top: -15px;
+      font-size: 0.78rem;
+      color: #38bdf8;
   }
 
-  /* --- 弹窗内提交按钮的样式 --- */
   .password-modal-content .submit-btn {
-      padding: 1rem;
-      margin-top: 1.5rem;
+      padding: 0 16px;
+      margin-top: 0.65rem;
       width: 100%;
-      font-size: 1.2rem;
-
-      /* 圆角与容器协调 */
-      color: #fff;
-      background: #0af;
-      border: none;
-      border-radius: 10px;
-      transition: transform 0.3s ease, box-shadow 0.3s ease;
+      min-height: 44px;
+      font-size: 0.95rem;
+      color: #e8fffd;
+      background: linear-gradient(90deg, rgb(56 189 248 / 9%), transparent);
+      border: 1px solid rgb(56 189 248 / 72%);
+      border-radius: 7px;
+      box-shadow: 0 0 0 1px rgb(56 189 248 / 12%), 0 0 16px rgb(56 189 248 / 10%);
+      transition: border-color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
       font-weight: 700;
       cursor: pointer;
   }
 
   .password-modal-content .submit-btn:hover {
-      transform: translateY(-5px);
-      box-shadow: 0 0 15px #0af, 0 0 30px rgb(0 170 255 / 50%);
+      background: linear-gradient(90deg, rgb(56 189 248 / 14%), transparent);
+      border-color: #38bdf8;
+      box-shadow: 0 0 0 1px rgb(56 189 248 / 20%), 0 0 22px rgb(56 189 248 / 18%);
+      transform: translateY(-1px);
   }
 
   .vip-modal-content {
@@ -5388,22 +5576,26 @@
 
   /* 弹窗按钮样式 */
   .vip-modal-button {
-      padding: 0.8rem 1rem;
+      padding: 0 16px;
       margin-top: 1rem;
       width: 100%;
-      font-size: 1rem;
-      color: #fff;
-      background: #0af;
-      border: none;
-      border-radius: 8px;
-      transition: transform 0.3s ease, box-shadow 0.3s ease;
+      min-height: 44px;
+      font-size: 0.95rem;
+      color: #e8fffd;
+      background: linear-gradient(90deg, rgb(56 189 248 / 9%), transparent);
+      border: 1px solid rgb(56 189 248 / 72%);
+      border-radius: 7px;
+      box-shadow: 0 0 0 1px rgb(56 189 248 / 12%), 0 0 16px rgb(56 189 248 / 10%);
+      transition: border-color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
       font-weight: 700;
       cursor: pointer;
   }
 
   .vip-modal-button:hover {
-      transform: translateY(-3px);
-      box-shadow: 0 0 12px #0af;
+      background: linear-gradient(90deg, rgb(56 189 248 / 14%), transparent);
+      border-color: #38bdf8;
+      box-shadow: 0 0 0 1px rgb(56 189 248 / 20%), 0 0 22px rgb(56 189 248 / 18%);
+      transform: translateY(-1px);
   }
 
   .vip-modal-desc {
@@ -5671,22 +5863,26 @@
 
   .welcome-modal-button {
       display: block;
-      padding: 0.8rem 1rem;
+      padding: 0 16px;
       margin: 1.5rem auto 0;
       width: 50%;
-      font-size: 1rem;
-      color: #fff;
-      background: #0af;
-      border: none;
-      border-radius: 8px;
-      transition: transform 0.3s ease, box-shadow 0.3s ease;
+      min-height: 44px;
+      font-size: 0.95rem;
+      color: #e8fffd;
+      background: linear-gradient(90deg, rgb(56 189 248 / 9%), transparent);
+      border: 1px solid rgb(56 189 248 / 72%);
+      border-radius: 7px;
+      box-shadow: 0 0 0 1px rgb(56 189 248 / 12%), 0 0 16px rgb(56 189 248 / 10%);
+      transition: border-color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
       font-weight: 700;
       cursor: pointer;
   }
 
   .welcome-modal-button:hover {
-      transform: translateY(-3px);
-      box-shadow: 0 0 12px #0af;
+      background: linear-gradient(90deg, rgb(56 189 248 / 14%), transparent);
+      border-color: #38bdf8;
+      box-shadow: 0 0 0 1px rgb(56 189 248 / 20%), 0 0 22px rgb(56 189 248 / 18%);
+      transform: translateY(-1px);
   }
 
   .welcome-modal-body .highlight-box {
@@ -5824,7 +6020,7 @@
       }
 
       .strategy-observation-primary {
-          grid-template-columns: repeat(6, minmax(0, 1fr));
+          grid-template-columns: repeat(7, minmax(0, 1fr));
       }
 
       .strategy-status-item {
@@ -5863,6 +6059,38 @@
       }
   }
 
+  @media (max-width: 799px) {
+      .quick-menu-grid {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .quick-menu-title-wrap strong {
+          display: -webkit-box;
+          overflow: hidden;
+          min-height: 2.3em;
+          text-overflow: clip;
+          white-space: normal;
+          -webkit-box-orient: vertical;
+          -webkit-line-clamp: 2;
+      }
+
+      .user-actions-footer {
+          flex-direction: column;
+          gap: 0.8rem;
+          margin-top: 2rem;
+      }
+
+      .user-actions-footer .status-separator {
+          display: none;
+      }
+
+      .actions-wrapper {
+          flex-wrap: wrap;
+          justify-content: center;
+          gap: 0.45rem;
+      }
+  }
+
   @media (max-width: 768px) {
       .home-page-wrapper {
           background: radial-gradient(circle at 15% 50%, #1a2a4a, transparent 40%),
@@ -5898,7 +6126,7 @@
       }
 
       .quick-menu-grid {
-          grid-template-columns: repeat(3, minmax(0, 1fr));
+          grid-template-columns: repeat(2, minmax(0, 1fr));
       }
 
       .strategy-card {
@@ -5928,7 +6156,7 @@
       }
 
       .password-modal-content {
-          padding: 2rem 1.5rem;
+          padding: 1.5rem;
       }
 
       .password-modal-content .modal-header {
@@ -5936,7 +6164,7 @@
       }
 
       .password-modal-content .modal-header h3 {
-          font-size: 1.3rem;
+          font-size: 1.15rem;
       }
 
       .password-modal-content .form-group {
@@ -5944,13 +6172,13 @@
       }
 
       .password-modal-content .submit-btn {
-          margin-top: 1rem;
+          margin-top: 0.5rem;
       }
   }
 
   @media (max-width: 576px) {
       .home-page-wrapper {
-          padding: 0.8rem;
+          padding: 0.8rem 0.8rem 2rem;
       }
 
       .wechat-guide-gallery {
@@ -6120,7 +6348,7 @@
       }
 
       .quick-menu-grid {
-          grid-template-columns: repeat(2, minmax(0, 1fr));
+          grid-template-columns: 1fr;
           gap: 0.65rem;
       }
 
@@ -6302,6 +6530,12 @@
           flex-wrap: wrap;
           justify-content: center;
           gap: 0.45rem;
+      }
+  }
+
+  @media (min-width: 360px) and (max-width: 576px) {
+      .quick-menu-grid {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
       }
   }
 

@@ -693,21 +693,26 @@
 
   .modal-action-button {
       display: block;
-      padding: 0.8rem 1rem;
+      padding: 0 16px;
       margin-top: 2rem;
       width: 100%;
-      font-size: 1rem;
-      color: #fff;
-      background: #0af;
-      border: none;
-      border-radius: 8px;
-      transition: transform 0.3s ease;
+      min-height: 44px;
+      font-size: 0.95rem;
+      color: #e8fffd;
+      background: linear-gradient(90deg, rgb(56 189 248 / 9%), transparent);
+      border: 1px solid rgb(56 189 248 / 72%);
+      border-radius: 7px;
+      box-shadow: 0 0 0 1px rgb(56 189 248 / 12%), 0 0 16px rgb(56 189 248 / 10%);
+      transition: border-color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
       font-weight: 700;
       cursor: pointer;
   }
 
   .modal-action-button:hover {
-      transform: translateY(-3px);
+      background: linear-gradient(90deg, rgb(56 189 248 / 14%), transparent);
+      border-color: #38bdf8;
+      box-shadow: 0 0 0 1px rgb(56 189 248 / 20%), 0 0 22px rgb(56 189 248 / 18%);
+      transform: translateY(-1px);
   }
   @media (max-width: 900px) {
       .card-header-section {

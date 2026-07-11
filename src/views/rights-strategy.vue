@@ -130,8 +130,14 @@
         </div>
 
         <div class="content-card">
-          <div class="card-header-row">
-            <h2 class="card-title">含权策略 vs 沪深300全收益</h2>
+          <div class="card-header-row nav-chart-header">
+            <div class="chart-title-row">
+              <h2 class="card-title">含权策略 vs 沪深300</h2>
+              <div class="chart-scale-toggle" aria-label="净值坐标类型">
+                <button type="button" :class="['chart-scale-button', { active: chartScaleMode === 'value' }]" :aria-pressed="chartScaleMode === 'value'" @click="chartScaleMode = 'value'">线性</button>
+                <button type="button" :class="['chart-scale-button', { active: chartScaleMode === 'log' }]" :aria-pressed="chartScaleMode === 'log'" @click="chartScaleMode = 'log'">对数</button>
+              </div>
+            </div>
             <div class="chart-range-picker">
               <div class="range-date-field">
                 <input
@@ -401,6 +407,9 @@
   const dateRangeEnd = ref('')
   const chartMinDate = ref('')
   const chartMaxDate = ref('')
+  type ChartScaleMode = 'value' | 'log'
+  const chartScaleMode = ref<ChartScaleMode>('value')
+  const chartIsCompact = ref(window.innerWidth <= 480)
   const selectedStartIndex = ref(0)
   const selectedEndIndex = ref(0)
 
@@ -448,33 +457,34 @@
       const startIndex = selectedStartIndex.value
       const endIndex = selectedEndIndex.value || dates.length - 1
       const selectedDates = dates.slice(startIndex, endIndex + 1)
-      const strategyDisplayData = rebaseSeries(strategySeries.value.values, startIndex).slice(
-          startIndex,
-          endIndex + 1
+      const strategyDisplayData = getChartDisplayData(
+          rebaseSeries(strategySeries.value.values, startIndex).slice(startIndex, endIndex + 1)
       )
-      const benchmarkDisplayData = rebaseSeries(strategyData.value.hs300 || [], startIndex).slice(
-          startIndex,
-          endIndex + 1
+      const benchmarkDisplayData = getChartDisplayData(
+          rebaseSeries(strategyData.value.hs300 || [], startIndex).slice(startIndex, endIndex + 1)
       )
       return {
           color: ['#ef4444', '#64748b'],
-          tooltip: { trigger: 'axis', valueFormatter: (value: number) => formatNumber(value, 2) },
+          tooltip: {
+              trigger: 'axis',
+              valueFormatter: (value: number) => formatNumber(chartScaleMode.value === 'log' ? 10 ** value : value, 2)
+          },
           legend: { top: 0, textStyle: { color: '#d8e4f2' } },
-          grid: { left: 56, right: 24, top: 52, bottom: 42 },
+          grid: getChartGridOption(),
           xAxis: {
               type: 'category',
               data: selectedDates,
               boundaryGap: false,
               axisLine: { lineStyle: { color: '#52677d' } },
-              axisLabel: { color: '#b0c4de' }
+              axisLabel: {
+                  color: '#b0c4de',
+                  hideOverlap: true,
+                  showMinLabel: true,
+                  showMaxLabel: true,
+                  formatter: formatChartDateAxisLabel
+              }
           },
-          yAxis: {
-              type: 'value',
-              splitLine: { lineStyle: { color: 'rgba(255,255,255,0.08)' } },
-              axisLabel: { color: '#b0c4de' },
-              scale: true,
-              ...getAdaptiveYAxisRange(strategyDisplayData, benchmarkDisplayData)
-          },
+          yAxis: getChartYAxisOption(strategyDisplayData, benchmarkDisplayData),
           series: [
               lineSeries('含权策略', strategyData.value.strategyData || []),
               lineSeries('沪深300全收益', strategyData.value.hs300 || [])
@@ -541,7 +551,7 @@
       const startIndex = selectedStartIndex.value
       const endIndex = selectedEndIndex.value || strategySeries.value.dates.length - 1
       const numericData = data.map(value => Number(value))
-      const displayData = rebaseSeries(numericData, startIndex).slice(startIndex, endIndex + 1)
+      const displayData = getChartDisplayData(rebaseSeries(numericData, startIndex).slice(startIndex, endIndex + 1))
 
       return {
           name,
@@ -580,6 +590,53 @@
           min: Math.floor(min / 10) * 10,
           max: Math.ceil(max / 10) * 10
       }
+  }
+
+  const getAdaptiveLogYAxisRange = (...seriesList: Array<Array<number | null>>) => {
+      const values = seriesList.flat().filter((value): value is number => Number.isFinite(value))
+      if (!values.length) return {}
+      const visibleMin = Math.min(...values)
+      const visibleMax = Math.max(...values)
+      const visibleRange = Math.max(visibleMax - visibleMin, Math.log10(1.025))
+      const rebaseLog = Math.log10(CHART_REBASE_VALUE)
+      const min = Math.min(visibleMin - visibleRange * 0.08, rebaseLog - visibleRange * 0.22)
+      const max = Math.max(visibleMax + visibleRange * 0.14, rebaseLog + visibleRange * 0.72)
+      return { min: Math.floor(min * 10) / 10, max: Math.ceil(max * 10) / 10 }
+  }
+
+  const formatLogAxisLabel = (value: number) => Math.round(10 ** value).toLocaleString('zh-CN')
+  const getChartYAxisOption = (...seriesList: Array<Array<number | null>>) => ({
+      type: 'value',
+      ...(chartScaleMode.value === 'log'
+          ? { ...getAdaptiveLogYAxisRange(...seriesList), splitNumber: 5, scale: true }
+          : { ...getAdaptiveYAxisRange(...seriesList), scale: true }),
+      splitLine: { lineStyle: { color: 'rgba(255,255,255,0.08)' } },
+      axisLabel: { color: '#b0c4de', hideOverlap: true, ...(chartScaleMode.value === 'log' ? { formatter: formatLogAxisLabel } : {}) }
+  })
+
+  const getChartDisplayData = (data: Array<number | null>) =>
+      chartScaleMode.value === 'log'
+          ? data.map(value => (value !== null && value > 0 ? Math.log10(value) : null))
+          : data
+
+  const formatChartDateAxisLabel = (value: string) => {
+      if (!chartIsCompact.value) return value
+      const dates = strategySeries.value.dates
+      const startDate = dateRangeStart.value || dates[0] || ''
+      const endDate = dateRangeEnd.value || dates[dates.length - 1] || ''
+      return startDate.slice(0, 4) === endDate.slice(0, 4) ? value.slice(5) : value.slice(0, 4)
+  }
+
+  const getChartGridOption = () => ({
+      top: 52,
+      left: chartIsCompact.value ? 8 : 28,
+      right: chartIsCompact.value ? 24 : 36,
+      bottom: 42,
+      containLabel: true
+  })
+
+  const updateChartViewport = () => {
+      chartIsCompact.value = window.innerWidth <= 480
   }
 
   const clampIndex = (index: number, maxIndex: number) =>
@@ -797,6 +854,7 @@
   }
 
   onMounted(async () => {
+      window.addEventListener('resize', updateChartViewport)
       try {
           await loadStaticData()
       } finally {
@@ -804,6 +862,8 @@
       }
       if (canViewPremiumContent.value) loadRealtime()
   })
+
+  onUnmounted(() => window.removeEventListener('resize', updateChartViewport))
 </script>
 
 <style scoped lang="scss">
@@ -1646,4 +1706,11 @@
       }
 
   }
+  .chart-title-row { display: flex; align-items: center; gap: 0.75rem; }
+  .chart-scale-toggle { display: inline-flex; align-items: center; box-sizing: border-box; height: 34px; padding: 2px; background: rgb(0 0 0 / 28%); border: 1px solid rgb(176 196 222 / 24%); border-radius: 7px; }
+  .chart-scale-button { display: inline-flex; align-items: center; height: 28px; padding: 0 0.65rem; font: inherit; font-size: 0.82rem; line-height: 1; color: #b0c4de; background: transparent; border: 0; border-radius: 5px; cursor: pointer; }
+  .chart-scale-button.active { color: #fff; background: var(--rights-theme); }
+  .chart-scale-button:focus-visible { outline: 2px solid var(--rights-theme-hover); outline-offset: 1px; }
+  @media (min-width: 769px) { .nav-chart-header { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; column-gap: 0.75rem; } .nav-chart-header .chart-title-row { display: contents; } }
+  @media (max-width: 768px) { .nav-chart-header { align-items: flex-start; flex-direction: column; } .nav-chart-header .chart-title-row { justify-content: space-between; gap: 0.5rem; width: 100%; } .nav-chart-header .chart-title-row .card-title { padding-left: 0.65rem; margin-bottom: 0; font-size: 1.08rem; white-space: nowrap; } .nav-chart-header .chart-scale-toggle { flex: 0 0 auto; } .nav-chart-header .chart-scale-button { padding: 0 0.5rem; font-size: 0.78rem; } .nav-chart-header .chart-range-picker { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); gap: 0.45rem; width: 100%; } .nav-chart-header .range-date-field { width: 100%; } .nav-chart-header + .echart-container { height: 300px; } }
 </style>

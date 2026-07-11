@@ -1,7 +1,16 @@
 import { createWebHashHistory, createRouter } from 'vue-router'
 import { useUserStore } from '@/store/user' // 引入我们刚创建的 user store
-import { auth } from '@/lib/cloudbase'
+import {
+  getAuthSession,
+  getAuthSessionUid,
+  initializeAuthSession
+} from '@/services/authSession'
+import { AuthExpiredError } from '@/services/authExpired'
 import { applyRouteSeo } from '@/utils/seo'
+
+const REQUIRED_ROUTE_PERMISSION_VERSION = '2026-07-bond-market'
+const CLIENT_PUBLIC_AUTH_ROUTES = new Set(['/bond-market'])
+
 // 路由表
 export const constantRoutes = [
   {
@@ -52,6 +61,15 @@ export const constantRoutes = [
       requiresAuth: true,
       title: '可转债策略',
       description: '查看可转债策略净值走势、持仓轮动、收益统计和风险指标，跟踪可转债多因子策略表现。'
+    }
+  },
+  {
+    path: '/bond-market',
+    component: () => import('@/views/bond-market.vue'),
+    meta: {
+      requiresAuth: true,
+      title: '转债全景',
+      description: '用价格分层、市场广度、估值位置和成交热度观察可转债市场状态。'
     }
   },
   {
@@ -152,72 +170,62 @@ const router = createRouter({
   routes: constantRoutes
 })
 
-// 定义一个不需要登录就能访问的“白名单”
-const whiteList = ['/login']
-
 router.beforeEach(async (to, from, next) => {
   const userStore = useUserStore();
+  try {
+    await initializeAuthSession();
+  } catch (error) {
+    console.error('读取 CloudBase 登录态失败:', error);
+  }
+  const loginState = getAuthSession();
+  const isLoggedIn = !!loginState;
+  const requiresAuth = to.meta.requiresAuth === true;
 
-  // 1. 使用导入的 app 实例，通过 SDK 获取当前登录状态
-  const loginState = await auth.getLoginState();
-  const isLoggedIn = !!loginState; // 如果 loginState 不为 null，则认为已登录
+  if (!requiresAuth) {
+    if (to.path === '/login' && isLoggedIn) return next({ path: '/' });
+    return next();
+  }
 
-  if (isLoggedIn) {
-    // --- 情况 A：SDK 认为用户已登录 ---
+  if (!isLoggedIn) {
+    userStore.clearLocalUser();
+    return next({ path: '/login', query: { redirect: to.fullPath } });
+  }
 
-    if (to.path === '/login') {
-      // A-1: 如果已登录用户试图访问登录页，直接重定向到首页
-      return next({ path: '/' });
-    }
+  const sessionUid = getAuthSessionUid();
+  const hasCurrentRoutePermissions = hasCurrentRoutePermissionVersion(userStore.userInfo?.routePermissions);
+  const hasCurrentUserInfo =
+    userStore.userInfo &&
+    sessionUid &&
+    String(userStore.userInfo.uid || '') === sessionUid &&
+    userStore.isUserInfoFresh &&
+    hasCurrentRoutePermissions;
 
-    // A-2: 检查 Pinia 中是否已有用户信息，以避免不必要的网络请求
-    const hasUserInfo = userStore.userInfo && Object.keys(userStore.userInfo).length > 0 && userStore.isUserInfoFresh;
+  if (!userStore.hasSyncedInCurrentApp || !hasCurrentUserInfo) {
+    try {
+      if (!userStore.hasSyncedInCurrentApp || !hasCurrentRoutePermissions) {
+        await userStore.refreshUserInfo();
+      } else {
+        await userStore.fetchUserInfo();
+      }
+    } catch (error) {
+      if (error instanceof AuthExpiredError) {
+        return next({ path: '/login', query: { redirect: to.fullPath } });
+      }
 
-    if (hasUserInfo) {
-      // A-2-a: Pinia 中有用户信息，使用后端返回的缓存权限包判断
-      await checkPermissions(to, userStore, next);
-    } else {
-      // A-2-b: Pinia 中没有用户信息（通常是刷新页面后），需要通过 API 获取
-      try {
-        await userStore.fetchUserInfo(); // 这个 action 内部会调用云函数
-        // 获取用户信息成功后，使用后端返回的缓存权限包判断
-        await checkPermissions(to, userStore, next);
-      } catch (error) {
-        // 获取用户信息失败，这几乎总是意味着 SDK 的本地凭证在服务器端已失效
-        console.error('登录凭证已失效，获取用户信息失败:', error);
-
-        // 【关键步骤】清理所有失效的状态
-        // 假设你的 userStore.logout() 内部会调用 app.auth().signOut()
-        await userStore.logout();
-
-        // 重定向到登录页，并携带原始目标路径
-        next({ path: '/login', query: { redirect: to.fullPath } });
+      console.error('用户资料暂时无法同步，保留当前登录态:', error);
+      if (!userStore.userInfo?.routePermissions) {
+        return to.path === '/admin' ? next({ name: 'NotFound' }) : next();
       }
     }
-  } else {
-    // --- 情况 B：SDK 认为用户未登录 ---
-    if (userStore.userInfo) {
-      await userStore.logout();
-    }
-
-    if (whiteList.includes(to.path)) {
-      // B-1: 如果要去的是白名单页面（例如登录页），直接放行
-      next();
-    } else {
-      // B-2: 如果要去的是需要权限的页面，则重定向到登录页
-      next({ path: '/login', query: { redirect: to.fullPath } });
-    }
   }
+
+  return checkPermissions(to, userStore, next);
 });
 
-async function checkPermissions(to: any, userStore: any, next: any) {
+function checkPermissions(to: any, userStore: any, next: any) {
   if (to.name === 'NotFound') {
     next();
     return;
-  }
-
-  if (!userStore.userInfo?.routePermissions) {
-    await userStore.refreshUserInfo();
   }
 
   if (hasCachedRoutePermission(to.path, userStore.userInfo?.routePermissions)) {
@@ -232,7 +240,11 @@ function hasCachedRoutePermission(path: string, routePermissions: any) {
     ? routePermissions.allowedRoutes
     : [];
 
-  return allowedRoutes.includes(path);
+  return allowedRoutes.includes(path) || CLIENT_PUBLIC_AUTH_ROUTES.has(path);
+}
+
+function hasCurrentRoutePermissionVersion(routePermissions: any) {
+  return routePermissions?.version === REQUIRED_ROUTE_PERMISSION_VERSION;
 }
 
 router.afterEach(to => {

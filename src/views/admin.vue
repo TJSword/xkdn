@@ -24,9 +24,11 @@
           <small>{{ formatDateTime(cookieStatus.updatedAt) }}</small>
         </article>
         <article class="overview-item">
-          <span>策略刷新</span>
-          <strong>{{ refreshStatusText }}</strong>
-          <small>{{ refreshingKey ? '任务执行中' : '手动入口就绪' }}</small>
+          <span>集思录 Cookie</span>
+          <strong :class="jisiluCookieStatus.configured ? 'positive' : 'warning'">
+            {{ jisiluCookieStatus.configured ? '已配置' : '未配置' }}
+          </strong>
+          <small>{{ formatDateTime(jisiluCookieStatus.updatedAt) }}</small>
         </article>
       </section>
 
@@ -196,11 +198,66 @@
         </div>
       </section>
 
+      <section v-if="activeTab === 'data-source'" class="content-card admin-section">
+        <div class="card-header-with-toggle">
+          <div>
+            <h2 class="card-title">集思录 Cookie</h2>
+            <p class="card-description">用于转债全景的实时列表和每日最新指数历史请求，与雪球 Cookie 独立保存。</p>
+          </div>
+          <span :class="['status-pill', jisiluCookieStatus.configured ? 'success' : 'warning']">
+            {{ jisiluCookieStatus.configured ? '已配置' : '未配置' }}
+          </span>
+        </div>
+
+        <div class="settings-grid">
+          <div class="settings-panel">
+            <label class="form-label" for="jisilu-cookie">Cookie 内容</label>
+            <textarea
+              id="jisilu-cookie"
+              v-model="jisiluCookie"
+              class="cookie-textarea"
+              placeholder="在这里粘贴集思录网页版请求头中的完整 Cookie"
+            ></textarea>
+            <p class="form-help">已保存的 Cookie 不会完整回显。校验时会拒绝集思录返回的游客 30 条截断列表。</p>
+            <div class="settings-actions">
+              <button class="button-primary" :disabled="isSavingJisiluCookie || !jisiluCookie.trim()" @click="saveJisiluCookieData">
+                {{ isSavingJisiluCookie ? '保存中...' : '保存 Cookie' }}
+              </button>
+              <button class="button-secondary" :disabled="isCheckingJisiluCookie" @click="checkJisiluCookie">
+                {{ isCheckingJisiluCookie ? '检查中...' : '检查并刷新' }}
+              </button>
+            </div>
+          </div>
+
+          <div class="settings-panel summary-panel">
+            <h3>当前状态</h3>
+            <dl>
+              <div>
+                <dt>配置状态</dt>
+                <dd>{{ jisiluCookieStatus.configured ? '已保存' : '未保存' }}</dd>
+              </div>
+              <div>
+                <dt>脱敏预览</dt>
+                <dd>{{ jisiluCookieStatus.maskedCookie || '--' }}</dd>
+              </div>
+              <div>
+                <dt>更新时间</dt>
+                <dd>{{ formatDateTime(jisiluCookieStatus.updatedAt) }}</dd>
+              </div>
+              <div>
+                <dt>最近校验</dt>
+                <dd>{{ lastJisiluCookieCheck || '--' }}</dd>
+              </div>
+            </dl>
+          </div>
+        </div>
+      </section>
+
       <section v-if="activeTab === 'refresh'" class="content-card admin-section">
         <div class="card-header-with-toggle">
           <div>
             <h2 class="card-title">策略刷新入口</h2>
-            <p class="card-description">手动触发 LOF、含权和微盘策略的数据更新，适合补跑或验证云函数状态。</p>
+            <p class="card-description">手动触发 LOF、含权、微盘策略和转债全景的数据更新，适合补跑或验证云函数状态。</p>
           </div>
         </div>
 
@@ -360,11 +417,11 @@
   }
 
   type TabKey = 'users' | 'data-source' | 'refresh'
-  type RefreshTaskKey = 'lof' | 'rights' | 'micro_cap'
+  type RefreshTaskKey = 'lof' | 'rights' | 'micro_cap' | 'bond_market'
 
   const tabs: Array<{ key: TabKey; label: string; description: string }> = [
       { key: 'users', label: '人员管理', description: '会员、通知、备注' },
-      { key: 'data-source', label: '数据源配置', description: '雪球授权校验' },
+      { key: 'data-source', label: '数据源配置', description: '雪球与集思录授权' },
       { key: 'refresh', label: '策略刷新', description: '手动补跑数据' }
   ]
   const activeTab = ref<TabKey>('users')
@@ -447,15 +504,15 @@
           title: '微盘股策略',
           description: '刷新微盘 Top10 策略数据，依赖当前雪球 Cookie。',
           lastRun: ''
+      },
+      {
+          key: 'bond_market' as RefreshTaskKey,
+          title: '转债全景',
+          description: '请求当前集思录实时转债列表，并保存一份日内快照。',
+          lastRun: ''
       }
   ])
   const refreshingKey = ref<RefreshTaskKey | ''>('')
-  const refreshStatusText = computed(() => {
-      if (!refreshingKey.value) return '待命'
-      const task = refreshTasks.value.find(item => item.key === refreshingKey.value)
-      return task ? task.title : '刷新中'
-  })
-
   const cookieStatus = ref({
       configured: false,
       maskedCookie: '',
@@ -465,6 +522,15 @@
   const isSavingCookie = ref(false)
   const isCheckingCookie = ref(false)
   const lastCookieCheck = ref('')
+  const jisiluCookieStatus = ref({
+      configured: false,
+      maskedCookie: '',
+      updatedAt: ''
+  })
+  const jisiluCookie = ref('')
+  const isSavingJisiluCookie = ref(false)
+  const isCheckingJisiluCookie = ref(false)
+  const lastJisiluCookieCheck = ref('')
 
   function emptySubscriptions(): NotificationSubscriptions {
       return {
@@ -535,6 +601,24 @@
           }
       } catch (error) {
           console.error('读取雪球 Cookie 状态失败:', error)
+      }
+  }
+
+  const fetchJisiluCookieStatus = async () => {
+      try {
+          const response: any = await callCloudFunction({
+              name: 'jisiluCookieConfig',
+              data: { action: 'get' }
+          })
+          if (response.result?.success) {
+              jisiluCookieStatus.value = {
+                  configured: response.result.data.configured === true,
+                  maskedCookie: response.result.data.maskedCookie || '',
+                  updatedAt: response.result.data.updatedAt || ''
+              }
+          }
+      } catch (error) {
+          console.error('读取集思录 Cookie 状态失败:', error)
       }
   }
 
@@ -762,6 +846,53 @@
       }
   }
 
+  const saveJisiluCookieData = async () => {
+      if (!jisiluCookie.value.trim()) {
+          showMessage('Cookie 不能为空', 'warning')
+          return
+      }
+
+      isSavingJisiluCookie.value = true
+      try {
+          const response: any = await callCloudFunction({
+              name: 'jisiluCookieConfig',
+              data: {
+                  action: 'update',
+                  cookie: jisiluCookie.value
+              }
+          })
+          if (!response.result?.success) throw new Error(response.result?.message || '保存失败')
+
+          showMessage('集思录 Cookie 已保存', 'success')
+          jisiluCookie.value = ''
+          await fetchJisiluCookieStatus()
+      } catch (error: any) {
+          showMessage(error.message || 'Cookie 保存失败', 'error')
+      } finally {
+          isSavingJisiluCookie.value = false
+      }
+  }
+
+  const checkJisiluCookie = async () => {
+      if (isCheckingJisiluCookie.value) return
+
+      isCheckingJisiluCookie.value = true
+      try {
+          const response: any = await callCloudFunction({
+              name: 'getBondMarketData',
+              data: { forceRefresh: true }
+          })
+          const result = response.result || {}
+          lastJisiluCookieCheck.value = formatDateObject(new Date())
+          if (result.success === false) throw new Error(result.message || 'Cookie 校验失败')
+          showMessage('集思录 Cookie 状态正常，实时列表快照已保存', 'success')
+      } catch (error: any) {
+          showMessage(error.message || 'Cookie 状态检查失败', 'error')
+      } finally {
+          isCheckingJisiluCookie.value = false
+      }
+  }
+
   const runRefreshTask = async (key: RefreshTaskKey) => {
       if (refreshingKey.value) return
 
@@ -770,7 +901,8 @@
           const callMap: Record<RefreshTaskKey, { name: string; data?: Record<string, any> }> = {
               lof: { name: 'getLofData', data: { forceRefresh: true } },
               rights: { name: 'getRightsStrategyData', data: { forceRefresh: true } },
-              micro_cap: { name: 'microCapStrategy10' }
+              micro_cap: { name: 'microCapStrategy10' },
+              bond_market: { name: 'getBondMarketData', data: { forceRefresh: true } }
           }
           const task = callMap[key]
           const response: any = await callCloudFunction({
@@ -810,6 +942,7 @@
   onMounted(() => {
       fetchUsers()
       fetchCookieStatus()
+      fetchJisiluCookieStatus()
   })
 </script>
 
@@ -1130,7 +1263,7 @@
 
   .refresh-grid {
       display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
+      grid-template-columns: repeat(4, minmax(0, 1fr));
       gap: 16px;
   }
 

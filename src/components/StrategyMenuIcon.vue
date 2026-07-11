@@ -27,6 +27,17 @@
       <circle class="convertible-spark convertible-spark-two" cx="42" cy="27" r="1" />
     </g>
 
+    <g v-else-if="type === 'bond-market'" class="bond-market-glyph">
+      <rect class="bond-market-frame" x="8" y="10" width="32" height="28" rx="5" />
+      <path class="bond-market-grid" d="M8 19h32M8 28h32M18.5 10v28M29.5 10v28" />
+      <path class="bond-market-wave" d="m11 30 5-7 6 4 5-10 5 6 5-8" />
+      <circle class="bond-market-node bond-market-node-one" cx="16" cy="23" r="2" />
+      <circle class="bond-market-node bond-market-node-two" cx="27" cy="17" r="2" />
+      <circle class="bond-market-node bond-market-node-three" cx="37" cy="15" r="2" />
+      <path class="bond-market-scan" d="M13 35h22" />
+      <path class="bond-market-scan" d="M23 6v7" />
+    </g>
+
     <g v-else-if="type === 'rights'" class="rights-glyph">
       <g class="rights-bond-ticket">
         <path d="M28 9h8.5a3 3 0 0 1 3 3v17H28Z" />
@@ -327,6 +338,56 @@
 
   .convertible-spark-two {
       fill: #52e3bd;
+  }
+
+  .bond-market-glyph {
+      filter: drop-shadow(0 0 7px rgb(245 158 11 / 24%));
+  }
+
+  .bond-market-frame,
+  .bond-market-grid,
+  .bond-market-wave,
+  .bond-market-scan {
+      stroke-linecap: round;
+      stroke-linejoin: round;
+  }
+
+  .bond-market-frame {
+      fill: rgb(245 158 11 / 8%);
+      stroke: currentcolor;
+      stroke-width: 1.6;
+      filter: drop-shadow(0 0 4px rgb(245 158 11 / 45%));
+  }
+
+  .bond-market-grid {
+      stroke: rgb(253 230 138 / 52%);
+      stroke-width: 0.9;
+  }
+
+  .bond-market-wave {
+      fill: none;
+      stroke: #fff7ed;
+      stroke-width: 1.8;
+      filter: drop-shadow(0 0 4px rgb(255 247 237 / 55%));
+  }
+
+  .bond-market-node {
+      fill: currentcolor;
+      filter: drop-shadow(0 0 4px currentcolor);
+  }
+
+  .bond-market-node-two {
+      fill: #fde68a;
+  }
+
+  .bond-market-node-three {
+      fill: #fbbf24;
+  }
+
+  .bond-market-scan {
+      stroke: #f59e0b;
+      stroke-width: 1.45;
+      opacity: 0.8;
   }
 
   .rights-glyph {

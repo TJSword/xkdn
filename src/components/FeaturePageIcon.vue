@@ -44,6 +44,10 @@
       --menu-accent: #add8e6;
   }
 
+  .feature-page-icon-bond-market {
+      --menu-accent: #f59e0b;
+  }
+
   .feature-page-icon-rights {
       --menu-accent: #ef4444;
   }

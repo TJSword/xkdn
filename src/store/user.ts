@@ -3,9 +3,15 @@
 import { defineStore } from 'pinia'
 import { auth } from '@/lib/cloudbase'
 import { callCloudFunction } from '@/services/cloudFunction'
+import {
+  getAuthSession,
+  getAuthSessionUid,
+  verifyAuthSession
+} from '@/services/authSession'
 
 const USER_INFO_CACHE_KEY = 'xkdn:user-info:v1'
 const USER_INFO_CACHE_TTL = 30 * 60 * 1000
+let userInfoSyncPromise: Promise<any> | null = null
 
 function canUseLocalStorage() {
   return typeof window !== 'undefined' && !!window.localStorage
@@ -36,6 +42,7 @@ function writeUserInfoCache(userInfo: any) {
     USER_INFO_CACHE_KEY,
     JSON.stringify({
       userInfo,
+      uid: String(userInfo?.uid || ''),
       syncedAt
     })
   )
@@ -78,14 +85,16 @@ function getInitialUserState() {
     return {
       userInfo: cache.userInfo,
       lastSyncedAt: cache.syncedAt,
-      hasAttemptedLogin: true
+      hasAttemptedLogin: true,
+      hasSyncedInCurrentApp: false
     }
   }
 
   return {
     userInfo: null,
     lastSyncedAt: 0,
-    hasAttemptedLogin: false
+    hasAttemptedLogin: false,
+    hasSyncedInCurrentApp: false
   }
 }
 
@@ -103,19 +112,33 @@ export const useUserStore = defineStore('user', {
      * 【核心】在任何认证操作（登录、注册）成功后，调用此内部方法来获取/同步我们自己数据库的用户信息
      * @returns {Promise<any>} 返回从我们数据库获取的用户信息
      */
-    async _syncUserInfo(phoneNumber: any) {
-      try {
-        // 调用我们自定义的云函数，它会根据当前登录的 tcb 用户，查找或创建我们自己数据库的记录
-        const res = await callCloudFunction({ name: 'loginOrRegister', data: { phone: phoneNumber } })
-        this.userInfo = res.result
-        this.lastSyncedAt = writeUserInfoCache(this.userInfo)
+    async _syncUserInfo(phoneNumber?: any, options: { trackLogin?: boolean } = {}) {
+      if (userInfoSyncPromise) return userInfoSyncPromise
+
+      userInfoSyncPromise = (async () => {
+        const res: any = await callCloudFunction({
+          name: 'loginOrRegister',
+          data: {
+            action: options.trackLogin ? 'signIn' : 'get',
+            phone: phoneNumber
+          }
+        })
+        const userInfo = res?.result
+        if (!userInfo || userInfo.success === false || !userInfo.uid) {
+          throw new Error(userInfo?.message || '用户资料读取失败')
+        }
+
+        this.userInfo = userInfo
+        this.lastSyncedAt = writeUserInfoCache(userInfo)
         this.hasAttemptedLogin = true
-        return this.userInfo
-      } catch (error) {
-        console.error('同步用户信息失败:', error)
-        // 同步失败时，最好也登出，因为 tcb 认证和我们的业务数据库状态不一致
-        await this.logout()
-        throw error // 把错误继续向上抛出，让调用方知道失败了
+        this.hasSyncedInCurrentApp = true
+        return userInfo
+      })()
+
+      try {
+        return await userInfoSyncPromise
+      } finally {
+        userInfoSyncPromise = null
       }
     },
 
@@ -133,7 +156,7 @@ export const useUserStore = defineStore('user', {
       })
 
       // 2. tcb 登录成功后，同步我们自己数据库的用户信息
-      return this._syncUserInfo(phoneNumber)
+      return this._syncUserInfo(phoneNumber, { trackLogin: true })
     },
 
     /**
@@ -166,7 +189,7 @@ export const useUserStore = defineStore('user', {
       // 4. tcb 注册并自动登录后，同步我们自己数据库的用户信息
       // 此时 loginOrRegister 云函数会发现是新用户，并为其创建记录
 
-      return this._syncUserInfo(phoneNumber)
+      return this._syncUserInfo(phoneNumber, { trackLogin: true })
     },
 
     /**
@@ -224,34 +247,50 @@ export const useUserStore = defineStore('user', {
      * 【保留并优化】应用初始化时检查用户登录状态
      */
     async fetchUserInfo() {
-      if (this.userInfo && isCacheFresh(this.lastSyncedAt)) {
+      const loginState = getAuthSession() || await verifyAuthSession()
+      const sessionUid = getAuthSessionUid()
+
+      if (!loginState) {
+        this.clearLocalUser()
+        return null
+      }
+
+      if (
+        this.userInfo &&
+        sessionUid &&
+        String(this.userInfo.uid || '') === sessionUid &&
+        isCacheFresh(this.lastSyncedAt)
+      ) {
         this.hasAttemptedLogin = true
         return this.userInfo
       }
 
       const cache = readUserInfoCache()
-      if (cache && isCacheFresh(cache.syncedAt)) {
+      if (
+        cache &&
+        sessionUid &&
+        String(cache.uid || cache.userInfo?.uid || '') === sessionUid &&
+        isCacheFresh(cache.syncedAt)
+      ) {
         this.userInfo = cache.userInfo
         this.lastSyncedAt = cache.syncedAt
         this.hasAttemptedLogin = true
         return this.userInfo
       }
 
-      if (this.hasAttemptedLogin && !this.userInfo) {
-        return null
-      }
+      return this._syncUserInfo()
+    },
 
-      // 检查 tcb 的登录状态
-      if (auth.hasLoginState()) {
-        // 如果 tcb 认为已登录，则同步我们的用户信息
-        await this._syncUserInfo()
-      } else {
-        // 如果未登录，则标记为已尝试
-        this.hasAttemptedLogin = true
-        this.userInfo = null
-        this.lastSyncedAt = 0
-        clearUserInfoCache()
-      }
+    clearLocalUser() {
+      this.userInfo = null
+      this.hasAttemptedLogin = false
+      this.hasSyncedInCurrentApp = false
+      this.lastSyncedAt = 0
+      clearUserInfoCache()
+    },
+
+    markAuthSessionAvailable() {
+      this.hasAttemptedLogin = false
     },
 
     /**
@@ -266,12 +305,7 @@ export const useUserStore = defineStore('user', {
           console.error("SDK 登出失败:", e);
         }
       } finally {
-        // 无论 SDK 是否成功，都必须重置 Pinia 的 state
-        this.userInfo = null
-        this.hasAttemptedLogin = false
-        this.lastSyncedAt = 0
-        clearUserInfoCache()
-        // this.isVip = false; // 等等，重置所有用户相关状态
+        this.clearLocalUser()
       }
     },
     /**

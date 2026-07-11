@@ -124,8 +124,14 @@
           <button class="premium-lock-button" @click="router.push('/home')">返回首页开通会员</button>
         </div>
         <div class="content-card">
-          <div class="card-header-row">
-            <h2 class="card-title no-margin">动量策略 vs 沪深300全收益</h2>
+          <div class="card-header-row nav-chart-header">
+            <div class="chart-title-row">
+              <h2 class="card-title no-margin">动量策略 vs 沪深300</h2>
+              <div class="chart-scale-toggle" aria-label="净值坐标类型">
+                <button type="button" :class="['chart-scale-button', { active: chartScaleMode === 'value' }]" :aria-pressed="chartScaleMode === 'value'" @click="setChartScaleMode('value')">线性</button>
+                <button type="button" :class="['chart-scale-button', { active: chartScaleMode === 'log' }]" :aria-pressed="chartScaleMode === 'log'" @click="setChartScaleMode('log')">对数</button>
+              </div>
+            </div>
             <div class="chart-range-picker">
               <div class="range-date-field">
                 <input
@@ -862,10 +868,13 @@
   const handleResize = () => {
       if (myChart) {
           myChart.resize()
+          myChart.setOption({ grid: getChartGridOption() })
       }
   }
 
   const CHART_REBASE_VALUE = 1000
+  type ChartScaleMode = 'value' | 'log'
+  const chartScaleMode = ref<ChartScaleMode>('value')
   const chartDates = ref<string[]>([])
   const chartStrategyValues = ref<number[]>([])
   const chartBenchmarkValues = ref<number[]>([])
@@ -901,6 +910,62 @@
           min: Math.floor(min / 10) * 10,
           max: Math.ceil(max / 10) * 10
       }
+  }
+
+  const getAdaptiveLogYAxisRange = (...seriesList: Array<Array<number | null>>) => {
+      const values = seriesList.flat().filter((value): value is number => Number.isFinite(value))
+      if (!values.length) return {}
+      const visibleMin = Math.min(...values)
+      const visibleMax = Math.max(...values)
+      const visibleRange = Math.max(visibleMax - visibleMin, Math.log10(1.025))
+      const rebaseLog = Math.log10(CHART_REBASE_VALUE)
+      const min = Math.min(visibleMin - visibleRange * 0.08, rebaseLog - visibleRange * 0.22)
+      const max = Math.max(visibleMax + visibleRange * 0.14, rebaseLog + visibleRange * 0.72)
+      return { min: Math.floor(min * 10) / 10, max: Math.ceil(max * 10) / 10 }
+  }
+
+  const formatLogAxisLabel = (value: number) => Math.round(10 ** value).toLocaleString('zh-CN')
+  const formatChartTooltip = (params: any[]) => {
+      const items = Array.isArray(params) ? params : [params]
+      if (!items.length) return ''
+      const lines = [items[0].axisValueLabel || items[0].name || '']
+      items.forEach(item => {
+          const plottedValue = Number(item.value)
+          const value = chartScaleMode.value === 'log' ? 10 ** plottedValue : plottedValue
+          const valueLabel = Number.isFinite(value)
+              ? value.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+              : '--'
+          lines.push(`${item.marker || ''}${item.seriesName} ${valueLabel}`)
+      })
+      return lines.join('<br/>')
+  }
+
+  const getChartYAxisOption = (...seriesList: Array<Array<number | null>>) => ({
+      type: 'value',
+      ...(chartScaleMode.value === 'log'
+          ? { ...getAdaptiveLogYAxisRange(...seriesList), splitNumber: 5, scale: true }
+          : { ...getAdaptiveYAxisRange(...seriesList), scale: true }),
+      splitLine: { lineStyle: { color: 'rgba(255,255,255,0.1)' } },
+      axisLabel: { color: '#8392A5', hideOverlap: true, ...(chartScaleMode.value === 'log' ? { formatter: formatLogAxisLabel } : {}) }
+  })
+
+  const getChartDisplayData = (data: Array<number | null>) =>
+      chartScaleMode.value === 'log'
+          ? data.map(value => (value !== null && value > 0 ? Math.log10(value) : null))
+          : data
+
+  const isCompactChart = () => (chartContainer.value?.clientWidth || window.innerWidth) <= 480
+  const formatChartDateAxisLabel = (value: string) => {
+      if (!isCompactChart()) return value
+      const startDate = dateRangeStart.value || chartDates.value[0] || ''
+      const endDate = dateRangeEnd.value || chartDates.value[chartDates.value.length - 1] || ''
+      return startDate.slice(0, 4) === endDate.slice(0, 4) ? value.slice(5) : value.slice(0, 4)
+  }
+  const getChartGridOption = () => ({ top: 52, left: isCompactChart() ? 8 : 28, right: isCompactChart() ? 24 : 36, bottom: 42, containLabel: true })
+  const setChartScaleMode = (mode: ChartScaleMode) => {
+      if (chartScaleMode.value === mode) return
+      chartScaleMode.value = mode
+      applyChartRange(getDateIndex(dateRangeStart.value, 'start'), getDateIndex(dateRangeEnd.value, 'end'))
   }
 
   const clampIndex = (index: number, maxIndex: number) =>
@@ -977,13 +1042,11 @@
       const boundedStartIndex = clampIndex(startIndex, maxIndex)
       const boundedEndIndex = clampIndex(Math.max(endIndex, boundedStartIndex), maxIndex)
       const selectedDates = chartDates.value.slice(boundedStartIndex, boundedEndIndex + 1)
-      const strategyDisplayData = rebaseSeries(chartStrategyValues.value, boundedStartIndex).slice(
-          boundedStartIndex,
-          boundedEndIndex + 1
+      const strategyDisplayData = getChartDisplayData(
+          rebaseSeries(chartStrategyValues.value, boundedStartIndex).slice(boundedStartIndex, boundedEndIndex + 1)
       )
-      const benchmarkDisplayData = rebaseSeries(chartBenchmarkValues.value, boundedStartIndex).slice(
-          boundedStartIndex,
-          boundedEndIndex + 1
+      const benchmarkDisplayData = getChartDisplayData(
+          rebaseSeries(chartBenchmarkValues.value, boundedStartIndex).slice(boundedStartIndex, boundedEndIndex + 1)
       )
 
       dateRangeStart.value = chartDates.value[boundedStartIndex] || ''
@@ -994,9 +1057,9 @@
 
       myChart.setOption({
           xAxis: { data: selectedDates },
-          yAxis: getAdaptiveYAxisRange(strategyDisplayData, benchmarkDisplayData),
+          yAxis: getChartYAxisOption(strategyDisplayData, benchmarkDisplayData),
           series: [{ data: strategyDisplayData }, { data: benchmarkDisplayData }]
-      })
+      }, { replaceMerge: ['yAxis'] })
   }
 
   const applyDateRangeSelection = () => {
@@ -1031,8 +1094,8 @@
       chartMinDate.value = chartDates.value[0] || ''
       chartMaxDate.value = chartDates.value[chartDates.value.length - 1] || ''
 
-      const initialStrategyDisplayData = rebaseSeries(chartStrategyValues.value, 0)
-      const initialBenchmarkDisplayData = rebaseSeries(chartBenchmarkValues.value, 0)
+      const initialStrategyDisplayData = getChartDisplayData(rebaseSeries(chartStrategyValues.value, 0))
+      const initialBenchmarkDisplayData = getChartDisplayData(rebaseSeries(chartBenchmarkValues.value, 0))
       myChart = echarts.init(chartContainer.value)
       // const dateList = Array.from(
       //     { length: 100 },
@@ -1044,21 +1107,15 @@
       // const indexData = dateList.map((_, i) => 1000 + i * 5 + Math.random() * 100)
       const option = {
           backgroundColor: 'transparent',
-          tooltip: { trigger: 'axis' },
-          grid: { top: 52, left: '3%', right: '4%', bottom: 42, containLabel: true },
+          tooltip: { trigger: 'axis', formatter: formatChartTooltip },
+          grid: getChartGridOption(),
           legend: {
               data: ['动量策略', '沪深300全收益'],
               textStyle: { color: '#b0c4de' },
               top: 0
           },
-          xAxis: { type: 'category', data: xAxis, axisLine: { lineStyle: { color: '#8392A5' } } },
-          yAxis: {
-              type: 'value',
-              splitLine: { lineStyle: { color: 'rgba(255,255,255,0.1)' } },
-              axisLabel: { color: '#8392A5' },
-              scale: true,
-              ...getAdaptiveYAxisRange(initialStrategyDisplayData, initialBenchmarkDisplayData)
-          },
+          xAxis: { type: 'category', data: xAxis, axisLine: { lineStyle: { color: '#8392A5' } }, axisLabel: { color: '#8392A5', hideOverlap: true, showMinLabel: true, showMaxLabel: true, formatter: formatChartDateAxisLabel } },
+          yAxis: getChartYAxisOption(initialStrategyDisplayData, initialBenchmarkDisplayData),
           series: [
               {
                   name: '动量策略',
@@ -1991,4 +2048,11 @@
           font-size: 0.85rem;
       }
   }
+  .chart-title-row { display: flex; align-items: center; gap: 0.75rem; }
+  .chart-scale-toggle { display: inline-flex; align-items: center; box-sizing: border-box; height: 34px; padding: 2px; background: rgb(0 0 0 / 28%); border: 1px solid rgb(176 196 222 / 24%); border-radius: 7px; }
+  .chart-scale-button { display: inline-flex; align-items: center; height: 28px; padding: 0 0.65rem; font: inherit; font-size: 0.82rem; line-height: 1; color: #b0c4de; background: transparent; border: 0; border-radius: 5px; cursor: pointer; }
+  .chart-scale-button.active { color: #fff; background: #ff5722; }
+  .chart-scale-button:focus-visible { outline: 2px solid rgb(255 87 34 / 65%); outline-offset: 1px; }
+  @media (min-width: 769px) { .nav-chart-header { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; column-gap: 0.75rem; } .nav-chart-header .chart-title-row { display: contents; } }
+  @media (max-width: 768px) { .nav-chart-header .chart-title-row { justify-content: space-between; gap: 0.5rem; width: 100%; } .nav-chart-header .chart-title-row .card-title { padding-left: 0.65rem; margin-bottom: 0; font-size: 1.08rem; white-space: nowrap; } .nav-chart-header .chart-scale-toggle { flex: 0 0 auto; } .nav-chart-header .chart-scale-button { padding: 0 0.5rem; font-size: 0.78rem; } .nav-chart-header .chart-range-picker { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); gap: 0.45rem; width: 100%; } .nav-chart-header .range-date-field { width: 100%; } .nav-chart-header + .echart-container { height: 300px; } }
 </style>

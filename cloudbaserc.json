@@ -12,22 +12,27 @@
       "description": "获取动量策略中-etf的实时数据",
       "triggers": [
         {
-          "name": "momentumEtfMorningEarly",
+          "name": "momentumEtfMorning0930",
           "type": "timer",
-          "config": "0 0,5,10,15,20,25,30,35,40,45,50,55 9-10 * * MON-FRI *"
+          "config": "0 30-59 9 * * MON-FRI *"
         },
         {
-          "name": "momentumEtfMorningLate",
+          "name": "momentumEtfMorning1000",
           "type": "timer",
-          "config": "0 0,5,10,15,20,25,30 11 * * MON-FRI *"
+          "config": "0 * 10 * * MON-FRI *"
         },
         {
-          "name": "momentumEtfAfternoonMain",
+          "name": "momentumEtfMorning1100To1130",
           "type": "timer",
-          "config": "0 0,5,10,15,20,25,30,35,40,45,50,55 13-14 * * MON-FRI *"
+          "config": "0 0-30 11 * * MON-FRI *"
         },
         {
-          "name": "momentumEtfClose",
+          "name": "momentumEtfAfternoon1300To1459",
+          "type": "timer",
+          "config": "0 * 13-14 * * MON-FRI *"
+        },
+        {
+          "name": "momentumEtfClose1500",
           "type": "timer",
           "config": "0 0 15 * * MON-FRI *"
         }
@@ -83,32 +88,32 @@
         {
           "name": "refreshMomentumRealtimeWeekday0900",
           "type": "timer",
-          "config": "0 0,5,10,15,20,25,30,35,40,45,50,55 9 * * MON-FRI *"
+          "config": "0 * 9 * * MON-FRI *"
         },
         {
           "name": "refreshMomentumRealtimeWeekday1000",
           "type": "timer",
-          "config": "0 0,5,10,15,20,25,30,35,40,45,50,55 10 * * MON-FRI *"
+          "config": "0 * 10 * * MON-FRI *"
         },
         {
           "name": "refreshMomentumRealtimeWeekday1130",
           "type": "timer",
-          "config": "0 0,5,10,15,20,25,30 11 * * MON-FRI *"
+          "config": "0 0-30 11 * * MON-FRI *"
         },
         {
           "name": "refreshMomentumRealtimeWeekday1300",
           "type": "timer",
-          "config": "0 0,5,10,15,20,25,30,35,40,45,50,55 13 * * MON-FRI *"
+          "config": "0 * 13 * * MON-FRI *"
         },
         {
           "name": "refreshMomentumRealtimeWeekdayBeforeRebalance",
           "type": "timer",
-          "config": "0 0,5,10,15,20,25,30,35,40,45 14 * * MON-FRI *"
+          "config": "0 0-49 14 * * MON-FRI *"
         },
         {
           "name": "refreshMomentumRealtimeWeekdayAfterRebalance",
           "type": "timer",
-          "config": "30 50,55 14 * * MON-FRI *"
+          "config": "30 50-59 14 * * MON-FRI *"
         },
         {
           "name": "refreshMomentumRealtimeWeekdayClose1500",
@@ -157,22 +162,22 @@
         {
           "name": "refreshMicroCapRealtimeWeekday0900",
           "type": "timer",
-          "config": "0 0,5,10,15,20,25,30,35,40,45,50,55 9 * * MON-FRI *"
+          "config": "0 * 9 * * MON-FRI *"
         },
         {
           "name": "refreshMicroCapRealtimeWeekday1000",
           "type": "timer",
-          "config": "0 0,5,10,15,20,25,30,35,40,45,50,55 10 * * MON-FRI *"
+          "config": "0 * 10 * * MON-FRI *"
         },
         {
           "name": "refreshMicroCapRealtimeWeekday1130",
           "type": "timer",
-          "config": "0 0,5,10,15,20,25,30 11 * * MON-FRI *"
+          "config": "0 0-30 11 * * MON-FRI *"
         },
         {
           "name": "refreshMicroCapRealtimeWeekdayAfternoon",
           "type": "timer",
-          "config": "0 0,5,10,15,20,25,30,35,40,45,50,55 13-14 * * MON-FRI *"
+          "config": "0 * 13-14 * * MON-FRI *"
         },
         {
           "name": "refreshMicroCapRealtimeWeekdayClose1500",
@@ -197,22 +202,22 @@
         {
           "name": "refreshAllWeatherWeekday0900",
           "type": "timer",
-          "config": "0 0,5,10,15,20,25,30,35,40,45,50,55 9 * * MON-FRI *"
+          "config": "0 * 9 * * MON-FRI *"
         },
         {
           "name": "refreshAllWeatherWeekday1000",
           "type": "timer",
-          "config": "0 0,5,10,15,20,25,30,35,40,45,50,55 10 * * MON-FRI *"
+          "config": "0 * 10 * * MON-FRI *"
         },
         {
           "name": "refreshAllWeatherWeekday1130",
           "type": "timer",
-          "config": "0 0,5,10,15,20,25,30 11 * * MON-FRI *"
+          "config": "0 0-30 11 * * MON-FRI *"
         },
         {
           "name": "refreshAllWeatherWeekdayAfternoon",
           "type": "timer",
-          "config": "0 0,5,10,15,20,25,30,35,40,45,50,55 13-14 * * MON-FRI *"
+          "config": "0 * 13-14 * * MON-FRI *"
         },
         {
           "name": "refreshAllWeatherWeekdayClose1500",
@@ -299,6 +304,67 @@
       "description": "管理员读取和更新雪球 Cookie 配置"
     },
     {
+      "name": "jisiluCookieConfig",
+      "runtime": "Nodejs18.15",
+      "handler": "index.main",
+      "timeout": 5,
+      "memorySize": 256,
+      "description": "管理员读取和更新集思录 Cookie 配置"
+    },
+    {
+      "name": "getBondMarketData",
+      "runtime": "Nodejs20.19",
+      "handler": "index.main",
+      "timeout": 30,
+      "memorySize": 512,
+      "description": "集思录转债盘中快照与指数日历史存储",
+      "triggers": [
+        {
+          "name": "refreshBondMarketIntradayWeekday0930To1050",
+          "type": "timer",
+          "config": "0 30,40,50 9 * * MON-FRI *"
+        },
+        {
+          "name": "refreshBondMarketIntradayWeekday1000To1050",
+          "type": "timer",
+          "config": "0 0,10,20,30,40,50 10 * * MON-FRI *"
+        },
+        {
+          "name": "refreshBondMarketIntradayWeekday1100To1130",
+          "type": "timer",
+          "config": "0 0,10,20,30 11 * * MON-FRI *"
+        },
+        {
+          "name": "refreshBondMarketIntradayWeekday1300To1350",
+          "type": "timer",
+          "config": "0 0,10,20,30,40,50 13 * * MON-FRI *"
+        },
+        {
+          "name": "refreshBondMarketIntradayWeekday1400To1450",
+          "type": "timer",
+          "config": "0 0,10,20,30,40,50 14 * * MON-FRI *"
+        },
+        {
+          "name": "refreshBondMarketIntradayWeekday1500",
+          "type": "timer",
+          "config": "0 0 15 * * MON-FRI *"
+        },
+        {
+          "name": "finalizeBondMarketDailyWeekday1502",
+          "type": "timer",
+          "config": "0 2 15 * * MON-FRI *"
+        }
+      ]
+    },
+    {
+      "name": "getXueqiuCookie",
+      "runtime": "Nodejs18.15",
+      "handler": "index.main",
+      "timeout": 5,
+      "memorySize": 256,
+      "description": "通过带 Bearer Key 的 HTTPS 请求读取雪球 Cookie"
+    },
+    {
       "name": "getLofData",
       "runtime": "Nodejs20.19",
       "handler": "index.main",
@@ -375,32 +441,32 @@
         {
           "name": "refreshRightsRealtimeWeekday0900",
           "type": "timer",
-          "config": "0 0,5,10,15,20,25,30,35,40,45,50,55 9 * * MON-FRI *"
+          "config": "0 * 9 * * MON-FRI *"
         },
         {
           "name": "refreshRightsRealtimeWeekday1000",
           "type": "timer",
-          "config": "0 0,5,10,15,20,25,30,35,40,45,50,55 10 * * MON-FRI *"
+          "config": "0 * 10 * * MON-FRI *"
         },
         {
           "name": "refreshRightsRealtimeWeekday1130",
           "type": "timer",
-          "config": "0 0,5,10,15,20,25,30 11 * * MON-FRI *"
+          "config": "0 0-30 11 * * MON-FRI *"
         },
         {
           "name": "refreshRightsRealtimeWeekday1300",
           "type": "timer",
-          "config": "0 0,5,10,15,20,25,30,35,40,45,50,55 13 * * MON-FRI *"
+          "config": "0 * 13 * * MON-FRI *"
         },
         {
           "name": "refreshRightsRealtimeWeekdayBeforeRebalance",
           "type": "timer",
-          "config": "0 0,5,10,15,20,25,30,35 14 * * MON-FRI *"
+          "config": "0 0-39 14 * * MON-FRI *"
         },
         {
           "name": "refreshRightsRealtimeWeekdayAfterRebalance",
           "type": "timer",
-          "config": "0 45,50,55 14 * * MON-FRI *"
+          "config": "30 40-59 14 * * MON-FRI *"
         },
         {
           "name": "refreshRightsRealtimeWeekdayClose1500",
@@ -456,32 +522,32 @@
         {
           "name": "refreshBondStrategyWeekday0900",
           "type": "timer",
-          "config": "0 0,5,10,15,20,25,30,35,40,45,50,55 9 * * MON-FRI *"
+          "config": "0 * 9 * * MON-FRI *"
         },
         {
           "name": "refreshBondStrategyWeekday1000",
           "type": "timer",
-          "config": "0 0,5,10,15,20,25,30,35,40,45,50,55 10 * * MON-FRI *"
+          "config": "0 * 10 * * MON-FRI *"
         },
         {
           "name": "refreshBondStrategyWeekday1130",
           "type": "timer",
-          "config": "0 0,5,10,15,20,25,30 11 * * MON-FRI *"
+          "config": "0 0-30 11 * * MON-FRI *"
         },
         {
           "name": "refreshBondStrategyWeekday1300",
           "type": "timer",
-          "config": "0 0,5,10,15,20,25,30,35,40,45,50,55 13 * * MON-FRI *"
+          "config": "0 * 13 * * MON-FRI *"
         },
         {
           "name": "refreshBondStrategyWeekdayBeforeRebalance",
           "type": "timer",
-          "config": "0 0,5,10,15,20,25,30,35 14 * * MON-FRI *"
+          "config": "0 0-39 14 * * MON-FRI *"
         },
         {
           "name": "refreshBondStrategyWeekdayAfterRebalance",
           "type": "timer",
-          "config": "0 45,50,55 14 * * MON-FRI *"
+          "config": "30 40-59 14 * * MON-FRI *"
         },
         {
           "name": "refreshBondStrategyWeekdayClose1500",

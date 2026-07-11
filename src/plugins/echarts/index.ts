@@ -22,7 +22,8 @@ import {
     CustomChart,
     PictorialBarChart,
     SankeyChart,
-    EffectScatterChart
+    EffectScatterChart,
+    HeatmapChart
 } from 'echarts/charts'
 import {
     PolarComponent,
@@ -62,6 +63,7 @@ const components = [
     CustomChart,
     MapChart,
     EffectScatterChart,
+    HeatmapChart,
     SVGRenderer,
     CanvasRenderer,
     PolarComponent,

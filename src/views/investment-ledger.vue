@@ -121,10 +121,19 @@
                                 </span>
                             </span>
                         </span>
-                        <strong :class="returnClass(accountSummary.moneyWeightedReturn)">
-                            {{ formatPercent(accountSummary.moneyWeightedReturn) }}
+                        <strong
+                            :class="
+                                accountSummary.moneyWeightedReturn === null
+                                    ? 'muted-return'
+                                    : returnClass(accountSummary.moneyWeightedReturn)
+                            ">
+                            {{
+                                accountSummary.moneyWeightedReturn === null
+                                    ? '--'
+                                    : formatPercent(accountSummary.moneyWeightedReturn)
+                            }}
                         </strong>
-                        <small>计入资金流时间</small>
+                        <small>{{ accountSummary.moneyWeightedReturnHint }}</small>
                     </article>
                 </div>
                 <div
@@ -247,17 +256,28 @@
                             展示扣除资金流影响后的时间加权收益率，方便快速定位拖累项。
                         </p>
                     </div>
-                    <button
-                        class="range-select-button"
-                        type="button"
-                        @click="openRangeModal('comparison')">
-                        <span>查询区间</span>
-                        <strong>{{
-                            showComparisonRange
-                                ? rangeLabel(comparisonPeriod, normalizedComparisonRange)
-                                : '自定义'
-                        }}</strong>
-                    </button>
+                    <div class="return-panel-actions">
+                        <button
+                            class="share-download-button"
+                            data-capture-hidden="true"
+                            type="button"
+                            :disabled="exportingReturnImage"
+                            @click="downloadReturnOverviewImage">
+                            <span class="share-download-icon" aria-hidden="true"></span>
+                            {{ exportingReturnImage ? '生成中...' : '下载图片' }}
+                        </button>
+                        <button
+                            class="range-select-button"
+                            type="button"
+                            @click="openRangeModal('comparison')">
+                            <span>查询区间</span>
+                            <strong>{{
+                                showComparisonRange
+                                    ? rangeLabel(comparisonPeriod, normalizedComparisonRange)
+                                    : '自定义'
+                            }}</strong>
+                        </button>
+                    </div>
                 </div>
                 <div class="return-table">
                     <div class="return-row return-head" :class="{ 'has-range': showComparisonRange }">
@@ -287,6 +307,60 @@
                     </div>
                 </div>
             </section>
+
+            <div
+                ref="returnShareTarget"
+                class="return-share-card"
+                data-capture-hidden="true"
+                aria-hidden="true">
+                <header class="return-share-header">
+                    <div>
+                        <span class="return-share-kicker">INVESTMENT LEDGER</span>
+                        <h2>收益率速览</h2>
+                        <p>时间加权收益率 · 已扣除资金流影响</p>
+                    </div>
+                    <div v-if="showComparisonRange" class="return-share-meta">
+                        <div class="return-share-date">
+                            <span>查询区间</span>
+                            <strong>{{ returnShareRangeLabel }}</strong>
+                        </div>
+                    </div>
+                </header>
+                <div class="return-share-rule"></div>
+                <div
+                    class="return-share-table"
+                    :class="{ 'has-range': showComparisonRange }">
+                    <div class="return-share-row return-share-table-head">
+                        <span>账户 / 策略</span>
+                        <span>当日</span>
+                        <span>本周</span>
+                        <span>本月</span>
+                        <span>本年</span>
+                        <span v-if="showComparisonRange">区间</span>
+                    </div>
+                    <div
+                        v-for="row in periodReturnRows"
+                        :key="`share-${row.name}`"
+                        class="return-share-row"
+                        :class="{ account: row.type === 'account' }">
+                        <div class="return-share-name">
+                            <i :style="{ backgroundColor: row.color }"></i>
+                            <strong>{{ row.name }}</strong>
+                        </div>
+                        <strong :class="returnClass(row.day)">{{ formatPercent(row.day) }}</strong>
+                        <strong :class="returnClass(row.week)">{{ formatPercent(row.week) }}</strong>
+                        <strong :class="returnClass(row.month)">{{ formatPercent(row.month) }}</strong>
+                        <strong :class="returnClass(row.year)">{{ formatPercent(row.year) }}</strong>
+                        <strong v-if="showComparisonRange" :class="returnClass(row.range)">
+                            {{ formatPercent(row.range) }}
+                        </strong>
+                    </div>
+                </div>
+                <footer class="return-share-footer">
+                    <span>数据截至 {{ latestLedgerDateLabel }}</span>
+                    <span>收益率仅作账户记录与复盘参考</span>
+                </footer>
+            </div>
 
             <section class="content-card signal-panel">
                 <div class="panel-heading">
@@ -505,7 +579,7 @@
                 </div>
                 <div class="benchmark-strip">
                     <article>
-                        <span>组合区间收益</span>
+                        <span>整体账户区间收益</span>
                         <strong :class="returnClass(benchmarkComparison.accountReturn)">
                             {{ formatPercent(benchmarkComparison.accountReturn) }}
                         </strong>
@@ -545,6 +619,26 @@
                         </p>
                     </div>
                     <div class="heatmap-controls">
+                        <label
+                            class="heatmap-select-control strategy-scope"
+                            :class="{ 'has-strategy-dot': selectedHeatmapStrategyColor }"
+                            :style="{ '--strategy-select-width': `${heatmapStrategySelectWidth}px` }">
+                            <i
+                                v-if="selectedHeatmapStrategyColor"
+                                class="heatmap-strategy-dot"
+                                :style="{
+                                    color: selectedHeatmapStrategyColor,
+                                    backgroundColor: selectedHeatmapStrategyColor
+                                }"></i>
+                            <select v-model="heatmapStrategyId" aria-label="热力策略范围">
+                                <option
+                                    v-for="option in heatmapStrategyOptions"
+                                    :key="option.value"
+                                    :value="option.value">
+                                    {{ option.label }}
+                                </option>
+                            </select>
+                        </label>
                         <label class="heatmap-select-control">
                             <select v-model="heatmapView" aria-label="热力周期">
                                 <option
@@ -1174,6 +1268,15 @@
                     <div v-if="recordFormWarnings.length" class="form-warning-list">
                         <div v-for="warning in recordFormWarnings" :key="warning">{{ warning }}</div>
                     </div>
+                    <div v-if="initialCashFlowPrompt" class="initial-cashflow-prompt">
+                        <div>
+                            <strong>{{ initialCashFlowPrompt.title }}</strong>
+                            <span>{{ initialCashFlowPrompt.detail }}</span>
+                        </div>
+                        <button type="button" @click="fillInitialCashFlowFromAmount">
+                            按期末金额填入现金流
+                        </button>
+                    </div>
                     <div class="recalc-note">
                         <strong>自动重算</strong
                         ><span>保存后将从该日开始重新计算后续净值。</span>
@@ -1702,6 +1805,7 @@ import {
     deleteLedgerRecord,
     deleteLedgerStrategy,
     getLedgerBundle,
+    getLedgerRecords,
     renameLedgerStrategy,
     saveLedgerAccount,
     saveLedgerRecord,
@@ -1798,6 +1902,8 @@ const performanceChartModes: Array<{ value: PerformanceChartMode; label: string;
 ]
 const heatmapView = ref<HeatmapView>('month')
 const heatmapDisplayMode = ref<HeatmapDisplayMode>('both')
+const ACCOUNT_HEATMAP_SCOPE = '__account__'
+const heatmapStrategyId = ref(ACCOUNT_HEATMAP_SCOPE)
 const selectedHeatmapMonth = ref('')
 const heatmapViews: Array<{ value: HeatmapView; label: string }> = [
     { value: 'year', label: '年度视图' },
@@ -1861,8 +1967,10 @@ const ledgerLoading = ref(true)
 const ledgerError = ref('')
 const ledgerLoaded = ref(false)
 const ledgerCaptureTarget = ref<HTMLElement | null>(null)
+const returnShareTarget = ref<HTMLElement | null>(null)
 const ledgerMoreMenuRef = ref<HTMLElement | null>(null)
 const capturingLedgerImage = ref(false)
+const exportingReturnImage = ref(false)
 const showLedgerMoreMenu = ref(false)
 const dailyNewStrategy = reactive({
     name: '',
@@ -2138,6 +2246,45 @@ const cashFlowSummary = computed(() => {
 })
 
 const recentRecords = ref<LedgerRecord[]>([])
+const heatmapStrategyOptions = computed(() => {
+    const strategiesById = new Map(managedStrategies.value.map(strategy => [strategy.id, strategy]))
+    const recordedStrategies = new Map<string, { name: string; color: string }>()
+
+    recentRecords.value.forEach(record => {
+        if (!record.strategyId || recordedStrategies.has(record.strategyId)) return
+        recordedStrategies.set(record.strategyId, {
+            name: record.strategy,
+            color: record.color
+        })
+    })
+
+    const strategyOptions = [...recordedStrategies.entries()]
+        .map(([value, record]) => {
+            const strategy = strategiesById.get(value)
+            return {
+                value,
+                label: `${strategy?.name || record.name}${strategy?.archived ? '（已归档）' : ''}`,
+                color: strategy?.color || record.color,
+                archived: Boolean(strategy?.archived)
+            }
+        })
+        .sort((a, b) => Number(a.archived) - Number(b.archived) || a.label.localeCompare(b.label, 'zh-CN'))
+
+    return [
+        { value: ACCOUNT_HEATMAP_SCOPE, label: '整体账户', color: '#f8fafc', archived: false },
+        ...strategyOptions
+    ]
+})
+const selectedHeatmapStrategyOption = computed(() =>
+    heatmapStrategyOptions.value.find(option => option.value === heatmapStrategyId.value)
+)
+const selectedHeatmapStrategyColor = computed(
+    () => selectedHeatmapStrategyOption.value?.color || '#f8fafc'
+)
+const heatmapStrategySelectWidth = computed(() => {
+    const labelLength = Array.from(selectedHeatmapStrategyOption.value?.label || '整体账户').length
+    return Math.min(Math.max(labelLength * 16 + 66, 132), 260)
+})
 const recordPage = ref(1)
 const recordPageSize = 10
 const recordPageCount = computed(() =>
@@ -2164,6 +2311,42 @@ const recordForm = reactive({
     cashFlow: 0,
     note: ''
 })
+const initialCashFlowPrompt = computed(() => {
+    const amount = Number(recordForm.amount || 0)
+    const cashFlow = Number(recordForm.cashFlow || 0)
+    if (amount <= 0 || Math.abs(amount - cashFlow) <= 0.01) return null
+
+    const selectedStrategyId =
+        recordForm.strategyId ||
+        strategies.find(strategy => strategy.name === recordForm.strategy.trim())?.id ||
+        ''
+    const otherRecords = recentRecords.value.filter(record => record.id !== editingRecordId.value)
+    const hasEarlierAccountRecord = otherRecords.some(record => record.date < recordForm.date)
+    const hasEarlierStrategyRecord = otherRecords.some(
+        record =>
+            record.strategyId === selectedStrategyId && record.date < recordForm.date
+    )
+    if (hasEarlierStrategyRecord) return null
+
+    if (!hasEarlierAccountRecord && accountConfig.openingPrincipal <= 0) {
+        return {
+            title: '请确认首笔资金来源',
+            detail: '这是账户的首批记录。若期末金额属于初始投入，现金流通常应填写为等额转入，否则系统会把未说明来源的资产计入盈利。'
+        }
+    }
+
+    if (hasEarlierAccountRecord) {
+        return {
+            title: '这是该策略的首笔记录',
+            detail: '若资金来自新增投入，可填写等额正现金流；若来自其他策略调拨，请同时在转出策略填写等额负现金流，使账户净现金流保持为零。'
+        }
+    }
+
+    return null
+})
+const fillInitialCashFlowFromAmount = () => {
+    recordForm.cashFlow = Number(recordForm.amount || 0)
+}
 const newStrategyOption = '__new_strategy__'
 const recordStrategySelection = ref('')
 const handleRecordStrategySelection = () => {
@@ -2208,6 +2391,10 @@ const sortedRecordsAsc = computed(() =>
 )
 const latestLedgerDate = computed(() => sortedRecordsAsc.value.at(-1)?.date || accountConfig.openingDate || todayDate)
 const firstLedgerDate = computed(() => sortedRecordsAsc.value[0]?.date || accountConfig.openingDate || todayDate)
+const latestLedgerDateLabel = computed(() => {
+    const [year, month, day] = latestLedgerDate.value.split('-')
+    return year && month && day ? `${year}年${month}月${day}日` : latestLedgerDate.value
+})
 const recordsOnLatestDate = computed(() =>
     strategies
         .map(strategy =>
@@ -2229,24 +2416,72 @@ const ledgerStatusText = computed(() => {
 })
 
 const calculateXirr = (cashFlows: Array<{ date: string; amount: number }>) => {
-    if (cashFlows.length < 2) return 0
-    const start = new Date(`${cashFlows[0].date}T00:00:00`).getTime()
-    const npv = (rate: number) =>
-        cashFlows.reduce((total, item) => {
-            const days = (new Date(`${item.date}T00:00:00`).getTime() - start) / 86400000
-            return total + item.amount / Math.pow(1 + rate, days / 365)
-        }, 0)
+    const amountsByDate = new Map<string, number>()
+    cashFlows.forEach(item => {
+        amountsByDate.set(item.date, (amountsByDate.get(item.date) || 0) + item.amount)
+    })
+    const mergedFlows = [...amountsByDate.entries()]
+        .map(([date, amount]) => ({ date, amount }))
+        .filter(item => Math.abs(item.amount) > 0.000001)
+        .sort((a, b) => a.date.localeCompare(b.date))
+    const hasPositive = mergedFlows.some(item => item.amount > 0)
+    const hasNegative = mergedFlows.some(item => item.amount < 0)
 
-    let low = -0.999
-    let high = 10
-    if (npv(low) * npv(high) > 0) return 0
-
-    for (let index = 0; index < 120; index += 1) {
-        const middle = (low + high) / 2
-        if (npv(middle) > 0) low = middle
-        else high = middle
+    if (mergedFlows.length < 2 || !hasPositive || !hasNegative) {
+        return { value: null, status: 'insufficient' as const }
     }
-    return ((low + high) / 2) * 100
+
+    const start = Date.parse(`${mergedFlows[0].date}T00:00:00Z`)
+    const npvFromLogGrowth = (logGrowth: number) =>
+        mergedFlows.reduce((total, item) => {
+            const days = (Date.parse(`${item.date}T00:00:00Z`) - start) / 86400000
+            return total + item.amount * Math.exp((-logGrowth * days) / 365)
+        }, 0)
+    const minLogGrowth = Math.log(0.0001)
+    const maxLogGrowth = Math.log(1000001)
+    const scanSteps = 800
+    const roots: number[] = []
+    let previousLogGrowth = minLogGrowth
+    let previousValue = npvFromLogGrowth(previousLogGrowth)
+
+    for (let index = 1; index <= scanSteps; index += 1) {
+        const currentLogGrowth =
+            minLogGrowth + ((maxLogGrowth - minLogGrowth) * index) / scanSteps
+        const currentValue = npvFromLogGrowth(currentLogGrowth)
+
+        if (Number.isFinite(previousValue) && Number.isFinite(currentValue)) {
+            if (Math.abs(currentValue) < 0.000001) roots.push(currentLogGrowth)
+            else if (previousValue * currentValue < 0) {
+                let low = previousLogGrowth
+                let high = currentLogGrowth
+                let lowValue = previousValue
+                for (let iteration = 0; iteration < 100; iteration += 1) {
+                    const middle = (low + high) / 2
+                    const middleValue = npvFromLogGrowth(middle)
+                    if (lowValue * middleValue <= 0) high = middle
+                    else {
+                        low = middle
+                        lowValue = middleValue
+                    }
+                }
+                roots.push((low + high) / 2)
+            }
+        }
+
+        previousLogGrowth = currentLogGrowth
+        previousValue = currentValue
+    }
+
+    const uniqueRoots = roots.filter(
+        (root, index) => index === 0 || Math.abs(root - roots[index - 1]) > 0.000001
+    )
+    if (uniqueRoots.length > 1) return { value: null, status: 'ambiguous' as const }
+    if (!uniqueRoots.length) return { value: null, status: 'no-solution' as const }
+
+    return {
+        value: (Math.exp(uniqueRoots[0]) - 1) * 100,
+        status: 'ok' as const
+    }
 }
 
 const accountSummary = computed(() => {
@@ -2268,6 +2503,15 @@ const accountSummary = computed(() => {
         ...cashFlowEvents.value.map(item => ({ date: item.date, amount: -item.amount })),
         ...(hasLedgerData.value ? [{ date: latestLedgerDate.value, amount: totalAssets.value }] : [])
     ].sort((a, b) => a.date.localeCompare(b.date))
+    const xirr = calculateXirr(investorCashFlows)
+    const moneyWeightedReturnHint =
+        xirr.status === 'ambiguous'
+            ? '现金流存在多个可能收益率'
+            : xirr.status === 'no-solution'
+              ? '当前现金流无法得到有效年化收益率'
+              : xirr.status === 'insufficient'
+                ? '现金流样本不足'
+                : '计入资金流时间'
 
     return {
         totalInflow,
@@ -2275,7 +2519,8 @@ const accountSummary = computed(() => {
         investedPrincipal,
         profit,
         cumulativeReturn: investedPrincipal ? (profit / investedPrincipal) * 100 : 0,
-        moneyWeightedReturn: calculateXirr(investorCashFlows)
+        moneyWeightedReturn: xirr.value,
+        moneyWeightedReturnHint
     }
 })
 const annualTargetYearLabel = computed(() => todayDate.slice(0, 4))
@@ -2523,8 +2768,28 @@ const aggregateRecordsByDate = computed(() => {
             }
         })
 })
+const heatmapRecordsByDate = computed(() => {
+    if (heatmapStrategyId.value === ACCOUNT_HEATMAP_SCOPE) return aggregateRecordsByDate.value
+
+    const recordsByDate = new Map<string, LedgerRecord[]>()
+    sortedRecordsAsc.value
+        .filter(record => record.strategyId === heatmapStrategyId.value)
+        .forEach(record => {
+            const rows = recordsByDate.get(record.date) || []
+            rows.push(record)
+            recordsByDate.set(record.date, rows)
+        })
+
+    return [...recordsByDate.entries()]
+        .sort(([dateA], [dateB]) => dateA.localeCompare(dateB))
+        .map(([date, rows]) => ({
+            date,
+            amount: Number(rows.at(-1)?.amount || 0),
+            cashFlow: rows.reduce((total, record) => total + Number(record.cashFlow || 0), 0)
+        }))
+})
 const calculateActualReturnPeriod = (startDate: string, endDate: string): ReturnHeatmapCell => {
-    const records = aggregateRecordsByDate.value
+    const records = heatmapRecordsByDate.value
     const rows = records.filter(item => item.date >= startDate && item.date <= endDate)
 
     if (!rows.length) {
@@ -2542,14 +2807,24 @@ const calculateActualReturnPeriod = (startDate: string, endDate: string): Return
     const first = rows[0]
     const last = rows.at(-1) || first
     const previous = records.filter(item => item.date < startDate).at(-1)
+    const firstRecordIndex = records.findIndex(item => item.date === first.date)
     const startAmount = previous ? previous.amount : Math.max(first.amount - first.cashFlow, 0)
     const cashFlow = rows.reduce((total, item) => total + Number(item.cashFlow || 0), 0)
     const profit = last.amount - startAmount - cashFlow
+    const timeWeightedGrowth = rows.reduce((growth, item, index) => {
+        const previousItem = records[firstRecordIndex + index - 1]
+        if (!previousItem?.amount || previousItem.amount <= 0) return growth
+
+        const dailyReturn =
+            (item.amount - previousItem.amount - Number(item.cashFlow || 0)) /
+            previousItem.amount
+        return growth * (1 + dailyReturn)
+    }, 1)
 
     return {
         period: startDate,
         profit,
-        return: startAmount ? (profit / startAmount) * 100 : 0,
+        return: (timeWeightedGrowth - 1) * 100,
         cashFlow,
         startAmount,
         endAmount: last.amount,
@@ -2557,8 +2832,8 @@ const calculateActualReturnPeriod = (startDate: string, endDate: string): Return
     }
 }
 const dailyActualReturnRows = computed<ReturnHeatmapCell[]>(() =>
-    aggregateRecordsByDate.value.map((item, index) => {
-        const previous = aggregateRecordsByDate.value[index - 1]
+    heatmapRecordsByDate.value.map((item, index) => {
+        const previous = heatmapRecordsByDate.value[index - 1]
         const startAmount = previous ? previous.amount : Math.max(item.amount - item.cashFlow, 0)
         const profit = previous ? item.amount - previous.amount - item.cashFlow : 0
 
@@ -2577,7 +2852,7 @@ const dailyActualReturnRows = computed<ReturnHeatmapCell[]>(() =>
 )
 const annualHeatmapRows = computed(() => {
     const years = [
-        ...new Set(aggregateRecordsByDate.value.map(item => item.date.slice(0, 4)))
+        ...new Set(heatmapRecordsByDate.value.map(item => item.date.slice(0, 4)))
     ].sort((a, b) => b.localeCompare(a))
 
     return years.map(year => {
@@ -2609,14 +2884,34 @@ const annualHeatmapRows = computed(() => {
 const availableHeatmapMonths = computed(() =>
     [
         ...new Set(
-            aggregateRecordsByDate.value
+            heatmapRecordsByDate.value
                 .filter(item => item.date)
                 .map(item => item.date.slice(0, 7))
         )
     ].sort((a, b) => b.localeCompare(a))
 )
-const selectedHeatmapMonthValue = computed(
-    () => selectedHeatmapMonth.value || availableHeatmapMonths.value[0] || todayDate.slice(0, 7)
+const selectedHeatmapMonthValue = computed(() => {
+    const months = availableHeatmapMonths.value
+    if (selectedHeatmapMonth.value && months.includes(selectedHeatmapMonth.value)) {
+        return selectedHeatmapMonth.value
+    }
+    return months[0] || todayDate.slice(0, 7)
+})
+watch(heatmapStrategyId, () => {
+    if (
+        selectedHeatmapMonth.value &&
+        !availableHeatmapMonths.value.includes(selectedHeatmapMonth.value)
+    ) {
+        selectedHeatmapMonth.value = availableHeatmapMonths.value[0] || ''
+    }
+})
+watch(
+    () => heatmapStrategyOptions.value.map(option => option.value),
+    availableStrategies => {
+        if (!availableStrategies.includes(heatmapStrategyId.value)) {
+            heatmapStrategyId.value = ACCOUNT_HEATMAP_SCOPE
+        }
+    }
 )
 const selectedMonthReturn = computed(() =>
     calculateActualReturnPeriod(
@@ -2690,15 +2985,21 @@ const heatmapSummary = computed(() => {
     }
 
     const latestYear = annualHeatmapRows.value[0]
+    const earliestYear = annualHeatmapRows.value.at(-1)
     const profit = annualHeatmapRows.value.reduce((total, row) => total + row.total.profit, 0)
     const cashFlow = annualHeatmapRows.value.reduce((total, row) => total + row.total.cashFlow, 0)
-    const startAmount = annualHeatmapRows.value.at(-1)?.total.startAmount || 0
-    const endAmount = latestYear?.total.endAmount || 0
+    const overallReturn =
+        earliestYear && latestYear
+            ? calculateActualReturnPeriod(
+                  `${earliestYear.year}-01-01`,
+                  `${latestYear.year}-12-31`
+              ).return
+            : 0
 
     return {
-        period: annualHeatmapRows.value.length ? `${annualHeatmapRows.value.at(-1)?.year} - ${latestYear?.year}` : '暂无数据',
+        period: annualHeatmapRows.value.length ? `${earliestYear?.year} - ${latestYear?.year}` : '暂无数据',
         profit,
-        return: startAmount ? ((endAmount - startAmount - cashFlow) / startAmount) * 100 : 0,
+        return: overallReturn,
         cashFlow
     }
 })
@@ -2760,15 +3061,17 @@ const clampDate = (date: string) => {
     return nextDate < minDate ? minDate : nextDate > maxDate ? maxDate : nextDate
 }
 const shiftDate = (date: string, dayOffset: number) => {
-    const current = new Date(`${date}T00:00:00`)
-    current.setDate(current.getDate() + dayOffset)
+    const [year, month, day] = date.split('-').map(Number)
+    const current = new Date(Date.UTC(year, month - 1, day))
+    current.setUTCDate(current.getUTCDate() + dayOffset)
     return current.toISOString().slice(0, 10)
 }
 const getWeekStartDate = (date: string) => {
-    const current = new Date(`${date}T00:00:00`)
-    const weekday = current.getDay()
+    const [year, month, day] = date.split('-').map(Number)
+    const current = new Date(Date.UTC(year, month - 1, day))
+    const weekday = current.getUTCDay()
     const mondayOffset = weekday === 0 ? -6 : 1 - weekday
-    current.setDate(current.getDate() + mondayOffset)
+    current.setUTCDate(current.getUTCDate() + mondayOffset)
     return current.toISOString().slice(0, 10)
 }
 const applyDateRangePeriod = (
@@ -2882,6 +3185,10 @@ const normalizedComparisonRange = computed(() => {
 
     return start <= end ? { start, end } : { start: end, end: start }
 })
+const returnShareRangeLabel = computed(() => {
+    const formatDate = (value: string) => value.replace(/-/g, '.')
+    return `${formatDate(normalizedComparisonRange.value.start)} — ${formatDate(normalizedComparisonRange.value.end)}`
+})
 const performancePoints = computed(() =>
     aggregateRecordsByDate.value.reduce<
         Array<{
@@ -2944,11 +3251,15 @@ const filteredActualPerformanceData = computed(() => {
 })
 
 const benchmarkComparison = computed(() => {
-    const first = filteredPerformanceData.value[0]
-    const last = filteredPerformanceData.value[filteredPerformanceData.value.length - 1]
-    const accountReturn = first?.nav ? ((last.nav / first.nav) - 1) * 100 : 0
-    const benchmarkReturn = first?.benchmarkRaw
-        ? ((last.benchmarkRaw / first.benchmarkRaw) - 1) * 100
+    const { start, end } = normalizedDateRange.value
+    const orderedPoints = performancePoints.value.filter(item => item.date <= end)
+    const firstIndex = orderedPoints.findIndex(item => item.date >= start)
+    const last = orderedPoints.at(-1)
+    const first = firstIndex >= 0 ? orderedPoints[firstIndex] : undefined
+    const baseline = firstIndex > 0 ? orderedPoints[firstIndex - 1] : first
+    const accountReturn = baseline?.nav && last?.nav ? ((last.nav / baseline.nav) - 1) * 100 : 0
+    const benchmarkReturn = baseline?.benchmarkRaw && last?.benchmarkRaw
+        ? ((last.benchmarkRaw / baseline.benchmarkRaw) - 1) * 100
         : 0
 
     return {
@@ -3098,9 +3409,12 @@ const drawdownPercentile = computed(() => {
         : 0
 })
 const dataCompleteness = computed(() => {
-    const expectedCount = recentRecords.value.length + missingRecordDetails.value.length
+    const actualCount = new Set(
+        recentRecords.value.map(record => `${record.strategyId}|${record.date}`)
+    ).size
+    const expectedCount = actualCount + allMissingRecordDetails.value.length
 
-    return expectedCount ? Math.min((recentRecords.value.length / expectedCount) * 100, 100) : 0
+    return expectedCount ? Math.min((actualCount / expectedCount) * 100, 100) : 0
 })
 const requiredReturnToDrawdown = (targetDrawdown: number) => {
     const currentNav = latestPerformancePoint.value?.nav || 0
@@ -3546,14 +3860,48 @@ const applyLedgerBundle = (
     applyDateRangePeriod(comparisonRange, comparisonPeriod.value)
     syncDerivedState()
 }
+const loadCompleteLedgerRecords = async (
+    initialRecords: RemoteLedgerRecord[],
+    initialTruncated: boolean
+) => {
+    const recordsById = new Map(initialRecords.map(record => [record.id, record]))
+    let truncated = initialTruncated
+    let earliestDate = [...initialRecords].sort((a, b) => a.date.localeCompare(b.date))[0]?.date
+    let batchCount = 0
+
+    while (truncated && earliestDate && batchCount < 100) {
+        const result = await getLedgerRecords({
+            endDate: shiftDate(earliestDate, -1),
+            limit: 5000
+        })
+        result.records.forEach(record => recordsById.set(record.id, record))
+        truncated = result.truncated
+        batchCount += 1
+
+        const nextEarliestDate = [...result.records]
+            .sort((a, b) => a.date.localeCompare(b.date))[0]?.date
+        if (!nextEarliestDate || nextEarliestDate >= earliestDate) {
+            truncated = false
+            break
+        }
+        earliestDate = nextEarliestDate
+    }
+
+    if (truncated) throw new Error('账本历史记录过多，完整读取未完成，请缩小数据范围后重试')
+    return [...recordsById.values()]
+}
 const loadLedgerBundle = async () => {
     ledgerLoading.value = true
     ledgerError.value = ''
 
     try {
         const bundle = await getLedgerBundle()
+        const completeRecords = await loadCompleteLedgerRecords(
+            bundle.records,
+            bundle.truncated
+        )
         defaultLedgerEntryDate.value = bundle.defaultEntryDate || todayDate
-        applyLedgerBundle(bundle.strategies, bundle.records, bundle.account)
+        applyLedgerBundle(bundle.strategies, completeRecords, bundle.account)
         ledgerLoaded.value = true
         await loadBenchmarkData()
     } catch (error) {
@@ -3757,7 +4105,7 @@ const strategyPerformanceSeries = computed(() =>
 
 const performanceSeriesColorMap = computed(() => {
     const colorMap: Record<string, string> = {
-        组合净值: performanceFixedSeriesColors.portfolio,
+        整体账户净值: performanceFixedSeriesColors.portfolio,
         总金额: performanceFixedSeriesColors.portfolio,
         累计盈亏: '#f4c95d',
         沪深300全收益: performanceFixedSeriesColors.benchmark,
@@ -3926,7 +4274,7 @@ const performanceOption = computed(() => {
         ],
         series: [
             {
-                name: '组合净值',
+                name: '整体账户净值',
                 type: 'line',
                 smooth: 0.3,
                 symbol: 'none',
@@ -4141,6 +4489,40 @@ const captureLedgerPage = async () => {
         notify(error instanceof Error ? error.message : '长图生成失败', 'error')
     } finally {
         capturingLedgerImage.value = false
+    }
+}
+
+const downloadReturnOverviewImage = async () => {
+    if (exportingReturnImage.value) return
+
+    const target = returnShareTarget.value
+    if (!target) {
+        notify('收益率图片暂时无法生成', 'error')
+        return
+    }
+
+    exportingReturnImage.value = true
+    try {
+        await nextTick()
+        await waitForCaptureFrame()
+
+        const canvas = await html2canvas(target, {
+            backgroundColor: '#f6f7f4',
+            logging: false,
+            scale: 1,
+            useCORS: true,
+            width: target.offsetWidth,
+            height: target.offsetHeight
+        })
+        const blob = await new Promise<Blob | null>(resolve => canvas.toBlob(resolve, 'image/png'))
+        if (!blob) throw new Error('图片生成失败')
+
+        downloadBlob(blob, `收益率速览-${latestLedgerDate.value || todayDate}.png`)
+        notify('收益率图片已生成并下载', 'success')
+    } catch (error) {
+        notify(error instanceof Error ? error.message : '收益率图片生成失败', 'error')
+    } finally {
+        exportingReturnImage.value = false
     }
 }
 
@@ -4792,13 +5174,28 @@ const parseWorkbookRows = async (file: File) => {
 
     throw new Error('暂不支持二进制 .xls，请使用下载的标准模板、.xlsx、CSV 或 TSV')
 }
+const isValidCalendarDate = (value: string) => {
+    const match = value.match(/^(\d{4})-(\d{2})-(\d{2})$/)
+    if (!match) return false
+
+    const year = Number(match[1])
+    const month = Number(match[2])
+    const day = Number(match[3])
+    const parsed = new Date(Date.UTC(year, month - 1, day))
+    return (
+        parsed.getUTCFullYear() === year &&
+        parsed.getUTCMonth() === month - 1 &&
+        parsed.getUTCDate() === day
+    )
+}
 const parseImportDate = (value: WorksheetCell) => {
     if (typeof value === 'number') return excelSerialToDate(value)
     const text = String(value ?? '').trim()
     if (!text) return ''
     const match = text.match(/^(\d{4})[./-](\d{1,2})[./-](\d{1,2})/)
     if (!match) return ''
-    return `${match[1]}-${match[2].padStart(2, '0')}-${match[3].padStart(2, '0')}`
+    const normalized = `${match[1]}-${match[2].padStart(2, '0')}-${match[3].padStart(2, '0')}`
+    return isValidCalendarDate(normalized) ? normalized : ''
 }
 const parseImportNumber = (value: WorksheetCell) => {
     if (typeof value === 'number') return value
@@ -5850,15 +6247,15 @@ p {
 }
 
 .annual-target-panel.achieved {
-    border-color: rgb(244 201 93 / 42%);
     background: linear-gradient(90deg, rgb(244 201 93 / 10%), rgb(var(--ledger-accent-rgb) / 5%));
+    border-color: rgb(244 201 93 / 42%);
 }
 
 .annual-target-heading,
 .annual-target-meta {
     display: flex;
-    align-items: center;
     justify-content: flex-start;
+    align-items: center;
     gap: 16px;
 }
 
@@ -6140,27 +6537,27 @@ select:focus {
 
 .formula-tooltip {
     position: absolute;
-    z-index: 2;
     bottom: calc(100% + 10px);
     left: 0;
+    z-index: 2;
     display: grid;
-    width: min(680px, calc(100vw - 64px));
     padding: 14px;
-    visibility: hidden;
+    width: min(680px, calc(100vw - 64px));
     background: #0d141b;
     border: 1px solid #30404f;
     border-radius: 8px;
-    box-shadow: 0 18px 46px rgb(0 0 0 / 38%);
     opacity: 0;
+    visibility: hidden;
+    box-shadow: 0 18px 46px rgb(0 0 0 / 38%);
+    transition: opacity 0.16s ease, visibility 0.16s ease;
     grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 14px;
-    transition: opacity 0.16s ease, visibility 0.16s ease;
 }
 
 .formula-help:hover .formula-tooltip,
 .formula-help:focus-within .formula-tooltip {
-    visibility: visible;
     opacity: 1;
+    visibility: visible;
 }
 
 .formula-tooltip span {
@@ -6178,6 +6575,236 @@ select:focus {
 .return-panel,
 .signal-panel {
     animation-delay: 0.22s;
+}
+
+.return-panel-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.share-download-button {
+    display: inline-flex;
+    align-items: center;
+    padding: 6px 10px;
+    font-size: 12px;
+    color: #e8fffd;
+    background: linear-gradient(90deg, rgb(var(--ledger-accent-rgb) / 9%), transparent);
+    border: 1px solid rgb(var(--ledger-accent-rgb) / 72%);
+    border-radius: 6px;
+    box-shadow: 0 0 0 1px rgb(var(--ledger-accent-rgb) / 12%),
+        0 0 16px rgb(var(--ledger-accent-rgb) / 10%);
+    cursor: pointer;
+    gap: 7px;
+    transition: background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.share-download-button:hover:not(:disabled) {
+    background: linear-gradient(90deg, rgb(var(--ledger-accent-rgb) / 14%), transparent);
+    border-color: var(--ledger-accent);
+    box-shadow: 0 0 0 1px rgb(var(--ledger-accent-rgb) / 20%),
+        0 0 22px rgb(var(--ledger-accent-rgb) / 18%);
+}
+
+.share-download-button:disabled {
+    cursor: wait;
+    opacity: 0.66;
+}
+
+.share-download-icon {
+    position: relative;
+    width: 13px;
+    height: 13px;
+    border-bottom: 1.5px solid currentcolor;
+}
+
+.share-download-icon::before,
+.share-download-icon::after {
+    position: absolute;
+    content: '';
+}
+
+.share-download-icon::before {
+    top: 0;
+    left: 5.5px;
+    width: 1.5px;
+    height: 8px;
+    background: currentcolor;
+}
+
+.share-download-icon::after {
+    top: 4px;
+    left: 3px;
+    width: 5px;
+    height: 5px;
+    border-right: 1.5px solid currentcolor;
+    border-bottom: 1.5px solid currentcolor;
+    transform: rotate(45deg);
+}
+
+.return-share-card {
+    position: fixed;
+    top: 0;
+    left: -12000px;
+    z-index: -1;
+    box-sizing: border-box;
+    padding: 70px 72px 50px;
+    width: 1080px;
+    font-family: "PingFang SC", "Microsoft YaHei", sans-serif;
+    color: #17212b;
+    background: #f6f7f4;
+    pointer-events: none;
+}
+
+.return-share-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    gap: 40px;
+}
+
+.return-share-kicker {
+    display: block;
+    margin-bottom: 14px;
+    font-size: 16px;
+    color: #168d86;
+    letter-spacing: 0.16em;
+    font-weight: 700;
+}
+
+.return-share-header h2 {
+    font-size: 48px;
+    line-height: 1.1;
+    letter-spacing: -0.04em;
+}
+
+.return-share-header p {
+    margin-top: 14px;
+    font-size: 20px;
+    color: #64707b;
+}
+
+.return-share-meta {
+    display: grid;
+    text-align: right;
+    flex: 0 0 auto;
+    gap: 18px;
+}
+
+.return-share-date {
+    padding-bottom: 3px;
+}
+
+.return-share-date span,
+.return-share-date strong {
+    display: block;
+}
+
+.return-share-date span {
+    margin-bottom: 8px;
+    font-size: 15px;
+    color: #8a949d;
+}
+
+.return-share-date strong {
+    font-size: 22px;
+    color: #26313a;
+}
+
+.return-share-rule {
+    margin: 42px 0 28px;
+    height: 5px;
+    background: linear-gradient(90deg, #20aaa1 0 23%, #dce3df 23% 100%);
+}
+
+.return-share-table {
+    overflow: hidden;
+    background: #fff;
+    border: 1px solid #dbe2df;
+    border-radius: 14px;
+}
+
+.return-share-row {
+    display: grid;
+    align-items: center;
+    min-height: 72px;
+    border-top: 1px solid #e7ebe9;
+    grid-template-columns: 1.55fr repeat(4, 1fr);
+}
+
+.return-share-table.has-range .return-share-row {
+    grid-template-columns: 1.55fr repeat(5, 1fr);
+}
+
+.return-share-row:first-child {
+    border-top: 0;
+}
+
+.return-share-row > span,
+.return-share-row > strong,
+.return-share-name {
+    padding: 0 22px;
+}
+
+.return-share-row > strong,
+.return-share-table-head span:not(:first-child) {
+    text-align: right;
+}
+
+.return-share-row > strong {
+    font-size: 19px;
+}
+
+.return-share-table-head {
+    min-height: 58px;
+    font-size: 16px;
+    color: #7a858e;
+    background: #edf2ef;
+}
+
+.return-share-row.account {
+    background: #eef8f6;
+}
+
+.return-share-name {
+    display: flex;
+    align-items: center;
+    gap: 13px;
+}
+
+.return-share-name i {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    flex: 0 0 auto;
+}
+
+.return-share-name strong {
+    overflow: hidden;
+    font-size: 19px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: #25313b;
+}
+
+.return-share-card .positive {
+    color: #d54d57;
+}
+
+.return-share-card .negative {
+    color: #168d86;
+}
+
+.return-share-card .neutral {
+    color: #69747d;
+}
+
+.return-share-footer {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 28px;
+    font-size: 15px;
+    color: #8a949d;
 }
 
 .return-table {
@@ -6698,8 +7325,8 @@ select:focus {
     display: grid;
     padding: 10px 12px;
     min-width: 0;
-    color: #9fb0c2;
     text-align: left;
+    color: #9fb0c2;
     background: transparent;
     border: 1px solid transparent;
     border-radius: 6px;
@@ -6824,6 +7451,26 @@ select:focus {
     width: 108px;
 }
 
+.heatmap-select-control.strategy-scope select {
+    width: var(--strategy-select-width, 132px);
+    max-width: 260px;
+}
+
+.heatmap-select-control.strategy-scope.has-strategy-dot select {
+    padding-left: 30px;
+}
+
+.heatmap-strategy-dot {
+    position: absolute;
+    left: 12px;
+    z-index: 1;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    box-shadow: 0 0 8px currentcolor;
+    pointer-events: none;
+}
+
 .heatmap-select-control option {
     color: #dfe8f1;
     background: #0d141c;
@@ -6886,8 +7533,8 @@ select:focus {
 .return-heatmap-table th {
     padding: 8px 6px;
     font-size: 12px;
-    color: #8fa1b2;
     text-align: center;
+    color: #8fa1b2;
     font-weight: 600;
 }
 
@@ -6970,8 +7617,8 @@ select:focus {
 .month-picker-strip button {
     padding: 7px 10px;
     min-width: 64px;
-    color: #8fa1b2;
     white-space: nowrap;
+    color: #8fa1b2;
     background: #0d141b;
     border: 1px solid #2b3946;
     border-radius: 6px;
@@ -6993,28 +7640,28 @@ select:focus {
 }
 
 .monthly-calendar-scroll {
-    min-width: 0;
     overflow-x: auto;
     padding-bottom: 3px;
+    min-width: 0;
 }
 
 .calendar-weekday {
     padding: 2px 0 5px;
     font-size: 12px;
-    color: #718294;
     text-align: center;
+    color: #718294;
 }
 
 .calendar-day {
     position: relative;
     display: grid;
-    align-content: center;
     padding: 8px;
     min-height: 82px;
+    text-align: center;
     background: rgb(255 255 255 / 4%);
     border-radius: 8px;
+    align-content: center;
     gap: 4px;
-    text-align: center;
 }
 
 .calendar-day > span {
@@ -7623,8 +8270,8 @@ select:focus {
 }
 
 .cash-flow-row > span:nth-child(5) {
-    color: #cbd7e2;
     text-align: right;
+    color: #cbd7e2;
 }
 
 .cash-flow-head span:nth-child(4),
@@ -7817,8 +8464,8 @@ td {
 .range-option-grid button {
     padding: 8px 12px;
     min-height: 34px;
-    color: #8fa1b2;
     white-space: nowrap;
+    color: #8fa1b2;
     background: rgb(13 20 27 / 72%);
     border: 1px solid #2b3946;
     border-radius: 6px;
@@ -7879,11 +8526,11 @@ td {
 }
 
 .daily-modal .entry-date {
-    flex: 1 1 auto;
-    min-width: 0;
     padding-left: 0;
-    border-left: 0;
+    min-width: 0;
     text-align: left;
+    flex: 1 1 auto;
+    border-left: 0;
 }
 
 .modal-entry-grid {
@@ -7998,6 +8645,49 @@ label small {
     color: #f4c95d;
     background: rgb(244 201 93 / 7%);
     border-left: 3px solid #f4c95d;
+}
+
+.initial-cashflow-prompt {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 14px;
+    margin-top: 14px;
+    background: rgb(var(--ledger-accent-rgb) / 7%);
+    border: 1px solid rgb(var(--ledger-accent-rgb) / 28%);
+    border-radius: 8px;
+    gap: 16px;
+}
+
+.initial-cashflow-prompt div {
+    display: grid;
+    gap: 4px;
+}
+
+.initial-cashflow-prompt strong {
+    font-size: 13px;
+    color: #dffbf8;
+}
+
+.initial-cashflow-prompt span {
+    font-size: 12px;
+    color: #9eb0bf;
+    line-height: 1.6;
+}
+
+.initial-cashflow-prompt button {
+    padding: 7px 10px;
+    font-size: 12px;
+    white-space: nowrap;
+    color: #e8fffd;
+    background: rgb(var(--ledger-accent-rgb) / 10%);
+    border: 1px solid rgb(var(--ledger-accent-rgb) / 55%);
+    border-radius: 6px;
+    cursor: pointer;
+}
+
+.initial-cashflow-prompt button:hover {
+    border-color: var(--ledger-accent);
 }
 
 .annual-target-modal .modal-actions {
@@ -8606,11 +9296,11 @@ label small {
     }
 
     .header-actions .button {
-        flex: 0 0 auto;
         padding: 0 12px;
         min-height: 32px;
-        white-space: nowrap;
         font-size: 13px;
+        white-space: nowrap;
+        flex: 0 0 auto;
     }
 
     .ledger-more-menu {
@@ -8710,10 +9400,17 @@ label small {
         flex: 1 1 108px;
     }
 
+    .heatmap-select-control.strategy-scope {
+        flex-basis: 100%;
+    }
+
     .heatmap-select-control select,
-    .heatmap-select-control.wide select {
+    .heatmap-select-control.wide select,
+    .heatmap-select-control.strategy-scope select {
         width: 100%;
         min-width: 108px;
+        max-width: none;
+        field-sizing: fixed;
     }
 
     .heatmap-summary-strip {
@@ -8755,6 +9452,17 @@ label small {
     .range-select-button {
         justify-content: space-between;
         width: 100%;
+    }
+
+    .return-panel-actions {
+        display: grid;
+        width: 100%;
+        grid-template-columns: auto minmax(0, 1fr);
+    }
+
+    .share-download-button {
+        justify-content: center;
+        white-space: nowrap;
     }
 
     .range-option-grid {
@@ -8970,8 +9678,8 @@ label small {
 
     .attribution-copy {
         display: flex;
-        align-items: baseline;
         justify-content: space-between;
+        align-items: baseline;
         text-align: left;
         gap: 10px;
     }
@@ -8990,13 +9698,13 @@ label small {
     }
 
     .cash-flow-row {
+        align-items: stretch;
+        padding: 0;
         width: max-content;
         min-width: 100%;
         min-height: 42px;
-        padding: 0;
         grid-template-columns: minmax(76px, 22vw) minmax(44px, 12vw) minmax(86px, 23vw) minmax(96px, 27vw) minmax(76px, 18vw);
         column-gap: 0;
-        align-items: stretch;
     }
 
     .cash-flow-row > span:nth-child(5),
@@ -9062,7 +9770,7 @@ label small {
 
     .record-table-wrap th,
     .record-table-wrap td {
-        padding: 10px 10px;
+        padding: 10px;
         vertical-align: middle;
     }
 
@@ -9118,8 +9826,8 @@ label small {
 
     .detail-status {
         display: flex;
-        align-items: baseline;
         justify-content: space-between;
+        align-items: baseline;
         text-align: left;
         gap: 10px;
     }
@@ -9135,6 +9843,15 @@ label small {
 
     .form-grid label.wide {
         grid-column: auto;
+    }
+
+    .initial-cashflow-prompt {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .initial-cashflow-prompt button {
+        align-self: flex-start;
     }
 
     .import-steps {
