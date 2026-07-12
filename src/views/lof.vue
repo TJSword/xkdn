@@ -552,8 +552,8 @@
 
       try {
           const res: any = await callCloudFunction({
-              name: 'getLofData',
-              data: forceRefresh ? { forceRefresh: true } : {},
+              name: 'strategyTaskGateway',
+              data: { action: forceRefresh ? 'refreshLof' : 'readLof' },
               parse: true
           })
           const result = res.result || {}

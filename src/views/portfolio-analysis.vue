@@ -233,8 +233,22 @@
         <div class="content-card">
           <h2 class="card-title">净值走势对比</h2>
           <p class="card-description">
-            粗线为合成的组合策略 (阈值再平衡: 30%)，细线为各成分策略。区间：{{ startDate }} 至 {{ endDate }}
+            粗线为合成的组合策略 (阈值再平衡: 30%，单边交易费用: {{ formatPlainPercent(TRANSACTION_FEE_RATE) }})，细线为各成分策略。区间：{{ startDate }} 至 {{ endDate }}
           </p>
+          <div class="leverage-result-strip transaction-cost-strip">
+            <div>
+              <span>再平衡次数</span>
+              <strong>{{ transactionCostSummary.rebalanceCount }} 次</strong>
+            </div>
+            <div>
+              <span>单边交易费用</span>
+              <strong>{{ formatPlainPercent(TRANSACTION_FEE_RATE) }}</strong>
+            </div>
+            <div>
+              <span>累计交易费用</span>
+              <strong>{{ transactionCostSummary.totalCost }}%</strong>
+            </div>
+          </div>
           <div v-if="leverageSummary.enabled" class="leverage-result-strip">
             <div>
               <span>全天候杠杆</span>
@@ -525,6 +539,10 @@
               </div>
               <div class="mc-risk-grid">
                 <div class="mc-risk-item">
+                  <span class="label">持有期限</span>
+                  <span class="value">{{ mcYears }} 年</span>
+                </div>
+                <div class="mc-risk-item">
                   <span class="label">期末亏损概率</span>
                   <span class="value">{{ mcStats.lossProbability }}%</span>
                 </div>
@@ -545,7 +563,73 @@
                   <span class="value">{{ mcStats.tailMaxDrawdown }}%</span>
                 </div>
               </div>
+
+              <div class="mc-drawdown-distribution">
+                <span class="label">模拟最大回撤分布</span>
+                <div v-for="item in mcDrawdownDistribution" :key="item.range" class="mc-dd-row">
+                  <span>{{ item.range }}</span>
+                  <div class="mc-dd-bar-bg"><div class="mc-dd-bar" :style="{ width: item.percent + '%' }"></div></div>
+                  <strong>{{ item.percent.toFixed(1) }}%</strong>
+                </div>
+              </div>
             </div>
+          </div>
+        </div>
+
+        <div class="grid-two-col contribution-grid">
+
+          <div class="content-card full-height">
+            <h2 class="card-title">策略收益与风险贡献</h2>
+            <p class="card-description">收益贡献按回测中的实际持仓盈亏累计；风险贡献按目标权重和日收益协方差计算。风险放大倍数高于 1，表示其波动贡献高于资金占比。</p>
+            <div class="table-container">
+              <table class="contribution-table">
+                <thead>
+                  <tr>
+                    <th class="sticky-col-header">策略</th>
+                    <th>资金占比</th>
+                    <th>收益贡献</th>
+                    <th>风险贡献</th>
+                    <th>风险放大</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="item in strategyContributions" :key="item.name">
+                    <td class="sticky-col">{{ item.name }}</td>
+                    <td>{{ item.weight }}%</td>
+                    <td :class="item.returnContributionValue >= 0 ? 'positive' : 'negative-return'">{{ item.returnContribution }}%</td>
+                    <td>{{ item.riskContribution }}%</td>
+                    <td :class="{ 'risk-warning': item.riskAmplificationValue > 1 }">{{ item.riskAmplification }}x</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="content-card full-height">
+            <h2 class="card-title">尾部风险摘要</h2>
+            <p class="card-description">基于历史日收益率：VaR/CVaR 反映单日极端损失，连续区间固定为 20 个交易日。</p>
+            <div class="tail-risk-grid">
+              <div class="tail-risk-item">
+                <span class="tail-risk-label">95% VaR（单日）<span class="metric-help" tabindex="0" @mouseenter="showMetricTooltip($event, metricHelpText.var95)" @focus="showMetricTooltip($event, metricHelpText.var95)" @mouseleave="hideMetricTooltip" @blur="hideMetricTooltip">i</span></span>
+                <strong>{{ tailRiskStats.var95 }}%</strong>
+              </div>
+              <div class="tail-risk-item">
+                <span class="tail-risk-label">95% CVaR（单日）<span class="metric-help" tabindex="0" @mouseenter="showMetricTooltip($event, metricHelpText.cvar95)" @focus="showMetricTooltip($event, metricHelpText.cvar95)" @mouseleave="hideMetricTooltip" @blur="hideMetricTooltip">i</span></span>
+                <strong>{{ tailRiskStats.cvar95 }}%</strong>
+              </div>
+              <div class="tail-risk-item"><span>最差月份</span><strong>{{ tailRiskStats.worstMonth }}%</strong><small>{{ tailRiskStats.worstMonthLabel }}</small></div>
+              <div class="tail-risk-item"><span>最差连续 20 日</span><strong>{{ tailRiskStats.worstRollingPeriod }}%</strong><small>{{ tailRiskStats.worstRollingPeriodLabel }}</small></div>
+            </div>
+          </div>
+
+        </div>
+
+        <div class="content-card">
+          <h2 class="card-title">滚动风险趋势</h2>
+          <p class="card-description">60 个交易日滚动年化波动率与策略间平均相关性；相关性越高，组合分散化效果越弱。</p>
+          <div class="rolling-chart-grid">
+            <div ref="rollingVolatilityChartContainer" class="echart-container rolling-chart"></div>
+            <div ref="rollingCorrelationChartContainer" class="echart-container rolling-chart"></div>
           </div>
         </div>
 
@@ -554,23 +638,19 @@
           <div class="content-card full-height">
             <h2 class="card-title">策略相关性矩阵</h2>
             <p class="card-description">基于选中时间段内的日收益率计算。</p>
-            <div class="table-container">
-              <table class="correlation-table">
-                <thead>
-                  <tr>
-                    <th class="sticky-col-header">相关度</th>
-                    <th v-for="stat in individualStats" :key="stat.name">{{ stat.name }}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr v-for="(row, rIndex) in correlationMatrix" :key="rIndex">
-                    <td class="row-header sticky-col">{{ individualStats[rIndex]?.name }}</td>
-                    <td v-for="(val, cIndex) in row" :key="cIndex" :style="getCorrelationStyle(val)" style="text-align: center;">
-                      {{ val.toFixed(2) }}
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
+            <div class="correlation-grid" :style="{ gridTemplateColumns: `minmax(64px, 1.25fr) repeat(${individualStats.length}, minmax(0, 1fr))` }">
+              <div class="correlation-corner">相关度</div>
+              <div v-for="stat in individualStats" :key="stat.name" class="correlation-header" :title="stat.name">
+                {{ getCorrelationLabel(stat.name) }}
+              </div>
+              <template v-for="(row, rIndex) in correlationMatrix" :key="rIndex">
+                <div class="correlation-row-header" :title="individualStats[rIndex]?.name">
+                  {{ getCorrelationLabel(individualStats[rIndex]?.name || '') }}
+                </div>
+                <div v-for="(val, cIndex) in row" :key="cIndex" class="correlation-cell" :style="getCorrelationStyle(val)">
+                  {{ val.toFixed(2) }}
+                </div>
+              </template>
             </div>
           </div>
 
@@ -593,7 +673,8 @@
         </div>
 
         <div class="content-card">
-          <h2 class="card-title">历史重大回撤明细 (Top 10)</h2>
+          <h2 class="card-title">历史重大回撤与最拖累策略 (Top 10)</h2>
+          <p class="card-description">最拖累策略按该回撤从高点至谷底期间的实际持仓盈亏识别；回撤贡献表示该策略将组合从高点拉低了多少个绝对百分点，各策略贡献相加等于组合最大回撤。</p>
           <div class="table-container" style="margin-top: 1rem;">
             <table class=" risk-table">
               <thead>
@@ -603,6 +684,18 @@
                   <th>谷底日期</th>
                   <th>恢复日期</th>
                   <th>最大回撤</th>
+                  <th>最拖累策略</th>
+                  <th>
+                    回撤贡献
+                    <span
+                      class="metric-help"
+                      tabindex="0"
+                      @mouseenter="showMetricTooltip($event, metricHelpText.drawdownContribution)"
+                      @focus="showMetricTooltip($event, metricHelpText.drawdownContribution)"
+                      @mouseleave="hideMetricTooltip"
+                      @blur="hideMetricTooltip"
+                    >i</span>
+                  </th>
                   <th>回撤期</th>
                   <th>修复期</th>
                 </tr>
@@ -614,6 +707,8 @@
                   <td>{{ dd.troughDate }}</td>
                   <td>{{ dd.endDate }}</td>
                   <td class="negative">{{ dd.drawdown }}%</td>
+                  <td>{{ dd.mostDragStrategy }}</td>
+                  <td class="negative-return">{{ dd.mostDragContribution === '--' ? '--' : dd.mostDragContribution + '%' }}</td>
                   <td>{{ dd.ddDays }}天</td>
                   <td>{{ dd.fixDays }}天</td>
                 </tr>
@@ -640,7 +735,11 @@
   } from '@/utils/strategyMetrics'
   const mcYears = ref(1) // 默认预测1年
   const mcChartContainer = ref<HTMLElement | null>(null)
+  const rollingVolatilityChartContainer = ref<HTMLElement | null>(null)
+  const rollingCorrelationChartContainer = ref<HTMLElement | null>(null)
   let mcChart: echarts.ECharts | null = null
+  let rollingVolatilityChart: echarts.ECharts | null = null
+  let rollingCorrelationChart: echarts.ECharts | null = null
   const mcStats = ref({
       p95: '0',
       p50: '0',
@@ -654,6 +753,7 @@
       medianMaxDrawdown: '0.0',
       tailMaxDrawdown: '0.0'
   })
+  const mcDrawdownDistribution = ref<Array<{ range: string; percent: number }>>([])
 
   // ============================================
   // 🎨 主题色：电光靛
@@ -664,6 +764,7 @@
   const JINGHONG_ID = 'jinghong'
   const RIGHTS_ID = 'rights_strategy'
   const FINANCING_DAYS = 365
+  const TRANSACTION_FEE_RATE = 0.1
   const PORTFOLIO_ANALYSIS_CACHE_KEY = 'portfolio-analysis:strategy-data:v1'
   const PORTFOLIO_ANALYSIS_CACHE_VERSION = 1
   const PORTFOLIO_ANALYSIS_CACHE_MAX_AGE = 1000 * 60 * 60 * 24 * 14
@@ -677,6 +778,12 @@
           '累计收益率除以溃疡指数。数值越高，说明每承受一单位回撤痛感，换来的收益越多。',
       conservativeFactor:
           '保守系数用于估算未来收益的兑现程度。它只作用于“策略表现对比统计”里的“保守后年化”，以及“蒙特卡洛未来模拟”的收益漂移假设；不改变净值走势、历史年化收益、历史波动、夏普、最大回撤、持有体验、相关性、月度收益和历史回撤明细。',
+      var95:
+          '可以把 VaR 理解为“多数日子的坏情况上限”。例如 1.33%，表示按历史表现估计，约 95% 的交易日单日亏损不会超过 1.33%；仍有约 5% 的日子可能亏得更多。',
+      cvar95:
+          '可以把 CVaR 理解为“最坏那 5% 日子的平均亏损”。它只看极端下跌日，所以通常比 VaR 更大，更接近遇到坏行情时可能承受的平均损失。',
+      drawdownContribution:
+          '表示该策略在这次回撤中，将组合净值从高点额外拉低了多少个绝对百分点。按高点至谷底期间的实际持仓盈亏计算，所有策略的贡献相加等于组合的最大回撤。',
       monteCarlo:
           '基于当前组合历史日收益做短周期重采样，生成 1000 条可能路径。上轨/中轨/下轨分别代表 95%、50%、5% 分位结果；右侧风险指标展示期末亏损概率和模拟路径中的回撤压力。它不是预测承诺，而是用历史波动结构观察未来可能区间。'
   }
@@ -759,6 +866,10 @@
       multiplier: 1,
       financingRate: 0,
       totalFinancingCost: '0.00'
+  })
+  const transactionCostSummary = ref({
+      rebalanceCount: 0,
+      totalCost: '0.00'
   })
 
   // --- 策略定义 ---
@@ -896,6 +1007,17 @@
   })
   const individualExperienceStats = ref<any[]>([])
   const correlationMatrix = ref<number[][]>([])
+  const strategyContributions = ref<any[]>([])
+  const tailRiskStats = ref({
+      var95: '0.00',
+      cvar95: '0.00',
+      worstMonth: '0.00',
+      worstMonthLabel: '--',
+      worstRollingPeriod: '0.00',
+      worstRollingPeriodLabel: '--'
+  })
+
+  const rollingRiskData = ref({ dates: [] as string[], volatility: [] as number[], correlation: [] as number[] })
   const top10Drawdowns = ref<any[]>([])
   const drawdownDistribution = ref<any[]>([])
   const monthlyReturns = ref<any[]>([])
@@ -1501,6 +1623,8 @@
       window.addEventListener('resize', () => {
           myChart?.resize()
           mcChart?.resize()
+          rollingVolatilityChart?.resize()
+          rollingCorrelationChart?.resize()
       })
   })
 
@@ -1571,6 +1695,7 @@
           nextTick(() => {
               initChart()
               runMonteCarlo()
+              initRollingRiskCharts()
           })
       }, 100)
   }
@@ -1636,6 +1761,13 @@
 
       // 3. 计算组合净值曲线 (核心：阈值再平衡逻辑)
       const portfolioCurve: number[] = []
+      const dailyPnlContributions: Record<string, number[]> = {}
+      selectedStrats.forEach(strat => {
+          dailyPnlContributions[strat.id] = [0]
+      })
+      const transactionFeeRateDecimal = TRANSACTION_FEE_RATE / 100
+      let rebalanceCount = 0
+      let totalTransactionCost = 0
 
       // 硬编码的再平衡阈值
       const REBALANCE_THRESHOLD = 0.3 // 30% 偏离度
@@ -1663,7 +1795,9 @@
                       ? currPrice / prevPrice
                       : 1 // 当日涨幅因子
 
-              currentHoldings[s.id] *= dailyReturn
+              const dailyPnl = currentHoldings[s.id] * (dailyReturn - 1)
+              dailyPnlContributions[s.id].push(dailyPnl)
+              currentHoldings[s.id] += dailyPnl
               newTotalEquity += currentHoldings[s.id]
           })
 
@@ -1686,10 +1820,24 @@
 
           // C. 执行再平衡 (卖出/买入，重置为目标权重)
           if (needsRebalance) {
+              const targetHoldings: Record<string, number> = {}
+              const turnover = selectedStrats.reduce((sum, s) => {
+                  targetHoldings[s.id] = currentTotalEquity * (s.weight / 100)
+                  return sum + Math.abs(currentHoldings[s.id] - targetHoldings[s.id])
+              }, 0)
+              const transactionCost = turnover * transactionFeeRateDecimal
+
+              selectedStrats.forEach(s => {
+                  const strategyCost = Math.abs(currentHoldings[s.id] - targetHoldings[s.id]) * transactionFeeRateDecimal
+                  dailyPnlContributions[s.id][dailyPnlContributions[s.id].length - 1] -= strategyCost
+              })
+              totalTransactionCost += transactionCost
+              currentTotalEquity = Math.max(0.000001, currentTotalEquity - transactionCost)
+              rebalanceCount += 1
+
               selectedStrats.forEach(s => {
                   currentHoldings[s.id] = currentTotalEquity * (s.weight / 100)
               })
-              // 这里可以记录再平衡事件，如果需要的话
           }
 
           // D. 记录当日组合净值
@@ -1707,6 +1855,10 @@
           )
       }
       portfolioExperienceStats.value = calculateExperienceStats(portfolioCurve, calcDateList)
+      transactionCostSummary.value = {
+          rebalanceCount,
+          totalCost: (totalTransactionCost * 100).toFixed(2)
+      }
 
       individualStats.value = selectedStrats.map(strat => {
           const stats = calculateStrategyStats(normalizedDataMap[strat.id])
@@ -1752,9 +1904,34 @@
       }
       correlationMatrix.value = matrix
 
+      strategyContributions.value = calculateStrategyContributions(
+          selectedStrats,
+          returnsMap,
+          dailyPnlContributions
+      )
+      tailRiskStats.value = calculateTailRiskStats(portfolioCurve, calcDateList)
+      rollingRiskData.value = calculateRollingRiskData(
+          calcDateList,
+          getStrategyDailyReturns(portfolioCurve),
+          selectedStrats.map(strat => returnsMap[strat.id])
+      )
+
       // 6. Top 10 回撤 & 回撤分布
       const { drawdowns, distribution } = calculateStrategyDrawdownAnalysis(portfolioCurve, calcDateList)
-      top10Drawdowns.value = drawdowns
+      top10Drawdowns.value = drawdowns.map(drawdown => {
+          const mostDrag = getMostDragStrategy(
+              drawdown,
+              calcDateList,
+              selectedStrats,
+              dailyPnlContributions,
+              portfolioCurve
+          )
+          return {
+              ...drawdown,
+              mostDragStrategy: mostDrag.name,
+              mostDragContribution: mostDrag.value
+          }
+      })
     //   console.log(drawdowns)
       drawdownDistribution.value = distribution
 
@@ -1767,6 +1944,181 @@
           portfolio: portfolioCurve,
           singles: normalizedDataMap,
           conservativeFactor: portfolioConservativeFactor
+      }
+  }
+
+  const calculateStrategyContributions = (
+      selectedStrats: any[],
+      returnsMap: Record<string, number[]>,
+      dailyPnlContributions: Record<string, number[]>
+  ) => {
+      const weights = selectedStrats.map(strat => Number(strat.weight || 0) / 100)
+      const returns = selectedStrats.map(strat => returnsMap[strat.id] || [])
+      const count = returns[0]?.length || 0
+      const means = returns.map(series =>
+          count > 0 ? series.reduce((sum, value) => sum + value, 0) / count : 0
+      )
+      const covariance = returns.map((series, rowIndex) =>
+          returns.map((otherSeries, colIndex) => {
+              if (count === 0) return 0
+              return series.reduce(
+                  (sum, value, index) =>
+                      sum + (value - means[rowIndex]) * (otherSeries[index] - means[colIndex]),
+                  0
+              ) / count
+          })
+      )
+      const portfolioVariance = covariance.reduce(
+          (sum, row, rowIndex) =>
+              sum + row.reduce((rowSum, value, colIndex) => rowSum + weights[rowIndex] * weights[colIndex] * value, 0),
+          0
+      )
+      const portfolioDailyVolatility = Math.sqrt(Math.max(0, portfolioVariance))
+
+      return selectedStrats.map((strat, index) => {
+          const covarianceWithPortfolio = covariance[index].reduce(
+              (sum, value, colIndex) => sum + value * weights[colIndex],
+              0
+          )
+          const riskContribution =
+              portfolioDailyVolatility > 0
+                  ? (weights[index] * covarianceWithPortfolio) / portfolioDailyVolatility
+                  : 0
+          const riskShare =
+              portfolioDailyVolatility > 0 ? (riskContribution / portfolioDailyVolatility) * 100 : 0
+          const returnContributionValue = (dailyPnlContributions[strat.id] || []).reduce(
+              (sum, value) => sum + value,
+              0
+          ) * 100
+          const weightPercent = weights[index] * 100
+          const riskAmplification = weightPercent > 0 ? riskShare / weightPercent : 0
+
+          return {
+              name: getStrategyDisplayName(strat),
+              weight: weightPercent.toFixed(1),
+              returnContributionValue,
+              returnContribution: returnContributionValue.toFixed(2),
+              riskContribution: riskShare.toFixed(1),
+              riskAmplificationValue: riskAmplification,
+              riskAmplification: riskAmplification.toFixed(2)
+          }
+      })
+  }
+
+  const calculateTailRiskStats = (prices: number[], dates: string[]) => {
+      const dailyReturns = getStrategyDailyReturns(prices)
+      const dailyTailCutoff = getPercentileValue(dailyReturns, 0.05)
+      const tailReturns = dailyReturns.filter(value => value <= dailyTailCutoff)
+      const cvar = tailReturns.length > 0
+          ? tailReturns.reduce((sum, value) => sum + value, 0) / tailReturns.length
+          : 0
+      const monthlyValues: Array<{ label: string; value: number }> = []
+      let monthStart = 0
+      for (let index = 1; index < dates.length; index++) {
+          if (dates[index].slice(0, 7) !== dates[monthStart].slice(0, 7)) {
+              monthlyValues.push({
+                  label: dates[monthStart].slice(0, 7),
+                  value: prices[index - 1] / prices[monthStart] - 1
+              })
+              monthStart = index
+          }
+      }
+      if (prices.length > 1) {
+          monthlyValues.push({
+              label: dates[monthStart]?.slice(0, 7) || '--',
+              value: prices[prices.length - 1] / prices[monthStart] - 1
+          })
+      }
+      const worstMonth = monthlyValues.reduce(
+          (worst, value) => (value.value < worst.value ? value : worst),
+          { label: '--', value: 0 }
+      )
+      let worstRollingPeriod = { label: '--', value: 0 }
+      const rollingDays = 20
+      for (let index = rollingDays; index < prices.length; index++) {
+          const value = prices[index] / prices[index - rollingDays] - 1
+          if (value < worstRollingPeriod.value) {
+              worstRollingPeriod = {
+                  label: `${dates[index - rollingDays]} 至 ${dates[index]}`,
+                  value
+              }
+          }
+      }
+
+      return {
+          var95: (Math.max(0, -dailyTailCutoff) * 100).toFixed(2),
+          cvar95: (Math.max(0, -cvar) * 100).toFixed(2),
+          worstMonth: (worstMonth.value * 100).toFixed(2),
+          worstMonthLabel: worstMonth.label,
+          worstRollingPeriod: (worstRollingPeriod.value * 100).toFixed(2),
+          worstRollingPeriodLabel: worstRollingPeriod.label
+      }
+  }
+
+  const calculateRollingRiskData = (
+      dates: string[],
+      portfolioReturns: number[],
+      strategyReturns: number[][]
+  ) => {
+      const windowSize = 60
+      const rollingData = { dates: [] as string[], volatility: [] as number[], correlation: [] as number[] }
+      for (let index = windowSize - 1; index < portfolioReturns.length; index++) {
+          const portfolioWindow = portfolioReturns.slice(index - windowSize + 1, index + 1)
+          const mean = portfolioWindow.reduce((sum, value) => sum + value, 0) / windowSize
+          const variance = portfolioWindow.reduce((sum, value) => sum + Math.pow(value - mean, 2), 0) / windowSize
+          const correlations: number[] = []
+          for (let left = 0; left < strategyReturns.length; left++) {
+              for (let right = left + 1; right < strategyReturns.length; right++) {
+                  correlations.push(
+                      calculateStrategyCorrelation(
+                          strategyReturns[left].slice(index - windowSize + 1, index + 1),
+                          strategyReturns[right].slice(index - windowSize + 1, index + 1)
+                      )
+                  )
+              }
+          }
+          rollingData.dates.push(dates[index + 1])
+          rollingData.volatility.push(Math.sqrt(variance) * Math.sqrt(250) * 100)
+          rollingData.correlation.push(
+              correlations.length > 0
+                  ? correlations.reduce((sum, value) => sum + value, 0) / correlations.length
+                  : 0
+          )
+      }
+      return rollingData
+  }
+
+  const getCorrelationLabel = (name: string) => {
+      return name.replace(/\s*\(.+\)$/, '').replace('策略', '')
+  }
+
+  const getMostDragStrategy = (
+      drawdown: any,
+      dates: string[],
+      selectedStrats: any[],
+      dailyPnlContributions: Record<string, number[]>,
+      portfolioCurve: number[]
+  ) => {
+      const startIndex = dates.indexOf(drawdown.startDate)
+      const troughIndex = dates.indexOf(drawdown.troughDate)
+      if (startIndex < 0 || troughIndex <= startIndex) return { name: '--', value: '--' }
+
+      const mostDrag = selectedStrats.reduce(
+          (result, strat) => {
+              const pnl = (dailyPnlContributions[strat.id] || [])
+                  .slice(startIndex + 1, troughIndex + 1)
+                  .reduce((sum, value) => sum + value, 0)
+              return pnl < result.pnl ? { id: strat.id, name: getStrategyDisplayName(strat), pnl } : result
+          },
+          { id: '', name: '--', pnl: 0 }
+      )
+      const peakPortfolioValue = portfolioCurve[startIndex]
+      if (!Number.isFinite(peakPortfolioValue) || peakPortfolioValue <= 0) {
+          return { name: mostDrag.name, value: '--' }
+      }
+      return {
+          name: mostDrag.name,
+          value: ((mostDrag.pnl / peakPortfolioValue) * 100).toFixed(2)
       }
   }
 
@@ -1894,8 +2246,77 @@
           medianMaxDrawdown: (getPercentileValue(maxDrawdownDepths, 0.5) * 100).toFixed(1),
           tailMaxDrawdown: (getPercentileValue(maxDrawdownDepths, 0.95) * 100).toFixed(1)
       }
+      mcDrawdownDistribution.value = buildMonteCarloDrawdownDistribution(maxDrawdownDepths)
 
       initMonteCarloChart(days, percentilesData)
+  }
+
+  const buildMonteCarloDrawdownDistribution = (maxDrawdowns: number[]) => {
+      const buckets = [0, 0, 0, 0, 0]
+      maxDrawdowns.forEach(value => {
+          if (value < 0.05) buckets[0]++
+          else if (value < 0.1) buckets[1]++
+          else if (value < 0.15) buckets[2]++
+          else if (value < 0.2) buckets[3]++
+          else buckets[4]++
+      })
+      const total = maxDrawdowns.length || 1
+      return ['0% ~ 5%', '5% ~ 10%', '10% ~ 15%', '15% ~ 20%', '> 20%'].map((range, index) => ({
+          range,
+          percent: (buckets[index] / total) * 100
+      }))
+  }
+
+  const initRollingRiskCharts = () => {
+      const data = rollingRiskData.value
+      if (data.dates.length === 0) return
+
+      const createOption = (name: string, values: number[], color: string, formatter: (value: number) => string) => ({
+          backgroundColor: 'transparent',
+          title: { text: name, left: 'center', textStyle: { color: '#d6deff', fontSize: 13 } },
+          tooltip: {
+              trigger: 'axis',
+              formatter: (params: any) => `${params[0].axisValue}<br/>${name}: ${formatter(params[0].value)}`
+          },
+          grid: { top: 42, left: 40, right: 18, bottom: 34 },
+          xAxis: {
+              type: 'category',
+              data: data.dates,
+              boundaryGap: false,
+              axisLine: { lineStyle: { color: '#8392a5' } },
+              axisLabel: { color: '#8392a5', formatter: (value: string) => value.slice(0, 7) }
+          },
+          yAxis: {
+              type: 'value',
+              scale: true,
+              axisLine: { show: false },
+              axisLabel: { color: '#8392a5', formatter },
+              splitLine: { lineStyle: { color: 'rgba(255,255,255,0.06)' } }
+          },
+          series: [{
+              type: 'line',
+              data: values,
+              showSymbol: false,
+              smooth: true,
+              lineStyle: { color, width: 2 },
+              areaStyle: { color: `${color}22` }
+          }]
+      })
+
+      if (rollingVolatilityChart) rollingVolatilityChart.dispose()
+      if (rollingCorrelationChart) rollingCorrelationChart.dispose()
+      if (rollingVolatilityChartContainer.value) {
+          rollingVolatilityChart = echarts.init(rollingVolatilityChartContainer.value)
+          rollingVolatilityChart.setOption(
+              createOption('组合滚动年化波动率', data.volatility, '#ffb454', value => `${value.toFixed(1)}%`)
+          )
+      }
+      if (rollingCorrelationChartContainer.value) {
+          rollingCorrelationChart = echarts.init(rollingCorrelationChartContainer.value)
+          rollingCorrelationChart.setOption(
+              createOption('策略间平均滚动相关性', data.correlation, '#818cf8', value => value.toFixed(2))
+          )
+      }
   }
 
   const initMonteCarloChart = (days: number, data: any) => {
@@ -3147,6 +3568,141 @@
       min-width: 0;
   }
 
+  .contribution-grid .content-card.full-height {
+      height: auto;
+  }
+
+  .contribution-grid {
+      align-items: start;
+  }
+
+  .contribution-table {
+      min-width: 0;
+      table-layout: fixed;
+      font-size: 0.76rem;
+  }
+
+  .contribution-table th,
+  .contribution-table td {
+      padding: 0.6rem 0.25rem;
+  }
+
+  .contribution-table th:first-child,
+  .contribution-table td:first-child {
+      width: 26%;
+  }
+
+  .contribution-table th:not(:first-child),
+  .contribution-table td:not(:first-child) {
+      width: 18.5%;
+  }
+
+  .positive {
+      color: #ffb454;
+      font-weight: 700;
+  }
+
+  .negative-return {
+      color: #00c497;
+      font-weight: 700;
+  }
+
+  .risk-warning {
+      color: #ffb454;
+      font-weight: 700;
+  }
+
+  .correlation-grid {
+      display: grid;
+      overflow: hidden;
+      border-top: 1px solid rgb(255 255 255 / 10%);
+      border-left: 1px solid rgb(255 255 255 / 10%);
+      font-size: 0.74rem;
+  }
+
+  .correlation-grid > div {
+      display: flex;
+      min-width: 0;
+      min-height: 39px;
+      padding: 0.35rem 0.15rem;
+      border-right: 1px solid rgb(255 255 255 / 10%);
+      border-bottom: 1px solid rgb(255 255 255 / 10%);
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+  }
+
+  .correlation-corner,
+  .correlation-header {
+      color: #b0c4de;
+      background: rgb(0 0 0 / 30%);
+      overflow-wrap: anywhere;
+  }
+
+  .correlation-row-header {
+      color: #d6deff;
+      background: #1e1e1e;
+      font-weight: 700;
+      overflow-wrap: anywhere;
+  }
+
+  .correlation-cell {
+      font-variant-numeric: tabular-nums;
+  }
+
+  .tail-risk-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 0.75rem;
+      margin-top: 1rem;
+  }
+
+  .tail-risk-item {
+      display: flex;
+      min-height: 78px;
+      padding: 0.85rem;
+      background: rgb(255 255 255 / 3.5%);
+      border: 1px solid rgb(255 255 255 / 10%);
+      border-radius: 8px;
+      flex-direction: column;
+      gap: 0.25rem;
+  }
+
+  .tail-risk-item span,
+  .tail-risk-item small {
+      color: #b0c4de;
+      font-size: 0.75rem;
+  }
+
+  .tail-risk-item strong {
+      color: #00c497;
+      font-size: 1.1rem;
+  }
+
+  .tail-risk-label {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.2rem;
+  }
+
+  .tail-risk-label .metric-help {
+      margin-left: 0;
+      width: 10px;
+      height: 10px;
+      font-size: 7px;
+  }
+
+  .rolling-chart-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 1rem;
+      margin-top: 1rem;
+  }
+
+  .rolling-chart {
+      height: 260px;
+  }
+
   /* 回撤分布图 */
   .drawdown-dist-chart {
       display: flex;
@@ -3355,6 +3911,10 @@
           gap: 1rem;
       }
 
+      .rolling-chart-grid {
+          grid-template-columns: 1fr;
+      }
+
       /* 双重保险 */
       .grid-two-col > * {
           min-width: 0;
@@ -3475,7 +4035,7 @@
   .mc-risk-grid {
       display: grid;
       grid-column: 1 / -1;
-      grid-template-columns: repeat(5, minmax(0, 1fr));
+      grid-template-columns: repeat(3, minmax(0, 1fr));
       gap: 0.75rem;
   }
 
@@ -3502,6 +4062,52 @@
       font-size: 1.05rem;
       color: #ffb454;
       font-weight: 700;
+  }
+
+  .mc-drawdown-distribution {
+      display: flex;
+      grid-column: 1 / -1;
+      padding: 0.8rem;
+      background: rgb(255 255 255 / 2.5%);
+      border: 1px solid rgb(255 255 255 / 8%);
+      border-radius: 8px;
+      flex-direction: column;
+      gap: 0.45rem;
+  }
+
+  .mc-drawdown-distribution > .label {
+      margin-bottom: 0.15rem;
+      color: #b0c4de;
+      font-size: 0.78rem;
+  }
+
+  .mc-dd-row {
+      display: grid;
+      grid-template-columns: 72px minmax(0, 1fr) 42px;
+      align-items: center;
+      gap: 0.5rem;
+      color: #b0c4de;
+      font-size: 0.72rem;
+  }
+
+  .mc-dd-row strong {
+      color: #ffb454;
+      font-size: 0.72rem;
+      text-align: right;
+  }
+
+  .mc-dd-bar-bg {
+      overflow: hidden;
+      height: 7px;
+      background: rgb(255 255 255 / 6%);
+      border-radius: 4px;
+  }
+
+  .mc-dd-bar {
+      height: 100%;
+      min-width: 2px;
+      background: linear-gradient(90deg, #818cf8, #ffb454);
+      border-radius: 4px;
   }
 
   .stat-box {

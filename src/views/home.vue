@@ -21,7 +21,15 @@
               <h2 class="status-overview-title">市场温度</h2>
               <span>市场情绪</span>
             </div>
-            <time class="status-update-time">{{ latestDateTimeText }}</time>
+            <button
+              v-if="marketDataLoadFailed"
+              type="button"
+              class="market-data-retry"
+              @click.stop="retryMarketData"
+            >
+              重试
+            </button>
+            <time v-else class="status-update-time">{{ latestDateTimeText }}</time>
           </div>
 
           <div class="market-overview-body">
@@ -1844,20 +1852,20 @@
           link: '/lof'
       },
       {
-          id: 3,
-          title: '投资小工具',
-          description: '提供再平衡计算器等工具，辅助组合管理与科学决策。',
-          iconType: 'tools',
-          cssClass: 'handy-tools',
-          link: '/tools'
-      },
-      {
           id: 15,
           title: '投资账本',
           description: '记录策略净值，诊断仓位偏移、回撤与创新高状态。',
           iconType: 'ledger',
           cssClass: 'investment-ledger',
           link: '/investment-ledger'
+      },
+      {
+          id: 3,
+          title: '投资小工具',
+          description: '提供再平衡计算器等工具，辅助组合管理与科学决策。',
+          iconType: 'tools',
+          cssClass: 'handy-tools',
+          link: '/tools'
       },
       {
           id: 14,
@@ -1983,6 +1991,8 @@
   /**
    * [新函数] 通过一次调用获取所有市场数据（今日和历史）
    */
+  const marketDataLoadFailed = ref(false)
+
   const fetchMarketData = () => {
       return callCloudFunction({
               name: 'getMarketData', // 调用我们新的合并函数
@@ -1991,20 +2001,23 @@
           .then((res: any) => {
               if (res.result?.success) {
                   applyMarketData(res.result.data)
+                  marketDataLoadFailed.value = false
               } else {
-                  // 处理云函数本身返回错误的情况
-                  console.log(router)
-                  router.push({ name: 'login' })
                   console.error('getMarketData 函数执行失败:', res.result?.error)
                   latestDate.value = '数据加载失败'
+                  marketDataLoadFailed.value = true
               }
           })
           .catch((err: any) => {
-              console.log(router)
-              router.push({ name: 'login' })
+              throwIfAuthExpired(err)
               console.error('调用 getMarketData 云函数失败:', err)
               latestDate.value = '数据加载失败'
+              marketDataLoadFailed.value = true
           })
+  }
+
+  const retryMarketData = () => {
+      void fetchHomeDashboardData()
   }
 
   const fetchHomeDashboardData = async () => {
@@ -2018,8 +2031,9 @@
               throw new Error(response.result?.message || 'getHomeDashboardData returned no data')
           }
 
-          applyMarketData(payload.market)
-          applyStrategyObservation(payload.strategyObservation)
+           applyMarketData(payload.market)
+           marketDataLoadFailed.value = false
+           applyStrategyObservation(payload.strategyObservation)
 
           const realtime = payload.realtime || {}
           await Promise.all([
@@ -3672,6 +3686,16 @@
 
   .quick-menu-card.convertible-bond {
       --menu-accent: #add8e6;
+  }
+
+  .market-data-retry {
+      padding: 0;
+      color: var(--overview-accent);
+      background: none;
+      border: 0;
+      font: inherit;
+      font-size: 0.72rem;
+      cursor: pointer;
   }
 
   .quick-menu-card.bond-market {

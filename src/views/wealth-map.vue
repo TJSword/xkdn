@@ -109,11 +109,8 @@
 
 <script setup lang="ts">
   import { ref, onMounted, onUnmounted, computed, watch, nextTick } from 'vue'
-  import mapboxgl from 'mapbox-gl'
+  import 'mapbox-gl/dist/mapbox-gl.css'
   import axios from 'axios'
-
-  // --- 类型与配置 (保留你的) ---
-  mapboxgl.accessToken = import.meta.env.VITE_MAPBOX_ACCESS_TOKEN || ''
 
   // --- 状态管理 (保留你的，并新增动画状态) ---
   const isLoading = ref(true)
@@ -231,9 +228,11 @@
   }
 
   // --- Mapbox 地图逻辑 (保留你的，并增加闪烁层) ---
-  const initMap = (geojsonData: any) => {
+  const initMap = async (geojsonData: any) => {
       // console.log(mapContainer.value)
       if (mapContainer.value) {
+          const mapboxgl = (await import('mapbox-gl')).default
+          mapboxgl.accessToken = import.meta.env.VITE_MAPBOX_ACCESS_TOKEN || ''
           map.value = new mapboxgl.Map({
               container: mapContainer.value,
               style: 'mapbox://styles/onism9/cl9pb1m9p005l15mguhkgj31a', // 保留你的style
@@ -278,7 +277,7 @@
               //     })
               // })
               updateMapColors()
-              setupMapInteractions()
+              setupMapInteractions(mapboxgl)
           })
       }
   }
@@ -305,7 +304,7 @@
       map.value.setPaintProperty('city-flash', 'fill-opacity', flashOpacityExpression)
   }
 
-  const setupMapInteractions = () => {
+  const setupMapInteractions = (mapboxgl: typeof import('mapbox-gl').default) => {
       if (!map.value) return
       const popup = new mapboxgl.Popup({
           closeButton: false,

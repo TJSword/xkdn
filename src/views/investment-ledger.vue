@@ -781,6 +781,54 @@
                 </div>
             </section>
 
+            <section class="content-card daily-extremes-panel">
+                <div class="panel-heading">
+                    <div>
+                        <h2 class="card-title">日度极值 Top 10</h2>
+                        <p class="card-description">按真实账户每日扣除资金流后的表现排序。</p>
+                    </div>
+                    <div class="metric-switch" role="group" aria-label="日度极值指标">
+                        <button
+                            type="button"
+                            :class="{ active: dailyExtremeMode === 'rate' }"
+                            @click="dailyExtremeMode = 'rate'">
+                            收益率
+                        </button>
+                        <button
+                            type="button"
+                            :class="{ active: dailyExtremeMode === 'amount' }"
+                            @click="dailyExtremeMode = 'amount'">
+                            收益金额
+                        </button>
+                    </div>
+                </div>
+                <div class="daily-extreme-columns">
+                    <div class="daily-extreme-list positive-list">
+                        <div class="daily-extreme-list-head">
+                            <span>{{ dailyExtremeMode === 'rate' ? '收益率最高 10 天' : '赚钱最多 10 天' }}</span>
+                            <strong class="positive">TOP 10</strong>
+                        </div>
+                        <div v-for="(item, index) in dailyExtremeRanks.best" :key="`best-${item.date}`" class="daily-extreme-row">
+                            <em>{{ index + 1 }}</em>
+                            <span>{{ item.date }}</span>
+                            <strong class="positive">{{ formatDailyExtremeValue(item) }}</strong>
+                        </div>
+                    </div>
+                    <div class="daily-extreme-list negative-list">
+                        <div class="daily-extreme-list-head">
+                            <span>{{ dailyExtremeMode === 'rate' ? '收益率最低 10 天' : '亏钱最多 10 天' }}</span>
+                            <strong class="negative">TOP 10</strong>
+                        </div>
+                        <div v-for="(item, index) in dailyExtremeRanks.worst" :key="`worst-${item.date}`" class="daily-extreme-row">
+                            <em>{{ index + 1 }}</em>
+                            <span>{{ item.date }}</span>
+                            <strong class="negative">{{ formatDailyExtremeValue(item) }}</strong>
+                        </div>
+                    </div>
+                </div>
+                <p v-if="!dailyExtremeRanks.best.length" class="empty-analysis-hint">至少需要两日账户记录后生成排行。</p>
+            </section>
+
             <section class="detail-grid ledger-insight-grid">
                 <article class="content-card attribution-panel">
                     <div class="panel-heading">
@@ -799,17 +847,63 @@
                         </button>
                     </div>
                     <div class="attribution-summary">
-                        <div>
-                            <span>区间组合收益</span>
+                        <article class="attribution-metric-card">
+                            <div class="attribution-metric-label">
+                                <span>区间组合收益</span>
+                                <button
+                                    class="attribution-help"
+                                    type="button"
+                                    aria-label="查看区间组合收益说明"
+                                    :aria-expanded="showAttributionReturnHelp"
+                                    @click="showAttributionReturnHelp = !showAttributionReturnHelp">
+                                    <svg viewBox="0 0 16 16" aria-hidden="true">
+                                        <circle cx="8" cy="8" r="6.1" fill="none" stroke="currentColor" stroke-width="1.5" />
+                                        <path d="M8 7.1v4.1M8 4.7h.01" fill="none" stroke="currentColor" stroke-linecap="round" stroke-width="1.5" />
+                                    </svg>
+                                    <span
+                                        role="tooltip"
+                                        :class="{ visible: showAttributionReturnHelp }">
+                                        按区间末权重和各策略区间收益估算的组合收益率贡献，不计资金流带来的表面变化。
+                                    </span>
+                                </button>
+                            </div>
                             <strong :class="returnClass(attributionAccountReturn)">
                                 {{ formatPercent(attributionAccountReturn) }}
                             </strong>
-                        </div>
-                        <p>
-                            按区间末权重和各策略区间收益估算贡献。
-                        </p>
+                        </article>
+                        <article class="attribution-metric-card">
+                            <div class="attribution-metric-label">
+                                <span>区间组合盈亏</span>
+                                <button
+                                    class="attribution-help"
+                                    type="button"
+                                    aria-label="查看区间组合盈亏说明"
+                                    :aria-expanded="showAttributionProfitHelp"
+                                    @click="showAttributionProfitHelp = !showAttributionProfitHelp">
+                                    <svg viewBox="0 0 16 16" aria-hidden="true">
+                                        <circle cx="8" cy="8" r="6.1" fill="none" stroke="currentColor" stroke-width="1.5" />
+                                        <path d="M8 7.1v4.1M8 4.7h.01" fill="none" stroke="currentColor" stroke-linecap="round" stroke-width="1.5" />
+                                    </svg>
+                                    <span
+                                        role="tooltip"
+                                        :class="{ visible: showAttributionProfitHelp }">
+                                        各策略期末资产减期初资产再扣除区间资金流后汇总得到的真实盈亏金额。
+                                    </span>
+                                </button>
+                            </div>
+                            <strong :class="returnClass(attributionAccountProfit)">
+                                {{ displayMoneyChange(attributionAccountProfit) }}
+                            </strong>
+                        </article>
                     </div>
-                    <div class="attribution-list">
+                    <v-chart class="attribution-waterfall" :option="attributionWaterfallOption" autoresize />
+                    <div class="attribution-table">
+                        <div class="attribution-table-head">
+                            <span>策略</span>
+                            <span>收益率贡献</span>
+                            <span>盈亏贡献</span>
+                            <span>期末权重</span>
+                        </div>
                         <div
                             v-for="item in attributionRows"
                             :key="item.name"
@@ -820,19 +914,48 @@
                                     <strong>{{ item.name }}</strong>
                                 </div>
                             </div>
-                            <div class="attribution-track" :class="{ positive: item.contribution > 0 }">
-                                <span :style="{ width: `${Math.abs(item.contribution) * 26}%` }"></span>
-                            </div>
                             <div class="attribution-copy">
                                 <strong :class="returnClass(item.contribution)">
                                     {{ formatContribution(item.contribution) }}
                                 </strong>
-                                <span>区间末权重 {{ item.weight }}%</span>
+                            </div>
+                            <div class="attribution-copy">
+                                <strong :class="returnClass(item.amount)">
+                                    {{ displayMoneyChange(item.amount) }}
+                                </strong>
+                            </div>
+                            <div class="attribution-copy attribution-weight">
+                                <span>{{ item.weight }}%</span>
                             </div>
                         </div>
                     </div>
                 </article>
 
+                <article
+                    class="content-card drawdown-history-panel"
+                    :class="{ 'fixed-history-height': topDrawdownEpisodes.length <= 8 }">
+                    <div class="panel-heading">
+                        <div>
+                            <h2 class="card-title">历史区间最大回撤 Top 10</h2>
+                            <p class="card-description">同一时间加权净值口径 · 各区间最深回撤与恢复状态。</p>
+                        </div>
+                    </div>
+                    <div class="drawdown-history-list">
+                        <div
+                            v-for="(item, index) in topDrawdownEpisodes"
+                            :key="item.id"
+                            class="drawdown-history-row">
+                            <em>{{ index + 1 }}</em>
+                            <span>{{ item.peakDate }} → {{ item.troughDate }}</span>
+                            <small>{{ formatDrawdownRecoveryStatus(item) }}</small>
+                            <strong class="negative">{{ formatPercent(item.drawdown) }}</strong>
+                        </div>
+                    </div>
+                    <p v-if="!topDrawdownEpisodes.length" class="empty-analysis-hint">至少需要两日账户记录后生成回撤历史。</p>
+                </article>
+            </section>
+
+            <section class="detail-grid ledger-drawdown-grid">
                 <article class="content-card recovery-panel">
                     <div class="panel-heading">
                         <div>
@@ -883,6 +1006,46 @@
                             </div>
                             <em :title="item.requiredReturn">{{ item.estimatedDays }}</em>
                         </div>
+                    </div>
+                </article>
+
+                <article class="content-card drawdown-attribution-panel">
+                    <div class="panel-heading">
+                        <div>
+                            <h2 class="card-title">回撤归因</h2>
+                            <p class="card-description">按当前回撤口径，分解本轮前高至当前的策略真实盈亏来源。</p>
+                        </div>
+                        <span
+                            class="status-pill"
+                            :class="{ 'warning-pill': activeDrawdownEpisode }">
+                            {{ activeDrawdownEpisode ? formatPercent(activeDrawdownEpisode.drawdown) : '当前处于新高' }}
+                        </span>
+                    </div>
+                    <template v-if="activeDrawdownEpisode">
+                        <div class="drawdown-attribution-summary">
+                            <span>前高 {{ activeDrawdownEpisode.peakDate }}</span>
+                            <strong>当前 {{ activeDrawdownEpisode.troughDate }}</strong>
+                            <em :class="returnClass(activeDrawdownProfit)">{{ displayMoneyChange(activeDrawdownProfit) }}</em>
+                        </div>
+                        <div
+                            class="drawdown-attribution-list"
+                            :class="{ 'single-column': drawdownAttributionRows.length <= 3 }">
+                            <div v-for="item in drawdownAttributionRows" :key="item.name" class="drawdown-attribution-row">
+                                <div class="attribution-name">
+                                    <i :style="{ backgroundColor: item.color }"></i>
+                                    <strong>{{ item.name }}</strong>
+                                </div>
+                                <div class="drawdown-loss-track" :class="{ offset: item.amount >= 0 }">
+                                    <span :style="{ width: `${item.share}%` }"></span>
+                                </div>
+                                <strong :class="returnClass(item.amount)">{{ displayMoneyChange(item.amount) }}</strong>
+                                <span>{{ item.share.toFixed(1) }}%</span>
+                            </div>
+                        </div>
+                    </template>
+                    <div v-else class="drawdown-attribution-empty">
+                        <strong>当前组合处于历史新高</strong>
+                        <span>暂无进行中的回撤，无需拆分策略损失。</span>
                     </div>
                 </article>
             </section>
@@ -1797,6 +1960,11 @@
 <script setup lang="ts">
 import { computed, inject, nextTick, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
 import html2canvas from 'html2canvas'
+import { use } from 'echarts/core'
+import { CanvasRenderer } from 'echarts/renderers'
+import { BarChart, LineChart, PieChart } from 'echarts/charts'
+import { GraphicComponent, GridComponent, LegendComponent, MarkPointComponent, TooltipComponent } from 'echarts/components'
+import VChart from 'vue-echarts'
 import FeaturePageIcon from '@/components/FeaturePageIcon.vue'
 import StrategyLoading from '@/components/StrategyLoading.vue'
 import { callCloudFunction } from '@/services/cloudFunction'
@@ -1817,6 +1985,8 @@ import type {
     LedgerRecord as RemoteLedgerRecord,
     LedgerStrategy as RemoteLedgerStrategy
 } from '@/services/investmentLedger'
+
+use([CanvasRenderer, BarChart, LineChart, PieChart, GraphicComponent, GridComponent, LegendComponent, MarkPointComponent, TooltipComponent])
 
 interface LedgerRecord {
     id: string
@@ -1882,6 +2052,17 @@ type ReturnHeatmapCell = {
     endAmount: number
     hasData: boolean
     empty?: boolean
+}
+
+type DrawdownEpisode = {
+    id: string
+    peakDate: string
+    troughDate: string
+    recoveryDate: string | null
+    drawdown: number
+    peakNav: number
+    troughNav: number
+    recoveryDays: number | null
 }
 function loadIgnoredMissingKeys() {
     try {
@@ -2128,6 +2309,7 @@ const attributionRows = reactive<
         weight: number
         return: number
         contribution: number
+        amount: number
         note: string
         color: string
     }>
@@ -2192,6 +2374,8 @@ const cashFlowRange = reactive({
     end: ''
 })
 const attributionPeriod = ref('本月')
+const showAttributionReturnHelp = ref(false)
+const showAttributionProfitHelp = ref(false)
 const attributionRange = reactive({
     start: '',
     end: ''
@@ -2850,6 +3034,38 @@ const dailyActualReturnRows = computed<ReturnHeatmapCell[]>(() =>
         }
     })
 )
+const dailyExtremeMode = ref<'rate' | 'amount'>('rate')
+const accountDailyReturnRows = computed<ReturnHeatmapCell[]>(() =>
+    aggregateRecordsByDate.value.slice(1).map((item, index) => {
+        const previous = aggregateRecordsByDate.value[index]
+        const profit = item.amount - previous.amount - item.cashFlow
+
+        return {
+            key: item.date,
+            period: item.date,
+            date: item.date,
+            profit,
+            return: previous.amount ? (profit / previous.amount) * 100 : 0,
+            cashFlow: item.cashFlow,
+            startAmount: previous.amount,
+            endAmount: item.amount,
+            hasData: true
+        }
+    })
+)
+const dailyExtremeRanks = computed(() => {
+    const metric = dailyExtremeMode.value === 'rate' ? 'return' : 'profit'
+    const rows = accountDailyReturnRows.value.filter(item => Number.isFinite(item[metric]))
+
+    return {
+        best: [...rows].sort((a, b) => b[metric] - a[metric]).slice(0, 10),
+        worst: [...rows].sort((a, b) => a[metric] - b[metric]).slice(0, 10)
+    }
+})
+const formatDailyExtremeValue = (item: ReturnHeatmapCell) =>
+    dailyExtremeMode.value === 'rate'
+        ? formatPercent(item.return)
+        : displayMoneyChange(item.profit)
 const annualHeatmapRows = computed(() => {
     const years = [
         ...new Set(heatmapRecordsByDate.value.map(item => item.date.slice(0, 4)))
@@ -3303,6 +3519,109 @@ const daysSinceHigh = computed(() => {
 
     return Math.max(performancePoints.value.length - 1 - lastHighIndex, 0)
 })
+const drawdownEpisodes = computed<DrawdownEpisode[]>(() => {
+    const points = performancePoints.value
+    if (points.length < 2) return []
+
+    const episodes: DrawdownEpisode[] = []
+    let peakIndex = 0
+    let activeTroughIndex: number | null = null
+    const finishEpisode = (recoveryIndex: number | null) => {
+        if (activeTroughIndex === null) return
+        const peak = points[peakIndex]
+        const trough = points[activeTroughIndex]
+        const recovery = recoveryIndex === null ? null : points[recoveryIndex]
+        const recoveryDays = recovery
+            ? Math.max(
+                  Math.round(
+                      (Date.parse(`${recovery.date}T00:00:00Z`) -
+                          Date.parse(`${peak.date}T00:00:00Z`)) /
+                          86400000
+                  ),
+                  0
+              )
+            : null
+
+        episodes.push({
+            id: `${peak.date}-${trough.date}`,
+            peakDate: peak.date,
+            troughDate: trough.date,
+            recoveryDate: recovery?.date || null,
+            drawdown: trough.drawdown,
+            peakNav: peak.nav,
+            troughNav: trough.nav,
+            recoveryDays
+        })
+        activeTroughIndex = null
+    }
+
+    for (let index = 1; index < points.length; index += 1) {
+        const point = points[index]
+        if (point.drawdown >= 0) {
+            finishEpisode(index)
+            peakIndex = index
+            continue
+        }
+        if (activeTroughIndex === null || point.drawdown < points[activeTroughIndex].drawdown) {
+            activeTroughIndex = index
+        }
+    }
+    finishEpisode(null)
+    return episodes
+})
+const topDrawdownEpisodes = computed(() =>
+    [...drawdownEpisodes.value]
+        .sort((a, b) => a.drawdown - b.drawdown)
+        .slice(0, 10)
+)
+const activeDrawdownEpisode = computed(() => {
+    const activeEpisode = drawdownEpisodes.value.find(item => item.recoveryDate === null)
+    const latest = latestPerformancePoint.value
+    if (!activeEpisode || !latest || currentDrawdown.value >= -0.005) return undefined
+
+    return {
+        ...activeEpisode,
+        troughDate: latest.date,
+        drawdown: currentDrawdown.value,
+        troughNav: latest.nav
+    }
+})
+const activeDrawdownProfit = computed(() => {
+    const episode = activeDrawdownEpisode.value
+    return episode
+        ? calculateRecordsProfitBetween(
+              accountActualRecords.value,
+              episode.peakDate,
+              episode.troughDate
+          )
+        : 0
+})
+const drawdownAttributionRows = computed(() => {
+    const episode = activeDrawdownEpisode.value
+    if (!episode) return []
+
+    const rows = strategies
+        .map(strategy => {
+            const records = recentRecords.value.filter(record => record.strategyId === strategy.id)
+            return {
+                name: strategy.name,
+                color: strategy.color,
+                amount: calculateRecordsProfitBetween(records, episode.peakDate, episode.troughDate)
+            }
+        })
+        .sort((a, b) => a.amount - b.amount)
+    const lossTotal = rows.reduce((total, item) => total + Math.max(-item.amount, 0), 0)
+
+    return rows.map(item => ({
+        ...item,
+        share: lossTotal ? Math.min((Math.abs(item.amount) / lossTotal) * 100, 100) : 0
+    }))
+})
+const formatDrawdownRecoveryStatus = (item: DrawdownEpisode) => {
+    if (item.recoveryDate) return `已恢复 · ${item.recoveryDays || 0} 天`
+    const currentNav = latestPerformancePoint.value?.nav || item.troughNav
+    return currentNav > item.troughNav ? '修复中 · 尚未回到前高' : '回撤中 · 尚未恢复'
+}
 const recoveryEstimateStats = computed(() => {
     const points = performancePoints.value.filter(item => item.nav > 0).slice(-20)
     if (points.length < 15) {
@@ -3519,6 +3838,37 @@ const calculateRecordsReturn = (
     if (first.id === last.id) return last.return
     return first.nav ? ((last.nav / first.nav) - 1) * 100 : 0
 }
+const calculateRecordsProfit = (records: LedgerRecord[], startDate: string, endDate: string) => {
+    const orderedRows = records
+        .filter(item => item.date <= endDate)
+        .sort((a, b) => a.date.localeCompare(b.date))
+    const rows = orderedRows.filter(item => item.date >= startDate)
+    const first = rows[0]
+    const last = rows.at(-1)
+    if (!first || !last) return 0
+
+    const previous = orderedRows.filter(item => item.date < startDate).at(-1)
+    const startAmount = previous ? previous.amount : Math.max(first.amount - first.cashFlow, 0)
+    const cashFlow = rows.reduce((total, item) => total + Number(item.cashFlow || 0), 0)
+    return last.amount - startAmount - cashFlow
+}
+const calculateRecordsProfitBetween = (
+    records: LedgerRecord[],
+    startDate: string,
+    endDate: string
+) => {
+    const orderedRows = records
+        .filter(item => item.date <= endDate)
+        .sort((a, b) => a.date.localeCompare(b.date))
+    const baseline = orderedRows.filter(item => item.date <= startDate).at(-1)
+    const last = orderedRows.at(-1)
+    if (!baseline || !last) return 0
+
+    const cashFlow = orderedRows
+        .filter(item => item.date > startDate)
+        .reduce((total, item) => total + Number(item.cashFlow || 0), 0)
+    return last.amount - baseline.amount - cashFlow
+}
 const performanceStrategySummaries = computed(() =>
     strategies.map(strategy => {
         const rows = recentRecords.value
@@ -3550,6 +3900,20 @@ const accountPerformanceRecords = computed<LedgerRecord[]>(() =>
         color: '#7aa2f7'
     }))
 )
+const accountActualRecords = computed<LedgerRecord[]>(() =>
+    aggregateRecordsByDate.value.map(item => ({
+        id: item.date,
+        strategyId: 'account',
+        date: item.date,
+        strategy: '整体账户',
+        amount: item.amount,
+        cashFlow: item.cashFlow,
+        return: 0,
+        nav: 0,
+        note: '',
+        color: performanceFixedSeriesColors.portfolio
+    }))
+)
 const attributionAccountReturn = computed(() =>
     calculateRecordsReturn(
         accountPerformanceRecords.value,
@@ -3557,6 +3921,84 @@ const attributionAccountReturn = computed(() =>
         normalizedAttributionRange.value.end
     )
 )
+const attributionAccountProfit = computed(() =>
+    calculateRecordsProfit(
+        accountActualRecords.value,
+        normalizedAttributionRange.value.start,
+        normalizedAttributionRange.value.end
+    )
+)
+const attributionWaterfallOption = computed(() => {
+    const rows = attributionRows
+    const runningTotals = rows.reduce<number[]>((totals, item) => {
+        totals.push((totals.at(-1) || 0) + item.amount)
+        return totals
+    }, [])
+    const offset = Math.min(0, ...runningTotals)
+    const helper = rows.map((item, index) => {
+        const previousTotal = index ? runningTotals[index - 1] : 0
+        return Number((Math.min(previousTotal, runningTotals[index]) - offset).toFixed(2))
+    })
+    const values = rows.map(item => Math.abs(Number(item.amount.toFixed(2))))
+    const totalHelper = Number((Math.min(0, attributionAccountProfit.value) - offset).toFixed(2))
+    const totalValue = Math.abs(Number(attributionAccountProfit.value.toFixed(2)))
+
+    return {
+        animationDuration: 300,
+        grid: { left: 8, right: 8, top: 22, bottom: 8, containLabel: true },
+        tooltip: {
+            trigger: 'axis',
+            axisPointer: { type: 'shadow' },
+            formatter: (params: Array<{ dataIndex: number }>) => {
+                const index = params[0]?.dataIndex
+                if (index === undefined) return ''
+                if (index === rows.length) return `组合盈亏<br/>${displayMoneyChange(attributionAccountProfit.value)}`
+                const item = rows[index]
+                return `${item.name}<br/>${displayMoneyChange(item.amount)}`
+            }
+        },
+        xAxis: {
+            type: 'category',
+            data: [...rows.map(item => item.name), '组合盈亏'],
+            axisLabel: { color: '#8a9aaa', fontSize: 11, interval: 0 },
+            axisLine: { lineStyle: { color: '#31404d' } },
+            axisTick: { show: false }
+        },
+        yAxis: {
+            type: 'value',
+            axisLabel: {
+                color: '#718294',
+                fontSize: 10,
+                formatter: (value: number) => displayMoney(value + offset)
+            },
+            splitLine: { lineStyle: { color: 'rgba(255,255,255,0.07)' } }
+        },
+        series: [
+            {
+                type: 'bar',
+                stack: 'total',
+                silent: true,
+                itemStyle: { color: 'transparent' },
+                data: [...helper, totalHelper]
+            },
+            {
+                type: 'bar',
+                stack: 'total',
+                barMaxWidth: 34,
+                data: [
+                    ...values.map((value, index) => ({
+                        value,
+                        itemStyle: { color: rows[index].amount >= 0 ? '#ef6f6c' : '#4ecdc4' }
+                    })),
+                    {
+                        value: totalValue,
+                        itemStyle: { color: attributionAccountProfit.value >= 0 ? '#ef6f6c' : '#4ecdc4' }
+                    }
+                ]
+            }
+        ]
+    }
+})
 const syncDerivedState = () => {
     const latestTotal = totalAssets.value
     const latestDate = latestLedgerDate.value
@@ -3744,6 +4186,11 @@ const syncDerivedState = () => {
             weight: Number(attributionWeight.toFixed(2)),
             return: attributionReturn,
             contribution,
+            amount: calculateRecordsProfit(
+                rows,
+                normalizedAttributionRange.value.start,
+                normalizedAttributionRange.value.end
+            ),
             note: attributionEndRecord?.note || '按区间末权重估算',
             color: strategy.color
         }
@@ -7401,6 +7848,92 @@ select:focus {
     animation-delay: 0.34s;
 }
 
+.daily-extremes-panel {
+    margin-bottom: 1.5rem;
+    min-width: 0;
+}
+
+.metric-switch {
+    display: inline-flex;
+    overflow: hidden;
+    border: 1px solid #344453;
+    border-radius: 6px;
+}
+
+.metric-switch button {
+    padding: 6px 9px;
+    font-size: 12px;
+    color: #8a9aaa;
+    background: transparent;
+    border: 0;
+    cursor: pointer;
+}
+
+.metric-switch button.active {
+    color: #e8fffd;
+    background: rgb(var(--ledger-accent-rgb) / 14%);
+}
+
+.daily-extreme-columns {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+}
+
+.daily-extreme-list {
+    display: grid;
+    overflow: hidden;
+    border: 1px solid rgb(255 255 255 / 9%);
+    border-radius: 8px;
+}
+
+.daily-extreme-list-head,
+.daily-extreme-row {
+    display: grid;
+    align-items: center;
+    padding: 7px 10px;
+    grid-template-columns: 24px 1fr auto;
+    gap: 8px;
+}
+
+.daily-extreme-list-head {
+    padding: 9px 10px;
+    color: #9aabba;
+    background: rgb(0 0 0 / 18%);
+    font-size: 13px;
+    grid-template-columns: 1fr auto;
+}
+
+.daily-extreme-list-head strong {
+    font-size: 11px;
+}
+
+.daily-extreme-row {
+    border-top: 1px solid rgb(255 255 255 / 7%);
+    font-size: 13px;
+}
+
+.daily-extreme-row em,
+.drawdown-history-list em {
+    color: #718294;
+    font-size: 12px;
+    font-style: normal;
+}
+
+.daily-extreme-row span {
+    color: #b7c5d1;
+}
+
+.daily-extreme-row strong {
+    font-size: 14px;
+}
+
+.empty-analysis-hint {
+    margin: 14px 0 0;
+    color: #718294;
+    font-size: 12px;
+}
+
 .heatmap-controls {
     display: flex;
     justify-content: flex-end;
@@ -7741,22 +8274,37 @@ select:focus {
 }
 
 .ledger-insight-grid {
+    align-items: stretch;
+    grid-template-columns: 1.08fr 0.92fr;
+}
+
+.ledger-drawdown-grid {
+    align-items: stretch;
+    margin-bottom: 0;
     grid-template-columns: 1.08fr 0.92fr;
 }
 
 .attribution-summary {
     display: grid;
-    align-items: center;
-    padding: 14px;
     margin-bottom: 12px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+}
+
+.attribution-metric-card {
+    padding: 12px 14px;
     background: rgb(0 0 0 / 18%);
     border: 1px solid rgb(255 255 255 / 8%);
     border-radius: 8px;
-    grid-template-columns: auto 1fr;
-    gap: 18px;
 }
 
-.attribution-summary span,
+.attribution-metric-label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.attribution-metric-label > span,
 .recovery-summary span,
 .cash-flow-summary span {
     display: block;
@@ -7764,20 +8312,86 @@ select:focus {
     color: #718294;
 }
 
-.attribution-summary strong {
+.attribution-metric-card > strong {
     display: block;
     margin-top: 4px;
     font-size: 26px;
 }
 
-.attribution-summary p {
-    font-size: 12px;
-    color: #9aabba;
-    line-height: 1.55;
+.attribution-help {
+    position: relative;
+    display: inline-grid;
+    width: 16px;
+    height: 16px;
+    padding: 0;
+    color: #91aaa9;
+    background: transparent;
+    border: 0;
+    border-radius: 0;
+    cursor: pointer;
+    place-items: center;
 }
 
-.attribution-list {
+.attribution-help svg {
+    display: block;
+    width: 13px;
+    height: 13px;
+}
+
+.attribution-help span {
+    position: absolute;
+    left: 0;
+    bottom: calc(100% + 9px);
+    z-index: 12;
+    padding: 10px 12px;
+    width: 270px;
+    color: #cbd7e1;
+    text-align: left;
+    background: #0d151c;
+    border: 1px solid #40505d;
+    border-radius: 6px;
+    box-shadow: 0 10px 28px rgb(0 0 0 / 34%);
+    font-size: 12px;
+    font-style: normal;
+    font-weight: 400;
+    line-height: 1.6;
+    pointer-events: none;
+    opacity: 0;
+    transform: translateY(4px);
+    transition: opacity 0.16s ease, transform 0.16s ease, visibility 0.16s ease;
+    visibility: hidden;
+}
+
+.attribution-help:hover span,
+.attribution-help:focus-visible span,
+.attribution-help span.visible {
+    opacity: 1;
+    transform: translateY(0);
+    visibility: visible;
+}
+
+.attribution-waterfall {
+    width: 100%;
+    height: 218px;
+    margin-bottom: 10px;
+}
+
+.attribution-table {
     display: grid;
+}
+
+.attribution-table-head {
+    display: grid;
+    padding: 7px 0;
+    color: #718294;
+    font-size: 11px;
+    border-bottom: 1px solid rgb(255 255 255 / 10%);
+    grid-template-columns: 1.15fr 0.9fr 1fr 0.7fr;
+    gap: 10px;
+}
+
+.attribution-table-head span:not(:first-child) {
+    text-align: right;
 }
 
 .attribution-row {
@@ -7785,8 +8399,8 @@ select:focus {
     align-items: center;
     padding: 11px 0;
     border-top: 1px solid rgb(255 255 255 / 10%);
-    grid-template-columns: 155px minmax(100px, 1fr) 132px;
-    gap: 12px;
+    grid-template-columns: 1.15fr 0.9fr 1fr 0.7fr;
+    gap: 10px;
 }
 
 .attribution-name {
@@ -7844,6 +8458,171 @@ select:focus {
 .attribution-copy {
     text-align: right;
 }
+
+.attribution-weight span {
+    margin-top: 0;
+}
+
+.drawdown-attribution-summary {
+    display: grid;
+    align-items: center;
+    padding: 11px 13px;
+    margin-bottom: 12px;
+    background: rgb(0 0 0 / 18%);
+    border: 1px solid rgb(255 255 255 / 8%);
+    border-radius: 8px;
+    grid-template-columns: 1fr 1fr auto;
+    gap: 12px;
+}
+
+.drawdown-attribution-panel {
+    display: flex;
+    flex-direction: column;
+}
+
+.drawdown-attribution-summary span,
+.drawdown-attribution-summary strong {
+    color: #9aabba;
+    font-size: 12px;
+}
+
+.drawdown-attribution-summary em {
+    font-size: 16px;
+    font-style: normal;
+    font-weight: 700;
+}
+
+.drawdown-attribution-list {
+    display: grid;
+    flex: 1;
+    align-content: start;
+    grid-template-columns: repeat(auto-fit, minmax(205px, 1fr));
+    gap: 10px;
+}
+
+.drawdown-attribution-list.single-column {
+    grid-template-columns: 1fr;
+}
+
+.drawdown-attribution-row {
+    display: grid;
+    align-items: center;
+    padding: 10px 11px;
+    background: rgb(0 0 0 / 14%);
+    border: 1px solid rgb(255 255 255 / 8%);
+    border-radius: 7px;
+    grid-template-areas:
+        'name amount'
+        'track share';
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 8px 10px;
+}
+
+.drawdown-attribution-row .attribution-name {
+    grid-area: name;
+}
+
+.drawdown-attribution-row .drawdown-loss-track {
+    width: 100%;
+    grid-area: track;
+}
+
+.drawdown-attribution-row > strong {
+    grid-area: amount;
+}
+
+.drawdown-attribution-row > span {
+    grid-area: share;
+}
+
+.drawdown-attribution-row > strong,
+.drawdown-attribution-row > span {
+    text-align: right;
+    font-size: 12px;
+}
+
+.drawdown-attribution-row > span {
+    color: #718294;
+}
+
+.drawdown-loss-track {
+    overflow: hidden;
+    height: 7px;
+    background: #202c37;
+    border-radius: 999px;
+}
+
+.drawdown-loss-track span {
+    display: block;
+    height: 100%;
+    background: #4ecdc4;
+    border-radius: inherit;
+}
+
+.drawdown-loss-track.offset span {
+    background: #ef6f6c;
+}
+
+.drawdown-attribution-empty {
+    display: grid;
+    min-height: 172px;
+    color: #718294;
+    text-align: center;
+    place-content: center;
+    gap: 8px;
+}
+
+.drawdown-attribution-empty strong {
+    color: #dfe8f1;
+    font-size: 15px;
+}
+
+.drawdown-attribution-empty span {
+    font-size: 12px;
+}
+
+.drawdown-history-list {
+    display: grid;
+}
+
+.drawdown-history-row {
+    display: grid;
+    align-items: center;
+    padding: 11.5px 10px;
+    color: #cbd7e1;
+    text-align: left;
+    border-top: 1px solid rgb(255 255 255 / 9%);
+    grid-template-columns: 22px minmax(110px, 1fr) 148px 54px;
+    gap: 8px;
+}
+
+.drawdown-history-panel {
+    min-height: 0;
+}
+
+.drawdown-history-panel.fixed-history-height {
+    min-height: 520px;
+}
+
+.attribution-panel {
+    min-height: 520px;
+}
+
+.drawdown-history-row strong {
+    font-size: 12px;
+}
+
+.drawdown-history-row span {
+    color: #cbd7e1;
+    white-space: nowrap;
+}
+
+.drawdown-history-row small {
+    color: #718294;
+    font-size: 11px;
+    white-space: nowrap;
+}
+
 
 .recovery-summary {
     display: grid;
@@ -9241,6 +10020,10 @@ label small {
         grid-template-columns: 1fr;
     }
 
+    .ledger-drawdown-grid {
+        grid-template-columns: 1fr;
+    }
+
     .signal-grid {
         grid-template-columns: repeat(2, 1fr);
     }
@@ -9440,6 +10223,10 @@ label small {
     }
 
     .monthly-extreme-list {
+        grid-template-columns: 1fr;
+    }
+
+    .daily-extreme-columns {
         grid-template-columns: 1fr;
     }
 
@@ -9671,22 +10458,124 @@ label small {
         grid-column: 1 / -1;
     }
 
-    .attribution-summary,
-    .attribution-row {
+    .attribution-summary {
         grid-template-columns: 1fr;
     }
 
-    .attribution-copy {
-        display: flex;
-        justify-content: space-between;
-        align-items: baseline;
-        text-align: left;
-        gap: 10px;
+    .attribution-panel,
+    .drawdown-history-panel {
+        min-height: 0;
     }
 
-    .attribution-copy span {
-        margin-top: 0;
+    .attribution-waterfall {
+        height: 190px;
+    }
+
+    .attribution-help span {
+        left: 50%;
+        width: min(270px, calc(100vw - 72px));
+        transform: translate(-50%, 4px);
+    }
+
+    .attribution-help:hover span,
+    .attribution-help:focus-visible span,
+    .attribution-help span.visible {
+        transform: translate(-50%, 0);
+    }
+
+    .attribution-table-head {
+        display: none;
+    }
+
+    .attribution-row {
+        padding: 10px 0;
+        grid-template-areas:
+            'name contribution'
+            'profit weight';
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 7px 14px;
+    }
+
+    .attribution-row .attribution-name {
+        grid-area: name;
+        min-width: 0;
+    }
+
+    .attribution-row .attribution-copy:nth-child(2) {
+        grid-area: contribution;
+    }
+
+    .attribution-row .attribution-copy:nth-child(3) {
+        grid-area: profit;
+    }
+
+    .attribution-row .attribution-copy:nth-child(4) {
+        grid-area: weight;
+    }
+
+    .attribution-row .attribution-copy {
+        display: flex;
+        align-items: baseline;
+        justify-content: flex-end;
+        gap: 5px;
         text-align: right;
+        white-space: nowrap;
+    }
+
+    .attribution-row .attribution-copy::before {
+        color: #718294;
+        font-size: 11px;
+    }
+
+    .attribution-row .attribution-copy:nth-child(2)::before {
+        content: '收益';
+    }
+
+    .attribution-row .attribution-copy:nth-child(3)::before {
+        content: '盈亏';
+    }
+
+    .attribution-row .attribution-copy:nth-child(4)::before {
+        content: '权重';
+    }
+
+    .drawdown-history-row {
+        padding: 10px 0;
+        grid-template-areas:
+            'index date date'
+            '. status drawdown';
+        grid-template-columns: 22px minmax(0, 1fr) auto;
+        gap: 6px 8px;
+    }
+
+    .drawdown-history-row em {
+        grid-area: index;
+    }
+
+    .drawdown-history-row span {
+        grid-area: date;
+        white-space: normal;
+    }
+
+    .drawdown-history-row small {
+        grid-area: status;
+    }
+
+    .drawdown-history-row strong {
+        grid-area: drawdown;
+        justify-self: end;
+    }
+
+    .drawdown-attribution-summary {
+        grid-template-columns: 1fr 1fr;
+    }
+
+    .drawdown-attribution-summary em {
+        grid-column: 1 / -1;
+    }
+
+    .drawdown-attribution-row {
+        gap: 7px;
     }
 
     .cash-flow-head {

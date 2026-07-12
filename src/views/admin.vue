@@ -299,7 +299,11 @@
               </div>
               <div class="form-group">
                 <label for="days-input">调整天数（正数增加，负数扣减）</label>
-                <input id="days-input" v-model.number="daysToAdd" type="number" class="form-input" placeholder="例如：30 或 -7" />
+                <input id="days-input" v-model.number="daysToAdd" type="number" min="-3650" max="3650" step="1" class="form-input" placeholder="例如：30 或 -7" />
+              </div>
+              <div class="form-group">
+                <label for="renewal-reason">调整原因</label>
+                <textarea id="renewal-reason" v-model="adjustmentReason" class="form-input" maxlength="200" placeholder="请填写本次会员期限调整原因"></textarea>
               </div>
               <div v-if="newExpiryDate" class="form-group">
                 <label>调整后到期时间</label>
@@ -309,7 +313,7 @@
           </div>
           <div class="modal-footer">
             <button class="button-secondary" @click="closeModal">取消</button>
-            <button class="button-primary" :disabled="!daysToAdd || daysToAdd === 0" @click="confirmRenewal">
+            <button class="button-primary" :disabled="!daysToAdd || daysToAdd === 0 || !adjustmentReason.trim()" @click="confirmRenewal">
               确认调整
             </button>
           </div>
@@ -663,6 +667,7 @@
   const isModalVisible = ref(false)
   const selectedUser = ref<User | null>(null)
   const daysToAdd = ref<number | null>(null)
+  const adjustmentReason = ref('')
 
   const openRenewalModal = (user: User) => {
       selectedUser.value = user
@@ -673,6 +678,7 @@
       isModalVisible.value = false
       selectedUser.value = null
       daysToAdd.value = null
+      adjustmentReason.value = ''
   }
 
   const newExpiryDate = computed(() => {
@@ -686,14 +692,15 @@
   })
 
   const confirmRenewal = () => {
-      if (!selectedUser.value || !daysToAdd.value) return
+      if (!selectedUser.value || !daysToAdd.value || !adjustmentReason.value.trim()) return
 
       callCloudFunction({
           name: 'renewMembership',
           parse: true,
           data: {
               userId: selectedUser.value.id,
-              daysToAdd: daysToAdd.value
+              daysToAdd: daysToAdd.value,
+              reason: adjustmentReason.value.trim()
           }
       })
           .then((res: any) => {
@@ -826,8 +833,8 @@
       isCheckingCookie.value = true
       try {
           const response: any = await callCloudFunction({
-              name: 'checkCookieStatus',
-              data: {}
+              name: 'strategyTaskGateway',
+              data: { action: 'checkMicroCapCookie' }
           })
           const result = response.result || {}
           const message = result.message || result.msg || result.data?.message
@@ -879,8 +886,8 @@
       isCheckingJisiluCookie.value = true
       try {
           const response: any = await callCloudFunction({
-              name: 'getBondMarketData',
-              data: { forceRefresh: true }
+              name: 'strategyTaskGateway',
+              data: { action: 'refreshBondMarket' }
           })
           const result = response.result || {}
           lastJisiluCookieCheck.value = formatDateObject(new Date())
@@ -899,10 +906,10 @@
       refreshingKey.value = key
       try {
           const callMap: Record<RefreshTaskKey, { name: string; data?: Record<string, any> }> = {
-              lof: { name: 'getLofData', data: { forceRefresh: true } },
-              rights: { name: 'getRightsStrategyData', data: { forceRefresh: true } },
-              micro_cap: { name: 'microCapStrategy10' },
-              bond_market: { name: 'getBondMarketData', data: { forceRefresh: true } }
+              lof: { name: 'strategyTaskGateway', data: { action: 'refreshLof' } },
+              rights: { name: 'strategyTaskGateway', data: { action: 'refreshRightsStrategy' } },
+              micro_cap: { name: 'strategyTaskGateway', data: { action: 'refreshMicroCap' } },
+              bond_market: { name: 'strategyTaskGateway', data: { action: 'refreshBondMarket' } }
           }
           const task = callMap[key]
           const response: any = await callCloudFunction({

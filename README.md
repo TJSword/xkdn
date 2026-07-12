@@ -1,369 +1,332 @@
-# 标准工程说明文档
+# 何以有数
 
-## 目录
+何以有数是一个基于 Vue 3、TypeScript 和腾讯云开发（CloudBase）的金融数据可视化应用。项目提供市场观察、投资策略跟踪、组合分析、投资账本、通知订阅和后台管理等能力。
 
--   [工程简介](#工程简介)
--   [代码获取](#代码获取)
--   [技术栈](#技术栈)
--   [环境准备](#环境准备)
--   [本地运行](#本地运行)
--   [目录说明](#目录说明)
--   [Echarts](#Echarts)
--   [API请求](#API请求)
--   [环境变量](#环境变量)
-    -   [.env.development](#envdevelopment)
-    -   [.env.produciton](#envproduciton)
-    -   [使用环境变量](#使用环境变量)
--   [发布打包](#发布打包)
--   [vscode配置](#vscode配置)
-    -   [ESLint - 脚本代码检查](#ESLint---脚本代码检查)
-    -   [Prettier - 代码格式化](#Prettier---代码格式化)
-    -   [Stylelint - css 格式化](#Stylelint---css-格式化)
-    -   [KoroFileHeader - 文件头部注释和函数注释的插件](#KoroFileHeader---文件头部注释和函数注释的插件)
--   [浏览器支持](#浏览器支持)
+> 本项目展示的行情、策略和统计结果仅用于数据研究与工具演示，不构成投资建议。第三方行情可能存在延迟、缺失或口径差异，生产使用前应核对数据来源和更新时间。
 
-## 工程简介
+## 主要功能
 
-`Digital-Twin-System-Framework`(non-Twinning分支上)是一套用于非孪生项目标准的开发工程模板，使用了最新的 `Vue3`、`Vite`、`Element-Plus`、`TypeScript` 、`Echarts5`等主流技术开发，也集成了`Eslint`、`Prettier`、`Stylelint`进行规范编码，保证代码质量。
+### 市场与策略
 
-## 代码获取
+- 首页看板：市场数据、策略盘中快照和策略观察汇总。
+- 全天候策略：多资产配置、净值、回撤、月度收益和资产权重。
+- 可转债策略：策略净值、持仓轮动、收益和风险指标。
+- 转债全景：价格分层、市场广度、估值位置和成交热度。
+- 微盘股策略：策略历史、最近状态、持仓和调仓辅助。
+- 动量策略：资产轮动、阶段收益和最近策略状态。
+- 含权策略：正股配债相关策略、候选标的和调仓记录。
+- LOF 溢价监控：折溢价、成交额、申购状态和通知条件。
 
-从`GitLab`获取代码
+### 组合与个人工具
 
-```c#
-# clone 代码
-git clone http://192.168.101.13/fr2/digital-twin-system-framework.git
-```
+- 组合实验室：多策略权重组合、收益、波动、回撤、相关性和蒙特卡洛分析。
+- 投资账本：账户、策略、资金流和期末金额记录，以及组合分析和导出。
+- 投资工具：组合再平衡、复利和 FIRE 资产消耗模拟；独立的定投计算器目前仍为“敬请期待”。
+- 财富版图：基于 Mapbox 的资产目标与进度可视化。
+- 通知设置：支持 Bark 和企业微信渠道以及策略订阅。
+
+### 账户与管理
+
+- CloudBase 手机号密码登录、短信验证码找回密码；注册代码仍保留，但当前界面暂停新用户注册。
+- 登录态同步、过期处理和 capability 路由权限。
+- 会员状态、支付状态查询和用户持仓同步。
+- 管理中心：会员管理、通知配置、数据源 Cookie 和策略任务刷新。
+
+## 页面与权限
+
+项目使用 Hash 路由。除登录、权限异常和 404 页面外，业务页面均要求登录。
+
+| 路径 | 页面 | capability |
+| --- | --- | --- |
+| `/home` | 首页 | `app:read` |
+| `/all-weather` | 全天候策略 | `app:read` |
+| `/bonds` | 可转债策略 | `app:read` |
+| `/bond-market` | 转债全景 | `app:read` |
+| `/micro-cap` | 微盘股策略 | `app:read` |
+| `/momentum` | 动量策略 | `app:read` |
+| `/rights-strategy` | 含权策略 | `app:read` |
+| `/lof` | LOF 溢价监控 | `app:read` |
+| `/portfolio-analysis` | 组合实验室 | `app:read` |
+| `/investment-ledger` | 投资账本 | `app:read` |
+| `/tools` | 投资工具 | `app:read` |
+| `/wealth-map` | 财富版图 | `app:read` |
+| `/about` | 关于本站 | `app:read` |
+| `/admin` | 管理中心 | `admin:manage` |
+
+路由 capability 只负责前端导航和展示。云函数必须重新验证登录态、管理员身份、会员权益和资源归属，不能把前端路由守卫当作服务端权限边界。
 
 ## 技术栈
 
--   [Vue](https://cn.vuejs.org/ "Vue")：渐进式的JavsScript框架。
--   [Vue-Router](https://router.vuejs.org/zh/guide/ "Vue-Router")：为 Vue.js 提供富有表现力、可配置的、方便的路由。
--   [TypeScript](https://www.tslang.cn/index.html "TypeScript")：JavaScript 语言的超集。
--   [Element-Plus](https://element-plus.gitee.io/zh-CN/ "Element-Plus")：Element UI 的 Vue3 版本。
--   [Vite](https://vitejs.cn/ "Vite")：前端开发与构建工具，极速的服务启动。
--   [Axios](https://www.kancloud.cn/yunye/axios/234845/ "Axios")：基于 promise 的 HTTP 库，可以用在浏览器和 node.js 中。
--   [Echarts](https://echarts.apache.org/zh/index.html "Echarts")：基于 JavaScript 的开源可视化图表库。
+- Vue 3 + Composition API + `<script setup>`
+- TypeScript
+- Vite 5
+- Vue Router（Hash 模式）
+- Pinia
+- Element Plus
+- ECharts / vue-echarts
+- Mapbox GL
+- Axios
+- 腾讯云开发 Web SDK 和 Node SDK
+- CloudBase 云函数、云数据库、身份认证和静态托管
 
-## 环境准备
+## 系统架构
 
--   [Node.js](https://nodejs.org/en "Node.js") >15.x
--   [Chrome](https://www.google.cn/chrome/browser/desktop/ "Chrome")或[Edge](https://www.microsoft.com/zh-cn/edge?form=MA13FJ "Edge")
--   [Vscode编辑器](https://code.visualstudio.com/ "Vscode编辑器")
+```mermaid
+flowchart LR
+    Browser["Vue 前端"] --> Auth["CloudBase Auth"]
+    Browser --> API["客户端可调用云函数"]
+    Browser --> Gateway["strategyTaskGateway"]
+    Gateway --> Jobs["内部策略任务"]
+    Timer["CloudBase 定时触发器"] --> Jobs
+    API --> DB[("CloudBase 数据库")]
+    Jobs --> DB
+    Jobs --> Sources["第三方行情与数据源"]
+    Jobs --> Notify["通知服务"]
+```
 
-## 本地运行
+前端通过 `src/services/cloudFunction.ts` 统一处理云函数调用和登录过期。策略读取与管理员刷新逐步通过 `strategyTaskGateway` 收口，定时任务和内部写函数由 `cloudbaserc.json` 配置触发。
 
-```javascript
+## 仓库边界
+
+当前 Git 仓库主要跟踪前端、根构建配置和 `cloudbaserc.json`，`.gitignore` 会排除整个 `functions/` 和 `.codex-cloud-functions/`：
+
+- 全新 clone 不包含云函数源码，也无法只依靠 `cloudbaserc.json` 部署后端。
+- 需要后端开发、测试或部署时，应从团队授权的独立交付渠道取得与当前环境匹配的 `functions/`。
+- `.codex-cloud-functions/` 是本地旧副本，不是源码或部署配置的权威来源。
+- 云函数源码可能接触敏感配置，但忽略目录不能替代 Secret 管理和正式版本控制。
+
+## 环境要求
+
+- Windows 10/11、macOS 或 Linux
+- Node.js 20 或更高版本
+  - 本地前端已可在 Node.js 24 环境构建。
+  - 云函数实际 runtime 以 `cloudbaserc.json` 为准。
+- npm
+- Chrome、Edge、Firefox 或 Safari 的现代版本
+- 需要部署或维护云资源时，准备 CloudBase 环境和 CLI 登录权限
+
+## 本地开发
+
+```bash
 # 安装依赖
 npm install
 
-# 运行项目
+# 启动开发服务器，默认端口 5173
 npm run dev
 
-# eslint检查
+# 生产构建
+npm run build
+```
+
+开发服务器监听 `0.0.0.0:5173`。路由使用 Hash 模式，因此本地和静态托管通常不需要额外的 History fallback 配置。
+
+### 代码质量命令
+
+```bash
+# ESLint：当前脚本会直接修复文件
 npm run lint
 
-# stylelint检查
+# Stylelint：当前脚本会直接修复文件
 npm run lint:style
 
-# 代码格式化
+# Prettier：当前脚本会重写匹配文件
 npm run format
 
+# 删除依赖、重新安装并启动 Vite
+npm run reset
 ```
 
-## 目录说明
+运行这些命令前请先检查工作树。当前 `lint`、`lint:style` 和 `format` 都不是只读检查命令。
 
-```c
-├─ build  
-│  ├─ build.ts # 打包命令
-│  ├─ createProxy.ts # 自动化创建代理
-│  └─ index.ts # 打包配置
-├─ public
-├─ src
-│  ├─ api # 接口服务
-│  ├─ assets # 静态图片、Iconfont
-│  ├─ components # 全局公共组件（该文件夹下组件会被自动注册到全局，在使用时无需二次引入。）
-│  ├─ hooks # 钩子函数（hooks下文件命名，统一用use开头。）
-│  │  └─ useConfig.ts # 获取当前环境变量
-│  ├─ env.d.ts # 项目环境ts声明文件
-│  ├─ App.vue # 项目视图入口
-│  ├─ main.ts # 页面程序入口
-│  ├─ plugins # 第三方插件
-│  ├─ router # 路由配置
-│  ├─ style # 全局Css\主题配置
-│  ├─ utils
-│  │  └─ http.ts # Axios请求封装
-│  └─ views # 页面集合
-├─ types
-│  ├─ auto-import.d.ts # 自动导入elementPlus组件、Vue3API
-│  ├─ components.d.ts # 自动导入全局组件
-│  └─ global.d.ts # 全局ts类型声明
-├─ .env.development # 开发环境变量
-├─ .env.production # 生产环境变量
-├─ .eslintignore # eslint忽略配置
-├─ .eslintrc-auto-import.json # eslint自动导入配置
-├─ .eslintrc.js  # eslint校验规则
-├─ .gitignore # git忽略项
-├─ .prettierignore # prettier格式化忽略配置
-├─ .prettierrc.js # prettier格式化配置
-├─ .stylelintignore # stylelint格式化忽略配置
-├─ .stylelintrc.js  # stylelint格式化配置
-├─ index.html # 渲染索引页
-├─ package-lock.json  # 锁定依赖包小版本
-├─ package.json # 项目依赖配置及启动脚本配置
-├─ README.md # 项目说明文档
-├─ tsconfig.json # 全局ts声明解析配置
-└─ vite.config.ts # 配置运行服务或打包部署
+## 测试
+
+项目目前使用 Node.js 内置的 `node:test` 测试后端纯逻辑和关键权限响应。以下命令仅适用于已经取得本地 `functions/` 源码的工作区。
+
+```bash
+node --test functions/strategy-response.test.js functions/getBondMarketData/bond-market-core.test.js functions/getHomeDashboardData/strategyObservation.test.js functions/renewMembership/index.test.js
 ```
 
-## Echarts
+根目录暂时没有 `npm test` 和可通过的 TypeScript 门禁。`npm run build` 成功只代表 Vite 可以产出前端文件，不代表完整类型检查已经通过。
 
-`plugins`下的`echarts/index.ts` 是对`echarts`内部的组件进行按需引入。
+## 环境配置
 
-组件引入文档[https://github.com/apache/echarts/blob/master/src/echarts.all.ts](https://github.com/apache/echarts/blob/master/src/echarts.all.ts "https://github.com/apache/echarts/blob/master/src/echarts.all.ts")
+### 前端环境变量
 
-vue-echarts文档[https://www.npmjs.com/package/vue-echarts](https://www.npmjs.com/package/vue-echarts "https://www.npmjs.com/package/vue-echarts")
+前端环境文件：
 
-```javascript
-// 如有特殊的echarts图表需要开发，请在这边进行引入。
-import {
-  LineChart,
-  BarChart,
-  PieChart,
-  ScatterChart,
-  RadarChart,
-  LinesChart,
-  MapChart,
-  GaugeChart,
-  CustomChart,
-  PictorialBarChart,
-  SankeyChart,
-  EffectScatterChart
-} from 'echarts/charts'
+- `.env.development`：本地开发代理和公共路径。
+- `.env.production`：生产 API 地址、公共路径、console 删除和运行时导出项。
 
-...to do something ...
+主要变量：
+
+```dotenv
+VITE_PUBLIC_PATH=/
+VITE_DROP_CONSOLE=true
+VITE_API_BASE_URL_1=/api
+VITE_API_PROXY_URL_1=http://example.internal
+VITE_MAPBOX_ACCESS_TOKEN=your-public-mapbox-token
+VITE_ATTRS_EXPORT=["VITE_API_BASE_URL_1"]
 ```
 
-```javascript
-// 使用方式
-<template>
-  <div class="radar-chart">
-    <v-chart :option="option" :autoresize="true"></v-chart>
-  </div>
-</template>
-<script setup>
-  const option = {}
-</script>
+所有 `VITE_*` 变量都可能进入浏览器或构建产物，不能用于保存私钥、Cookie、密码或 API Secret。
+
+`npm run build` 会根据 `VITE_ATTRS_EXPORT` 生成 `dist/_app.config.js`。当前 Vite 配置没有自动把该脚本插入 `index.html`；如果生产代码依赖 `window.__PRODUCTION__SERVICE__CONFIG`，托管层或 HTML 必须明确加载 `/_app.config.js`。
+
+### CloudBase 环境
+
+新环境至少需要同步以下位置：
+
+- `src/lib/cloudbase.ts`：前端 CloudBase 环境初始化。
+- `cloudbaserc.json`：云函数环境、runtime、内存、超时和触发器。
+- `deploy-frontend.bat`：当前前端部署目标环境。
+
+部分云函数支持以下环境变量：
+
+| 变量 | 用途 |
+| --- | --- |
+| `LOF_COLLECTION` | LOF 快照集合名 |
+| `LOF_CLOSED_DATES` | LOF 额外休市日期 |
+| `JISILU_COOKIE` | 集思录服务端 Cookie |
+| `ENABLE_EASTMONEY` | 是否启用东方财富数据源 |
+| `REFRESH_MS` | LOF 缓存刷新间隔 |
+| `FUND_POOL_REFRESH_MS` | LOF 基金池刷新间隔 |
+| `XUEQIU_COOKIE_API_KEY` | 雪球 Cookie HTTP 接口鉴权 |
+| `RIGHTS_STRATEGY_COLLECTION` | 含权策略快照集合名 |
+| `BOND_MARKET_HISTORY_COLLECTION` | 转债历史集合名 |
+| `BOND_MARKET_INTRADAY_COLLECTION` | 转债盘中快照集合名 |
+| `BOND_MARKET_CLOSED_DATES` | 转债额外休市日期 |
+
+敏感变量应配置在 CloudBase Secret 或云函数环境变量中，不应提交到 Git，也不应使用 `VITE_*` 前缀。
+
+## CloudBase 云函数
+
+取得后端源码后，`functions/` 中每个云函数拥有独立的 `package.json`。根 `cloudbaserc.json` 是已声明函数和定时触发器的部署配置来源；不要与函数目录中的旧 `config.json` 混合作为发布依据。
+
+主要分类：
+
+- 用户与权限：`loginOrRegister`、`getUsers`、`updateAdminUser`、`renewMembership`。
+- 策略任务网关：`strategyTaskGateway`。
+- 策略读取：`get*StrategyData`、`get*RealtimeInfo`、`getHomeDashboardData`。
+- 策略刷新：`update*StrategyRealtime`、`getBondMarketData`、`getLofData`、`getRightsStrategyData`。
+- 投资账本：`investmentLedger`。
+- 通知：`notification`、`notificationSettings`。
+- 数据源配置：`xueqiuCookieConfig`、`jisiluCookieConfig`、`getXueqiuCookie`。
+- 支付与会员：`createAlipayOrder`、`checkAlipayStatus`、`renewMembership`。
+
+详细接口说明可继续阅读：
+
+- `functions/investmentLedger/README.md`
+- `functions/getXueqiuCookie/README.md`
+- 各函数目录内的 `Readme.md` 或 `README.md`
+
+### 函数访问规则
+
+- 浏览器只应调用明确公开的业务入口。
+- 定时刷新、内部写入和通知群发函数应在 CloudBase 函数安全规则中禁止客户端直接调用。
+- 管理员函数仍需在函数内部查询当前用户并验证 `admin === true`。
+- 会员数据仍需在函数内部验证有效期和数据字段权限。
+- 不要使用客户端可提交的 `internalCall`、`type` 或 `TriggerName` 作为权限依据。
+
+### 当前部署边界
+
+当前本地函数树中，以下前端依赖函数未进入 `cloudbaserc.json`：
+
+```text
+checkAlipayStatus
+createAlipayOrder
+getBondPortfolio
+getMicroCapData10
+getPortfolioAnalysisData
+updateUserHoldings
 ```
 
-## API请求
+这些函数不会自动随基于根配置的批量流程部署。发布前必须核对函数目录、根配置、CloudBase 安全规则、数据库索引和线上函数版本。
 
-`utils` 下的`http.ts` 对axios进行了二次封装，其中包含了错误捕获，防止重复请求，全局loading等配置，提供了常用get、post、put、delete四种请求方式，也支持使用者自定义配置请求。
+## 数据与维护脚本
 
-```javascript
-// http.ts
-export const request = {
-  get: (requestConfig: AxiosRequestConfig, customOptions?: Option) => {
-    return new Promise(resolve => {
-      const config = {
-        method: 'get',
-        baseURL: VITE_API_BASE_URL,
-        paramsSerializer: function (params: CustomParamsSerializer) {
-          return Qs.stringify(params)
-        },
-        ...requestConfig
-      }
-      createAxios(config, { ...customOptions }).then(res => resolve(res))
-    })
-  },
-  post: (requestConfig: AxiosRequestConfig, customOptions?: Option) => {
-       ... to do something...
-  },
-  put: (requestConfig: AxiosRequestConfig, customOptions?: Option) => {
-       ... to do something...
-  },
-  delete: (requestConfig: AxiosRequestConfig, customOptions?: Option) => {
-       ... to do something...
-  }
-}
+- `data/`：本地研究、回测、种子和生成数据，已从 Git 忽略，不会由 Vite 自动发布。
+- `public/static/`：真正需要公开访问的静态资源，例如地图和通知配置指引。
+- `scripts/`：策略数据构建、查询、补丁和 CloudBase 数据初始化脚本。
 
---------------------------------------- 使用方式 ----------------------------------------
-// 对应模块的API接口统一存放到 api目录下
-// 示例: 第一步创建 api/demo1.ts 导入 request 方法和 baseURL 地址
-import { request } from '@/utils/http'
-import { getGlobalConfig } from '@/hooks/useConfig'
+受权限保护的策略原始数据不得放入 `public/`，否则会被 Vite 原样复制到 `dist/` 并公开访问。
 
-// 按需解构baseURL地址
-const { VITE_API_BASE_URL } = getGlobalConfig()
+维护脚本可能直接读写目标 CloudBase 环境，而且部分脚本会临时下载最新 CloudBase CLI。执行前必须检查脚本中的环境 ID、输入文件和操作类型，生产环境操作应先备份并完成 dry run。
 
-// 导出对应模块的请求接口
-export function getMonthRank(params = {}) {
-  return request.get({
-    url: '/rank',
-    params: params,
-    baseURL: VITE_API_BASE_URL
-  })
-}
+## 前端构建与部署
 
-// 示例: 第二步在对应组件中使用
-<script setup lang="ts">
- import { getMonthRank } from '@/api/demo1.ts'
- getMonthRank().then(res => { ... to do something... })
-</script>
+```bash
+npm run build
 ```
 
-## 环境变量
+构建结果位于 `dist/`。Windows 环境可以使用：
 
-### .env.development
-
-```lisp
-# 本地环境
-NODE_ENV = "development"
-
-# 开发环境下 配置了代理
-VITE_API_BASE_URL_1 = "/api"
-
-# 开发环境下 代理的ttp请求URL
-VITE_API_PROXY_URL_1 = "http://192.168.1.1:8000"
-
-# 如需添加多个代理地址，必须以'VITE_API_BASE_URL_'为开头
-VITE_API_BASE_URL_2 = "/dig"
-
-# 代理的地址必须以'VITE_API_PROXY_URL_'为开头，末位序号必须与代理地址的末位序号相同
-VITE_API_PROXY_URL_2 = "http://192.168.1.1:8001"
-
-# 本地环境部署路径
-VITE_PUBLIC_PATH = /
-
-
+```bat
+deploy-frontend.bat
 ```
 
-### .env.produciton
+该脚本会重新构建并将 `dist/` 直接部署到配置的 CloudBase 静态托管环境。它当前面向人工执行，包含交互式暂停，不适合作为无人值守 CI。
 
-```lisp
- # 生产环境
-NODE_ENV = "production"
+云函数应按 `cloudbaserc.json` 和团队的 CloudBase 发布流程单独部署。前端托管部署不会自动更新云函数。
 
-# BaseUrl
-VITE_API_BASE_URL_1 = "http://192.168.1.2:8000"
+## 目录结构
 
-VITE_API_BASE_URL_2 = "http://192.168.1.2:8001"
-
-# 本地环境部署路径
-VITE_PUBLIC_PATH = /
-
-# 是否删除生产环境 console
-VITE_DROP_CONSOLE = true
-
-# 构建时需要导出到_app.config.js属性[注意: 属性名用双引号括起来]
-VITE_ATTRS_EXPORT = ["VITE_API_BASE_URL_1","VITE_API_BASE_URL_2"]
-
+```text
+.
+├─ build/                    # Vite 代理和构建后运行时配置生成
+├─ data/                     # 本地研究/种子数据，不进入前端构建
+├─ functions/                # 本地 CloudBase 云函数源码，当前不由此 Git 仓库跟踪
+├─ public/                   # 公开静态资源
+├─ scripts/                  # 数据构建、查询、补丁和初始化脚本
+├─ src/
+│  ├─ assets/                # 图片等编译期资源
+│  ├─ components/            # 通用组件和加载组件
+│  ├─ composables/           # 月度收益、消息等组合式逻辑
+│  ├─ hooks/                 # 环境配置 Hook
+│  ├─ lib/                   # CloudBase SDK 初始化
+│  ├─ router/                # 路由、SEO 和 capability 守卫
+│  ├─ services/              # 云函数、认证和账本服务层
+│  ├─ store/                 # Pinia 用户状态
+│  ├─ style/                 # 全局样式
+│  ├─ utils/                 # 指标、SEO 和旧 HTTP 工具
+│  └─ views/                 # 业务页面
+├─ types/                    # 自动导入和全局类型声明
+├─ cloudbaserc.json          # CloudBase 函数与触发器配置
+├─ vite.config.mts           # Vite 配置
+├─ tsconfig.json             # TypeScript 配置
+└─ package.json              # 前端依赖和脚本
 ```
 
-### 使用环境变量
+## 开发约定
 
-`hooks`下的`useConfig.ts`可按需导出对应的环境变量，需注意在`production`模式下，如果需要从`window.__PRODUCTION__SERVICE__CONFIG`下解构多个属性，需要配置`.env.production` 中的`VITE_ATTRS_EXPORT` 。
+### 新增页面
 
-```javascript
-// useConfig.ts
-export function getGlobalConfig() {
-  const ENV = (
-    import.meta.env.DEV ? (import.meta.env as any) : window.__PRODUCTION__SERVICE__CONFIG
-  ) as any
+1. 在 `src/views/` 创建页面。
+2. 在 `src/router/index.ts` 使用动态导入注册路由。
+3. 设置 `requiresAuth`、`capability`、`title` 和 `description`。
+4. 通过领域 service 或 `callCloudFunction()` 获取数据。
+5. 页面卸载时清理事件监听、定时器和 ECharts/Mapbox 实例。
 
-  const { VITE_API_BASE_URL } = ENV
-  return {
-    VITE_API_BASE_URL
-  }
-}
+### 新增云函数
 
-```
+1. 在 `functions/<function-name>/` 创建 `index.js` 和独立 `package.json`。
+2. 在服务端验证用户身份、权限、输入边界和资源归属。
+3. 如需声明式部署或定时触发，将函数加入 `cloudbaserc.json`。
+4. 为纯计算、鉴权和幂等流程补充 `node:test`。
+5. 不记录或返回 Cookie、私钥、完整第三方错误和不必要的用户字段。
 
-## 发布打包
+## 当前已知工程约束
 
-```javascript
-# 项目打包
-npm run build 
-```
-
-完成打包后，会在`dist`目录下生成一个名为`_app.config.js`的文件。该文件用于配置生产环境的相关变量，并会被引入到`index.html`中。通过这种方式，能解决一套前端代码部署到多个不同平台的需求。
-
-## vscode配置
-
-如果您使用的 IDE 是[vscode](https://code.visualstudio.com/ "vscode")(推荐)的话，可以安装以下工具来提高开发效率及代码格式化。
-
-#### [ESLint](https://marketplace.visualstudio.com/items?itemName=dbaeumer.vscode-eslint "ESLint") - 脚本代码检查
-
-```javascript
-{
-    "editor.codeActionsOnSave": {
-        "source.fixAll": false,
-        // 开启eslint自动修复
-        "source.fixAll.eslint": true
-    }
-}
-```
-
-#### [Prettier](https://marketplace.visualstudio.com/items?itemName=esbenp.prettier-vscode "Prettier") - 代码格式化
-
-```javascript
-{
-    // 保存的时候自动格式化
-    "editor.formatOnSave": true,
-    // 默认格式化工具选择prettier
-    "editor.defaultFormatter": "esbenp.prettier-vscode",
-    // 粘贴时自动格式化
-    "editor.formatOnPaste": false
-}
-```
-
-#### [Stylelint](https://marketplace.visualstudio.com/items?itemName=stylelint.vscode-stylelint "Stylelint") - css 格式化
-
-```javascript
-{
-  // 自动检验修复css
-  "editor.codeActionsOnSave": {
-    "source.fixAll": false,
-    // 开启stylelint修复
-    "source.fixAll.stylelint": true
-  },
-    "stylelint.validate": ["css", "scss", "vue", "html"]
-}
-```
-
-#### [KoroFileHeader](https://marketplace.visualstudio.com/items?itemName=OBKoro1.korofileheader "KoroFileHeader") - 文件头部注释和函数注释的插件
-
-```javascript
-  "fileheader.customMade": {
-    "Author": "BoLin", // 改成自己的名字
-    "Date": "Do not edit",
-    "LastEditors": "git config user.name",
-    "LastEditTime": "Do not edit",
-    "Description": "file content",
-    "FilePath": "Do not edit"
-  },
-  "fileheader.cursorMode": {
-    "description": "",
-    "param": "params",
-    "return": ""
-  },
-  "fileheader.configObj": {
-    "autoAdd": true,
-    "autoAlready": true,
-    "dateFormat": "YYYY-MM-DD",
-    "prohibitAutoAdd": ["json", "md"],
-    "wideSame": false,
-    "wideNum": 13
-  },
-  //
-```
+- 根项目尚未提供只读 lint、`npm test` 和可通过的 TypeScript 检查脚本。
+- `npm run build` 使用 Windows 风格的环境变量设置，跨平台 CI 需要调整。
+- `dist/_app.config.js` 会生成，但当前不会自动注入 HTML。
+- `functions/` 和 `.codex-cloud-functions/` 被 Git 忽略，后端需要单独的安全版本控制和交付流程。
+- 本地 `functions/` 目录和 `cloudbaserc.json` 声明的函数集合并不完全一致。
+- 部分函数目录的旧 `config.json` 与根定时器配置存在漂移，发布时应以根配置和线上核对结果为准。
+- 前端仍有若干较大的单文件组件，后续拆分应优先抽纯函数和生命周期逻辑，避免一次性重写业务。
 
 ## 浏览器支持
 
-**本地开发**推荐使用`Chrome 最新版`浏览器，**不支持**`Chrome 80`以下版本。
-
-**生产环境**支持现代浏览器，不支持 IE。
-
-| ie          | Edge            | Firefox         | Chrome          | Safari          |
-| ----------- | --------------- | --------------- | --------------- | --------------- |
-| not support | last 2 versions | last 2 versions | last 2 versions | last 2 versions |
+- 推荐使用最新版 Chrome 或 Edge。
+- Firefox、Safari 等现代浏览器可用于普通页面，但仓库暂未配置自动化兼容性矩阵。
+- 财富版图依赖 WebGL 和有效的 Mapbox Access Token。
+- 不支持 Internet Explorer。

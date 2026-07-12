@@ -332,6 +332,13 @@
   import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
   import { callCloudFunction } from '@/services/cloudFunction'
   import { useUserStore } from '@/store/user'
+  import { use } from 'echarts/core'
+  import { CanvasRenderer } from 'echarts/renderers'
+  import { BarChart, HeatmapChart, LineChart, ScatterChart } from 'echarts/charts'
+  import { GridComponent, LegendComponent, TooltipComponent, VisualMapComponent } from 'echarts/components'
+  import VChart from 'vue-echarts'
+
+  use([CanvasRenderer, BarChart, HeatmapChart, LineChart, ScatterChart, GridComponent, LegendComponent, TooltipComponent, VisualMapComponent])
 
   type HistoryPoint = {
       date: string
@@ -944,8 +951,8 @@
       isLoadingRealtime.value = true
       try {
           const response: any = await callCloudFunction({
-              name: 'getBondMarketData',
-              data: forceRefresh ? { forceRefresh: true } : {}
+              name: 'strategyTaskGateway',
+              data: { action: forceRefresh ? 'refreshBondMarket' : 'readBondMarket' }
           })
           const result = response.result || {}
           const data = result.data || {}

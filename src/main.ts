@@ -13,7 +13,6 @@ import APP from './App.vue'
 import './style/common.scss'
 import router from './router'
 import { install } from '@/components/loading'
-import { initEcharts } from '@/plugins/echarts'
 import 'element-plus/theme-chalk/el-message.css'
 import { createPinia } from 'pinia'
 import { useUserStore } from '@/store/user'
@@ -21,10 +20,8 @@ import {
   initializeAuthSession,
   subscribeAuthSession
 } from '@/services/authSession'
-import 'mapbox-gl/dist/mapbox-gl.css';
 const bootstrap = async (app: App) => {
   install(app)
-  initEcharts(app)
   const pinia = createPinia()
   app.use(pinia)
   const userStore = useUserStore(pinia)

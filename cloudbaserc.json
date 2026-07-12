@@ -9,7 +9,7 @@
       "handler": "index.main",
       "timeout": 10,
       "memorySize": 256,
-      "description": "获取动量策略中-etf的实时数据",
+      "description": "动量策略 ETF 实时数据查询与交易时段定时刷新",
       "triggers": [
         {
           "name": "momentumEtfMorning0930",
@@ -39,12 +39,20 @@
       ]
     },
     {
+      "name": "strategyTaskGateway",
+      "runtime": "Nodejs20.19",
+      "handler": "index.main",
+      "timeout": 30,
+      "memorySize": 256,
+      "description": "策略数据读取与管理员手动刷新的受鉴权网关（无定时器）"
+    },
+    {
       "name": "getMomentum",
       "runtime": "Nodejs18.15",
       "handler": "index.main",
       "timeout": 3,
       "memorySize": 256,
-      "description": "交易日下午2：50 自动获取动量数据",
+      "description": "动量策略收盘数据定时抓取与调仓通知触发",
       "triggers": [
         {
           "name": "myTrigger",
@@ -59,7 +67,7 @@
       "handler": "index.main",
       "timeout": 3,
       "memorySize": 256,
-      "description": "从数据中拿最新的动量数据"
+      "description": "动量策略最新结果查询（无定时刷新）"
     },
     {
       "name": "getMomentumStrategyData",
@@ -67,7 +75,7 @@
       "handler": "index.main",
       "timeout": 10,
       "memorySize": 256,
-      "description": "Momentum strategy backend series reader"
+      "description": "动量策略历史序列数据查询（无定时刷新）"
     },
     {
       "name": "getMomentumRealtimeInfo",
@@ -75,7 +83,7 @@
       "handler": "index.main",
       "timeout": 5,
       "memorySize": 256,
-      "description": "Momentum strategy latest intraday snapshot reader"
+      "description": "动量策略最新盘中快照查询（无定时刷新）"
     },
     {
       "name": "updateMomentumStrategyRealtime",
@@ -83,7 +91,7 @@
       "handler": "index.main",
       "timeout": 60,
       "memorySize": 512,
-      "description": "Momentum strategy intraday split-return and close updater",
+      "description": "动量策略盘中收益与收盘数据定时刷新",
       "triggers": [
         {
           "name": "refreshMomentumRealtimeWeekday0900",
@@ -133,7 +141,7 @@
       "handler": "index.main",
       "timeout": 10,
       "memorySize": 256,
-      "description": "Micro-cap strategy backend series reader"
+      "description": "微盘股策略历史序列数据查询（无定时刷新）"
     },
     {
       "name": "getMicroCapRealtimeInfo",
@@ -141,7 +149,7 @@
       "handler": "index.main",
       "timeout": 5,
       "memorySize": 256,
-      "description": "Micro-cap strategy latest intraday snapshot reader"
+      "description": "微盘股策略最新盘中快照查询（无定时刷新）"
     },
     {
       "name": "microCapStrategy10",
@@ -149,7 +157,14 @@
       "handler": "index.main",
       "timeout": 60,
       "memorySize": 512,
-      "description": "Micro-cap Top10 strategy manual refresher"
+      "description": "微盘股 Top10 策略工作日 09:30 定时检查并在当周首个交易日更新",
+      "triggers": [
+        {
+          "name": "refreshMicroCapStrategyWeekday0930",
+          "type": "timer",
+          "config": "0 30 9 * * MON-FRI *"
+        }
+      ]
     },
     {
       "name": "updateMicroCapStrategyRealtime",
@@ -157,7 +172,7 @@
       "handler": "index.main",
       "timeout": 60,
       "memorySize": 512,
-      "description": "Micro-cap strategy weekly 09:30 split-return and discipline-cash updater",
+      "description": "微盘股策略盘中收益与收盘数据定时刷新",
       "triggers": [
         {
           "name": "refreshMicroCapRealtimeWeekday0900",
@@ -197,7 +212,7 @@
       "handler": "index.main",
       "timeout": 30,
       "memorySize": 256,
-      "description": "All-weather intraday ETF snapshot refresher",
+      "description": "全天候策略 ETF 盘中快照定时刷新",
       "triggers": [
         {
           "name": "refreshAllWeatherWeekday0900",
@@ -237,7 +252,7 @@
       "handler": "index.main",
       "timeout": 5,
       "memorySize": 256,
-      "description": "All-weather latest intraday snapshot reader"
+      "description": "全天候策略最新盘中快照查询（无定时刷新）"
     },
     {
       "name": "getAllWeatherData",
@@ -245,7 +260,7 @@
       "handler": "index.main",
       "timeout": 15,
       "memorySize": 256,
-      "description": "All-weather backend strategy data reader and seeder"
+      "description": "全天候策略基础与历史数据查询、管理员初始化"
     },
     {
       "name": "notification",
@@ -253,7 +268,7 @@
       "handler": "index.main",
       "timeout": 60,
       "memorySize": 256,
-      "description": "根据用户订阅配置发送策略通知"
+      "description": "策略信号触发的订阅用户通知分发（无独立定时器）"
     },
     {
       "name": "notificationSettings",
@@ -261,7 +276,7 @@
       "handler": "index.main",
       "timeout": 10,
       "memorySize": 256,
-      "description": "读取和更新当前用户的策略通知配置"
+      "description": "当前用户策略通知订阅配置的查询与更新"
     },
     {
       "name": "migrateNotificationSettings",
@@ -269,7 +284,7 @@
       "handler": "index.main",
       "timeout": 60,
       "memorySize": 256,
-      "description": "管理员按手机号尾号迁移历史通知配置"
+      "description": "管理员迁移历史用户通知订阅配置（无定时刷新）"
     },
     {
       "name": "getUsers",
@@ -277,7 +292,7 @@
       "handler": "index.main",
       "timeout": 30,
       "memorySize": 256,
-      "description": "管理员分页查询用户及通知信息"
+      "description": "管理员分页查询用户与通知订阅信息（无定时刷新）"
     },
     {
       "name": "loginOrRegister",
@@ -285,7 +300,7 @@
       "handler": "index.main",
       "timeout": 10,
       "memorySize": 256,
-      "description": "同步用户信息并返回后端路由权限包"
+      "description": "用户登录后同步资料并返回路由权限信息"
     },
     {
       "name": "updateAdminUser",
@@ -293,7 +308,7 @@
       "handler": "index.main",
       "timeout": 10,
       "memorySize": 256,
-      "description": "管理员更新用户通知 ID 和备注"
+      "description": "管理员更新用户资料、通知标识与备注（无定时刷新）"
     },
     {
       "name": "xueqiuCookieConfig",
@@ -301,7 +316,7 @@
       "handler": "index.main",
       "timeout": 5,
       "memorySize": 256,
-      "description": "管理员读取和更新雪球 Cookie 配置"
+      "description": "管理员查询和更新雪球访问凭据配置（无定时刷新）"
     },
     {
       "name": "jisiluCookieConfig",
@@ -309,7 +324,7 @@
       "handler": "index.main",
       "timeout": 5,
       "memorySize": 256,
-      "description": "管理员读取和更新集思录 Cookie 配置"
+      "description": "管理员查询和更新集思录访问凭据配置（无定时刷新）"
     },
     {
       "name": "getBondMarketData",
@@ -317,7 +332,7 @@
       "handler": "index.main",
       "timeout": 30,
       "memorySize": 512,
-      "description": "集思录转债盘中快照与指数日历史存储",
+      "description": "转债市场快照查询、管理员刷新及交易日定时抓取",
       "triggers": [
         {
           "name": "refreshBondMarketIntradayWeekday0930To1050",
@@ -362,7 +377,7 @@
       "handler": "index.main",
       "timeout": 5,
       "memorySize": 256,
-      "description": "通过带 Bearer Key 的 HTTPS 请求读取雪球 Cookie"
+      "description": "使用服务密钥读取雪球访问凭据（内部调用）"
     },
     {
       "name": "getLofData",
@@ -370,7 +385,7 @@
       "handler": "index.main",
       "timeout": 60,
       "memorySize": 512,
-      "description": "LOF data snapshot reader and scheduled refresher",
+      "description": "LOF 数据快照查询、管理员刷新及交易日定时抓取",
       "triggers": [
         {
           "name": "refreshLofWeekday0930",
@@ -405,7 +420,7 @@
       "handler": "index.main",
       "timeout": 60,
       "memorySize": 512,
-      "description": "Convertible rights strategy daily snapshot and trading-day 14:40 refresher",
+      "description": "含权转债策略快照查询、管理员刷新及交易日定时更新",
       "triggers": [
         {
           "name": "refreshRightsStrategyWeekday1440",
@@ -420,7 +435,7 @@
       "handler": "index.main",
       "timeout": 10,
       "memorySize": 256,
-      "description": "Rights strategy backend series reader"
+      "description": "含权转债策略历史序列数据查询（无定时刷新）"
     },
     {
       "name": "getRightsRealtimeInfo",
@@ -428,7 +443,7 @@
       "handler": "index.main",
       "timeout": 5,
       "memorySize": 256,
-      "description": "Rights strategy latest intraday snapshot reader"
+      "description": "含权转债策略最新盘中快照查询（无定时刷新）"
     },
     {
       "name": "updateRightsStrategyRealtime",
@@ -436,7 +451,7 @@
       "handler": "index.main",
       "timeout": 60,
       "memorySize": 512,
-      "description": "Rights strategy intraday split-return and close updater",
+      "description": "含权转债策略盘中收益与收盘数据定时刷新",
       "triggers": [
         {
           "name": "refreshRightsRealtimeWeekday0900",
@@ -486,7 +501,7 @@
       "handler": "index.main",
       "timeout": 3,
       "memorySize": 256,
-      "description": "Daily Xueqiu cookie status precheck with Bark alert",
+      "description": "雪球访问凭据每日定时预检与异常通知",
       "triggers": [
         {
           "name": "myTrigger",
@@ -501,7 +516,7 @@
       "handler": "index.main",
       "timeout": 10,
       "memorySize": 256,
-      "description": "Bond strategy backend series reader"
+      "description": "债券策略历史序列数据查询（无定时刷新）"
     },
     {
       "name": "getBondRealtimeInfo",
@@ -509,7 +524,7 @@
       "handler": "index.main",
       "timeout": 5,
       "memorySize": 256,
-      "description": "Bond strategy latest intraday snapshot reader"
+      "description": "债券策略最新盘中快照查询（无定时刷新）"
     },
     {
       "name": "updateBondStrategyRealtime",
@@ -517,7 +532,7 @@
       "handler": "index.main",
       "timeout": 60,
       "memorySize": 512,
-      "description": "Bond strategy intraday split-return and close updater",
+      "description": "债券策略盘中收益与收盘数据定时刷新",
       "triggers": [
         {
           "name": "refreshBondStrategyWeekday0900",
@@ -567,7 +582,7 @@
       "handler": "index.main",
       "timeout": 60,
       "memorySize": 512,
-      "description": "Three-low convertible bond 14:40 rebalance holdings updater",
+      "description": "三低可转债策略交易日调仓持仓定时更新",
       "triggers": [
         {
           "name": "refreshThreeLowConvertibleBondsWeekday1440",
@@ -582,7 +597,7 @@
       "handler": "index.main",
       "timeout": 10,
       "memorySize": 256,
-      "description": "Jinghong strategy backend series reader"
+      "description": "景洪策略历史序列数据查询（无定时刷新）"
     },
     {
       "name": "updateJinghongStrategyData",
@@ -590,7 +605,7 @@
       "handler": "index.main",
       "timeout": 90,
       "memorySize": 512,
-      "description": "Jinghong strategy evening backtest updater",
+      "description": "景洪策略晚间回测数据定时更新",
       "triggers": [
         {
           "name": "refreshJinghongStrategyWeekday1930",
@@ -615,7 +630,7 @@
       "handler": "index.main",
       "timeout": 3,
       "memorySize": 256,
-      "description": "获取首页市场行情"
+      "description": "首页市场行情数据查询（无定时刷新）"
     },
     {
       "name": "getHomeDashboardData",
@@ -623,7 +638,7 @@
       "handler": "index.main",
       "timeout": 30,
       "memorySize": 256,
-      "description": "Home market, realtime strategy and strategy observation data"
+      "description": "首页市场概览、策略实时数据与观察指标查询（无定时刷新）"
     },
     {
       "name": "investmentLedger",
@@ -631,7 +646,15 @@
       "handler": "index.main",
       "timeout": 60,
       "memorySize": 256,
-      "description": "User-isolated investment ledger storage and append-only audit API"
+      "description": "用户隔离的投资账本存储与追加式审计记录"
+    },
+    {
+      "name": "renewMembership",
+      "runtime": "Nodejs18.15",
+      "handler": "index.main",
+      "timeout": 3,
+      "memorySize": 256,
+      "description": "用户会员续费"
     }
   ]
 }

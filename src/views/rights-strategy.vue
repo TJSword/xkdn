@@ -324,6 +324,11 @@
   import MonthlyReturnCalendarModal from '@/components/MonthlyReturnCalendarModal.vue'
   import { useMonthlyReturnCalendar } from '@/composables/useMonthlyReturnCalendar'
   import { useUserStore } from '@/store/user'
+  import { use } from 'echarts/core'
+  import { CanvasRenderer } from 'echarts/renderers'
+  import { LineChart } from 'echarts/charts'
+  import { GridComponent, LegendComponent, TooltipComponent } from 'echarts/components'
+  import VChart from 'vue-echarts'
   import {
       calculateDrawdownAnalysis,
       calculateMonthlyReturns,
@@ -340,6 +345,8 @@
       MonthlySummary,
       StrategyStats
   } from '@/utils/strategyMetrics'
+
+  use([CanvasRenderer, LineChart, GridComponent, LegendComponent, TooltipComponent])
 
   interface RightsStrategyData {
       dateList: string[]
@@ -773,8 +780,8 @@
       if (forceRefresh) isRealtimeRefreshing.value = true
       try {
           const res: any = await callCloudFunction({
-              name: 'getRightsStrategyData',
-              data: forceRefresh ? { forceRefresh: true } : {},
+              name: 'strategyTaskGateway',
+              data: { action: forceRefresh ? 'refreshRightsStrategy' : 'readRightsStrategy' },
               parse: true
           })
           const result = res.result || {}

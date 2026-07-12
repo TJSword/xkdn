@@ -390,7 +390,8 @@
       if (!canViewPremiumContent.value) return
 
       callCloudFunction({
-          name: 'fetchEtfData',
+          name: 'strategyTaskGateway',
+          data: { action: 'readMomentumEtf' },
           parse: true
       }).then((res: any) => {
           const result = res.result || {}

@@ -920,7 +920,8 @@
       isStrategyRefreshing.value = true
       try {
           const res: any = await callCloudFunction({
-              name: 'microCapStrategy10'
+              name: 'strategyTaskGateway',
+              data: { action: 'refreshMicroCap' }
           })
           if (res.result?.success === false) {
               throw new Error(res.result?.message || res.result?.msg || '微盘股策略刷新失败')
