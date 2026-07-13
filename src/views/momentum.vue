@@ -432,6 +432,7 @@
               throw new Error(response.result?.message || '动量策略数据为空')
           }
 
+          isLoading.value = false
           await nextTick()
           applyStrategyData(payload)
       } catch (error) {

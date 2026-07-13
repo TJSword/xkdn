@@ -1557,6 +1557,7 @@
               throw new Error(response.result?.message || '全天候策略数据为空')
           }
 
+          isLoading.value = false
           await nextTick()
           applyAllWeatherData(remoteData)
       } catch (error) {

@@ -566,8 +566,6 @@
 
   const marketIndexChangePct = computed(() => latestMarketIndex.value?.changePct ?? null)
 
-  const realtimeAmount = computed(() => realtimeBonds.value.reduce((sum, item) => sum + item.amount, 0))
-
   const bondWatchLimit = 10
   const strongestBonds = computed(() => realtimeBonds.value.slice().sort((a, b) => b.changePct - a.changePct).slice(0, bondWatchLimit))
   const weakestBonds = computed(() => realtimeBonds.value.slice().sort((a, b) => a.changePct - b.changePct).slice(0, bondWatchLimit))
@@ -651,7 +649,7 @@
           {
               label: '中位数涨跌',
               value: latestIndex?.midChangePct === undefined ? '--' : formatPercent(latestIndex.midChangePct),
-              note: latestIndex?.midChangePct === undefined ? '日截面未返回前一日中位数' : '价格中位数日涨跌',
+              note: latestIndex?.midChangePct === undefined ? '等待上一交易日收盘中位数' : '相对上一交易日收盘中位数',
               tone: latestIndex?.midChangePct === undefined ? 'neutral' : latestIndex.midChangePct >= 0 ? 'positive' : 'negative'
           },
           {
@@ -666,15 +664,25 @@
               note: latestIndex ? `日截面平均 ${latestIndex.avgPremium.toFixed(2)}%` : '等待日截面更新',
               tone: 'neutral'
           },
-          { label: '上涨占比', value: `${((breadth.value.up / (breadth.value.total || 1)) * 100).toFixed(1)}%`, note: `${breadth.value.up}/${breadth.value.total} 只上涨`, tone: 'positive' },
-          { label: '成交热度', value: `${realtimeAmount.value.toFixed(2)} 亿`, note: '实时个债列表成交额合计', tone: 'neutral' },
+          {
+              label: '市场成交额',
+              value: latestIndex ? `${latestIndex.amount.toFixed(2)} 亿` : '--',
+              note: latestIndex ? `转债余额 ${latestIndex.balance.toFixed(2)} 亿` : '等待实时指数更新',
+              tone: 'neutral'
+          },
+          {
+              label: '换手率',
+              value: latestIndex ? `${latestIndex.turnover.toFixed(2)}%` : '--',
+              note: latestIndex ? '集思录实时市场换手率' : '等待实时指数更新',
+              tone: 'neutral'
+          },
           {
               label: '到期收益率',
               value: latestIndex ? `${latestIndex.avgYtm.toFixed(2)}%` : '--',
               note: latestIndex ? '日截面平均到期收益率' : '等待日截面更新',
               tone: latestIndex ? latestIndex.avgYtm >= 0 ? 'positive' : 'negative' : 'neutral'
           },
-          { label: '实时样本', value: `${realtimeBonds.value.length} 只`, note: '当前转债列表', tone: 'neutral' }
+          { label: '实时样本', value: latestIndex ? `${latestIndex.count} 只` : '--', note: latestIndex ? '集思录实时转债样本' : '等待实时指数更新', tone: 'neutral' }
       ]
   })
 
@@ -946,13 +954,13 @@
       }
   }
 
-  async function loadBondMarketData(forceRefresh = false) {
+  async function loadBondMarketData(forceRefresh = false, includeHistory = backendHistoryRows.value.length === 0) {
       if (isLoadingRealtime.value) return
       isLoadingRealtime.value = true
       try {
           const response: any = await callCloudFunction({
               name: 'strategyTaskGateway',
-              data: { action: forceRefresh ? 'refreshBondMarket' : 'readBondMarket' }
+              data: { action: forceRefresh ? 'refreshBondMarket' : includeHistory ? 'readBondMarket' : 'readBondMarketRealtime' }
           })
           const result = response.result || {}
           const data = result.data || {}
@@ -995,7 +1003,17 @@
       if (minute % 10 !== 0) return false
       return (hour === 9 && minute >= 30) || hour === 10 ||
           (hour === 11 && minute <= 30) || hour === 13 || hour === 14 ||
-          (hour === 15 && minute === 0)
+          (hour === 15 && (minute === 0 || minute === 10))
+  }
+
+  function shouldLoadHistory(date = new Date()) {
+      const parts = Object.fromEntries(new Intl.DateTimeFormat('en-US', {
+          timeZone: 'Asia/Shanghai',
+          hour: '2-digit',
+          minute: '2-digit',
+          hour12: false
+      }).formatToParts(date).map(part => [part.type, part.value]))
+      return Number(parts.hour) === 15 && Number(parts.minute) === 10
   }
 
   function scheduleRealtimeRefresh() {
@@ -1004,7 +1022,7 @@
       next.setSeconds(30, 0)
       next.setMinutes(Math.floor(now.getMinutes() / 10 + 1) * 10)
       realtimeRefreshTimer = window.setTimeout(async () => {
-          if (isScheduledRealtimeRefresh()) await loadBondMarketData()
+          if (isScheduledRealtimeRefresh()) await loadBondMarketData(false, shouldLoadHistory())
           scheduleRealtimeRefresh()
       }, Math.max(1000, next.getTime() - now.getTime()))
   }
@@ -1033,7 +1051,7 @@
   }
 
   onMounted(() => {
-      void loadBondMarketData()
+      void loadBondMarketData(false, true)
       scheduleRealtimeRefresh()
   })
   onBeforeUnmount(() => {

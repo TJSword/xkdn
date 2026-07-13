@@ -1086,7 +1086,7 @@
                 </div>
                 <div class="cash-flow-list">
                     <div class="cash-flow-row cash-flow-head">
-                        <span>日期</span><span>类型</span><span>策略名称</span><span>金额</span><span>备注</span>
+                        <span>日期</span><span>类型</span><span>策略名称</span><span>收盘净值</span><span>金额</span><span>备注</span>
                     </div>
                     <div
                         v-for="item in paginatedCashFlowEvents"
@@ -1095,6 +1095,7 @@
                         <strong>{{ displayText(item.date) }}</strong>
                         <span :class="item.amount >= 0 ? 'positive' : 'negative'">{{ item.type }}</span>
                         <strong>{{ item.strategy }}</strong>
+                        <strong>{{ displayNumber(item.nav.toFixed(4)) }}</strong>
                         <strong :class="item.amount >= 0 ? 'positive' : 'negative'">
                             {{ displayMoneyChange(item.amount) }}
                         </strong>
@@ -1993,6 +1994,7 @@ interface LedgerRecord {
     strategyId: string
     date: string
     strategy: string
+    nav: number
     amount: number
     cashFlow: number
     return: number
@@ -3811,6 +3813,7 @@ const syncCashFlowEventsFromRecords = () => {
             recordId: record.id,
             date: record.date,
             strategy: record.strategy,
+            nav: record.nav,
             amount: Number(record.cashFlow),
             type: record.cashFlow > 0 ? '转入' : '转出',
             note: record.note || '账本记录'
@@ -5055,6 +5058,7 @@ const syncRecordCashFlow = (record: LedgerRecord) => {
         recordId: record.id,
         date: record.date,
         strategy: record.strategy,
+        nav: record.nav,
         amount: Number(record.cashFlow),
         type: record.cashFlow > 0 ? '转入' : '转出',
         note: record.note || '账本记录'
@@ -9020,7 +9024,7 @@ select:focus {
     align-items: center;
     padding: 12px 14px;
     border-bottom: 1px solid #26333f;
-    grid-template-columns: 120px 70px minmax(130px, 0.8fr) 130px minmax(180px, 1.4fr);
+    grid-template-columns: 120px 70px minmax(130px, 0.8fr) 100px 130px minmax(180px, 1.4fr);
     gap: 16px;
     text-align: left;
 }
@@ -9048,13 +9052,13 @@ select:focus {
     font-weight: 700;
 }
 
-.cash-flow-row > span:nth-child(5) {
+.cash-flow-row > span:nth-child(6) {
     text-align: right;
     color: #cbd7e2;
 }
 
-.cash-flow-head span:nth-child(4),
-.cash-flow-head span:nth-child(5) {
+.cash-flow-head span:nth-child(5),
+.cash-flow-head span:nth-child(6) {
     text-align: right;
 }
 
@@ -9067,7 +9071,7 @@ select:focus {
     font-size: 14px;
 }
 
-.cash-flow-row > strong:nth-child(4) {
+.cash-flow-row > strong:nth-child(5) {
     text-align: right;
 }
 
@@ -10592,18 +10596,18 @@ label small {
         width: max-content;
         min-width: 100%;
         min-height: 42px;
-        grid-template-columns: minmax(76px, 22vw) minmax(44px, 12vw) minmax(86px, 23vw) minmax(96px, 27vw) minmax(76px, 18vw);
+        grid-template-columns: minmax(76px, 22vw) minmax(44px, 12vw) minmax(86px, 23vw) minmax(76px, 18vw) minmax(96px, 27vw) minmax(76px, 18vw);
         column-gap: 0;
     }
 
-    .cash-flow-row > span:nth-child(5),
-    .cash-flow-head span:nth-child(5) {
+    .cash-flow-row > span:nth-child(6),
+    .cash-flow-head span:nth-child(6) {
         justify-content: flex-end;
         text-align: right;
     }
 
-    .cash-flow-row > strong:nth-child(4),
-    .cash-flow-head span:nth-child(4) {
+    .cash-flow-row > strong:nth-child(5),
+    .cash-flow-head span:nth-child(5) {
         justify-content: flex-start;
         text-align: left;
     }

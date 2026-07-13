@@ -1208,6 +1208,7 @@
               throw new Error(res?.result?.message || '可转债策略数据为空')
           }
 
+          isLoading.value = false
           await nextTick()
           applyBondChartData(payload)
       } catch (error) {

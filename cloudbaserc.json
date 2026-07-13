@@ -499,7 +499,7 @@
       "name": "checkCookieStatus",
       "runtime": "Nodejs18.15",
       "handler": "index.main",
-      "timeout": 3,
+      "timeout": 15,
       "memorySize": 256,
       "description": "雪球访问凭据每日定时预检与异常通知",
       "triggers": [
