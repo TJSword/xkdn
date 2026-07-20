@@ -235,7 +235,9 @@
           <p class="card-description">
             粗线为合成的组合策略 (阈值再平衡: 30%，单边交易费用: {{ formatPlainPercent(TRANSACTION_FEE_RATE) }})，细线为各成分策略。区间：{{ startDate }} 至 {{ endDate }}
           </p>
-          <div class="leverage-result-strip transaction-cost-strip">
+          <div
+            :class="['leverage-result-strip', 'transaction-cost-strip', { 'has-leverage': leverageSummary.enabled }]"
+          >
             <div>
               <span>再平衡次数</span>
               <strong>{{ transactionCostSummary.rebalanceCount }} 次</strong>
@@ -248,17 +250,15 @@
               <span>累计交易费用</span>
               <strong>{{ transactionCostSummary.totalCost }}%</strong>
             </div>
-          </div>
-          <div v-if="leverageSummary.enabled" class="leverage-result-strip">
-            <div>
+            <div v-if="leverageSummary.enabled">
               <span>全天候杠杆</span>
               <strong>{{ formatLeverageMultiplier(leverageSummary.multiplier) }}</strong>
             </div>
-            <div>
+            <div v-if="leverageSummary.enabled">
               <span>融资成本</span>
               <strong>{{ formatPlainPercent(leverageSummary.financingRate) }}/年</strong>
             </div>
-            <div>
+            <div v-if="leverageSummary.enabled">
               <span>累计扣减</span>
               <strong>{{ leverageSummary.totalFinancingCost }}%</strong>
             </div>
@@ -891,6 +891,15 @@
           color: '#add8e6',
           conservativeFactor: 0.6,
           functionName: 'getBondStrategyData'
+      },
+      {
+          id: 'high_dividend',
+          name: '高股息策略',
+          weight: 0,
+          selected: false,
+          color: '#2dd4bf',
+          conservativeFactor: 0.8,
+          functionName: 'getHighDividendStrategyData'
       },
     
       {
@@ -3312,6 +3321,10 @@
       gap: 0.75rem;
   }
 
+  .leverage-result-strip.has-leverage {
+      grid-template-columns: repeat(6, minmax(0, 1fr));
+  }
+
   .leverage-result-strip span {
       display: block;
       margin-bottom: 0.25rem;
@@ -3569,11 +3582,11 @@
   }
 
   .contribution-grid .content-card.full-height {
-      height: auto;
+      height: 100%;
   }
 
   .contribution-grid {
-      align-items: start;
+      align-items: stretch;
   }
 
   .contribution-table {
@@ -3894,6 +3907,10 @@
       .modal-fields,
       .leverage-metrics,
       .leverage-result-strip {
+          grid-template-columns: 1fr;
+      }
+
+      .leverage-result-strip.has-leverage {
           grid-template-columns: 1fr;
       }
 

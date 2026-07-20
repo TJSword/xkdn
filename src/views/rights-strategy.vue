@@ -28,7 +28,7 @@
         <div class="content-card">
           <h2 class="card-title">策略简介</h2>
           <p class="card-description">
-            含权策略围绕可转债发行前的正股机会展开，用量化方式寻找单位股价中嵌入更多配债价值的股票。策略以事件驱动和权利价值重估为基础，按照动态含权量对候选标的进行排序，选择排名靠前的 5 只股票等权持有，并在每个交易日检查组合变化。它不押注单一题材，也不依赖主观判断，只有标的到达股权登记日或 Top5 排名发生变化时才执行调仓。
+            含权策略围绕可转债发行前的正股机会展开，用量化方式寻找单位股价中嵌入更多配债价值的股票。策略以事件驱动和权利价值重估为基础，按照动态含权量对候选标的进行排序，选择排名靠前的 5 只股票等权持有，并在每个交易日更新行情。常规调仓安排在每周四；若持仓股到达股权登记日，则会生成临时调出建议。
           </p>
         </div>
 
@@ -71,8 +71,9 @@
                   <th>名称</th>
                   <th>价格</th>
                   <th>每股配售额</th>
-                  <th>动态百元含权量</th>
+                  <th>动态含权量</th>
                   <th>权重</th>
+                  <th>股权登记日</th>
                 </tr>
               </thead>
               <tbody>
@@ -83,11 +84,52 @@
                   <td>{{ formatNumber(row.ration, 3) }}</td>
                   <td class="text-red">{{ formatNumber(row.dynamicRights, 2) }}</td>
                   <td>{{ row.weight }}</td>
+                  <td :class="['record-date-cell', { 'is-imminent': getRecordDateStatus(row.recordDate) }]">
+                    <span>{{ formatRecordDate(row.recordDate) }}</span>
+                    <small v-if="getRecordDateStatus(row.recordDate)">{{ getRecordDateStatus(row.recordDate) }}</small>
+                  </td>
                 </tr>
               </tbody>
             </table>
           </div>
           <div v-else class="empty-state">暂无最新组合数据。</div>
+          <section class="rotation-watch" aria-labelledby="rotation-watch-title">
+            <div class="rotation-watch-header">
+              <div>
+                <h3 id="rotation-watch-title" class="rotation-watch-title">未来轮入观察</h3>
+                <p class="rotation-watch-description">展示当前持仓之外、值得持续关注的候选标的。</p>
+              </div>
+              <span class="rotation-watch-badge">观察中</span>
+            </div>
+            <div v-if="rotationWatchRows.length" class="rotation-candidate-grid">
+              <article v-for="row in rotationWatchRows" :key="row.stockCode" class="rotation-candidate-card">
+                <div class="rotation-candidate-card-header">
+                  <span class="rotation-candidate-label">候选标的</span>
+                  <span class="rotation-candidate-status">观察中</span>
+                </div>
+                <div class="rotation-candidate-security">
+                  <strong>{{ row.stockName }}</strong>
+                  <span>{{ row.stockCode }}</span>
+                </div>
+                <div class="rotation-candidate-data-grid">
+                  <div>
+                    <span>最新价</span>
+                    <strong>{{ formatNumber(row.latestPrice, 2) }}</strong>
+                  </div>
+                  <div>
+                    <span>动态含权量</span>
+                    <strong class="text-red">{{ formatNumber(row.dynamicRights, 2) }}</strong>
+                  </div>
+                  <div>
+                    <span>当前排名</span>
+                    <strong>{{ row.currentRank ? `第 ${row.currentRank} 名` : '—' }}</strong>
+                  </div>
+                </div>
+              </article>
+            </div>
+            <div v-else class="rotation-watch-empty">本周观察名单将在下一次策略刷新后展示。</div>
+            <p class="rotation-watch-note">候选标的不计入当前持仓，不构成即时调仓建议。</p>
+          </section>
           <template v-if="realtimeRows.length">
             <h3 class="card-subtitle">组合调仓指引</h3>
             <div class="adjustments-grid">
@@ -366,6 +408,7 @@
       totalShares: number | null
       ration: number | null
       dynamicRights: number | null
+      currentRank?: number | null
       weight?: number
       reason?: string
   }
@@ -384,6 +427,7 @@
       ration: number | string | null
       dynamicRights: number | string | null
       weight: string
+      recordDate: string
   }
 
   const router = useRouter()
@@ -421,10 +465,12 @@
   const selectedEndIndex = ref(0)
 
   const realtimeRows = ref<RealtimeRow[]>([])
+  const rotationWatchRows = ref<RealtimeRow[]>([])
   const realtimeUpdatedAt = ref('')
   const realtimeTradeDate = ref('')
   const realtimePreviousTradeDate = ref('')
   const realtimeChanged = ref(false)
+  const realtimeRebalanced = ref(false)
   const realtimeAdjustments = ref<RealtimeAdjustments>({ buys: [], sells: [], unchanged: [] })
   const isRealtimeRefreshing = ref(false)
   const openFaqIndex = ref<number | null>(0)
@@ -434,11 +480,11 @@
   const monthLabels = ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月']
   const staticLatestDate = '2026-06-04'
   const staticLatestHoldings = [
-      { code: '603339', name: '四方科技', bondName: '', price: 13.29, ration: '', dynamicRights: 24.88, weight: '20.00%' },
-      { code: '600456', name: '宝钛股份', bondName: '', price: 31.07, ration: '', dynamicRights: 23.49, weight: '20.00%' },
-      { code: '000422', name: '湖北宜化', bondName: '', price: 13.31, ration: '', dynamicRights: 22.93, weight: '20.00%' },
-      { code: '603809', name: '豪能股份', bondName: '', price: 9.99, ration: '', dynamicRights: 19.14, weight: '20.00%' },
-      { code: '300815', name: '玉禾田', bondName: '', price: 19.5, ration: '', dynamicRights: 19.1, weight: '20.00%' }
+      { code: '603339', name: '四方科技', bondName: '', price: 13.29, ration: '', dynamicRights: 24.88, weight: '20.00%', recordDate: '' },
+      { code: '600456', name: '宝钛股份', bondName: '', price: 31.07, ration: '', dynamicRights: 23.49, weight: '20.00%', recordDate: '' },
+      { code: '000422', name: '湖北宜化', bondName: '', price: 13.31, ration: '', dynamicRights: 22.93, weight: '20.00%', recordDate: '' },
+      { code: '603809', name: '豪能股份', bondName: '', price: 9.99, ration: '', dynamicRights: 19.14, weight: '20.00%', recordDate: '' },
+      { code: '300815', name: '玉禾田', bondName: '', price: 19.5, ration: '', dynamicRights: 19.1, weight: '20.00%', recordDate: '' }
   ]
   const faqList = [
       {
@@ -532,7 +578,9 @@
               ? `${realtimePreviousTradeDate.value} 与 ${realtimeTradeDate.value}`
               : realtimeTradeDate.value
           return realtimeChanged.value
-              ? `根据 ${comparison} 的持仓变化生成调仓建议，按最新动态含权量维持 Top5 等权组合。`
+              ? realtimeRebalanced.value
+                  ? `根据 ${comparison} 的周度调仓结果生成操作建议，并更新未来轮入观察名单。`
+                  : `持仓股今日为股权登记日，已生成调出建议。`
               : `${realtimeTradeDate.value} 的最新持仓与上一交易日一致，本次无需调仓。`
       }
       return '实时快照未初始化时，先展示回测口径的最新 Top5 组合。'
@@ -547,7 +595,8 @@
               price: row.latestPrice,
               ration: row.ration,
               dynamicRights: row.dynamicRights,
-              weight: `${((row.weight || 0.2) * 100).toFixed(2)}%`
+              weight: `${((row.weight || 0.2) * 100).toFixed(2)}%`,
+              recordDate: row.recordDate || ''
           }))
       }
 
@@ -787,9 +836,11 @@
           const result = res.result || {}
           const data = result.data || {}
           realtimeRows.value = Array.isArray(data.portfolio) ? data.portfolio : Array.isArray(data.rows) ? data.rows : []
+          rotationWatchRows.value = Array.isArray(data.rotationWatchlist) ? data.rotationWatchlist : []
           realtimeTradeDate.value = data.tradeDate || ''
           realtimePreviousTradeDate.value = data.previousTradeDate || ''
           realtimeChanged.value = data.changed === true
+          realtimeRebalanced.value = data.rebalanced === true
           realtimeAdjustments.value = {
               buys: Array.isArray(data.adjustments?.buys) ? data.adjustments.buys : [],
               sells: Array.isArray(data.adjustments?.sells) ? data.adjustments.sells : [],
@@ -819,6 +870,26 @@
   function formatNumber(value: unknown, digits = 2) {
       const number = toNumber(value)
       return number === null ? '--' : number.toFixed(digits)
+  }
+
+  function formatRecordDate(value: string) {
+      return value ? value.replace(/-/g, '/') : '—'
+  }
+
+  function getRecordDateStatus(value: string) {
+      if (!value) return ''
+      const recordTime = new Date(`${value}T12:00:00+08:00`).getTime()
+      const parts = new Intl.DateTimeFormat('en-US', {
+          timeZone: 'Asia/Shanghai',
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit'
+      }).formatToParts(new Date())
+      const today = Object.fromEntries(parts.map(part => [part.type, part.value]))
+      const todayTime = new Date(`${today.year}-${today.month}-${today.day}T12:00:00+08:00`).getTime()
+      const days = Math.round((recordTime - todayTime) / (24 * 60 * 60 * 1000))
+      if (days === 0) return '今日'
+      return days > 0 && days <= 3 ? '临近' : ''
   }
 
   function formatPercent(value: unknown) {
@@ -1311,7 +1382,7 @@
 
   .portfolio-table {
       margin-top: 1rem;
-      min-width: 820px;
+      min-width: 880px;
   }
 
   .portfolio-table th,
@@ -1332,8 +1403,175 @@
       color: #b0c4de;
   }
 
+  .record-date-cell {
+      font-variant-numeric: tabular-nums;
+  }
+
+  .record-date-cell.is-imminent {
+      color: #fbbf24;
+      font-weight: 600;
+  }
+
+  .record-date-cell small {
+      display: inline-flex;
+      align-items: center;
+      padding: 0.16rem 0.36rem;
+      margin-left: 0.38rem;
+      font-size: 0.68rem;
+      line-height: 1;
+      color: #fde68a;
+      background: rgb(251 191 36 / 12%);
+      border: 1px solid rgb(251 191 36 / 22%);
+      border-radius: 999px;
+      font-weight: 500;
+  }
+
   .portfolio-table tr:last-child td {
       border-bottom: none;
+  }
+
+  .rotation-watch {
+      padding: 1.15rem;
+      margin-top: 1.75rem;
+      background: linear-gradient(135deg, rgb(239 68 68 / 8%), rgb(15 23 42 / 18%));
+      border: 1px solid rgb(239 68 68 / 22%);
+      border-radius: 10px;
+  }
+
+  .rotation-watch-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 1rem;
+  }
+
+  .rotation-watch-title {
+      margin: 0;
+      font-size: 1.05rem;
+      color: #fff;
+      font-weight: 700;
+  }
+
+  .rotation-watch-description,
+  .rotation-watch-note {
+      margin: 0.35rem 0 0;
+      font-size: 0.82rem;
+      line-height: 1.6;
+      color: #9fb2cc;
+  }
+
+  .rotation-watch-badge,
+  .rotation-candidate-status {
+      display: inline-flex;
+      align-items: center;
+      width: fit-content;
+      white-space: nowrap;
+      border-radius: 999px;
+  }
+
+  .rotation-watch-badge {
+      padding: 0.25rem 0.55rem;
+      font-size: 0.74rem;
+      color: #ffb4b4;
+      background: rgb(239 68 68 / 13%);
+      border: 1px solid rgb(239 68 68 / 24%);
+  }
+
+  .rotation-candidate-grid {
+      display: grid;
+      margin-top: 1rem;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 0.8rem;
+  }
+
+  .rotation-candidate-card {
+      padding: 0.9rem;
+      background: rgb(0 0 0 / 18%);
+      border: 1px dashed rgb(176 196 222 / 24%);
+      border-radius: 8px;
+  }
+
+  .rotation-candidate-card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 0.75rem;
+  }
+
+  .rotation-candidate-label {
+      font-size: 0.88rem;
+      color: #d8e8ff;
+      font-weight: 600;
+  }
+
+  .rotation-candidate-status {
+      padding: 0.2rem 0.45rem;
+      font-size: 0.7rem;
+      color: #8392a5;
+      background: rgb(131 146 165 / 10%);
+  }
+
+  .rotation-candidate-security {
+      display: flex;
+      align-items: baseline;
+      margin-top: 0.9rem;
+      gap: 0.5rem;
+  }
+
+  .rotation-candidate-security strong {
+      font-size: 1rem;
+      color: #fff;
+  }
+
+  .rotation-candidate-security span {
+      font-size: 0.78rem;
+      color: #8392a5;
+      font-variant-numeric: tabular-nums;
+  }
+
+  .rotation-candidate-data-grid {
+      display: grid;
+      margin-top: 1rem;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 0.6rem;
+  }
+
+  .rotation-candidate-data-grid div {
+      display: grid;
+      gap: 0.25rem;
+  }
+
+  .rotation-candidate-data-grid span {
+      overflow: hidden;
+      font-size: 0.7rem;
+      color: #8392a5;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+  }
+
+  .rotation-candidate-data-grid strong {
+      overflow: hidden;
+      font-size: 0.88rem;
+      color: #d8e8ff;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font-variant-numeric: tabular-nums;
+  }
+
+  .rotation-watch-empty {
+      padding: 1rem 0;
+      margin-top: 0.75rem;
+      font-size: 0.85rem;
+      color: #8392a5;
+      text-align: center;
+      border: 1px dashed rgb(176 196 222 / 20%);
+      border-radius: 8px;
+  }
+
+  .rotation-watch-note {
+      padding-top: 0.85rem;
+      margin-top: 0.9rem;
+      border-top: 1px solid rgb(255 255 255 / 8%);
   }
 
   .heatmap-table {
@@ -1626,6 +1864,10 @@
           grid-template-columns: 1fr;
       }
 
+      .rotation-candidate-grid {
+          grid-template-columns: 1fr;
+      }
+
       .stats-bar {
           padding: 0.8rem;
           grid-template-columns: repeat(6, minmax(0, 1fr));
@@ -1697,6 +1939,15 @@
       .holdings-actions {
           align-self: stretch;
           justify-content: space-between;
+      }
+
+      .rotation-watch {
+          padding: 1rem;
+      }
+
+      .rotation-watch-header {
+          flex-direction: column;
+          gap: 0.6rem;
       }
 
   }

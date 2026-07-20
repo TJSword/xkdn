@@ -50,7 +50,7 @@
       "name": "getMomentum",
       "runtime": "Nodejs18.15",
       "handler": "index.main",
-      "timeout": 3,
+      "timeout": 15,
       "memorySize": 256,
       "description": "动量策略收盘数据定时抓取与调仓通知触发",
       "triggers": [
@@ -142,6 +142,85 @@
       "timeout": 10,
       "memorySize": 256,
       "description": "微盘股策略历史序列数据查询（无定时刷新）"
+    },
+    {
+      "name": "getHighDividendStrategyData",
+      "runtime": "Nodejs18.15",
+      "handler": "index.main",
+      "timeout": 10,
+      "memorySize": 256,
+      "description": "高股息策略历史序列与沪深300基准查询（无定时刷新）"
+    },
+    {
+      "name": "getPortfolioAnalysisData",
+      "runtime": "Nodejs18.15",
+      "handler": "index.main",
+      "timeout": 10,
+      "memorySize": 256,
+      "description": "组合实验室多策略历史序列批量查询（无定时刷新）"
+    },
+    {
+      "name": "getHighDividendRealtimeInfo",
+      "runtime": "Nodejs18.15",
+      "handler": "index.main",
+      "timeout": 5,
+      "memorySize": 256,
+      "description": "高股息策略最新盘中快照查询（无定时刷新）"
+    },
+    {
+      "name": "updateHighDividendStrategyRealtime",
+      "runtime": "Nodejs18.15",
+      "handler": "index.main",
+      "timeout": 60,
+      "memorySize": 512,
+      "description": "高股息策略盘中收益、09:30调仓分段与15:02收盘数据定时刷新",
+      "triggers": [
+        {
+          "name": "refreshHighDividendRealtimeWeekday0900",
+          "type": "timer",
+          "config": "0 * 9 * * MON-FRI *"
+        },
+        {
+          "name": "refreshHighDividendRealtimeWeekday1000",
+          "type": "timer",
+          "config": "0 * 10 * * MON-FRI *"
+        },
+        {
+          "name": "refreshHighDividendRealtimeWeekday1130",
+          "type": "timer",
+          "config": "0 0-30 11 * * MON-FRI *"
+        },
+        {
+          "name": "refreshHighDividendRealtimeWeekdayAfternoon",
+          "type": "timer",
+          "config": "0 * 13-14 * * MON-FRI *"
+        },
+        {
+          "name": "refreshHighDividendRealtimeWeekdayClose1500",
+          "type": "timer",
+          "config": "0 0 15 * * MON-FRI *"
+        },
+        {
+          "name": "refreshHighDividendRealtimeWeekdayClose1502",
+          "type": "timer",
+          "config": "0 2 15 * * MON-FRI *"
+        }
+      ]
+    },
+    {
+      "name": "getGuorenHighDividend",
+      "runtime": "Nodejs18.15",
+      "handler": "index.main",
+      "timeout": 60,
+      "memorySize": 256,
+      "description": "果仁高股息筛选结果抓取、解密与入库；仅在每周最后一个交易日 23:58 更新",
+      "triggers": [
+        {
+          "name": "refreshGuorenHighDividendWeekday2358",
+          "type": "timer",
+          "config": "0 58 23 * * MON-FRI *"
+        }
+      ]
     },
     {
       "name": "getMicroCapRealtimeInfo",
@@ -327,12 +406,28 @@
       "description": "管理员查询和更新集思录访问凭据配置（无定时刷新）"
     },
     {
+      "name": "guorenCookieConfig",
+      "runtime": "Nodejs18.15",
+      "handler": "index.main",
+      "timeout": 20,
+      "memorySize": 256,
+      "description": "管理员查询、更新和校验果仁访问凭据（无定时刷新）"
+    },
+    {
+      "name": "getGuorenMicrocapData",
+      "runtime": "Nodejs18.15",
+      "handler": "index.main",
+      "timeout": 5,
+      "memorySize": 256,
+      "description": "管理员读取果仁微盘表格数据；外部 GET 使用 Bearer API Key 访问（无定时刷新）"
+    },
+    {
       "name": "getBondMarketData",
       "runtime": "Nodejs20.19",
       "handler": "index.main",
       "timeout": 30,
       "memorySize": 512,
-      "description": "转债市场快照查询、管理员刷新及交易日定时抓取",
+      "description": "转债市场快照查询、管理员刷新及交易日盘中抓取；每日09:00补齐上一交易日日历史",
       "triggers": [
         {
           "name": "refreshBondMarketIntradayWeekday0930To1050",
@@ -365,9 +460,9 @@
           "config": "0 0 15 * * MON-FRI *"
         },
         {
-          "name": "finalizeBondMarketDailyWeekday1502",
+          "name": "backfillBondMarketPreviousTradingDayWeekday0900",
           "type": "timer",
-          "config": "0 2 15 * * MON-FRI *"
+          "config": "0 0 9 * * MON-FRI *"
         }
       ]
     },
@@ -655,6 +750,21 @@
       "timeout": 3,
       "memorySize": 256,
       "description": "用户会员续费"
+    },
+    {
+      "name": "getGuorenMicrocap",
+      "runtime": "Nodejs18.15",
+      "handler": "index.main",
+      "timeout": 30,
+      "memorySize": 256,
+      "description": "果仁微盘指令数据抓取、解密与入库；交易日 08:00 定时更新，成功后推送企业微信持仓通知，失败时 Bark 告警",
+      "triggers": [
+        {
+          "name": "refreshGuorenMicrocapWeekday0800",
+          "type": "timer",
+          "config": "0 0 8 * * MON-FRI *"
+        }
+      ]
     }
   ]
 }

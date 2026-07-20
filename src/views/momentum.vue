@@ -1992,6 +1992,7 @@
           justify-content: center;
           margin-top: 0.2rem;
           width: 100%;
+          box-sizing: border-box;
       }
 
       /* 统计条改为 2x2 */

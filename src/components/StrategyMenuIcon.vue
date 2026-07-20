@@ -89,6 +89,13 @@
       <path class="micro-cap-weight" d="M15 41h18M20 41l2-3h4l2 3" />
     </g>
 
+    <g v-else-if="type === 'high-dividend'" class="high-dividend-glyph">
+      <path class="high-dividend-leaf" d="M11 27c0-10 7-17 20-18 1 12-5 20-16 20" />
+      <path class="high-dividend-stem" d="M12 36c3-10 9-16 18-22" />
+      <circle class="high-dividend-coin" cx="31" cy="31" r="9" />
+      <path class="high-dividend-yield" d="M27 29h8M31 25v12M27 33h8" />
+    </g>
+
     <g v-else-if="type === 'portfolio-lab'" class="portfolio-lab-glyph">
       <path class="lab-connector" d="M10 13h8l4 7M38 13h-8l-4 7M24 8v10" />
       <circle class="lab-input lab-input-one" cx="9" cy="13" r="2.5" />
@@ -481,6 +488,10 @@
   .momentum-leader,
   .micro-cap-frame,
   .micro-cap-weight,
+  .high-dividend-leaf,
+  .high-dividend-stem,
+  .high-dividend-coin,
+  .high-dividend-yield,
   .lab-connector,
   .lab-flask,
   .lof-axis,
@@ -506,6 +517,36 @@
       stroke-width: 1.5;
       stroke-linecap: round;
       stroke-linejoin: round;
+  }
+
+  .high-dividend-glyph {
+      filter: drop-shadow(0 0 var(--high-dividend-glow, 3px) var(--high-dividend-glow-color, rgb(212 175 55 / 45%)));
+  }
+
+  .high-dividend-leaf {
+      fill: var(--high-dividend-leaf-fill, rgb(22 101 52 / 52%));
+      stroke: var(--high-dividend-leaf-stroke, #4ade80);
+      transition: transform 0.4s ease;
+      transform: translateY(var(--high-dividend-leaf-shift, 0));
+  }
+
+  .high-dividend-stem {
+      fill: none;
+      stroke: var(--high-dividend-stem-stroke, #86efac);
+  }
+
+  .high-dividend-coin {
+      fill: var(--high-dividend-coin-fill, rgb(212 175 55 / 18%));
+      stroke: var(--high-dividend-coin-stroke, #d4af37);
+      transition: transform 0.35s ease;
+      transform: scale(var(--high-dividend-coin-scale, 1));
+      transform-box: fill-box;
+      transform-origin: center;
+  }
+
+  .high-dividend-yield {
+      fill: none;
+      stroke: var(--high-dividend-yield-stroke, #fff4c2);
   }
 
   .momentum-glyph {

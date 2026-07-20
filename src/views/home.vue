@@ -76,12 +76,20 @@
               :class="item.statusClass"
               :title="`${item.name}：${item.status}，当前回撤 ${item.drawdownValue}`"
             >
-              <span class="strategy-status-name"><i></i><em>{{ item.name }}</em></span>
+              <span class="strategy-status-name">
+                <i></i>
+                <em>
+                  {{ item.name.replace(/策略$/, '') }}<span
+                    v-if="item.name.endsWith('策略')"
+                    class="strategy-status-name-suffix"
+                  >策略</span>
+                </em>
+              </span>
               <strong>{{ item.displayValue }}</strong>
             </span>
           </div>
           <div v-else class="strategy-status-list strategy-status-list-loading" aria-label="策略状态加载中">
-            <span v-for="item in 5" :key="`strategy-status-loading-${item}`" class="strategy-status-placeholder">
+            <span v-for="item in 6" :key="`strategy-status-loading-${item}`" class="strategy-status-placeholder">
               <span class="strategy-status-placeholder-name"></span>
               <span class="strategy-status-placeholder-value"></span>
             </span>
@@ -89,7 +97,72 @@
         </article>
       </section>
 
-      <section class="realtime-nav-panel" aria-label="策略实时净值">
+      <section class="realtime-nav-panel" aria-label="策略实时净值预览">
+        <div class="realtime-nav-grid realtime-six-grid">
+          <article
+            v-for="item in displayStrategyRealtimeNavs"
+            :key="item.id"
+            class="realtime-nav-card realtime-six-card"
+            :style="{ '--accent-color': item.accent }"
+            role="button"
+            tabindex="0"
+            @click="openRealtimeChartModal(item)"
+            @keydown.enter="openRealtimeChartModal(item)"
+          >
+            <div class="realtime-card-top">
+              <span class="strategy-name">{{ item.name }}</span>
+              <span class="realtime-card-time">{{ item.isLoaded ? item.updatedAt : '--' }}</span>
+            </div>
+            <div class="realtime-card-value">
+              <span>当日涨幅</span>
+              <strong :class="getRealtimeTone(item.dailyReturn, item.isLoaded)">
+                {{ formatRealtimePercent(item.dailyReturn, item.isLoaded) }}
+              </strong>
+            </div>
+            <div class="realtime-card-chart">
+              <svg viewBox="0 0 120 44" preserveAspectRatio="none" aria-hidden="true">
+                <polygon
+                  v-if="item.isLoaded"
+                  :key="`${item.id}-preview-spark-area-${item.updatedAt}-${item.intraday.length}`"
+                  class="realtime-chart-area"
+                  :points="sparklineAreaPoints(item)"
+                />
+                <polyline
+                  v-if="item.isLoaded"
+                  :key="`${item.id}-preview-spark-glow-${item.updatedAt}-${item.intraday.length}`"
+                  class="realtime-chart-line-glow"
+                  :points="sparklinePoints(item)"
+                  pathLength="1"
+                />
+                <polyline
+                  v-if="item.isLoaded"
+                  :key="`${item.id}-preview-spark-line-${item.updatedAt}-${item.intraday.length}`"
+                  class="realtime-chart-line"
+                  :points="sparklinePoints(item)"
+                  pathLength="1"
+                />
+              </svg>
+            </div>
+            <div class="realtime-return-grid">
+              <span>
+                <em>本月</em>
+                <strong :class="getRealtimeTone(item.monthReturn, item.isLoaded)">
+                  {{ formatRealtimePercent(item.monthReturn, item.isLoaded) }}
+                </strong>
+              </span>
+              <span>
+                <em>今年</em>
+                <strong :class="getRealtimeTone(item.yearReturn, item.isLoaded)">
+                  {{ formatRealtimePercent(item.yearReturn, item.isLoaded) }}
+                </strong>
+              </span>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <!-- 原实时卡片布局保留；删除预览区并移除 v-if="false" 即可恢复。 -->
+      <section v-if="false" class="realtime-nav-panel" aria-label="策略实时净值">
         <div class="realtime-nav-grid">
           <article
             v-for="item in strategyRealtimeNavs"
@@ -1079,6 +1152,20 @@
           isLoaded: false
       },
       {
+          id: 'high-dividend',
+          name: '高股息策略',
+          nav: 1,
+          amount: 0,
+          dailyReturn: 0,
+          monthReturn: 0,
+          yearReturn: 0,
+          updatedAt: '--',
+          accent: '#2dd4bf',
+          trend: [],
+          intraday: [],
+          isLoaded: false
+      },
+      {
           id: 'rights',
           name: '含权策略',
           nav: 1.1846,
@@ -1121,6 +1208,9 @@
           isLoaded: false
       }
   ])
+
+  const displayStrategyRealtimeNavs = computed(() => strategyRealtimeNavs.value)
+
   const selectedRealtimeNav = ref<StrategyRealtimeNav | null>(null)
   const realtimeChartHover = ref<RealtimeChartHover | null>(null)
   const realtimeChartTimes = ['09:30', '10:00', '10:30', '11:00', '11:30', '13:00', '13:30', '14:00', '14:30', '14:40', '15:00']
@@ -1776,6 +1866,63 @@
       }
   }
 
+  const fetchHighDividendRealtime = async (sourcePayload?: any) => {
+      try {
+          const payload = sourcePayload || (await callCloudFunction({
+              name: 'getHighDividendRealtimeInfo',
+              data: { action: 'get' }
+          })).result?.data
+          if (!payload) return
+
+          const highDividendItem = strategyRealtimeNavs.value.find(item => item.id === 'high-dividend')
+          if (!highDividendItem) return
+
+          const intraday = Array.isArray(payload.intraday) ? payload.intraday : []
+          const intradayAmounts = intraday
+              .map((point: any) => Number(point.strategyAmount ?? point.strategyValue ?? point.strategyIndexValue))
+              .filter((value: number) => Number.isFinite(value))
+          const intradayTimes = intraday
+              .map((point: any) => point.time)
+              .filter((time: string) => typeof time === 'string' && time.length > 0)
+          const canViewHoldings = payload.hasHoldingsAccess !== false
+          const activeHoldings = Array.isArray(payload.activeHoldings) ? payload.activeHoldings : []
+          const driftedHoldings = Array.isArray(payload.closingHoldings) ? payload.closingHoldings : []
+          const holdings = canViewHoldings ? (driftedHoldings.length ? driftedHoldings : activeHoldings) : []
+          const assetReturnMap = buildAssetReturnMap(payload)
+          const allocation = canViewHoldings
+              ? holdings.slice(0, 5).map((holding: any, index: number) => ({
+                  id: holding.code || `high-dividend-${index}`,
+                  name: holding.name || holding.code || `Stock ${index + 1}`,
+                  weight: Number.isFinite(Number(holding.weight)) ? Number(holding.weight) : 0.2,
+                  return: getHoldingReturnPercent(holding, assetReturnMap)
+              }))
+              : []
+          const amount = Number(payload.strategyAmount ?? payload.strategyValue ?? payload.strategyIndexValue)
+          const baseAmount = Number(payload.baseAmount ?? payload.baseIndexValue)
+          const dailyReturn = Number(payload.dailyReturn) * 100
+          const monthReturn = Number(payload.monthReturn) * 100
+          const yearReturn = Number(payload.yearReturn) * 100
+
+          Object.assign(highDividendItem, {
+              amount: Number.isFinite(amount) ? amount : highDividendItem.amount,
+              baseAmount: Number.isFinite(baseAmount) && baseAmount > 0 ? baseAmount : highDividendItem.baseAmount,
+              dailyReturn: Number.isFinite(dailyReturn) ? dailyReturn : highDividendItem.dailyReturn,
+              monthReturn: Number.isFinite(monthReturn) ? monthReturn : highDividendItem.monthReturn,
+              yearReturn: Number.isFinite(yearReturn) ? yearReturn : highDividendItem.yearReturn,
+              updatedAt: normalizeRealtimeDisplayMinute(payload.updatedMinute || payload.updatedAt) || highDividendItem.updatedAt,
+              trend: intradayAmounts.length >= 2 ? intradayAmounts : highDividendItem.trend,
+              intraday: intradayAmounts.length >= 2 ? intradayAmounts : highDividendItem.intraday,
+              intradayTimes: intradayTimes.length === intradayAmounts.length ? intradayTimes : highDividendItem.intradayTimes,
+              allocation: canViewHoldings ? allocation.length ? allocation : highDividendItem.allocation : [],
+              hasHoldingsAccess: canViewHoldings,
+              isLoaded: true
+          })
+      } catch (error) {
+          throwIfAuthExpired(error)
+          console.warn('High-dividend realtime data failed, fallback to empty state:', error)
+      }
+  }
+
   const allFeatureCards = ref<FeatureCard[]>([
       {
           id: 1,
@@ -1792,6 +1939,14 @@
           iconType: 'convertible-bond',
           cssClass: 'convertible-bond',
           link: '/bonds'
+      },
+      {
+          id: 17,
+          title: '高股息策略',
+          description: '聚焦稳定分红与现金流质量，构建偏防御型权益组合。',
+          iconType: 'high-dividend',
+          cssClass: 'high-dividend',
+          link: '/high-dividend'
       },
       {
           id: 12,
@@ -1844,20 +1999,20 @@
           link: '/bond-market'
       },
       {
-          id: 11,
-          title: 'LOF溢价监控',
-          description: '聚合场内价格、净值估算与申购状态，观察折溢价机会。',
-          iconType: 'lof-monitor',
-          cssClass: 'lof-monitor',
-          link: '/lof'
-      },
-      {
           id: 15,
           title: '投资账本',
           description: '记录策略净值，诊断仓位偏移、回撤与创新高状态。',
           iconType: 'ledger',
           cssClass: 'investment-ledger',
           link: '/investment-ledger'
+      },
+      {
+          id: 11,
+          title: 'LOF溢价监控',
+          description: '聚合场内价格、净值估算与申购状态，观察折溢价机会。',
+          iconType: 'lof-monitor',
+          cssClass: 'lof-monitor',
+          link: '/lof'
       },
       {
           id: 3,
@@ -2039,6 +2194,7 @@
           await Promise.all([
               fetchAllWeatherRealtime(realtime.allWeather),
               fetchBondRealtime(realtime.bond),
+              fetchHighDividendRealtime(realtime.highDividend),
               fetchRightsRealtime(realtime.rights),
               fetchMomentumRealtime(realtime.momentum),
               fetchMicroCapRealtime(realtime.microCap)
@@ -2050,6 +2206,7 @@
           await Promise.all([
               fetchAllWeatherRealtime(),
               fetchBondRealtime(),
+              fetchHighDividendRealtime(),
               fetchRightsRealtime(),
               fetchMomentumRealtime(),
               fetchMicroCapRealtime()
@@ -3067,7 +3224,7 @@
 
   .strategy-status-list {
       display: grid;
-      grid-template-columns: repeat(5, minmax(0, 1fr));
+      grid-template-columns: repeat(6, minmax(0, 1fr));
       gap: 0;
       align-items: center;
       margin-top: 0.76rem;
@@ -3593,6 +3750,12 @@
       --micro-cap-glow: 5px;
   }
 
+  .quick-menu-card.high-dividend:hover .strategy-menu-icon {
+      --high-dividend-leaf-shift: -1.5px;
+      --high-dividend-coin-scale: 1.1;
+      --high-dividend-glow: 7px;
+  }
+
   .quick-menu-card.portfolio-lab:hover .strategy-menu-icon {
       --lab-flow-offset: -9;
       --lab-input-glow: 5px;
@@ -3712,6 +3875,10 @@
 
   .quick-menu-card.micro-cap {
       --menu-accent: #f0e68c;
+  }
+
+  .quick-menu-card.high-dividend {
+      --menu-accent: #2dd4bf;
   }
 
   .quick-menu-card.portfolio-lab {
@@ -6083,6 +6250,13 @@
       }
   }
 
+  @media (max-width: 900px) {
+      .status-overview-strip {
+          grid-template-columns: 1fr;
+          gap: 0.75rem;
+      }
+  }
+
   @media (max-width: 799px) {
       .quick-menu-grid {
           grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -6123,11 +6297,6 @@
 
       .main-container {
           width: 100%;
-      }
-
-      .status-overview-strip {
-          grid-template-columns: 1fr;
-          gap: 0.75rem;
       }
 
       .strategy-observation-primary {
@@ -6557,6 +6726,54 @@
       }
   }
 
+  @media (max-width: 500px) {
+      .strategy-status-name-suffix {
+          display: none;
+      }
+  }
+
+  @media (max-width: 460px) {
+      .strategy-status-list {
+          grid-template-columns: repeat(3, minmax(0, 1fr));
+          min-height: 0;
+      }
+
+      .strategy-status-item,
+      .strategy-status-placeholder {
+          padding: 0.42rem 0.2rem;
+      }
+
+      .strategy-status-item:nth-child(3n + 1)::before,
+      .strategy-status-placeholder:nth-child(3n + 1)::before {
+          display: none;
+      }
+
+      .strategy-status-item:nth-child(n + 4),
+      .strategy-status-placeholder:nth-child(n + 4) {
+          border-top: 1px solid rgb(148 163 184 / 10%);
+      }
+
+      .strategy-observation-backdrop {
+          justify-content: center;
+          align-items: center;
+          padding: 0.75rem;
+          width: auto;
+          height: auto;
+          box-sizing: border-box;
+          inset: 0;
+      }
+
+      .modal-content.strategy-observation-modal-content {
+          margin: auto;
+          width: 100%;
+          max-width: 720px;
+          max-height: calc(100dvh - 1.5rem);
+          background-clip: padding-box;
+          border-radius: 10px;
+          box-sizing: border-box;
+      }
+  }
+
   @media (min-width: 360px) and (max-width: 576px) {
       .quick-menu-grid {
           grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -6823,6 +7040,228 @@
 
       100% {
           transform: scale(1.1) translateY(-2px);
+      }
+  }
+
+  .realtime-six-grid {
+      grid-template-columns: repeat(6, minmax(0, 1fr));
+      gap: 0.6rem;
+  }
+
+  .realtime-six-card {
+      padding: 0.72rem;
+      min-height: 160px;
+      background:
+          linear-gradient(135deg, color-mix(in srgb, var(--accent-color) 16%, transparent), transparent 55%),
+          rgb(15 23 42 / 42%);
+      border: 1px solid rgb(255 255 255 / 10%);
+      backdrop-filter: blur(10px);
+  }
+
+  .realtime-six-card:hover {
+      background:
+          linear-gradient(135deg, color-mix(in srgb, var(--accent-color) 22%, transparent), transparent 58%),
+          rgb(30 41 59 / 62%);
+      border-color: var(--accent-color);
+  }
+
+  .realtime-six-card .realtime-card-top {
+      margin-bottom: 0.55rem;
+  }
+
+  .realtime-six-card .strategy-name {
+      font-size: 0.88rem;
+  }
+
+  .realtime-six-card .realtime-card-time {
+      font-size: 0.65rem;
+  }
+
+  .realtime-six-card .realtime-card-value {
+      margin-bottom: 0.5rem;
+  }
+
+  .realtime-six-card .realtime-card-value strong {
+      font-size: 1.35rem;
+  }
+
+  .realtime-six-card .realtime-card-chart {
+      margin-bottom: 0.42rem;
+      height: 46px;
+  }
+
+  .realtime-six-card .realtime-return-grid {
+      gap: 0.35rem;
+  }
+
+  .realtime-six-card .realtime-return-grid span {
+      padding: 0.35rem 0.4rem;
+  }
+
+  .realtime-six-card .realtime-return-grid em {
+      font-size: 0.68rem;
+  }
+
+  .realtime-six-card .realtime-return-grid strong {
+      font-size: 0.78rem;
+  }
+
+  @media (max-width: 1200px) {
+      .realtime-six-grid {
+          grid-template-columns: repeat(3, minmax(0, 1fr));
+      }
+  }
+
+  @media (max-width: 768px) {
+      .realtime-six-grid {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+  }
+
+  @media (max-width: 480px) {
+      .realtime-six-grid {
+          grid-template-columns: 1fr;
+      }
+  }
+
+  @media (min-width: 1600px) and (max-height: 930px) {
+      .home-page-wrapper {
+          overflow-y: auto;
+          padding-top: 0.45rem;
+          padding-bottom: 0.25rem;
+          height: 100vh;
+          min-height: 0;
+      }
+
+      .main-container {
+          padding-bottom: 0;
+      }
+
+      .main-title {
+          margin-bottom: 0.2rem;
+          font-size: 1.65rem;
+      }
+
+      .subtitle {
+          margin-bottom: 0.65rem;
+      }
+
+      .status-overview-strip {
+          margin-bottom: 0.55rem;
+      }
+
+      .status-overview-card {
+          padding: 0.42rem 0.75rem 0;
+          min-height: 78px;
+      }
+
+      .status-overview-title {
+          font-size: 1rem;
+      }
+
+      .status-overview-heading > span,
+      .status-update-time {
+          font-size: 0.64rem;
+      }
+
+      .market-overview-body {
+          gap: 0.8rem;
+          margin-top: 0.62rem;
+      }
+
+      .market-temperature-value strong {
+          font-size: 1.38rem;
+      }
+
+      .market-temperature-scale {
+          padding-bottom: 0;
+          margin-top: 0.25rem;
+      }
+
+      .strategy-status-list {
+          margin-top: 0.42rem;
+          min-height: 38px;
+      }
+
+      .strategy-status-item {
+          padding: 0 0.2rem;
+          gap: 0.22rem;
+      }
+
+      .strategy-status-name em {
+          font-size: 0.7rem;
+      }
+
+      .strategy-status-item strong {
+          font-size: 0.92rem;
+      }
+
+      .realtime-nav-panel {
+          margin-bottom: 0.55rem;
+      }
+
+      .realtime-six-card {
+          padding: 0.65rem;
+          min-height: 148px;
+      }
+
+      .realtime-six-card .realtime-card-top,
+      .realtime-six-card .realtime-card-value {
+          margin-bottom: 0.42rem;
+      }
+
+      .realtime-six-card .realtime-card-chart {
+          margin-bottom: 0.36rem;
+          height: 42px;
+      }
+
+      .quick-menu-grid {
+          gap: 0.65rem 0.85rem;
+      }
+
+      .quick-menu-card {
+          padding: 0.86rem 1rem;
+          min-height: 136px;
+          gap: 0.62rem;
+      }
+
+      .quick-menu-icon {
+          width: 46px;
+          height: 46px;
+      }
+
+      .quick-menu-title-wrap strong {
+          font-size: 1rem;
+      }
+
+      .quick-menu-desc {
+          font-size: 0.75rem;
+          line-height: 1.35;
+      }
+
+      .user-actions-footer {
+          margin-top: 0.75rem;
+          font-size: 0.82rem;
+      }
+  }
+
+  @media (min-width: 1600px) and (min-height: 880px) and (max-height: 950px) {
+      .home-page-wrapper {
+          align-items: center;
+          padding-top: 1rem;
+          padding-bottom: 1rem;
+      }
+
+      .main-title {
+          margin-top: 0;
+      }
+
+      .subtitle {
+          margin-bottom: 1rem;
+      }
+
+      .user-actions-footer {
+          margin-top: 1rem;
       }
   }
 </style>

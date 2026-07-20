@@ -2282,6 +2282,9 @@
   }
 
   .rebalance-cta {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
       padding: 0 2rem;
       margin-top: 1rem;
       min-height: 44px;
@@ -2901,9 +2904,8 @@
       }
 
       .rebalance-cta {
-          display: block;
+          display: flex;
           width: 100%;
-          text-align: center;
       }
 
       .stats-bar {

@@ -4595,12 +4595,14 @@ const performanceOption = computed(() => {
                     }>
                 ) => {
                     const title = params[0]?.axisValueLabel || ''
-                    const rows = params.map(item => {
-                        const color =
-                            performanceSeriesColorMap.value[item.seriesName] ||
-                            (typeof item.color === 'string' ? item.color : '#9aabba')
-                        return `${renderTooltipMarker(color)}${item.seriesName}&nbsp;&nbsp;<strong>${displayMoney(Number(item.value))}</strong>`
-                    })
+                    const rows = params
+                        .filter(item => typeof item.value === 'number' && Number.isFinite(item.value))
+                        .map(item => {
+                            const color =
+                                performanceSeriesColorMap.value[item.seriesName] ||
+                                (typeof item.color === 'string' ? item.color : '#9aabba')
+                            return `${renderTooltipMarker(color)}${item.seriesName}&nbsp;&nbsp;<strong>${displayMoney(Number(item.value))}</strong>`
+                        })
                     return [title, ...rows].join('<br/>')
                 }
             },
@@ -4662,15 +4664,17 @@ const performanceOption = computed(() => {
                 }>
             ) => {
                 const title = params[0]?.axisValueLabel || ''
-                const rows = params.map(item => {
-                    const value = Number(item.value)
-                    const formatted =
-                        item.seriesName === '回撤' ? `${value.toFixed(2)}%` : value.toFixed(4)
-                    const color =
-                        performanceSeriesColorMap.value[item.seriesName] ||
-                        (typeof item.color === 'string' ? item.color : '#9aabba')
-                    return `${renderTooltipMarker(color)}${item.seriesName}&nbsp;&nbsp;<strong>${formatted}</strong>`
-                })
+                const rows = params
+                    .filter(item => typeof item.value === 'number' && Number.isFinite(item.value))
+                    .map(item => {
+                        const value = Number(item.value)
+                        const formatted =
+                            item.seriesName === '回撤' ? `${value.toFixed(2)}%` : value.toFixed(4)
+                        const color =
+                            performanceSeriesColorMap.value[item.seriesName] ||
+                            (typeof item.color === 'string' ? item.color : '#9aabba')
+                        return `${renderTooltipMarker(color)}${item.seriesName}&nbsp;&nbsp;<strong>${formatted}</strong>`
+                    })
                 return [title, ...rows].join('<br/>')
             }
         },
@@ -8609,6 +8613,8 @@ select:focus {
 }
 
 .attribution-panel {
+    position: relative;
+    z-index: 1;
     min-height: 520px;
 }
 

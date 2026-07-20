@@ -60,6 +60,10 @@
       --menu-accent: #f0e68c;
   }
 
+  .feature-page-icon-high-dividend {
+      --menu-accent: #d4af37;
+  }
+
   .feature-page-icon-portfolio-lab {
       --menu-accent: #6366f1;
   }

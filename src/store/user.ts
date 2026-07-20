@@ -176,6 +176,9 @@ export const useUserStore = defineStore('user', {
         verification_id: verification.verification_id,
         verification_code: verificationCode
       })
+      if (!verificationTokenRes?.verification_token) {
+        throw verificationTokenRes
+      }
 
       // 3. 使用 tcb auth 注册新用户
       // 注意：signUp 成功后，tcb 会自动处理登录
@@ -208,6 +211,9 @@ export const useUserStore = defineStore('user', {
         verification_id: verification.verification_id,
         verification_code: verificationCode
       })
+      if (!verificationTokenRes?.verification_token) {
+        throw verificationTokenRes
+      }
 
       // 3. 使用 tcb auth 重置密码
       await auth.resetPassword({

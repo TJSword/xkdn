@@ -10,35 +10,13 @@
         <p class="subtitle">管理会员、数据源授权与策略数据刷新。</p>
       </div>
 
-      <section class="admin-overview" aria-label="管理中心概览">
-        <article class="overview-item">
-          <span>当前用户视图</span>
-          <strong>{{ totalUsers }}</strong>
-          <small>{{ onlyActive ? '生效会员' : '全部用户' }}</small>
-        </article>
-        <article class="overview-item">
-          <span>雪球 Cookie</span>
-          <strong :class="cookieStatus.configured ? 'positive' : 'warning'">
-            {{ cookieStatus.configured ? '已配置' : '未配置' }}
-          </strong>
-          <small>{{ formatDateTime(cookieStatus.updatedAt) }}</small>
-        </article>
-        <article class="overview-item">
-          <span>集思录 Cookie</span>
-          <strong :class="jisiluCookieStatus.configured ? 'positive' : 'warning'">
-            {{ jisiluCookieStatus.configured ? '已配置' : '未配置' }}
-          </strong>
-          <small>{{ formatDateTime(jisiluCookieStatus.updatedAt) }}</small>
-        </article>
-      </section>
-
       <nav class="admin-tabs" aria-label="管理中心功能">
         <button
           v-for="tab in tabs"
           :key="tab.key"
           :class="['admin-tab', { active: activeTab === tab.key }]"
           type="button"
-          @click="activeTab = tab.key"
+          @click="selectTab(tab.key)"
         >
           <strong>{{ tab.label }}</strong>
           <span>{{ tab.description }}</span>
@@ -141,123 +119,259 @@
         </div>
       </section>
 
-      <section v-if="activeTab === 'data-source'" class="content-card admin-section">
+      <section
+        v-if="activeTab === 'data-source'"
+        class="content-card admin-section cookie-config-card"
+        :class="{ expanded: expandedCookieSource === 'xueqiu' }"
+      >
+        <div
+          class="cookie-card-summary-toggle"
+          role="button"
+          tabindex="0"
+          :aria-expanded="expandedCookieSource === 'xueqiu'"
+          aria-controls="xueqiu-cookie-editor"
+          :aria-label="expandedCookieSource === 'xueqiu' ? '收起雪球 Cookie 编辑区' : '展开雪球 Cookie 编辑区'"
+          @click="toggleCookieEditor('xueqiu')"
+          @keydown.enter="toggleCookieEditor('xueqiu')"
+          @keydown.space.prevent="toggleCookieEditor('xueqiu')"
+        >
         <div class="card-header-with-toggle">
           <div>
             <h2 class="card-title">雪球 Cookie</h2>
             <p class="card-description">统一维护雪球授权 Cookie，供 Cookie 校验和微盘策略刷新使用。</p>
           </div>
-          <span :class="['status-pill', cookieStatus.configured ? 'success' : 'warning']">
-            {{ cookieStatus.configured ? '已配置' : '未配置' }}
-          </span>
+          <div class="cookie-card-state">
+            <span :class="['status-pill', cookieStatus.configured ? 'success' : 'warning']">
+              {{ cookieStatus.configured ? '已配置' : '未配置' }}
+            </span>
+          </div>
         </div>
 
-        <div class="settings-grid">
-          <div class="settings-panel">
-            <label class="form-label" for="xueqiu-cookie">Cookie 内容</label>
-            <textarea
-              id="xueqiu-cookie"
-              v-model="xueqiuCookie"
-              class="cookie-textarea"
-              placeholder="在这里粘贴雪球网页版请求头中的完整 Cookie"
-            ></textarea>
-            <p class="form-help">
-              为了避免敏感信息暴露，已保存的 Cookie 不会完整回显。需要更新时直接粘贴新的 Cookie。
-            </p>
-            <div class="settings-actions">
-              <button class="button-primary" :disabled="isSavingCookie || !xueqiuCookie.trim()" @click="saveCookieData">
-                {{ isSavingCookie ? '保存中...' : '保存 Cookie' }}
-              </button>
-              <button class="button-secondary" :disabled="isCheckingCookie" @click="checkCookie">
-                {{ isCheckingCookie ? '检查中...' : '检查有效性' }}
-              </button>
-            </div>
+        <div class="cookie-summary-grid">
+          <div class="cookie-summary-item">
+            <span>脱敏预览</span>
+            <strong>{{ cookieStatus.maskedCookie || '--' }}</strong>
           </div>
+          <div class="cookie-summary-item">
+            <span>更新时间</span>
+            <strong>{{ formatDateTime(cookieStatus.updatedAt) }}</strong>
+          </div>
+          <div class="cookie-summary-item">
+            <span>最近校验</span>
+            <strong>{{ lastCookieCheck || '--' }}</strong>
+          </div>
+        </div>
+        </div>
 
-          <div class="settings-panel summary-panel">
-            <h3>当前状态</h3>
-            <dl>
-              <div>
-                <dt>配置状态</dt>
-                <dd>{{ cookieStatus.configured ? '已保存' : '未保存' }}</dd>
-              </div>
-              <div>
-                <dt>脱敏预览</dt>
-                <dd>{{ cookieStatus.maskedCookie || '--' }}</dd>
-              </div>
-              <div>
-                <dt>更新时间</dt>
-                <dd>{{ formatDateTime(cookieStatus.updatedAt) }}</dd>
-              </div>
-              <div>
-                <dt>最近校验</dt>
-                <dd>{{ lastCookieCheck || '--' }}</dd>
-              </div>
-            </dl>
+        <div
+          v-if="expandedCookieSource === 'xueqiu'"
+          id="xueqiu-cookie-editor"
+          class="settings-panel cookie-editor-panel"
+        >
+          <label class="form-label" for="xueqiu-cookie">Cookie 内容</label>
+          <textarea
+            id="xueqiu-cookie"
+            v-model="xueqiuCookie"
+            class="cookie-textarea"
+            placeholder="在这里粘贴雪球网页版请求头中的完整 Cookie"
+          ></textarea>
+          <p class="form-help">
+            为了避免敏感信息暴露，已保存的 Cookie 不会完整回显。需要更新时直接粘贴新的 Cookie。
+          </p>
+          <div class="settings-actions">
+            <button class="button-primary" type="button" :disabled="isSavingCookie || !xueqiuCookie.trim()" @click="saveCookieData">
+              {{ isSavingCookie ? '保存中...' : '保存 Cookie' }}
+            </button>
+            <button class="button-secondary" type="button" :disabled="isCheckingCookie" @click="checkCookie">
+              {{ isCheckingCookie ? '检查中...' : '检查有效性' }}
+            </button>
           </div>
         </div>
       </section>
 
-      <section v-if="activeTab === 'data-source'" class="content-card admin-section">
+      <section
+        v-if="activeTab === 'data-source'"
+        class="content-card admin-section cookie-config-card"
+        :class="{ expanded: expandedCookieSource === 'jisilu' }"
+      >
+        <div
+          class="cookie-card-summary-toggle"
+          role="button"
+          tabindex="0"
+          :aria-expanded="expandedCookieSource === 'jisilu'"
+          aria-controls="jisilu-cookie-editor"
+          :aria-label="expandedCookieSource === 'jisilu' ? '收起集思录 Cookie 编辑区' : '展开集思录 Cookie 编辑区'"
+          @click="toggleCookieEditor('jisilu')"
+          @keydown.enter="toggleCookieEditor('jisilu')"
+          @keydown.space.prevent="toggleCookieEditor('jisilu')"
+        >
         <div class="card-header-with-toggle">
           <div>
             <h2 class="card-title">集思录 Cookie</h2>
             <p class="card-description">用于转债全景的实时列表和每日最新指数历史请求，与雪球 Cookie 独立保存。</p>
           </div>
-          <span :class="['status-pill', jisiluCookieStatus.configured ? 'success' : 'warning']">
-            {{ jisiluCookieStatus.configured ? '已配置' : '未配置' }}
-          </span>
-        </div>
-
-        <div class="settings-grid">
-          <div class="settings-panel">
-            <label class="form-label" for="jisilu-cookie">Cookie 内容</label>
-            <textarea
-              id="jisilu-cookie"
-              v-model="jisiluCookie"
-              class="cookie-textarea"
-              placeholder="在这里粘贴集思录网页版请求头中的完整 Cookie"
-            ></textarea>
-            <p class="form-help">已保存的 Cookie 不会完整回显。校验时会拒绝集思录返回的游客 30 条截断列表。</p>
-            <div class="settings-actions">
-              <button class="button-primary" :disabled="isSavingJisiluCookie || !jisiluCookie.trim()" @click="saveJisiluCookieData">
-                {{ isSavingJisiluCookie ? '保存中...' : '保存 Cookie' }}
-              </button>
-              <button class="button-secondary" :disabled="isCheckingJisiluCookie" @click="checkJisiluCookie">
-                {{ isCheckingJisiluCookie ? '检查中...' : '检查并刷新' }}
-              </button>
-            </div>
-          </div>
-
-          <div class="settings-panel summary-panel">
-            <h3>当前状态</h3>
-            <dl>
-              <div>
-                <dt>配置状态</dt>
-                <dd>{{ jisiluCookieStatus.configured ? '已保存' : '未保存' }}</dd>
-              </div>
-              <div>
-                <dt>脱敏预览</dt>
-                <dd>{{ jisiluCookieStatus.maskedCookie || '--' }}</dd>
-              </div>
-              <div>
-                <dt>更新时间</dt>
-                <dd>{{ formatDateTime(jisiluCookieStatus.updatedAt) }}</dd>
-              </div>
-              <div>
-                <dt>最近校验</dt>
-                <dd>{{ lastJisiluCookieCheck || '--' }}</dd>
-              </div>
-            </dl>
+          <div class="cookie-card-state">
+            <span :class="['status-pill', jisiluCookieStatus.configured ? 'success' : 'warning']">
+              {{ jisiluCookieStatus.configured ? '已配置' : '未配置' }}
+            </span>
           </div>
         </div>
+
+        <div class="cookie-summary-grid">
+          <div class="cookie-summary-item">
+            <span>脱敏预览</span>
+            <strong>{{ jisiluCookieStatus.maskedCookie || '--' }}</strong>
+          </div>
+          <div class="cookie-summary-item">
+            <span>更新时间</span>
+            <strong>{{ formatDateTime(jisiluCookieStatus.updatedAt) }}</strong>
+          </div>
+          <div class="cookie-summary-item">
+            <span>最近校验</span>
+            <strong>{{ lastJisiluCookieCheck || '--' }}</strong>
+          </div>
+        </div>
+        </div>
+
+        <div
+          v-if="expandedCookieSource === 'jisilu'"
+          id="jisilu-cookie-editor"
+          class="settings-panel cookie-editor-panel"
+        >
+          <label class="form-label" for="jisilu-cookie">Cookie 内容</label>
+          <textarea
+            id="jisilu-cookie"
+            v-model="jisiluCookie"
+            class="cookie-textarea"
+            placeholder="在这里粘贴集思录网页版请求头中的完整 Cookie"
+          ></textarea>
+          <p class="form-help">已保存的 Cookie 不会完整回显。校验时会拒绝集思录返回的游客 30 条截断列表。</p>
+          <div class="settings-actions">
+            <button class="button-primary" type="button" :disabled="isSavingJisiluCookie || !jisiluCookie.trim()" @click="saveJisiluCookieData">
+              {{ isSavingJisiluCookie ? '保存中...' : '保存 Cookie' }}
+            </button>
+            <button class="button-secondary" type="button" :disabled="isCheckingJisiluCookie" @click="checkJisiluCookie">
+              {{ isCheckingJisiluCookie ? '检查中...' : '检查有效性' }}
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <section
+        v-if="activeTab === 'data-source'"
+        class="content-card admin-section cookie-config-card"
+        :class="{ expanded: expandedCookieSource === 'guoren' }"
+      >
+        <div
+          class="cookie-card-summary-toggle"
+          role="button"
+          tabindex="0"
+          :aria-expanded="expandedCookieSource === 'guoren'"
+          aria-controls="guoren-cookie-editor"
+          :aria-label="expandedCookieSource === 'guoren' ? '收起果仁 Cookie 编辑区' : '展开果仁 Cookie 编辑区'"
+          @click="toggleCookieEditor('guoren')"
+          @keydown.enter="toggleCookieEditor('guoren')"
+          @keydown.space.prevent="toggleCookieEditor('guoren')"
+        >
+        <div class="card-header-with-toggle">
+          <div>
+            <h2 class="card-title">果仁 Cookie</h2>
+            <p class="card-description">用于果仁策略数据抓取，与其他数据源凭据独立保存。</p>
+          </div>
+          <div class="cookie-card-state">
+            <span :class="['status-pill', guorenCookieStatus.configured ? 'success' : 'warning']">
+              {{ guorenCookieStatus.configured ? '已配置' : '未配置' }}
+            </span>
+          </div>
+        </div>
+
+        <div class="cookie-summary-grid">
+          <div class="cookie-summary-item">
+            <span>脱敏预览</span>
+            <strong>{{ guorenCookieStatus.maskedCookie || '--' }}</strong>
+          </div>
+          <div class="cookie-summary-item">
+            <span>更新时间</span>
+            <strong>{{ formatDateTime(guorenCookieStatus.updatedAt) }}</strong>
+          </div>
+          <div class="cookie-summary-item">
+            <span>最近校验</span>
+            <strong>{{ lastGuorenCookieCheck || '--' }}</strong>
+          </div>
+        </div>
+        </div>
+
+        <div
+          v-if="expandedCookieSource === 'guoren'"
+          id="guoren-cookie-editor"
+          class="settings-panel cookie-editor-panel"
+        >
+          <label class="form-label" for="guoren-cookie">Cookie 内容</label>
+          <textarea
+            id="guoren-cookie"
+            v-model="guorenCookie"
+            class="cookie-textarea"
+            placeholder="在这里粘贴果仁网页版请求头中的完整 Cookie"
+          ></textarea>
+          <p class="form-help">已保存的 Cookie 不会完整回显。校验会请求果仁策略接口并确认返回有效数据。</p>
+          <div class="settings-actions">
+            <button class="button-primary" type="button" :disabled="isSavingGuorenCookie || !guorenCookie.trim()" @click="saveGuorenCookieData">
+              {{ isSavingGuorenCookie ? '保存中...' : '保存 Cookie' }}
+            </button>
+            <button class="button-secondary" type="button" :disabled="isCheckingGuorenCookie" @click="checkGuorenCookie">
+              {{ isCheckingGuorenCookie ? '检查中...' : '检查有效性' }}
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <section v-if="activeTab === 'data-view'" class="content-card admin-section">
+        <div class="card-header-with-toggle">
+          <div>
+            <h2 class="card-title">已采集数据</h2>
+            <p class="card-description">页面会读取已入库的数据；点击右侧按钮可重新抓取最新果仁微盘策略信号。</p>
+          </div>
+          <button
+            class="button-secondary"
+            :disabled="isLoadingCollectedData || isRefreshingGuorenMicrocap"
+            @click="refreshGuorenMicrocap"
+          >
+            {{ isRefreshingGuorenMicrocap ? '更新中...' : '更新果仁信号' }}
+          </button>
+        </div>
+
+        <div v-if="isLoadingCollectedData" class="no-data">正在加载已采集数据...</div>
+        <template v-else-if="collectedData">
+          <p class="form-help collected-data-time">更新时间：{{ formatDateTime(collectedData.updatedAt) }}</p>
+          <div class="table-wrapper">
+            <table class="portfolio-table collected-data-table">
+              <thead>
+                <tr>
+                  <th>股票名称</th>
+                  <th>股票代码</th>
+                  <th>行业</th>
+                  <th>信号</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="(row, index) in collectedData.data" :key="`${row.stockCode}-${index}`">
+                  <td>{{ row.stockName }}</td>
+                  <td>{{ row.stockCode }}</td>
+                  <td>{{ row.industry }}</td>
+                  <td>{{ row.signal }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </template>
+        <div v-else class="no-data">暂无已采集数据</div>
       </section>
 
       <section v-if="activeTab === 'refresh'" class="content-card admin-section">
         <div class="card-header-with-toggle">
           <div>
             <h2 class="card-title">策略刷新入口</h2>
-            <p class="card-description">手动触发 LOF、含权、微盘策略和转债全景的数据更新，适合补跑或验证云函数状态。</p>
+            <p class="card-description">手动触发 LOF、含权、微盘、高股息策略和转债全景的数据更新，适合补跑或验证云函数状态。</p>
           </div>
         </div>
 
@@ -420,12 +534,26 @@
       lof_premium: boolean
   }
 
-  type TabKey = 'users' | 'data-source' | 'refresh'
-  type RefreshTaskKey = 'lof' | 'rights' | 'micro_cap' | 'bond_market'
+  type TabKey = 'users' | 'data-source' | 'data-view' | 'refresh'
+  type RefreshTaskKey = 'lof' | 'rights' | 'micro_cap' | 'high_dividend' | 'bond_market'
+  type CookieSource = 'xueqiu' | 'jisilu' | 'guoren'
+
+  interface CollectedDataRow {
+      stockName: string
+      stockCode: string
+      industry: string
+      signal: string | null
+  }
+
+  interface CollectedData {
+      data: CollectedDataRow[]
+      updatedAt: string
+  }
 
   const tabs: Array<{ key: TabKey; label: string; description: string }> = [
       { key: 'users', label: '人员管理', description: '会员、通知、备注' },
-      { key: 'data-source', label: '数据源配置', description: '雪球与集思录授权' },
+      { key: 'data-source', label: '数据源配置', description: '统一维护访问凭据' },
+      { key: 'data-view', label: '数据查看', description: '已采集数据总览' },
       { key: 'refresh', label: '策略刷新', description: '手动补跑数据' }
   ]
   const activeTab = ref<TabKey>('users')
@@ -510,6 +638,12 @@
           lastRun: ''
       },
       {
+          key: 'high_dividend' as RefreshTaskKey,
+          title: '高股息策略',
+          description: '从果仁抓取最近一个已完成交易日的高股息持仓。',
+          lastRun: ''
+      },
+      {
           key: 'bond_market' as RefreshTaskKey,
           title: '转债全景',
           description: '请求当前集思录实时转债列表，并保存一份日内快照。',
@@ -535,6 +669,19 @@
   const isSavingJisiluCookie = ref(false)
   const isCheckingJisiluCookie = ref(false)
   const lastJisiluCookieCheck = ref('')
+  const guorenCookieStatus = ref({
+      configured: false,
+      maskedCookie: '',
+      updatedAt: ''
+  })
+  const guorenCookie = ref('')
+  const isSavingGuorenCookie = ref(false)
+  const isCheckingGuorenCookie = ref(false)
+  const lastGuorenCookieCheck = ref('')
+  const expandedCookieSource = ref<CookieSource | null>(null)
+  const collectedData = ref<CollectedData | null>(null)
+  const isLoadingCollectedData = ref(false)
+  const isRefreshingGuorenMicrocap = ref(false)
 
   function emptySubscriptions(): NotificationSubscriptions {
       return {
@@ -620,10 +767,75 @@
                   maskedCookie: response.result.data.maskedCookie || '',
                   updatedAt: response.result.data.updatedAt || ''
               }
+              lastJisiluCookieCheck.value = formatDateTime(response.result.data.lastCheckedAt || '')
           }
       } catch (error) {
           console.error('读取集思录 Cookie 状态失败:', error)
       }
+  }
+
+  const fetchGuorenCookieStatus = async () => {
+      try {
+          const response: any = await callCloudFunction({
+              name: 'guorenCookieConfig',
+              data: { action: 'get' }
+          })
+          if (response.result?.success) {
+              guorenCookieStatus.value = {
+                  configured: response.result.data.configured === true,
+                  maskedCookie: response.result.data.maskedCookie || '',
+                  updatedAt: response.result.data.updatedAt || ''
+              }
+              lastGuorenCookieCheck.value = formatDateTime(response.result.data.lastCheckedAt || '')
+          }
+      } catch (error) {
+          console.error('读取果仁 Cookie 状态失败:', error)
+      }
+  }
+
+  const fetchCollectedData = async () => {
+      if (isLoadingCollectedData.value) return
+
+      isLoadingCollectedData.value = true
+      try {
+          const response: any = await callCloudFunction({ name: 'getGuorenMicrocapData' })
+          if (!response.result?.success) throw new Error(response.result?.message || '读取数据失败')
+          collectedData.value = response.result.data || null
+      } catch (error: any) {
+          showMessage(error.message || '读取数据失败', 'error')
+      } finally {
+          isLoadingCollectedData.value = false
+      }
+  }
+
+  const refreshGuorenMicrocap = async () => {
+      if (isRefreshingGuorenMicrocap.value) return
+
+      isRefreshingGuorenMicrocap.value = true
+      try {
+          const response: any = await callCloudFunction({
+              name: 'strategyTaskGateway',
+              data: { action: 'refreshGuorenMicrocap' }
+          })
+          const result = response.result || {}
+          if (result.ok !== true) throw new Error(result.message || '获取最新果仁微盘持仓失败')
+
+          await fetchCollectedData()
+          showMessage(`已获取最新果仁微盘持仓，共 ${result.rowCount} 条`, 'success')
+      } catch (error: any) {
+          showMessage(error.message || '获取最新果仁微盘持仓失败', 'error')
+      } finally {
+          isRefreshingGuorenMicrocap.value = false
+      }
+  }
+
+  const selectTab = (tab: TabKey) => {
+      activeTab.value = tab
+      if (tab === 'data-view') fetchCollectedData()
+  }
+
+  const toggleCookieEditor = (source: CookieSource) => {
+      expandedCookieSource.value = expandedCookieSource.value === source ? null : source
   }
 
   const toggleSort = () => {
@@ -820,6 +1032,7 @@
           showMessage('雪球 Cookie 已保存', 'success')
           xueqiuCookie.value = ''
           await fetchCookieStatus()
+          expandedCookieSource.value = null
       } catch (error: any) {
           showMessage(error.message || 'Cookie 保存失败', 'error')
       } finally {
@@ -873,6 +1086,7 @@
           showMessage('集思录 Cookie 已保存', 'success')
           jisiluCookie.value = ''
           await fetchJisiluCookieStatus()
+          expandedCookieSource.value = null
       } catch (error: any) {
           showMessage(error.message || 'Cookie 保存失败', 'error')
       } finally {
@@ -887,16 +1101,66 @@
       try {
           const response: any = await callCloudFunction({
               name: 'strategyTaskGateway',
-              data: { action: 'refreshBondMarket' }
+              data: { action: 'checkJisiluCookie' }
           })
           const result = response.result || {}
           lastJisiluCookieCheck.value = formatDateObject(new Date())
           if (result.success === false) throw new Error(result.message || 'Cookie 校验失败')
-          showMessage('集思录 Cookie 状态正常，实时列表快照已保存', 'success')
+          showMessage(result.message || '集思录 Cookie 状态正常', 'success')
+          await fetchJisiluCookieStatus()
       } catch (error: any) {
           showMessage(error.message || 'Cookie 状态检查失败', 'error')
       } finally {
           isCheckingJisiluCookie.value = false
+      }
+  }
+
+  const saveGuorenCookieData = async () => {
+      if (!guorenCookie.value.trim()) {
+          showMessage('Cookie 不能为空', 'warning')
+          return
+      }
+
+      isSavingGuorenCookie.value = true
+      try {
+          const response: any = await callCloudFunction({
+              name: 'guorenCookieConfig',
+              data: {
+                  action: 'update',
+                  cookie: guorenCookie.value
+              }
+          })
+          if (!response.result?.success) throw new Error(response.result?.message || '保存失败')
+
+          showMessage('果仁 Cookie 已保存', 'success')
+          guorenCookie.value = ''
+          await fetchGuorenCookieStatus()
+          expandedCookieSource.value = null
+      } catch (error: any) {
+          showMessage(error.message || 'Cookie 保存失败', 'error')
+      } finally {
+          isSavingGuorenCookie.value = false
+      }
+  }
+
+  const checkGuorenCookie = async () => {
+      if (isCheckingGuorenCookie.value) return
+
+      isCheckingGuorenCookie.value = true
+      try {
+          const response: any = await callCloudFunction({
+              name: 'guorenCookieConfig',
+              data: { action: 'check' }
+          })
+          const result = response.result || {}
+          lastGuorenCookieCheck.value = formatDateObject(new Date())
+          if (result.success === false) throw new Error(result.message || 'Cookie 校验失败')
+          showMessage(result.message || '果仁 Cookie 状态正常', 'success')
+          await fetchGuorenCookieStatus()
+      } catch (error: any) {
+          showMessage(error.message || 'Cookie 状态检查失败', 'error')
+      } finally {
+          isCheckingGuorenCookie.value = false
       }
   }
 
@@ -909,6 +1173,7 @@
               lof: { name: 'strategyTaskGateway', data: { action: 'refreshLof' } },
               rights: { name: 'strategyTaskGateway', data: { action: 'refreshRightsStrategy' } },
               micro_cap: { name: 'strategyTaskGateway', data: { action: 'refreshMicroCap' } },
+              high_dividend: { name: 'strategyTaskGateway', data: { action: 'refreshGuorenHighDividend' } },
               bond_market: { name: 'strategyTaskGateway', data: { action: 'refreshBondMarket' } }
           }
           const task = callMap[key]
@@ -950,6 +1215,7 @@
       fetchUsers()
       fetchCookieStatus()
       fetchJisiluCookieStatus()
+      fetchGuorenCookieStatus()
   })
 </script>
 
@@ -958,7 +1224,7 @@
   :global(body),
   :global(#app) {
       max-width: 100%;
-      overflow-x: hidden;
+      overflow-x: clip;
   }
 
   .page-wrapper {
@@ -1467,7 +1733,7 @@
   /* Visual alignment with strategy detail pages */
   .page-wrapper {
       padding: 2.5rem 1rem 4rem;
-      overflow-x: hidden;
+      overflow-x: clip;
       max-width: 100%;
       box-sizing: border-box;
       color: #f4f7fb;
@@ -1477,7 +1743,7 @@
   .main-container {
       width: min(1120px, 100%);
       max-width: 100%;
-      overflow-x: hidden;
+      overflow: clip;
       box-sizing: border-box;
   }
 
@@ -1530,59 +1796,10 @@
       font-size: 1rem;
   }
 
-  .admin-overview {
-      display: grid;
-      margin-bottom: 1rem;
-      overflow: hidden;
-      background: rgb(255 255 255 / 5%);
-      border: 1px solid rgb(255 255 255 / 10%);
-      border-radius: 12px;
-      backdrop-filter: blur(10px);
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-      animation: fade-in-up 0.45s ease-out forwards;
-  }
-
-  .overview-item {
-      display: grid;
-      min-width: 0;
-      padding: 1rem 1.15rem;
-      border-right: 1px solid rgb(255 255 255 / 8%);
-      gap: 0.35rem;
-  }
-
-  .overview-item:last-child {
-      border-right: 0;
-  }
-
-  .overview-item span,
-  .overview-item small {
-      overflow: hidden;
-      color: #8392a5;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-  }
-
-  .overview-item strong {
-      overflow: hidden;
-      color: #fff;
-      font-size: 1.22rem;
-      font-weight: 700;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-  }
-
-  .overview-item strong.positive {
-      color: #4ecdc4;
-  }
-
-  .overview-item strong.warning {
-      color: #f4c95d;
-  }
-
   .admin-tabs {
       display: grid;
       margin-bottom: 1.5rem;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
+      grid-template-columns: repeat(4, minmax(0, 1fr));
       gap: 0.75rem;
       animation: fade-in-up 0.45s ease-out 0.06s both;
   }
@@ -1642,6 +1859,81 @@
 
   .content-card:hover {
       border-color: rgb(0 170 255 / 38%);
+  }
+
+  .admin-section + .admin-section {
+      margin-top: 1.25rem;
+  }
+
+  .cookie-config-card {
+      padding: 1rem 1.1rem;
+  }
+
+  .cookie-config-card + .cookie-config-card {
+      margin-top: 0.75rem;
+  }
+
+  .cookie-config-card.expanded {
+      border-color: rgb(0 170 255 / 38%);
+  }
+
+  .cookie-config-card .card-header-with-toggle {
+      align-items: center;
+      margin-bottom: 0.75rem;
+  }
+
+  .cookie-card-summary-toggle {
+      border-radius: 8px;
+      outline: none;
+      cursor: pointer;
+  }
+
+  .cookie-card-summary-toggle:focus-visible {
+      box-shadow: 0 0 0 2px rgb(0 170 255 / 28%);
+  }
+
+  .cookie-card-state {
+      display: flex;
+      justify-content: flex-end;
+      align-items: center;
+  }
+
+  .cookie-summary-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 0.65rem;
+  }
+
+  .cookie-summary-item {
+      display: grid;
+      padding: 0.62rem 0.75rem;
+      min-width: 0;
+      background: rgb(0 0 0 / 16%);
+      border: 1px solid rgb(255 255 255 / 8%);
+      border-radius: 6px;
+      gap: 0.25rem;
+  }
+
+  .cookie-summary-item span {
+      font-size: 0.76rem;
+      color: #8392a5;
+  }
+
+  .cookie-summary-item strong {
+      overflow: hidden;
+      font-size: 0.86rem;
+      color: #e8f1fb;
+      font-weight: 600;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+  }
+
+  .cookie-editor-panel {
+      margin-top: 0.85rem;
+  }
+
+  .cookie-editor-panel .cookie-textarea {
+      min-height: 130px;
   }
 
   .card-header-with-toggle {
@@ -2010,7 +2302,6 @@
   }
 
   @media (max-width: 860px) {
-      .admin-overview,
       .admin-tabs,
       .refresh-grid {
           grid-template-columns: 1fr;
@@ -2020,6 +2311,14 @@
           display: flex;
           align-items: stretch;
           flex-direction: column;
+      }
+
+      .cookie-card-state {
+          justify-content: flex-start;
+      }
+
+      .cookie-summary-grid {
+          grid-template-columns: 1fr;
       }
 
       .settings-grid {

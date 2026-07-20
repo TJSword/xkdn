@@ -31,7 +31,7 @@ export const constantRoutes = [
       requiresAuth: true,
       capability: 'app:read',
       title: '首页',
-      description: '何以有数首页汇总市场温度、策略实时走势、全天候策略、可转债策略、含权策略、动量策略和微盘股策略入口。'
+      description: '何以有数首页汇总市场温度、策略实时走势、全天候策略、可转债策略、高股息策略、含权策略、动量策略和微盘股策略入口。'
     } // meta 标记所有需要登录才能访问的页面
   },
   {
@@ -82,6 +82,16 @@ export const constantRoutes = [
       capability: 'app:read',
       title: '微盘股策略',
       description: '查看微盘股策略收益曲线、月度年度收益、回撤表现和调仓信息，跟踪小市值组合运行状态。'
+    }
+  },
+  {
+    path: '/high-dividend',
+    component: () => import('@/views/high-dividend.vue'),
+    meta: {
+      requiresAuth: true,
+      capability: 'app:read',
+      title: '高股息策略',
+      description: '查看高股息策略的最新持仓、收益走势、月度年度收益和风险指标。'
     }
   },
   {

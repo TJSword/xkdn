@@ -143,7 +143,15 @@
   }
 
   const handleRegisterClick = () => {
-      showMessage('账号系统升级中，暂停新用户注册', 'info')
+      switchMode('register')
+  }
+
+  const getErrorMessage = (error: any, fallback: string) => {
+      const message = error?.message || error?.error_description || error?.msg || fallback
+      if (/验证码.*(无效|失效|不匹配)|verification code.*(does not match|invalid|expired)/i.test(message)) {
+          return '验证码无效或已失效，请重新获取验证码。'
+      }
+      return message
   }
 
   const handleSubmit = () => {
@@ -242,7 +250,7 @@
           console.log('模拟注册成功:', { phoneNumber, password })
       } catch (error: any) {
           console.error('注册失败:', error)
-          showMessage(error.message || '注册失败，请稍后重试', 'error')
+          showMessage(getErrorMessage(error, '注册失败，请稍后重试'), 'error')
       }
   }
 
@@ -279,7 +287,7 @@
           switchMode('login')
       } catch (error: any) {
           console.error('重置密码失败:', error)
-          showMessage(error.message || '重置密码失败，请稍后重试', 'error')
+          showMessage(getErrorMessage(error, '重置密码失败，请稍后重试'), 'error')
       }
   }
 

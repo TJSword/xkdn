@@ -955,10 +955,14 @@
 
   /* 复利计算器按钮特殊布局 */
   .compound-calculator .calculation-zone {
-      justify-content: center;
+      justify-content: flex-end;
       border-top: none;
       padding-top: 0;
       margin-top: 0;
+  }
+
+  .fire-calculator .calculation-zone {
+      justify-content: flex-end;
   }
 
   .input-group {
