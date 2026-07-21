@@ -4491,11 +4491,32 @@ const allocationOption = computed(() => ({
     series: [
         {
             type: 'pie',
-            radius: ['61%', '82%'],
+            radius: ['46%', '64%'],
             center: ['50%', '50%'],
             avoidLabelOverlap: true,
             itemStyle: { borderColor: '#111820', borderWidth: 4 },
-            label: { show: false },
+            label: {
+                show: true,
+                position: 'outside',
+                alignTo: 'edge',
+                edgeDistance: 4,
+                formatter: (params: any) => {
+                    return `{name|${String(params.name || '')}}\n{percent|${params.percent}%}`
+                },
+                minMargin: 6,
+                bleedMargin: 4,
+                rich: {
+                    name: { color: '#dfe8f1', fontSize: 11, fontWeight: 600, lineHeight: 16 },
+                    percent: { color: '#8fa2b5', fontSize: 11, lineHeight: 15 }
+                }
+            },
+            labelLine: {
+                show: true,
+                length: 8,
+                length2: 6,
+                smooth: 0.2,
+                lineStyle: { color: '#607184', width: 1 }
+            },
             data: allocationData.map(item => ({
                 name: item.name,
                 value: item.current,
@@ -7509,13 +7530,13 @@ select:focus {
 .allocation-layout {
     display: grid;
     align-items: center;
-    grid-template-columns: 230px 1fr;
+    grid-template-columns: 380px minmax(0, 1fr);
     gap: 18px;
 }
 
 .allocation-chart {
     width: 100%;
-    height: 230px;
+    height: 260px;
 }
 
 .allocation-list {
@@ -10446,7 +10467,7 @@ label small {
     }
 
     .allocation-chart {
-        height: 190px;
+        height: 230px;
     }
 
     .allocation-row {

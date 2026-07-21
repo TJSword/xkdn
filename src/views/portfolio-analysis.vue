@@ -110,9 +110,19 @@
               </div>
             </div>
 
-            <button class="run-btn" @click="runAnalysis" :disabled="isLoading || totalWeight !== 100 || !dataReady">
-              {{ dataStatusText }}
-            </button>
+            <div class="action-buttons">
+              <button type="button" class="rebalance-setting-trigger" @click="openRebalanceModal">
+                <span class="rebalance-setting-summary">
+                  <span>再平衡</span>
+                  <strong>{{ rebalanceRuleText }}</strong>
+                </span>
+                <span class="rebalance-setting-action">设置</span>
+              </button>
+
+              <button class="run-btn" @click="runAnalysis" :disabled="isLoading || totalWeight !== 100 || !dataReady">
+                {{ dataStatusText }}
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -125,6 +135,74 @@
         monogram="CALC"
         icon-type="portfolio-lab"
       />
+
+      <div v-if="showRebalanceModal" class="modal-backdrop" @click.self="closeRebalanceModal">
+        <div class="leverage-modal rebalance-modal">
+          <div class="modal-header">
+            <div>
+              <h2 class="modal-title">再平衡设置</h2>
+              <p class="modal-subtitle">选择本次组合回测恢复目标权重的触发方式。</p>
+            </div>
+            <button type="button" class="modal-close" @click="closeRebalanceModal">×</button>
+          </div>
+
+          <div class="rebalance-options">
+            <label :class="['rebalance-option', { active: rebalanceDraft.mode === 'threshold' }]">
+              <input v-model="rebalanceDraft.mode" type="radio" value="threshold" />
+              <span>
+                <strong>相对阈值偏离再平衡</strong>
+                <small>任一策略的相对权重偏离超过阈值后，整体恢复目标权重。</small>
+              </span>
+            </label>
+
+            <label v-if="rebalanceDraft.mode === 'threshold'" class="rebalance-parameter-field">
+              <span>偏离阈值</span>
+              <div class="rebalance-number-input">
+                <input
+                  v-model.number="rebalanceDraft.threshold"
+                  type="number"
+                  min="1"
+                  max="100"
+                  step="5"
+                  class="cyber-input"
+                />
+                <span>%</span>
+              </div>
+            </label>
+
+            <label :class="['rebalance-option', { active: rebalanceDraft.mode === 'time' }]">
+              <input v-model="rebalanceDraft.mode" type="radio" value="time" />
+              <span>
+                <strong>时间再平衡</strong>
+                <small>按自然季度、自然半年或自然年，在周期首个共同交易日收盘后恢复目标权重。</small>
+              </span>
+            </label>
+
+            <label v-if="rebalanceDraft.mode === 'time'" class="rebalance-parameter-field">
+              <span>再平衡频率</span>
+              <select v-model.number="rebalanceDraft.intervalMonths" class="cyber-input">
+                <option :value="3">每三个月</option>
+                <option :value="6">每半年（六个月）</option>
+                <option :value="12">每年一次</option>
+                <option :value="24">每两年一次</option>
+              </select>
+            </label>
+
+            <div v-if="rebalanceDraft.mode === 'time'" class="rebalance-time-note">
+              <strong>时间点说明</strong>
+              <p>{{ rebalanceDraftTimeDescription }}</p>
+              <p>“共同交易日”是所选策略均有有效净值数据的日期。</p>
+            </div>
+          </div>
+
+          <p class="modal-footnote">回测首日为初始建仓，不计入再平衡次数。</p>
+
+          <div class="modal-actions">
+            <button type="button" class="modal-secondary-btn" @click="closeRebalanceModal">取消</button>
+            <button type="button" class="modal-primary-btn" @click="confirmRebalanceSettings">应用</button>
+          </div>
+        </div>
+      </div>
 
       <div v-if="showLeverageModal" class="modal-backdrop" @click.self="closeLeverageModal">
         <div class="leverage-modal">
@@ -233,11 +311,15 @@
         <div class="content-card">
           <h2 class="card-title">净值走势对比</h2>
           <p class="card-description">
-            粗线为合成的组合策略 (阈值再平衡: 30%，单边交易费用: {{ formatPlainPercent(TRANSACTION_FEE_RATE) }})，细线为各成分策略。区间：{{ startDate }} 至 {{ endDate }}
+            粗线为合成的组合策略 (再平衡：{{ rebalanceRuleText }}，单边交易费用: {{ formatPlainPercent(TRANSACTION_FEE_RATE) }})，细线为各成分策略。区间：{{ startDate }} 至 {{ endDate }}
           </p>
           <div
             :class="['leverage-result-strip', 'transaction-cost-strip', { 'has-leverage': leverageSummary.enabled }]"
           >
+            <div>
+              <span>再平衡规则</span>
+              <strong>{{ rebalanceRuleText }}</strong>
+            </div>
             <div>
               <span>再平衡次数</span>
               <strong>{{ transactionCostSummary.rebalanceCount }} 次</strong>
@@ -828,6 +910,7 @@
   const isLoading = ref(false)
   const dataReady = ref(false) // 数据是否加载完毕
   const analysisDone = ref(false)
+  const showRebalanceModal = ref(false)
   const showLeverageModal = ref(false)
   const activeStrategyInfo = ref<{ title: string; subtitle: string; paragraphs: string[] } | null>(null)
   const metricTooltip = ref({
@@ -855,6 +938,15 @@
   const startDate = ref('')
   const endDate = ref('')
 
+  type RebalanceMode = 'threshold' | 'time'
+  type TimeRebalanceIntervalMonths = 3 | 6 | 12 | 24
+  const rebalanceConfig = ref({
+      mode: 'threshold' as RebalanceMode,
+      threshold: 30,
+      intervalMonths: 12 as TimeRebalanceIntervalMonths
+  })
+  const rebalanceDraft = ref({ ...rebalanceConfig.value })
+
   const leverageConfig = ref({
       enabled: false,
       multiplier: 2.1,
@@ -877,7 +969,7 @@
       {
           id: 'all_weather',
           name: '全天候策略',
-          weight: 20,
+          weight: 15,
           selected: true,
           color: '#00aaff',
           conservativeFactor: 0.95,
@@ -886,7 +978,7 @@
       {
           id: 'bonds',
           name: '可转债策略',
-          weight: 20,
+          weight: 50,
           selected: true,
           color: '#add8e6',
           conservativeFactor: 0.6,
@@ -895,17 +987,17 @@
       {
           id: 'high_dividend',
           name: '高股息策略',
-          weight: 0,
-          selected: false,
+          weight: 5,
+          selected: true,
           color: '#2dd4bf',
-          conservativeFactor: 0.8,
+          conservativeFactor: 0.9,
           functionName: 'getHighDividendStrategyData'
       },
     
       {
           id: RIGHTS_ID,
           name: '含权策略',
-          weight: 20,
+          weight: 5,
           selected: true,
           color: '#ef4444',
           conservativeFactor: 0.8,
@@ -914,7 +1006,7 @@
       {
           id: 'momentum',
           name: '动量策略',
-          weight: 20,
+          weight: 5,
           selected: true,
           color: '#ff5722',
           conservativeFactor: 0.7,
@@ -991,6 +1083,37 @@
       return `${formatLeverageMultiplier(cleanLeverageMultiplier.value)} / ${formatPlainPercent(
           cleanFinancingRate.value
       )}/年`
+  })
+
+  const cleanRebalanceThreshold = computed(() => {
+      const value = Number(rebalanceConfig.value.threshold)
+      if (!Number.isFinite(value)) return 30
+      return Math.min(100, Math.max(1, value))
+  })
+
+  const getTimeRebalanceLabel = (intervalMonths: TimeRebalanceIntervalMonths) => {
+      if (intervalMonths === 3) return '每三个月'
+      if (intervalMonths === 6) return '每半年'
+      if (intervalMonths === 24) return '每两年一次'
+      return '每年一次'
+  }
+
+  const getTimeRebalanceDescription = (intervalMonths: TimeRebalanceIntervalMonths) => {
+      if (intervalMonths === 3) return '每年 1、4、7、10 月的第一个共同交易日收盘后执行。'
+      if (intervalMonths === 6) return '每年 1 月和 7 月的第一个共同交易日收盘后执行。'
+      if (intervalMonths === 24) return '以回测起始年份为基准，每隔两个自然年的 1 月执行。'
+      return '每年 1 月的第一个共同交易日收盘后执行。'
+  }
+
+  const rebalanceDraftTimeDescription = computed(() => {
+      return getTimeRebalanceDescription(rebalanceDraft.value.intervalMonths)
+  })
+
+  const rebalanceRuleText = computed(() => {
+      if (rebalanceConfig.value.mode === 'time') {
+          return getTimeRebalanceLabel(rebalanceConfig.value.intervalMonths)
+      }
+      return `相对偏离 ${formatPlainPercent(cleanRebalanceThreshold.value)}`
   })
 
   const dataStatusText = computed(() => {
@@ -1105,6 +1228,35 @@
   const normalizeLeverageInputs = () => {
       leverageConfig.value.multiplier = cleanLeverageMultiplier.value
       leverageConfig.value.financingRate = cleanFinancingRate.value
+  }
+
+  const openRebalanceModal = () => {
+      rebalanceDraft.value = { ...rebalanceConfig.value }
+      showRebalanceModal.value = true
+  }
+
+  const closeRebalanceModal = () => {
+      showRebalanceModal.value = false
+  }
+
+  const confirmRebalanceSettings = () => {
+      const mode: RebalanceMode = rebalanceDraft.value.mode === 'time' ? 'time' : 'threshold'
+      const thresholdValue = Number(rebalanceDraft.value.threshold)
+      const threshold = Number.isFinite(thresholdValue)
+          ? Math.min(100, Math.max(1, thresholdValue))
+          : 30
+      const intervalValue = Number(rebalanceDraft.value.intervalMonths)
+      const intervalMonths: TimeRebalanceIntervalMonths = [3, 6, 12, 24].includes(intervalValue)
+          ? (intervalValue as TimeRebalanceIntervalMonths)
+          : 12
+      const changed =
+          rebalanceConfig.value.mode !== mode ||
+          rebalanceConfig.value.threshold !== threshold ||
+          rebalanceConfig.value.intervalMonths !== intervalMonths
+
+      rebalanceConfig.value = { mode, threshold, intervalMonths }
+      closeRebalanceModal()
+      if (changed) analysisDone.value = false
   }
 
   const openLeverageModal = () => {
@@ -1768,7 +1920,7 @@
           resetLeverageSummary()
       }
 
-      // 3. 计算组合净值曲线 (核心：阈值再平衡逻辑)
+      // 3. 计算组合净值曲线 (核心：再平衡逻辑)
       const portfolioCurve: number[] = []
       const dailyPnlContributions: Record<string, number[]> = {}
       selectedStrats.forEach(strat => {
@@ -1778,8 +1930,16 @@
       let rebalanceCount = 0
       let totalTransactionCost = 0
 
-      // 硬编码的再平衡阈值
-      const REBALANCE_THRESHOLD = 0.3 // 30% 偏离度
+      const rebalanceThreshold = cleanRebalanceThreshold.value / 100
+      const rebalanceStartYear = Number(calcDateList[0].slice(0, 4))
+
+      const getTimeRebalancePeriodIndex = (date: string) => {
+          const year = Number(date.slice(0, 4))
+          const monthIndex = Number(date.slice(5, 7)) - 1
+          const intervalMonths = rebalanceConfig.value.intervalMonths
+          if (intervalMonths === 24) return Math.floor((year - rebalanceStartYear) / 2)
+          return year * (12 / intervalMonths) + Math.floor(monthIndex / intervalMonths)
+      }
 
       // 初始状态：总资金为 1.0，按目标权重分配
       let currentTotalEquity = 1.0
@@ -1814,16 +1974,22 @@
 
           // B. 检查是否需要再平衡
           let needsRebalance = false
-          for (const s of selectedStrats) {
-              const targetW = s.weight / 100
-              const currentW = currentHoldings[s.id] / currentTotalEquity
+          if (rebalanceConfig.value.mode === 'time') {
+              const currentPeriodIndex = getTimeRebalancePeriodIndex(calcDateList[t])
+              const previousPeriodIndex = getTimeRebalancePeriodIndex(calcDateList[t - 1])
+              needsRebalance = currentPeriodIndex > previousPeriodIndex
+          } else {
+              for (const s of selectedStrats) {
+                  const targetW = s.weight / 100
+                  const currentW = currentHoldings[s.id] / currentTotalEquity
 
-              // 计算偏离度： |当前权重 - 目标权重| / 目标权重
-              const deviation = Math.abs(currentW - targetW) / targetW
+                  // 计算偏离度： |当前权重 - 目标权重| / 目标权重
+                  const deviation = Math.abs(currentW - targetW) / targetW
 
-              if (deviation > REBALANCE_THRESHOLD) {
-                  needsRebalance = true
-                  break // 只要有一个触发，就整体再平衡
+                  if (deviation > rebalanceThreshold) {
+                      needsRebalance = true
+                      break // 只要有一个触发，就整体再平衡
+                  }
               }
           }
 
@@ -3021,6 +3187,56 @@
       gap: 0.5rem;
   }
 
+  .action-buttons {
+      display: flex;
+      align-items: stretch;
+      gap: 0.75rem;
+  }
+
+  .rebalance-setting-trigger {
+      display: flex;
+      align-items: center;
+      padding: 0.45rem 0.7rem;
+      min-width: 190px;
+      color: #d6deff;
+      background: rgb(255 255 255 / 4%);
+      border: 1px solid rgb(255 255 255 / 14%);
+      border-radius: 6px;
+      gap: 0.75rem;
+      cursor: pointer;
+  }
+
+  .rebalance-setting-trigger:hover {
+      border-color: var(--theme-color);
+      box-shadow: 0 0 12px var(--theme-shadow);
+  }
+
+  .rebalance-setting-summary {
+      display: flex;
+      min-width: 0;
+      text-align: left;
+      flex: 1;
+      flex-direction: column;
+      gap: 0.15rem;
+  }
+
+  .rebalance-setting-summary span {
+      font-size: 0.7rem;
+      color: #8392a5;
+  }
+
+  .rebalance-setting-summary strong {
+      font-size: 0.82rem;
+      white-space: nowrap;
+      color: #fff;
+  }
+
+  .rebalance-setting-action {
+      font-size: 0.78rem;
+      white-space: nowrap;
+      color: var(--theme-color);
+  }
+
   .date-inputs .cyber-input {
       display: inline-flex;
       align-items: center;
@@ -3232,6 +3448,106 @@
       box-sizing: border-box;
   }
 
+  .rebalance-options {
+      display: flex;
+      margin-bottom: 1rem;
+      flex-direction: column;
+      gap: 0.75rem;
+  }
+
+  .rebalance-option {
+      display: flex;
+      align-items: flex-start;
+      padding: 0.85rem;
+      color: #d6deff;
+      background: rgb(255 255 255 / 3%);
+      border: 1px solid rgb(255 255 255 / 12%);
+      border-radius: 8px;
+      gap: 0.7rem;
+      cursor: pointer;
+  }
+
+  .rebalance-option.active {
+      background: rgb(99 102 241 / 10%);
+      border-color: rgb(99 102 241 / 55%);
+  }
+
+  .rebalance-option input {
+      margin-top: 0.2rem;
+      width: 16px;
+      height: 16px;
+      accent-color: var(--theme-color);
+  }
+
+  .rebalance-option > span {
+      display: flex;
+      min-width: 0;
+      flex-direction: column;
+      gap: 0.3rem;
+  }
+
+  .rebalance-option strong {
+      font-size: 0.92rem;
+      color: #fff;
+  }
+
+  .rebalance-option small {
+      font-size: 0.78rem;
+      color: #8392a5;
+      line-height: 1.5;
+  }
+
+  .rebalance-parameter-field {
+      display: flex;
+      align-items: center;
+      padding: 0 0.85rem 0.25rem 2.55rem;
+      font-size: 0.85rem;
+      color: #b0c4de;
+      gap: 0.75rem;
+  }
+
+  .rebalance-parameter-field .cyber-input {
+      min-width: 140px;
+      box-sizing: border-box;
+  }
+
+  .rebalance-number-input {
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+  }
+
+  .rebalance-number-input .cyber-input {
+      width: 90px;
+      min-width: 90px;
+  }
+
+  .rebalance-time-note {
+      padding: 0.75rem 0.85rem;
+      margin: 0 0.85rem;
+      font-size: 0.8rem;
+      color: #b0c4de;
+      background: rgb(99 102 241 / 7%);
+      border-left: 3px solid rgb(99 102 241 / 45%);
+      border-radius: 4px;
+      line-height: 1.55;
+  }
+
+  .rebalance-time-note strong {
+      display: block;
+      margin-bottom: 0.3rem;
+      color: #fff;
+  }
+
+  .rebalance-time-note p {
+      margin: 0;
+  }
+
+  .rebalance-time-note p + p {
+      margin-top: 0.25rem;
+      color: #8392a5;
+  }
+
   .leverage-metrics {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
@@ -3317,12 +3633,8 @@
       background: rgb(99 102 241 / 8%);
       border: 1px solid rgb(99 102 241 / 28%);
       border-radius: 8px;
-      grid-template-columns: repeat(3, 1fr);
+      grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
       gap: 0.75rem;
-  }
-
-  .leverage-result-strip.has-leverage {
-      grid-template-columns: repeat(6, minmax(0, 1fr));
   }
 
   .leverage-result-strip span {
@@ -3883,6 +4195,15 @@
           align-items: stretch;
       }
 
+      .action-buttons {
+          flex-direction: column;
+      }
+
+      .rebalance-setting-trigger {
+          width: 100%;
+          box-sizing: border-box;
+      }
+
       .date-inputs {
           justify-content: space-between;
       }
@@ -3892,7 +4213,6 @@
       }
 
       .run-btn {
-          margin-top: 0.5rem;
           width: 100%;
       }
 
@@ -3910,8 +4230,18 @@
           grid-template-columns: 1fr;
       }
 
-      .leverage-result-strip.has-leverage {
-          grid-template-columns: 1fr;
+      .rebalance-parameter-field {
+          align-items: stretch;
+          padding-left: 0.85rem;
+          flex-direction: column;
+      }
+
+      .rebalance-parameter-field .cyber-input {
+          width: 100%;
+      }
+
+      .rebalance-time-note {
+          margin: 0;
       }
 
       .modal-actions {

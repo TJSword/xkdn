@@ -441,7 +441,7 @@
   .holdings-note strong { flex: 0 0 auto; font-size: 0.82rem; color: var(--theme-bright); }
   .holdings-note span { font-size: 0.78rem; color: #aebfd3; line-height: 1.6; }
   .holding-badge { display: inline-block; padding: 0.15rem 0.42rem; margin-left: 0.45rem; font-size: 0.64rem; border-radius: 999px; font-style: normal; font-weight: 600; vertical-align: middle; }
-  .holding-badge.standard { color: #052e16; background: var(--theme-bright); }
+  .holding-badge.standard { color: var(--theme-bright); background: rgb(74 222 128 / 12%); border: 1px solid var(--theme-border); }
   .holding-badge.watch { color: #f4dda0; background: rgb(212 175 55 / 12%); border: 1px solid rgb(212 175 55 / 28%); }
   .watchlist-row { background: rgb(212 175 55 / 3%); }
   .watchlist-start td { border-top: 2px solid rgb(212 175 55 / 34%); }

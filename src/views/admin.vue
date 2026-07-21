@@ -175,15 +175,16 @@
             class="cookie-textarea"
             placeholder="在这里粘贴雪球网页版请求头中的完整 Cookie"
           ></textarea>
-          <p class="form-help">
-            为了避免敏感信息暴露，已保存的 Cookie 不会完整回显。需要更新时直接粘贴新的 Cookie。
-          </p>
+          <p class="form-help">检查有效性只验证当前 Cookie；重置 Cookie 会重新登录，验证成功后再覆盖保存。</p>
           <div class="settings-actions">
-            <button class="button-primary" type="button" :disabled="isSavingCookie || !xueqiuCookie.trim()" @click="saveCookieData">
+            <button class="button-primary" type="button" :disabled="isSavingCookie || isCheckingCookie || isResettingCookie || !xueqiuCookie.trim()" @click="saveCookieData">
               {{ isSavingCookie ? '保存中...' : '保存 Cookie' }}
             </button>
-            <button class="button-secondary" type="button" :disabled="isCheckingCookie" @click="checkCookie">
+            <button class="button-secondary" type="button" :disabled="isCheckingCookie || isResettingCookie || isSavingCookie" @click="checkCookie">
               {{ isCheckingCookie ? '检查中...' : '检查有效性' }}
+            </button>
+            <button class="button-secondary" type="button" :disabled="isResettingCookie || isCheckingCookie || isSavingCookie" @click="resetCookie">
+              {{ isResettingCookie ? '重置中...' : '重置 Cookie' }}
             </button>
           </div>
         </div>
@@ -245,13 +246,16 @@
             class="cookie-textarea"
             placeholder="在这里粘贴集思录网页版请求头中的完整 Cookie"
           ></textarea>
-          <p class="form-help">已保存的 Cookie 不会完整回显。校验时会拒绝集思录返回的游客 30 条截断列表。</p>
+          <p class="form-help">检查有效性只验证当前 Cookie；重置 Cookie 会重新登录，验证成功后再覆盖保存。</p>
           <div class="settings-actions">
-            <button class="button-primary" type="button" :disabled="isSavingJisiluCookie || !jisiluCookie.trim()" @click="saveJisiluCookieData">
+            <button class="button-primary" type="button" :disabled="isSavingJisiluCookie || isCheckingJisiluCookie || isResettingJisiluCookie || !jisiluCookie.trim()" @click="saveJisiluCookieData">
               {{ isSavingJisiluCookie ? '保存中...' : '保存 Cookie' }}
             </button>
-            <button class="button-secondary" type="button" :disabled="isCheckingJisiluCookie" @click="checkJisiluCookie">
+            <button class="button-secondary" type="button" :disabled="isCheckingJisiluCookie || isResettingJisiluCookie || isSavingJisiluCookie" @click="checkJisiluCookie">
               {{ isCheckingJisiluCookie ? '检查中...' : '检查有效性' }}
+            </button>
+            <button class="button-secondary" type="button" :disabled="isResettingJisiluCookie || isCheckingJisiluCookie || isSavingJisiluCookie" @click="resetJisiluCookie">
+              {{ isResettingJisiluCookie ? '重置中...' : '重置 Cookie' }}
             </button>
           </div>
         </div>
@@ -313,13 +317,16 @@
             class="cookie-textarea"
             placeholder="在这里粘贴果仁网页版请求头中的完整 Cookie"
           ></textarea>
-          <p class="form-help">已保存的 Cookie 不会完整回显。校验会请求果仁策略接口并确认返回有效数据。</p>
+          <p class="form-help">检查有效性只验证当前 Cookie；重置 Cookie 会重新登录，验证成功后再覆盖保存。</p>
           <div class="settings-actions">
-            <button class="button-primary" type="button" :disabled="isSavingGuorenCookie || !guorenCookie.trim()" @click="saveGuorenCookieData">
+            <button class="button-primary" type="button" :disabled="isSavingGuorenCookie || isCheckingGuorenCookie || isResettingGuorenCookie || !guorenCookie.trim()" @click="saveGuorenCookieData">
               {{ isSavingGuorenCookie ? '保存中...' : '保存 Cookie' }}
             </button>
-            <button class="button-secondary" type="button" :disabled="isCheckingGuorenCookie" @click="checkGuorenCookie">
+            <button class="button-secondary" type="button" :disabled="isCheckingGuorenCookie || isResettingGuorenCookie || isSavingGuorenCookie" @click="checkGuorenCookie">
               {{ isCheckingGuorenCookie ? '检查中...' : '检查有效性' }}
+            </button>
+            <button class="button-secondary" type="button" :disabled="isResettingGuorenCookie || isCheckingGuorenCookie || isSavingGuorenCookie" @click="resetGuorenCookie">
+              {{ isResettingGuorenCookie ? '重置中...' : '重置 Cookie' }}
             </button>
           </div>
         </div>
@@ -659,6 +666,7 @@
   const xueqiuCookie = ref('')
   const isSavingCookie = ref(false)
   const isCheckingCookie = ref(false)
+  const isResettingCookie = ref(false)
   const lastCookieCheck = ref('')
   const jisiluCookieStatus = ref({
       configured: false,
@@ -668,6 +676,7 @@
   const jisiluCookie = ref('')
   const isSavingJisiluCookie = ref(false)
   const isCheckingJisiluCookie = ref(false)
+  const isResettingJisiluCookie = ref(false)
   const lastJisiluCookieCheck = ref('')
   const guorenCookieStatus = ref({
       configured: false,
@@ -677,6 +686,7 @@
   const guorenCookie = ref('')
   const isSavingGuorenCookie = ref(false)
   const isCheckingGuorenCookie = ref(false)
+  const isResettingGuorenCookie = ref(false)
   const lastGuorenCookieCheck = ref('')
   const expandedCookieSource = ref<CookieSource | null>(null)
   const collectedData = ref<CollectedData | null>(null)
@@ -1047,7 +1057,7 @@
       try {
           const response: any = await callCloudFunction({
               name: 'strategyTaskGateway',
-              data: { action: 'checkMicroCapCookie' }
+              data: { action: 'checkXueqiuCookie' }
           })
           const result = response.result || {}
           const message = result.message || result.msg || result.data?.message
@@ -1063,6 +1073,27 @@
           showMessage(error.message || 'Cookie 状态检查失败', 'error')
       } finally {
           isCheckingCookie.value = false
+      }
+  }
+
+  const resetCookie = async () => {
+      if (isResettingCookie.value) return
+
+      isResettingCookie.value = true
+      try {
+          const response: any = await callCloudFunction({
+              name: 'strategyTaskGateway',
+              data: { action: 'resetXueqiuCookie' }
+          })
+          const result = response.result || {}
+          if (result.success === false) throw new Error(result.message || result.msg || 'Cookie 重置失败')
+          lastCookieCheck.value = formatDateObject(new Date())
+          showMessage(result.message || result.msg || '雪球 Cookie 已重置', 'success')
+          await fetchCookieStatus()
+      } catch (error: any) {
+          showMessage(error.message || 'Cookie 重置失败', 'error')
+      } finally {
+          isResettingCookie.value = false
       }
   }
 
@@ -1107,11 +1138,31 @@
           lastJisiluCookieCheck.value = formatDateObject(new Date())
           if (result.success === false) throw new Error(result.message || 'Cookie 校验失败')
           showMessage(result.message || '集思录 Cookie 状态正常', 'success')
-          await fetchJisiluCookieStatus()
       } catch (error: any) {
           showMessage(error.message || 'Cookie 状态检查失败', 'error')
       } finally {
           isCheckingJisiluCookie.value = false
+      }
+  }
+
+  const resetJisiluCookie = async () => {
+      if (isResettingJisiluCookie.value) return
+
+      isResettingJisiluCookie.value = true
+      try {
+          const response: any = await callCloudFunction({
+              name: 'strategyTaskGateway',
+              data: { action: 'resetJisiluCookie' }
+          })
+          const result = response.result || {}
+          if (result.success === false) throw new Error(result.message || 'Cookie 重置失败')
+          lastJisiluCookieCheck.value = formatDateObject(new Date())
+          showMessage(result.message || '集思录 Cookie 已重置', 'success')
+          await fetchJisiluCookieStatus()
+      } catch (error: any) {
+          showMessage(error.message || 'Cookie 重置失败', 'error')
+      } finally {
+          isResettingJisiluCookie.value = false
       }
   }
 
@@ -1156,11 +1207,31 @@
           lastGuorenCookieCheck.value = formatDateObject(new Date())
           if (result.success === false) throw new Error(result.message || 'Cookie 校验失败')
           showMessage(result.message || '果仁 Cookie 状态正常', 'success')
-          await fetchGuorenCookieStatus()
       } catch (error: any) {
           showMessage(error.message || 'Cookie 状态检查失败', 'error')
       } finally {
           isCheckingGuorenCookie.value = false
+      }
+  }
+
+  const resetGuorenCookie = async () => {
+      if (isResettingGuorenCookie.value) return
+
+      isResettingGuorenCookie.value = true
+      try {
+          const response: any = await callCloudFunction({
+              name: 'guorenCookieConfig',
+              data: { action: 'reset' }
+          })
+          const result = response.result || {}
+          if (result.success === false) throw new Error(result.message || 'Cookie 重置失败')
+          lastGuorenCookieCheck.value = formatDateObject(new Date())
+          showMessage(result.message || '果仁 Cookie 已重置', 'success')
+          await fetchGuorenCookieStatus()
+      } catch (error: any) {
+          showMessage(error.message || 'Cookie 重置失败', 'error')
+      } finally {
+          isResettingGuorenCookie.value = false
       }
   }
 
@@ -2302,22 +2373,7 @@
   }
 
   @media (max-width: 860px) {
-      .admin-tabs,
       .refresh-grid {
-          grid-template-columns: 1fr;
-      }
-
-      .card-header-with-toggle {
-          display: flex;
-          align-items: stretch;
-          flex-direction: column;
-      }
-
-      .cookie-card-state {
-          justify-content: flex-start;
-      }
-
-      .cookie-summary-grid {
           grid-template-columns: 1fr;
       }
 
@@ -2342,6 +2398,28 @@
   @media (max-width: 640px) {
       .page-wrapper {
           padding: 2rem 0.8rem 3rem;
+      }
+
+      .admin-tabs {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .card-header-with-toggle {
+          display: flex;
+          align-items: stretch;
+          flex-direction: column;
+      }
+
+      .cookie-config-card .card-header-with-toggle {
+          align-items: stretch;
+      }
+
+      .cookie-card-state {
+          justify-content: flex-start;
+      }
+
+      .cookie-summary-grid {
+          grid-template-columns: 1fr;
       }
 
       .main-title {
@@ -2370,6 +2448,12 @@
       .settings-actions > button,
       .row-actions > button {
           flex: 1 1 auto;
+      }
+  }
+
+  @media (max-width: 420px) {
+      .admin-tabs {
+          grid-template-columns: 1fr;
       }
   }
 
