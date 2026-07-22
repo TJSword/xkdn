@@ -240,31 +240,14 @@
                 <button type="button" :class="['chart-scale-button', { active: chartScaleMode === 'log' }]" :aria-pressed="chartScaleMode === 'log'" @click="setChartScaleMode('log')">对数</button>
               </div>
             </div>
-            <div class="chart-range-picker">
-              <div class="range-date-field">
-                <input
-                  v-model="dateRangeStart"
-                  class="range-date-input"
-                  type="date"
-                  :min="chartMinDate"
-                  :max="chartMaxDate"
-                  aria-label="选择开始日期"
-                  @change="applyDateRangeSelection"
-                />
-              </div>
-              <span class="range-separator">~</span>
-              <div class="range-date-field">
-                <input
-                  v-model="dateRangeEnd"
-                  class="range-date-input"
-                  type="date"
-                  :min="chartMinDate"
-                  :max="chartMaxDate"
-                  aria-label="选择结束日期"
-                  @change="applyDateRangeSelection"
-                />
-              </div>
-            </div>
+            <ChartDateRangePicker
+              v-model:start="dateRangeStart"
+              v-model:end="dateRangeEnd"
+              :min-date="chartMinDate"
+              :max-date="chartMaxDate"
+              accent="#add8e6"
+              @apply="applyDateRangeSelection"
+            />
           </div>
 
           <div ref="chartContainer" class="echart-container"></div>
@@ -429,6 +412,7 @@
   import { useRouter } from 'vue-router'
   import * as echarts from 'echarts'
   import { auth } from '@/lib/cloudbase'
+  import ChartDateRangePicker from '@/components/ChartDateRangePicker.vue'
   import { callCloudFunction, throwIfAuthExpired } from '@/services/cloudFunction'
   import MonthlyReturnCalendarModal from '@/components/MonthlyReturnCalendarModal.vue'
   import { useMonthlyReturnCalendar } from '@/composables/useMonthlyReturnCalendar'
@@ -1739,65 +1723,6 @@
       margin-bottom: 0;
   }
 
-  .chart-range-picker {
-      display: flex;
-      justify-content: flex-end;
-      align-items: center;
-      gap: 0.45rem;
-      flex-wrap: wrap;
-  }
-
-  .range-separator {
-      font-size: 0.9rem;
-      color: #8392a5;
-  }
-
-  .range-date-field {
-      display: inline-flex;
-      align-items: center;
-      width: 116px;
-      height: 34px;
-      flex: 0 0 auto;
-  }
-
-  .range-date-input {
-      box-sizing: border-box;
-      width: 100%;
-      min-width: 0;
-      height: 34px;
-      padding: 0 0.55rem;
-      font-size: 0.82rem;
-      font-family: inherit;
-      line-height: 1;
-      color: #d8e8ff;
-      background: rgb(0 0 0 / 28%);
-      border: 1px solid rgb(176 196 222 / 24%);
-      border-radius: 6px;
-      outline: none;
-      font-variant-numeric: tabular-nums;
-      color-scheme: dark;
-  }
-
-  .range-date-input:focus {
-      border-color: #add8e6;
-      box-shadow: 0 0 0 2px rgb(173 216 230 / 16%);
-  }
-
-  .range-date-input::-webkit-datetime-edit {
-      display: inline-flex;
-      align-items: center;
-      min-height: 100%;
-      padding: 0;
-  }
-
-  .range-date-input::-webkit-calendar-picker-indicator {
-      padding: 0;
-      margin-left: 0.25rem;
-      width: 16px;
-      height: 16px;
-      cursor: pointer;
-  }
-
   /* 2. 统计条 (Stats Bar) */
   .stats-bar {
       display: grid;
@@ -2102,14 +2027,6 @@
           align-items: flex-start;
       }
 
-      .chart-range-picker {
-          justify-content: flex-start;
-          width: 100%;
-      }
-
-      .range-date-field {
-          width: 116px;
-      }
   }
 
   @media (max-width: 480px) {
@@ -2134,8 +2051,6 @@
       .nav-chart-header .chart-title-row .card-title { padding-left: 0.65rem; margin-bottom: 0; font-size: 1.08rem; white-space: nowrap; }
       .nav-chart-header .chart-scale-toggle { flex: 0 0 auto; }
       .nav-chart-header .chart-scale-button { padding: 0 0.5rem; font-size: 0.78rem; }
-      .nav-chart-header .chart-range-picker { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); gap: 0.45rem; width: 100%; }
-      .nav-chart-header .range-date-field { width: 100%; }
       .nav-chart-header + .echart-container { height: 300px; }
   }
 </style>

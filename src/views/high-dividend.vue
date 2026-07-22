@@ -73,8 +73,10 @@
                 >
                   <td class="code-cell">{{ row.stockCode }}</td>
                   <td class="name-cell">
-                    <span>{{ row.stockName }}</span>
-                    <em :class="['holding-badge', index < 5 ? 'standard' : 'watch']">{{ index < 5 ? '标准持仓' : '观察区' }}</em>
+                    <div class="name-cell-content">
+                      <span>{{ row.stockName }}</span>
+                      <em :class="['holding-badge', index < 5 ? 'standard' : 'watch']">{{ index < 5 ? '标准持仓' : '观察区' }}</em>
+                    </div>
                   </td>
                   <td>{{ formatNumber(row.closePrice, 2) }}</td>
                   <td class="yield-cell">{{ formatPercent(row.dividendYieldTtm) }}%</td>
@@ -104,11 +106,14 @@
                 <button type="button" :class="{ active: chartScaleMode === 'log' }" @click="chartScaleMode = 'log'">对数</button>
               </div>
             </div>
-            <div class="chart-range-picker">
-              <input v-model="dateRangeStart" type="date" :min="chartMinDate" :max="chartMaxDate" aria-label="选择开始日期" @change="applyDateRangeSelection" />
-              <span>~</span>
-              <input v-model="dateRangeEnd" type="date" :min="chartMinDate" :max="chartMaxDate" aria-label="选择结束日期" @change="applyDateRangeSelection" />
-            </div>
+            <ChartDateRangePicker
+              v-model:start="dateRangeStart"
+              v-model:end="dateRangeEnd"
+              :min-date="chartMinDate"
+              :max-date="chartMaxDate"
+              accent="#d4af37"
+              @apply="applyDateRangeSelection"
+            />
           </div>
           <v-chart class="echart-container" :option="navChartOption" autoresize />
           <div class="stats-bar">
@@ -199,6 +204,7 @@
   import { use } from 'echarts/core'
   import { CanvasRenderer } from 'echarts/renderers'
   import VChart from 'vue-echarts'
+  import ChartDateRangePicker from '@/components/ChartDateRangePicker.vue'
   import MonthlyReturnCalendarModal from '@/components/MonthlyReturnCalendarModal.vue'
   import { useMonthlyReturnCalendar } from '@/composables/useMonthlyReturnCalendar'
   import { callCloudFunction, throwIfAuthExpired } from '@/services/cloudFunction'
@@ -436,11 +442,12 @@
   .portfolio-table { min-width: 720px; }
   .code-cell { font-family: monospace; color: #94a3b8; }
   .name-cell { color: #fff; font-weight: 700; }
-  .name-cell span { display: inline-block; min-width: 4.5rem; }
+  .name-cell-content { display: grid; align-items: center; justify-content: center; grid-template-columns: 4.5rem 3.6rem; gap: 0.45rem; }
+  .name-cell-content > span { text-align: left; }
   .holdings-note { display: flex; align-items: center; padding: 0.75rem 0.9rem; margin-bottom: 0.85rem; background: rgb(22 101 52 / 14%); border: 1px solid var(--theme-border); border-radius: 8px; gap: 0.7rem; }
   .holdings-note strong { flex: 0 0 auto; font-size: 0.82rem; color: var(--theme-bright); }
   .holdings-note span { font-size: 0.78rem; color: #aebfd3; line-height: 1.6; }
-  .holding-badge { display: inline-block; padding: 0.15rem 0.42rem; margin-left: 0.45rem; font-size: 0.64rem; border-radius: 999px; font-style: normal; font-weight: 600; vertical-align: middle; }
+  .holding-badge { display: inline-block; padding: 0.15rem 0.42rem; font-size: 0.64rem; text-align: center; border-radius: 999px; font-style: normal; font-weight: 600; vertical-align: middle; }
   .holding-badge.standard { color: var(--theme-bright); background: rgb(74 222 128 / 12%); border: 1px solid var(--theme-border); }
   .holding-badge.watch { color: #f4dda0; background: rgb(212 175 55 / 12%); border: 1px solid rgb(212 175 55 / 28%); }
   .watchlist-row { background: rgb(212 175 55 / 3%); }
@@ -463,9 +470,7 @@
   .chart-scale-toggle { display: inline-flex; padding: 0.2rem; background: rgb(0 0 0 / 24%); border: 1px solid rgb(255 255 255 / 8%); border-radius: 7px; }
   .chart-scale-toggle button { padding: 0.3rem 0.62rem; font-size: 0.75rem; color: #8392a5; background: transparent; border: 0; border-radius: 5px; cursor: pointer; }
   .chart-scale-toggle button.active { color: #1c1917; background: var(--accent); }
-  .chart-range-picker { display: flex; align-items: center; gap: 0.4rem; }
-  .chart-range-picker input { width: 116px; height: 34px; padding: 0 0.5rem; color: #d8e8ff; background: rgb(0 0 0 / 28%); border: 1px solid rgb(216 228 242 / 24%); border-radius: 6px; color-scheme: dark; }
-  .chart-range-picker span { color: #8392a5; }
+  @media (min-width: 769px) { .nav-chart-header { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; column-gap: 0.75rem; } .nav-chart-header .chart-title-row { display: contents; } }
   .echart-container { margin-top: 0.5rem; width: 100%; height: 350px; }
   .stats-bar { padding: 1rem; margin-top: 1rem; background: rgb(0 0 0 / 20%); border-radius: 8px; grid-template-columns: repeat(5, 1fr); }
   .stats-bar strong { font-size: 1.05rem; }
@@ -507,8 +512,6 @@
       .risk-summary-grid { grid-template-columns: 1fr; }
       .stats-bar { grid-template-columns: repeat(2, 1fr); }
       .distribution-grid { grid-template-columns: repeat(2, 1fr); }
-      .chart-range-picker { width: 100%; }
-      .chart-range-picker input { min-width: 0; width: 100%; }
       .echart-container { height: 300px; }
   }
 

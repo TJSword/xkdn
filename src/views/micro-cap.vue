@@ -207,31 +207,14 @@
                 <button type="button" :class="['chart-scale-button', { active: chartScaleMode === 'log' }]" :aria-pressed="chartScaleMode === 'log'" @click="setChartScaleMode('log')">对数</button>
               </div>
             </div>
-            <div class="chart-range-picker">
-              <div class="range-date-field">
-                <input
-                  v-model="dateRangeStart"
-                  class="range-date-input"
-                  type="date"
-                  :min="chartMinDate"
-                  :max="chartMaxDate"
-                  aria-label="选择开始日期"
-                  @change="applyDateRangeSelection"
-                />
-              </div>
-              <span class="range-separator">~</span>
-              <div class="range-date-field">
-                <input
-                  v-model="dateRangeEnd"
-                  class="range-date-input"
-                  type="date"
-                  :min="chartMinDate"
-                  :max="chartMaxDate"
-                  aria-label="选择结束日期"
-                  @change="applyDateRangeSelection"
-                />
-              </div>
-            </div>
+            <ChartDateRangePicker
+              v-model:start="dateRangeStart"
+              v-model:end="dateRangeEnd"
+              :min-date="chartMinDate"
+              :max-date="chartMaxDate"
+              accent="#f0e68c"
+              @apply="applyDateRangeSelection"
+            />
           </div>
 
           <div ref="chartContainer" class="echart-container"></div>
@@ -450,6 +433,7 @@
   import { useRouter } from 'vue-router'
   import * as echarts from 'echarts'
   import { useUserStore } from '@/store/user'
+  import ChartDateRangePicker from '@/components/ChartDateRangePicker.vue'
   import MonthlyReturnCalendarModal from '@/components/MonthlyReturnCalendarModal.vue'
   import { useMonthlyReturnCalendar } from '@/composables/useMonthlyReturnCalendar'
   const router = useRouter()
@@ -2160,65 +2144,6 @@
       gap: 0.5rem;
   }
 
-  .chart-range-picker {
-      display: flex;
-      justify-content: flex-end;
-      align-items: center;
-      gap: 0.45rem;
-      flex-wrap: wrap;
-  }
-
-  .range-separator {
-      font-size: 0.9rem;
-      color: #8392a5;
-  }
-
-  .range-date-field {
-      display: inline-flex;
-      align-items: center;
-      width: 116px;
-      height: 34px;
-      flex: 0 0 auto;
-  }
-
-  .range-date-input {
-      box-sizing: border-box;
-      width: 100%;
-      min-width: 0;
-      height: 34px;
-      padding: 0 0.55rem;
-      font-size: 0.82rem;
-      font-family: inherit;
-      line-height: 1;
-      color: #d8e8ff;
-      background: rgb(0 0 0 / 28%);
-      border: 1px solid rgb(176 196 222 / 24%);
-      border-radius: 6px;
-      outline: none;
-      font-variant-numeric: tabular-nums;
-      color-scheme: dark;
-  }
-
-  .range-date-input:focus {
-      border-color: #f0e68c;
-      box-shadow: 0 0 0 2px rgb(240 230 140 / 16%);
-  }
-
-  .range-date-input::-webkit-datetime-edit {
-      display: inline-flex;
-      align-items: center;
-      min-height: 100%;
-      padding: 0;
-  }
-
-  .range-date-input::-webkit-calendar-picker-indicator {
-      padding: 0;
-      margin-left: 0.25rem;
-      width: 16px;
-      height: 16px;
-      cursor: pointer;
-  }
-
   .echart-container {
       margin-top: 1rem;
       width: 100%;
@@ -2514,15 +2439,6 @@
           flex-direction: column;
           align-items: flex-start;
           gap: 0.8rem;
-      }
-
-      .chart-range-picker {
-          justify-content: flex-start;
-          width: 100%;
-      }
-
-      .range-date-field {
-          width: 116px;
       }
 
       /* 6. 调仓指引：单列显示 */
@@ -3232,5 +3148,5 @@
   .chart-scale-button.active { color: #17202a; background: #f0e68c; }
   .chart-scale-button:focus-visible { outline: 2px solid rgb(240 230 140 / 65%); outline-offset: 1px; }
   @media (min-width: 769px) { .nav-chart-header { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; column-gap: 0.75rem; } .nav-chart-header .chart-title-row { display: contents; } }
-  @media (max-width: 768px) { .nav-chart-header .chart-title-row { justify-content: space-between; gap: 0.5rem; width: 100%; } .nav-chart-header .chart-title-row .card-title { padding-left: 0.65rem; margin-bottom: 0; font-size: 1.08rem; white-space: nowrap; } .nav-chart-header .chart-scale-toggle { flex: 0 0 auto; } .nav-chart-header .chart-scale-button { padding: 0 0.5rem; font-size: 0.78rem; } .nav-chart-header .chart-range-picker { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); gap: 0.45rem; width: 100%; } .nav-chart-header .range-date-field { width: 100%; } .nav-chart-header + .echart-container { height: 300px; } }
+  @media (max-width: 768px) { .nav-chart-header .chart-title-row { justify-content: space-between; gap: 0.5rem; width: 100%; } .nav-chart-header .chart-title-row .card-title { padding-left: 0.65rem; margin-bottom: 0; font-size: 1.08rem; white-space: nowrap; } .nav-chart-header .chart-scale-toggle { flex: 0 0 auto; } .nav-chart-header .chart-scale-button { padding: 0 0.5rem; font-size: 0.78rem; } .nav-chart-header + .echart-container { height: 300px; } }
 </style>
