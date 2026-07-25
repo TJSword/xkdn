@@ -1575,6 +1575,11 @@
       return minuteText.startsWith('15:') ? '15:00' : minuteText
   }
 
+  const toRealtimePercent = (value: unknown) => {
+      if (value === null || value === undefined || value === '') return NaN
+      return Number(value) * 100
+  }
+
   const fetchAllWeatherRealtime = async (sourcePayload?: any) => {
       try {
           const payload = sourcePayload || (await callCloudFunction({
@@ -1616,8 +1621,8 @@
           const amount = Number(payload.strategyAmount ?? payload.strategyValue ?? payload.strategyIndexValue)
           const baseAmount = Number(payload.baseAmount ?? payload.baseIndexValue)
           const dailyReturn = Number(payload.dailyReturn) * 100
-          const monthReturn = Number(payload.monthReturn) * 100
-          const yearReturn = Number(payload.yearReturn) * 100
+          const monthReturn = toRealtimePercent(payload.monthReturn)
+          const yearReturn = toRealtimePercent(payload.yearReturn)
 
           Object.assign(allWeatherItem, {
               amount: Number.isFinite(amount) ? amount : allWeatherItem.amount,
@@ -1672,8 +1677,8 @@
           const amount = Number(payload.strategyAmount ?? payload.strategyValue ?? payload.strategyIndexValue)
           const baseAmount = Number(payload.baseAmount ?? payload.baseIndexValue)
           const dailyReturn = Number(payload.dailyReturn) * 100
-          const monthReturn = Number(payload.monthReturn) * 100
-          const yearReturn = Number(payload.yearReturn) * 100
+          const monthReturn = toRealtimePercent(payload.monthReturn)
+          const yearReturn = toRealtimePercent(payload.yearReturn)
 
           Object.assign(bondItem, {
               amount: Number.isFinite(amount) ? amount : bondItem.amount,
@@ -1727,8 +1732,8 @@
           const amount = Number(payload.strategyAmount ?? payload.strategyValue ?? payload.strategyIndexValue)
           const baseAmount = Number(payload.baseAmount ?? payload.baseIndexValue)
           const dailyReturn = Number(payload.dailyReturn) * 100
-          const monthReturn = Number(payload.monthReturn) * 100
-          const yearReturn = Number(payload.yearReturn) * 100
+          const monthReturn = toRealtimePercent(payload.monthReturn)
+          const yearReturn = toRealtimePercent(payload.yearReturn)
 
           Object.assign(rightsItem, {
               amount: Number.isFinite(amount) ? amount : rightsItem.amount,
@@ -1780,8 +1785,8 @@
           const amount = Number(payload.strategyAmount ?? payload.strategyValue ?? payload.strategyIndexValue)
           const baseAmount = Number(payload.baseAmount ?? payload.baseIndexValue)
           const dailyReturn = Number(payload.dailyReturn) * 100
-          const monthReturn = Number(payload.monthReturn) * 100
-          const yearReturn = Number(payload.yearReturn) * 100
+          const monthReturn = toRealtimePercent(payload.monthReturn)
+          const yearReturn = toRealtimePercent(payload.yearReturn)
 
           Object.assign(momentumItem, {
               amount: Number.isFinite(amount) ? amount : momentumItem.amount,
@@ -1840,8 +1845,8 @@
           const amount = Number(payload.strategyAmount ?? payload.strategyValue ?? payload.strategyIndexValue)
           const baseAmount = Number(payload.baseAmount ?? payload.baseIndexValue)
           const dailyReturn = Number(payload.dailyReturn) * 100
-          const monthReturn = Number(payload.monthReturn) * 100
-          const yearReturn = Number(payload.yearReturn) * 100
+          const monthReturn = toRealtimePercent(payload.monthReturn)
+          const yearReturn = toRealtimePercent(payload.yearReturn)
 
           Object.assign(microCapItem, {
               amount: Number.isFinite(amount) ? amount : microCapItem.amount,
@@ -1900,8 +1905,8 @@
           const amount = Number(payload.strategyAmount ?? payload.strategyValue ?? payload.strategyIndexValue)
           const baseAmount = Number(payload.baseAmount ?? payload.baseIndexValue)
           const dailyReturn = Number(payload.dailyReturn) * 100
-          const monthReturn = Number(payload.monthReturn) * 100
-          const yearReturn = Number(payload.yearReturn) * 100
+          const monthReturn = toRealtimePercent(payload.monthReturn)
+          const yearReturn = toRealtimePercent(payload.yearReturn)
 
           Object.assign(highDividendItem, {
               amount: Number.isFinite(amount) ? amount : highDividendItem.amount,
@@ -2214,6 +2219,91 @@
       }
   }
 
+  const HOME_REALTIME_REFRESH_DEBOUNCE_MS = 300
+  const HOME_REALTIME_REFRESH_MIN_INTERVAL_MS = 60 * 1000
+  let homeRealtimeRefreshTimer: number | null = null
+  let homeRealtimeRefreshPromise: Promise<void> | null = null
+  let lastHomeRealtimeRefreshAt = 0
+
+  const getShanghaiTimeParts = (date = new Date()) => {
+      const parts = new Intl.DateTimeFormat('en-US', {
+          timeZone: 'Asia/Shanghai',
+          weekday: 'short',
+          hour: '2-digit',
+          minute: '2-digit',
+          hourCycle: 'h23'
+      }).formatToParts(date)
+      const values = Object.fromEntries(parts.map(part => [part.type, part.value]))
+      return {
+          weekday: values.weekday,
+          minuteOfDay: Number(values.hour) * 60 + Number(values.minute)
+      }
+  }
+
+  const isHomeRealtimeRefreshWindow = (date = new Date()) => {
+      const { weekday, minuteOfDay } = getShanghaiTimeParts(date)
+      if (!['Mon', 'Tue', 'Wed', 'Thu', 'Fri'].includes(weekday)) return false
+
+      return (
+          (minuteOfDay >= 9 * 60 && minuteOfDay <= 11 * 60 + 30) ||
+          (minuteOfDay >= 13 * 60 && minuteOfDay <= 15 * 60 + 5)
+      )
+  }
+
+  const fetchHomeRealtimeData = async () => {
+      const response: any = await callCloudFunction({
+          name: 'getHomeDashboardData',
+          data: { scope: 'realtime' }
+      })
+      const realtime = response.result?.data?.realtime
+      if (!response.result?.success || !realtime) {
+          throw new Error(response.result?.message || 'getHomeDashboardData realtime returned no data')
+      }
+
+      await Promise.all([
+          fetchAllWeatherRealtime(realtime.allWeather),
+          fetchBondRealtime(realtime.bond),
+          fetchHighDividendRealtime(realtime.highDividend),
+          fetchRightsRealtime(realtime.rights),
+          fetchMomentumRealtime(realtime.momentum),
+          fetchMicroCapRealtime(realtime.microCap)
+      ])
+  }
+
+  const refreshHomeRealtimeOnReturn = () => {
+      const now = Date.now()
+      if (document.visibilityState !== 'visible' || !isHomeRealtimeRefreshWindow()) return
+      if (homeRealtimeRefreshPromise) return
+      if (now - lastHomeRealtimeRefreshAt < HOME_REALTIME_REFRESH_MIN_INTERVAL_MS) return
+
+      lastHomeRealtimeRefreshAt = now
+      homeRealtimeRefreshPromise = fetchHomeRealtimeData()
+          .catch(error => {
+              try {
+                  throwIfAuthExpired(error)
+              } catch {
+                  return
+              }
+              console.warn('Home realtime refresh on tab return failed; keeping existing data:', error)
+          })
+          .finally(() => {
+              homeRealtimeRefreshPromise = null
+          })
+  }
+
+  const handleHomeVisibilityChange = () => {
+      if (homeRealtimeRefreshTimer) {
+          window.clearTimeout(homeRealtimeRefreshTimer)
+          homeRealtimeRefreshTimer = null
+      }
+      if (document.visibilityState !== 'visible') return
+
+      homeRealtimeRefreshTimer = window.setTimeout(() => {
+          homeRealtimeRefreshTimer = null
+          refreshHomeRealtimeOnReturn()
+      }, HOME_REALTIME_REFRESH_DEBOUNCE_MS)
+  }
+
   const isWelcomeModalVisible = ref(false)
   const closeWelcomeModal = () => {
       isWelcomeModalVisible.value = false
@@ -2429,6 +2519,7 @@
   onMounted(async () => {
       // 现在我们并行获取会员信息和所有的市场数据
       await fetchHomeDashboardData()
+      lastHomeRealtimeRefreshAt = Date.now()
 
       // --- 您 onMounted 中的其余逻辑保持不变 ---
       if (window.history.state && window.history.state.newUser) {
@@ -2441,6 +2532,7 @@
       }
       // 注册键盘监听
       window.addEventListener('keydown', handleSecretKeydown)
+      document.addEventListener('visibilitychange', handleHomeVisibilityChange)
   })
   onUnmounted(() => {
       if (isContactModalVisible.value) {
@@ -2456,6 +2548,11 @@
 
       // 移除键盘监听
       window.removeEventListener('keydown', handleSecretKeydown)
+      document.removeEventListener('visibilitychange', handleHomeVisibilityChange)
+      if (homeRealtimeRefreshTimer) {
+          window.clearTimeout(homeRealtimeRefreshTimer)
+          homeRealtimeRefreshTimer = null
+      }
   })
 
   watch(latestStar, newStar => {
@@ -2723,6 +2820,13 @@
           example: '今日无调仓操作，继续持有。当前持仓：XX转债(123456)、YY转债(113000)。'
       },
       {
+          key: 'high_dividend',
+          label: '高股息策略',
+          trigger: '每周第一个交易日 9:00 检查；仅在发生调仓时推送。',
+          content: '计划执行时间、调出、调入及调仓后持仓；仓位止盈也属于调仓。',
+          example: '计划于 2026-08-03 9:30 执行；调出 A 公司(600001)，调入 B 公司(600002)。'
+      },
+      {
           key: 'rights_strategy',
           label: '含权策略',
           trigger: '交易日 14:40 刷新含权策略；只有发生调仓时通知，无调仓不通知。',
@@ -2759,7 +2863,8 @@
           convertible: false,
           micro_cap: false,
           rights_strategy: false,
-          lof_premium: false
+          lof_premium: false,
+          high_dividend: false
       }
   })
   const notificationTestDisabled = computed(
@@ -2935,6 +3040,7 @@
       notificationForm.subscriptions.micro_cap = settings.subscriptions?.micro_cap === true
       notificationForm.subscriptions.rights_strategy = settings.subscriptions?.rights_strategy === true
       notificationForm.subscriptions.lof_premium = settings.subscriptions?.lof_premium === true
+      notificationForm.subscriptions.high_dividend = settings.subscriptions?.high_dividend === true
   }
 </script>
 

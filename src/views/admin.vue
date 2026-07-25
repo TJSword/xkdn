@@ -539,6 +539,7 @@
       micro_cap: boolean
       rights_strategy: boolean
       lof_premium: boolean
+      high_dividend: boolean
   }
 
   type TabKey = 'users' | 'data-source' | 'data-view' | 'refresh'
@@ -583,6 +584,14 @@
   })
 
   const subscriptionOptions = [
+      {
+          key: 'high_dividend',
+          label: '高股息策略',
+          tagLabel: '高股息',
+          trigger: '每周第一个交易日 9:00 检查；仅在发生调仓时推送。',
+          content: '计划执行时间、调出、调入及调仓后持仓；仓位止盈也属于调仓。',
+          example: '计划于 2026-08-03 9:30 执行；调出 A 公司，调入 B 公司。'
+      },
       {
           key: 'convertible',
           label: '可转债策略',
@@ -699,7 +708,8 @@
           convertible: false,
           micro_cap: false,
           rights_strategy: false,
-          lof_premium: false
+          lof_premium: false,
+          high_dividend: false
       }
   }
 
@@ -959,7 +969,8 @@
               convertible: user.subscriptions?.convertible === true,
               micro_cap: user.subscriptions?.micro_cap === true,
               rights_strategy: user.subscriptions?.rights_strategy === true,
-              lof_premium: user.subscriptions?.lof_premium === true
+              lof_premium: user.subscriptions?.lof_premium === true,
+              high_dividend: user.subscriptions?.high_dividend === true
           },
           remark: user.remark || ''
       }

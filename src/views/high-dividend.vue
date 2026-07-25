@@ -25,7 +25,7 @@
             高股息策略参考贝莱德旗下 iShares 股息增长类指数产品的选股思路，重点寻找具备持续提高分红能力的公司。策略首先要求公司股息连续五年增长，并对股利支付率设置上限，避免企业将过多利润用于分红，为后续经营和增长保留足够资金。
           </p>
           <p class="card-description">
-            在此基础上，策略通过 ROE 与 ROA 的历史标准差衡量盈利稳定性，过滤盈利波动较大的公司，降低周期性行业对组合的影响。通过全部质量筛选后，再按照股息率从高到低排序，选取排名前五的公司构成组合。
+            在此基础上，策略通过 ROE 与 ROA 的历史标准差衡量盈利稳定性，过滤盈利波动较大的公司，降低周期性行业对组合的影响。通过全部质量筛选后，再按照股息率从高到低排序：新股票从前五名中选择，现有持仓保持在前二十名便继续持有。
           </p>
         </section>
 
@@ -35,7 +35,7 @@
             策略关注的不是某一年的高股息，而是公司能否在保持正常经营和盈利增长的同时，持续提高对股东的现金回报。
           </p>
           <p class="card-description">
-            连续五年的股息增长用于检验分红记录，股利支付率约束用于判断分红是否留有余地，ROE 与 ROA 的波动用于排除盈利稳定性不足的公司。完成这些筛选后，股息率才作为最终排序因子，从合格公司中选出前五名。
+            连续五年的股息增长用于检验分红记录，股利支付率约束用于判断分红是否留有余地，ROE 与 ROA 的波动用于排除盈利稳定性不足的公司。完成这些筛选后，股息率作为最终排序因子，并通过前五买入、前二十持有的缓冲规则降低不必要的换手。
           </p>
           <div class="principle-grid">
             <article v-for="item in principles" :key="item.title">
@@ -46,53 +46,107 @@
           </div>
           <div class="formula-card">
             <span>核心筛选框架</span>
-            <strong>连续五年股息增长 × 合理股利支付率 × ROE/ROA 稳定性 → 股息率排名前五</strong>
+            <strong>连续五年股息增长 × 合理股利支付率 × ROE/ROA 稳定性 → 前五买入、前二十持有</strong>
           </div>
         </section>
         <section v-if="canViewPremiumContent" class="content-card">
           <div class="card-header-row holdings-header">
-            <h2 class="card-title">最新持仓与观察名单</h2>
-            <div class="system-status"><span class="status-dot"></span>数据更新：{{ holdingsUpdatedAt || '--' }}</div>
+            <h2 class="card-title">当前持仓与调仓安排</h2>
+            <div class="system-status"><span class="status-dot"></span>更新时间：{{ holdingsUpdatedAt || '--' }}</div>
           </div>
           <div class="holdings-note">
-            <strong>标准组合前 5 名等权持有</strong>
-            <span>策略在每周第一个交易日调仓，并尽量在上午 9:30 完成；第 6—10 名仅作为观察区，不代表策略同时持有 10 只。</span>
+            <strong>前 5 买入，前 20 持有</strong>
+            <span>本期排名依据 {{ holdingsTradeDate || '最近交易日' }} 收盘数据生成；现有持仓排名第 21 名及以后才调出。</span>
           </div>
-          <div class="table-container portfolio-table-container">
-            <table class="portfolio-table">
+          <div class="rank-rule-strip" aria-label="排名缓冲规则">
+            <span class="entry">第 1—5 名 · 买入候选区</span>
+            <span class="buffer">第 6—20 名 · 持有缓冲区</span>
+            <span class="exit">第 21 名以后 · 退出区</span>
+          </div>
+          <div class="position-management-note">
+            <strong>仓位管理</strong>
+            <span>仅在调仓日检查仓位；单只持仓超过 24% 时触发止盈，并回到 20%。</span>
+          </div>
+          <div class="portfolio-view-header">
+            <h3 class="section-heading">持仓与排名</h3>
+            <div class="portfolio-view-toggle" aria-label="持仓与排名视图">
+              <button type="button" :class="{ active: portfolioView === 'holdings' }" :aria-pressed="portfolioView === 'holdings'" @click="portfolioView = 'holdings'">
+                <span>当前持仓</span><em>{{ sortedPortfolio.length }}</em>
+              </button>
+              <button type="button" :class="{ active: portfolioView === 'ranking' }" :aria-pressed="portfolioView === 'ranking'" @click="portfolioView = 'ranking'">
+                <span>完整排名</span><em>{{ rankings.length }}</em>
+              </button>
+            </div>
+          </div>
+          <p class="adjustment-note">
+            {{ portfolioView === 'holdings'
+              ? '当前持仓按本期排名由前到后展示。'
+              : '排名前 5 只作为新股买入候选，第 6—20 名只对已有持仓提供缓冲，不代表组合同时持有 20 只股票。' }}
+          </p>
+          <div class="table-container combined-table-container">
+            <table class="combined-portfolio-table">
               <thead>
                 <tr>
-                  <th>股票代码</th><th>股票名称</th><th>收盘价</th><th>股息率 TTM</th><th>5年平均股利支付率</th><th>目标权重</th>
+                  <th>本期排名</th><th>股票代码</th><th>股票名称</th><th>收盘价</th><th>股息率 TTM</th><th>5年平均分红率</th><th>排名区域</th><th>最新权重</th>
                 </tr>
               </thead>
               <tbody>
                 <tr
-                  v-for="(row, index) in holdings"
-                  :key="row.stockCode"
-                  :class="{ 'watchlist-row': index >= 5, 'watchlist-start': index === 5 }"
+                  v-for="row in displayedPortfolioRows"
+                  :key="`${portfolioView}-${row.stockCode}`"
+                  :class="{
+                    'ranking-buffer-start': portfolioView === 'ranking' && row.rank === 6,
+                    'portfolio-ranking-row': portfolioCodes.has(row.stockCode)
+                  }"
                 >
+                  <td class="rank-cell">{{ row.rank || '20名以外' }}</td>
                   <td class="code-cell">{{ row.stockCode }}</td>
-                  <td class="name-cell">
-                    <div class="name-cell-content">
-                      <span>{{ row.stockName }}</span>
-                      <em :class="['holding-badge', index < 5 ? 'standard' : 'watch']">{{ index < 5 ? '标准持仓' : '观察区' }}</em>
-                    </div>
-                  </td>
+                  <td class="name-cell">{{ row.stockName }}</td>
                   <td>{{ formatNumber(row.closePrice, 2) }}</td>
-                  <td class="yield-cell">{{ formatPercent(row.dividendYieldTtm) }}%</td>
-                  <td>{{ formatPercent(row.fiveYearAveragePayoutRatio) }}%</td>
-                  <td :class="{ 'target-weight': index < 5 }">{{ index < 5 ? '20%' : '—' }}</td>
+                  <td class="yield-cell">{{ formatPercentText(row.dividendYieldTtm) }}</td>
+                  <td>{{ formatPercentText(row.fiveYearAveragePayoutRatio) }}</td>
+                  <td><span :class="['rank-zone-badge', getRankZoneClass(row.rank)]">{{ getRankZoneLabel(row.rank) }}</span></td>
+                  <td :class="{ 'target-weight': portfolioCodes.has(row.stockCode) }">{{ formatWeight(getRowWeight(row)) }}</td>
                 </tr>
-                <tr v-if="!holdings.length"><td colspan="6">暂无持仓数据</td></tr>
+                <tr v-if="!displayedPortfolioRows.length"><td colspan="8">暂无持仓与排名数据</td></tr>
               </tbody>
             </table>
+          </div>
+
+          <h3 class="card-subtitle">调仓安排</h3>
+          <p class="adjustment-note">
+            根据本期排名与上一期实际持仓生成，计划于
+            <span class="rebalance-execution-time">{{ effectiveTradeDate || '下一交易周首个交易日' }} 9:30</span>
+            执行。
+          </p>
+          <div class="adjustments-grid">
+            <div class="adjustment-block">
+              <h4 class="adjustment-title sell">↓ 计划调出</h4>
+              <ul class="adjustment-list">
+                <li v-for="row in rebalanceOut" :key="`sell-${row.stockCode}`" class="adjustment-item">
+                  <span>{{ row.stockName }} ({{ row.stockCode }})</span>
+                  <span class="action-badge sell">计划调出</span>
+                </li>
+                <li v-if="rebalanceOut.length === 0" class="adjustment-item-empty">本期无需调出</li>
+              </ul>
+            </div>
+            <div class="adjustment-block">
+              <h4 class="adjustment-title buy">↑ 计划调入</h4>
+              <ul class="adjustment-list">
+                <li v-for="row in rebalanceIn" :key="`buy-${row.stockCode}`" class="adjustment-item">
+                  <span>{{ row.stockName }} ({{ row.stockCode }})</span>
+                  <span class="action-badge buy">计划调入</span>
+                </li>
+                <li v-if="rebalanceIn.length === 0" class="adjustment-item-empty">本期无需调入</li>
+              </ul>
+            </div>
           </div>
         </section>
         <div v-else class="content-card premium-lock-card">
           <div class="premium-lock-icon">🔒</div>
-          <h2 class="card-title">最新持仓与观察名单</h2>
+          <h2 class="card-title">当前持仓与调仓安排</h2>
           <p class="card-description">
-            最新持仓、观察名单、股息率及目标权重属于会员内容，开通后可查看完整持仓信息。
+            最新选股结果、调仓名单、观察名单、股息率及目标权重属于会员内容，开通后可查看完整信息。
           </p>
           <button class="premium-lock-button" @click="router.push('/home')">返回首页开通会员</button>
         </div>
@@ -225,16 +279,24 @@
       strategyData: number[]
       hs300?: Array<number | null>
       holdings?: HighDividendHolding[]
+      rankings?: HighDividendHolding[]
+      portfolio?: HighDividendHolding[]
       holdingsTradeDate?: string
       holdingsUpdatedAt?: string
+      effectiveTradeDate?: string
+      rebalanceOut?: HighDividendHolding[]
+      rebalanceIn?: HighDividendHolding[]
   }
 
   interface HighDividendHolding {
       stockName: string
       stockCode: string
-      closePrice: number
-      dividendYieldTtm: number
-      fiveYearAveragePayoutRatio: number
+      closePrice?: number
+      dividendYieldTtm?: number
+      fiveYearAveragePayoutRatio?: number
+      rank?: number | null
+      weight?: number
+      targetWeight?: number
   }
 
   interface HighDividendSeries {
@@ -253,11 +315,25 @@
       { step: '01', title: '连续增长', description: '要求公司股息连续五年保持增长。' },
       { step: '02', title: '支付率约束', description: '剔除股利支付率过高、分红可持续性不足的公司。' },
       { step: '03', title: '盈利稳定性', description: '通过 ROE、ROA 的历史标准差，过滤盈利波动较大的公司。' },
-      { step: '04', title: '股息率排序', description: '在通过筛选的公司中按股息率排序，选取前五名。' }
+      { step: '04', title: '排名缓冲', description: '新股票从前五名中选择，现有持仓保持在前二十名便继续持有。' }
   ]
 
-  const holdings = ref<HighDividendHolding[]>([])
+  const rankings = ref<HighDividendHolding[]>([])
+  const portfolio = ref<HighDividendHolding[]>([])
+  const holdingsTradeDate = ref('')
   const holdingsUpdatedAt = ref('')
+  const effectiveTradeDate = ref('')
+  const rebalanceOut = ref<HighDividendHolding[]>([])
+  const rebalanceIn = ref<HighDividendHolding[]>([])
+  const portfolioView = ref<'holdings' | 'ranking'>('holdings')
+  const portfolioCodes = computed(() => new Set(portfolio.value.map(row => row.stockCode)))
+  const portfolioByCode = computed(() => new Map(portfolio.value.map(row => [row.stockCode, row])))
+  const sortedPortfolio = computed(() => [...portfolio.value].sort((left, right) => {
+      const leftRank = Number.isInteger(left.rank) ? Number(left.rank) : Number.POSITIVE_INFINITY
+      const rightRank = Number.isInteger(right.rank) ? Number(right.rank) : Number.POSITIVE_INFINITY
+      return leftRank - rightRank
+  }))
+  const displayedPortfolioRows = computed(() => portfolioView.value === 'holdings' ? sortedPortfolio.value : rankings.value)
 
   const series = ref<HighDividendSeries>({ dates: [], strategy: [], benchmark: [] })
   const chartMinDate = ref('')
@@ -350,8 +426,13 @@
               strategy: prepared.values,
               benchmark: prepared.dates.map(date => benchmarkByDate.get(date) ?? null)
           }
-          holdings.value = Array.isArray(data.holdings) ? data.holdings : []
+          rankings.value = Array.isArray(data.rankings) ? data.rankings : Array.isArray(data.holdings) ? data.holdings : []
+          portfolio.value = Array.isArray(data.portfolio) ? data.portfolio : rankings.value.slice(0, 5)
+          holdingsTradeDate.value = data.holdingsTradeDate || ''
           holdingsUpdatedAt.value = data.holdingsUpdatedAt || data.holdingsTradeDate || ''
+          effectiveTradeDate.value = data.effectiveTradeDate || ''
+          rebalanceOut.value = Array.isArray(data.rebalanceOut) ? data.rebalanceOut : []
+          rebalanceIn.value = Array.isArray(data.rebalanceIn) ? data.rebalanceIn : []
           chartMinDate.value = prepared.dates[0] || ''
           chartMaxDate.value = prepared.dates[prepared.dates.length - 1] || ''
           dateRangeStart.value = chartMinDate.value
@@ -371,14 +452,24 @@
       { question: '高股息策略是不是只买股息率最高的股票？', answer: '不是。异常高的股息率可能来自股价大幅下跌、一次性分红或盈利不可持续。策略会先检查分红记录、经营现金流、盈利质量和负债水平，再在通过质量过滤的股票中比较股息率与估值。' },
       { question: '高股息策略持有 5 只还是 10 只更合适？', answer: '5 只并不一定优于 10 只。从现有回测看，持有 5 只时组合更集中，收益率相对更高；持有 10 只时分散度更好，整体表现也更稳定。在我的账户中，高股息策略主要承担保险和防守作用。当其他策略阶段性失效时，希望它能起到一定的平衡作用，因此我选择持有 5 只。如果把高股息策略作为账户的主策略，更建议持有 10 只，以获得更好的分散性和稳定性。' },
       { question: '策略的主要收益来源是什么？', answer: '收益主要来自三部分：持有期间收到的现金分红、低估值回归带来的价格修复，以及企业盈利增长推动的长期价值提升。分红提供回报基础，但并不能消除股价波动。' },
-      { question: '策略多久调仓一次？', answer: '策略在每周第一个交易日调仓，并尽量在上午 9:30 完成调仓。' },
+      { question: '策略多久调仓一次？', answer: '策略在当周最后一个交易日夜间，根据该交易日的收盘数据生成最新名单；下一周第一个交易日 9:30 执行必要调整。现有持仓仍在前二十名时继续持有，因此每周检查不等于每周都会交易。' },
       { question: '分红后股价除权，收益是不是没有意义？', answer: '除权会使股价在除息日按股息金额调整，但投资者同时获得现金分红。评估策略时应使用包含分红再投资的全收益口径，不能只看未复权价格变化。' },
       { question: '高股息策略有哪些主要风险？', answer: '主要风险包括盈利下滑导致削减分红、周期行业景气反转、价值风格长期落后、利率上升压制估值，以及集中持有传统行业带来的结构性风险。高股息不等于低风险或保本。' }
   ]
 
   const toggleFaq = (index: number) => { openFaqIndex.value = openFaqIndex.value === index ? null : index }
-  const formatNumber = (value: number, digits: number) => Number(value).toFixed(digits)
-  const formatPercent = (value: number) => formatNumber(Math.abs(Number(value)) <= 1 ? Number(value) * 100 : Number(value), 2)
+  const formatNumber = (value: number | null | undefined, digits: number) => Number.isFinite(Number(value)) ? Number(value).toFixed(digits) : '—'
+  const formatPercent = (value: number | null | undefined) => Number.isFinite(Number(value))
+      ? formatNumber(Math.abs(Number(value)) <= 1 ? Number(value) * 100 : Number(value), 2)
+      : '—'
+  const formatPercentText = (value: number | null | undefined) => Number.isFinite(Number(value)) ? `${formatPercent(value)}%` : '—'
+  const formatWeight = (value: number | null | undefined) => Number.isFinite(Number(value)) ? `${formatPercent(value)}%` : '—'
+  const getRankZoneClass = (rank?: number | null) => !rank || rank > 20 ? 'exit' : rank <= 5 ? 'entry' : 'buffer'
+  const getRankZoneLabel = (rank?: number | null) => !rank || rank > 20 ? '退出区' : rank <= 5 ? '买入候选区' : '持有缓冲区'
+  const getRowWeight = (row: HighDividendHolding) => {
+      const holding = portfolioByCode.value.get(row.stockCode)
+      return holding?.weight ?? holding?.targetWeight
+  }
   const getHeatmapStyle = (value: string | null) => {
       if (value === null) return {}
       const numeric = Number(value)
@@ -427,7 +518,7 @@
   .formula-card span { font-size: 0.75rem; color: #9fb2cc; }
   .formula-card strong { color: #f4dda0; }
 
-  .system-status, .watch-badge { padding: 0.28rem 0.65rem; font-size: 0.75rem; white-space: nowrap; color: #f4dda0; background: rgb(212 175 55 / 10%); border: 1px solid rgb(212 175 55 / 28%); border-radius: 999px; }
+  .system-status, .watch-badge { padding: 0.28rem 0.65rem; font-size: 0.78rem; white-space: nowrap; color: #f4dda0; background: rgb(212 175 55 / 10%); border: 1px solid rgb(212 175 55 / 28%); border-radius: 999px; }
   .status-dot { display: inline-block; margin-right: 0.4rem; width: 6px; height: 6px; background: var(--theme-bright); border-radius: 50%; box-shadow: 0 0 6px var(--theme-bright); }
   .stats-bar, .risk-summary-grid { display: grid; gap: 1rem; }
   .stats-bar div, .risk-summary-grid div { text-align: center; }
@@ -439,19 +530,52 @@
   th { color: #d8e4f2; background: rgb(0 0 0 / 25%); }
   tbody tr:last-child td { border-bottom: 0; }
   tbody tr:hover { background: rgb(22 101 52 / 10%); }
-  .portfolio-table { min-width: 720px; }
   .code-cell { font-family: monospace; color: #94a3b8; }
   .name-cell { color: #fff; font-weight: 700; }
-  .name-cell-content { display: grid; align-items: center; justify-content: center; grid-template-columns: 4.5rem 3.6rem; gap: 0.45rem; }
-  .name-cell-content > span { text-align: left; }
   .holdings-note { display: flex; align-items: center; padding: 0.75rem 0.9rem; margin-bottom: 0.85rem; background: rgb(22 101 52 / 14%); border: 1px solid var(--theme-border); border-radius: 8px; gap: 0.7rem; }
-  .holdings-note strong { flex: 0 0 auto; font-size: 0.82rem; color: var(--theme-bright); }
-  .holdings-note span { font-size: 0.78rem; color: #aebfd3; line-height: 1.6; }
-  .holding-badge { display: inline-block; padding: 0.15rem 0.42rem; font-size: 0.64rem; text-align: center; border-radius: 999px; font-style: normal; font-weight: 600; vertical-align: middle; }
-  .holding-badge.standard { color: var(--theme-bright); background: rgb(74 222 128 / 12%); border: 1px solid var(--theme-border); }
-  .holding-badge.watch { color: #f4dda0; background: rgb(212 175 55 / 12%); border: 1px solid rgb(212 175 55 / 28%); }
-  .watchlist-row { background: rgb(212 175 55 / 3%); }
-  .watchlist-start td { border-top: 2px solid rgb(212 175 55 / 34%); }
+  .holdings-note strong { flex: 0 0 auto; font-size: 0.85rem; color: var(--theme-bright); line-height: 1.6; }
+  .holdings-note span { font-size: 0.82rem; color: #aebfd3; line-height: 1.6; }
+  .rank-rule-strip { display: grid; margin-bottom: 1.25rem; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.65rem; }
+  .rank-rule-strip span { padding: 0.55rem 0.7rem; font-size: 0.8rem; text-align: center; border-radius: 7px; font-weight: 600; }
+  .rank-rule-strip .entry { color: #86efac; background: rgb(34 197 94 / 10%); border: 1px solid rgb(34 197 94 / 28%); }
+  .rank-rule-strip .buffer { color: #f4dda0; background: rgb(212 175 55 / 10%); border: 1px solid rgb(212 175 55 / 28%); }
+  .rank-rule-strip .exit { color: #fca5a5; background: rgb(217 83 79 / 10%); border: 1px solid rgb(217 83 79 / 28%); }
+  .position-management-note { display: flex; align-items: flex-start; padding: 0.75rem 0.9rem; margin: -0.35rem 0 1.25rem; background: rgb(212 175 55 / 8%); border: 1px solid rgb(212 175 55 / 24%); border-radius: 8px; gap: 0.7rem; }
+  .position-management-note strong { font-size: 0.85rem; color: #f4dda0; flex: 0 0 auto; line-height: 1.6; }
+  .position-management-note span { font-size: 0.82rem; color: #aebfd3; line-height: 1.6; }
+  .portfolio-view-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem; gap: 0.75rem; }
+  .portfolio-view-header .section-heading { margin-bottom: 0; }
+  .portfolio-view-toggle { display: inline-flex; gap: 0.45rem; }
+  .portfolio-view-toggle button { display: inline-flex; align-items: center; padding: 0.38rem 0.5rem 0.38rem 0.7rem; font-size: 0.8rem; color: #94a3b8; background: rgb(255 255 255 / 3%); border: 1px solid rgb(255 255 255 / 10%); border-radius: 999px; cursor: pointer; gap: 0.45rem; transition: color 0.2s ease, background-color 0.2s ease, border-color 0.2s ease; }
+  .portfolio-view-toggle button:hover { color: #d8e4f2; border-color: rgb(74 222 128 / 28%); }
+  .portfolio-view-toggle button.active { color: var(--theme-bright); background: rgb(34 197 94 / 10%); border-color: rgb(74 222 128 / 38%); box-shadow: inset 0 0 0 1px rgb(74 222 128 / 6%); }
+  .portfolio-view-toggle em { display: grid; min-width: 1.45rem; height: 1.45rem; font-size: 0.72rem; color: #9fb2cc; background: rgb(0 0 0 / 24%); border-radius: 999px; place-items: center; font-style: normal; font-weight: 700; }
+  .portfolio-view-toggle button.active em { color: #052e16; background: var(--theme-bright); }
+  .section-heading { margin: 0 0 0.75rem; font-size: 1.05rem; color: #fff; }
+  .adjustment-note { margin: 0 0 1rem; font-size: 0.82rem; color: #9fb2cc; line-height: 1.6; }
+  .rebalance-execution-time { display: inline-flex; align-items: center; margin: 0 0.16rem; white-space: nowrap; color: #f4dda0; font-weight: 700; }
+  .adjustments-grid { display: grid; margin-bottom: 0.25rem; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 2rem; }
+  .adjustment-title { margin: 0 0 0.8rem; font-size: 1rem; font-weight: 600; }
+  .adjustment-title.sell { color: #d9534f; }
+  .adjustment-title.buy { color: #5cb85c; }
+  .adjustment-list { display: flex; padding: 0; margin: 0; list-style: none; flex-direction: column; gap: 0.6rem; }
+  .adjustment-item { display: flex; justify-content: space-between; align-items: center; padding: 0.5rem 0.8rem; font-size: 0.9rem; color: #b0c4de; background: rgb(255 255 255 / 5%); border-radius: 6px; gap: 0.75rem; }
+  .adjustment-item-empty { padding: 0.5rem 0; font-size: 0.9rem; color: #8392a5; }
+  .action-badge { padding: 0.2rem 0.6rem; font-size: 0.8rem; color: #fff; border-radius: 10px; }
+  .action-badge.sell { background: #d9534f; }
+  .action-badge.buy { background: #5cb85c; }
+  .combined-table-container { overflow-x: visible; }
+  .combined-portfolio-table { table-layout: fixed; }
+  .combined-portfolio-table th, .combined-portfolio-table td { padding: 0.72rem 0.3rem; font-size: 0.8rem; }
+  .combined-portfolio-table .code-cell { font-size: 0.82rem; letter-spacing: 0.02em; font-weight: 600; }
+  .combined-portfolio-table th { white-space: normal; line-height: 1.35; }
+  .rank-cell { color: #d8e4f2; font-weight: 700; }
+  .rank-zone-badge { display: inline-block; padding: 0.18rem 0.48rem; font-size: 0.75rem; border-radius: 999px; font-weight: 600; }
+  .rank-zone-badge.entry { color: #86efac; background: rgb(34 197 94 / 12%); border: 1px solid rgb(34 197 94 / 30%); }
+  .rank-zone-badge.buffer { color: #f4dda0; background: rgb(212 175 55 / 12%); border: 1px solid rgb(212 175 55 / 30%); }
+  .rank-zone-badge.exit { color: #fca5a5; background: rgb(217 83 79 / 12%); border: 1px solid rgb(217 83 79 / 30%); }
+  .ranking-buffer-start td { border-top: 2px solid rgb(212 175 55 / 38%); }
+  .portfolio-ranking-row { background: rgb(22 101 52 / 9%); }
   .target-weight { color: var(--theme-bright); font-weight: 700; }
   .yield-cell, .highlight { color: var(--accent) !important; }
   .negative { color: #22c55e !important; }
@@ -509,6 +633,13 @@
       .card-header-row, .nav-chart-header { align-items: flex-start; flex-direction: column; }
       .principle-grid { grid-template-columns: repeat(2, 1fr); }
       .holdings-note { align-items: flex-start; flex-direction: column; gap: 0.3rem; }
+      .rank-rule-strip { grid-template-columns: 1fr; }
+      .position-management-note { flex-direction: column; gap: 0.3rem; }
+      .portfolio-view-header { align-items: flex-start; flex-direction: column; }
+      .combined-table-container { overflow-x: auto; }
+      .combined-portfolio-table { min-width: 820px; table-layout: auto; }
+      .combined-portfolio-table th { white-space: nowrap; }
+      .adjustments-grid { grid-template-columns: 1fr; gap: 1.5rem; }
       .risk-summary-grid { grid-template-columns: 1fr; }
       .stats-bar { grid-template-columns: repeat(2, 1fr); }
       .distribution-grid { grid-template-columns: repeat(2, 1fr); }
