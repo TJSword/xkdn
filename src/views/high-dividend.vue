@@ -84,7 +84,7 @@
               : '排名前 5 只作为新股买入候选，第 6—20 名只对已有持仓提供缓冲，不代表组合同时持有 20 只股票。' }}
           </p>
           <div class="table-container combined-table-container">
-            <table class="combined-portfolio-table">
+            <table class="combined-portfolio-table" :class="{ 'is-ranking-view': portfolioView === 'ranking' }">
               <thead>
                 <tr>
                   <th>本期排名</th><th>股票代码</th><th>股票名称</th><th>收盘价</th><th>股息率 TTM</th><th>5年平均分红率</th><th>排名区域</th><th>最新权重</th>
@@ -576,6 +576,9 @@
   .rank-zone-badge.exit { color: #fca5a5; background: rgb(217 83 79 / 12%); border: 1px solid rgb(217 83 79 / 30%); }
   .ranking-buffer-start td { border-top: 2px solid rgb(212 175 55 / 38%); }
   .portfolio-ranking-row { background: rgb(22 101 52 / 9%); }
+  .portfolio-ranking-row:hover { background: rgb(22 101 52 / 14%); }
+  .is-ranking-view .portfolio-ranking-row { background: #1f814452; }
+  .is-ranking-view .portfolio-ranking-row:hover { background: #1f814466; }
   .target-weight { color: var(--theme-bright); font-weight: 700; }
   .yield-cell, .highlight { color: var(--accent) !important; }
   .negative { color: #22c55e !important; }
