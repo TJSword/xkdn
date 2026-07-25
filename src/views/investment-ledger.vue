@@ -873,11 +873,11 @@
                         </article>
                         <article class="attribution-metric-card">
                             <div class="attribution-metric-label">
-                                <span>区间组合盈亏</span>
+                                <span>整体账户区间盈亏</span>
                                 <button
                                     class="attribution-help"
                                     type="button"
-                                    aria-label="查看区间组合盈亏说明"
+                                    aria-label="查看整体账户区间盈亏说明"
                                     :aria-expanded="showAttributionProfitHelp"
                                     @click="showAttributionProfitHelp = !showAttributionProfitHelp">
                                     <svg viewBox="0 0 16 16" aria-hidden="true">
@@ -3955,14 +3955,14 @@ const attributionWaterfallOption = computed(() => {
             formatter: (params: Array<{ dataIndex: number }>) => {
                 const index = params[0]?.dataIndex
                 if (index === undefined) return ''
-                if (index === rows.length) return `组合盈亏<br/>${displayMoneyChange(attributionAccountProfit.value)}`
+                if (index === rows.length) return `整体账户<br/>${displayMoneyChange(attributionAccountProfit.value)}`
                 const item = rows[index]
                 return `${item.name}<br/>${displayMoneyChange(item.amount)}`
             }
         },
         xAxis: {
             type: 'category',
-            data: [...rows.map(item => item.name), '组合盈亏'],
+            data: [...rows.map(item => item.name), '整体账户'],
             axisLabel: { color: '#8a9aaa', fontSize: 11, interval: 0 },
             axisLine: { lineStyle: { color: '#31404d' } },
             axisTick: { show: false }
@@ -8714,6 +8714,11 @@ select:focus {
     gap: 7px;
 }
 
+.recovery-panel {
+    position: relative;
+    z-index: 2;
+}
+
 .recovery-estimate .status-pill {
     white-space: nowrap;
 }
@@ -8734,8 +8739,8 @@ select:focus {
 
 .recovery-help-tooltip {
     position: absolute;
+    top: calc(100% + 9px);
     right: 0;
-    bottom: calc(100% + 9px);
     z-index: 12;
     display: none;
     padding: 10px 12px;

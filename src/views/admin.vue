@@ -585,20 +585,20 @@
 
   const subscriptionOptions = [
       {
-          key: 'high_dividend',
-          label: '高股息策略',
-          tagLabel: '高股息',
-          trigger: '每周第一个交易日 9:00 检查；仅在发生调仓时推送。',
-          content: '计划执行时间、调出、调入及调仓后持仓；仓位止盈也属于调仓。',
-          example: '计划于 2026-08-03 9:30 执行；调出 A 公司，调入 B 公司。'
-      },
-      {
           key: 'convertible',
           label: '可转债策略',
           tagLabel: '可转债',
           trigger: '交易日 14:40 自动计算排名后通知；不调仓也会通知。',
           content: '有调仓时包含卖出、买入以及当前持仓；无调仓时提示继续持有并展示当前持仓。',
           example: '今日无调仓操作，继续持有。当前持仓：XX转债(123456)、YY转债(113000)。'
+      },
+      {
+          key: 'high_dividend',
+          label: '高股息策略',
+          tagLabel: '高股息',
+          trigger: '每周第一个交易日 9:00 检查；仅在发生调仓时推送。',
+          content: '计划执行时间、调出、调入及调仓后持仓；仓位止盈也属于调仓。',
+          example: '计划于 2026-08-03 9:30 执行；调出 A 公司，调入 B 公司。'
       },
       {
           key: 'rights_strategy',
@@ -1750,16 +1750,22 @@
   .admin-notification-popover {
       position: absolute;
       left: 0;
-      bottom: calc(100% + 8px);
+      top: calc(100% + 8px);
       z-index: 2;
       display: none;
       width: min(320px, 80vw);
+      box-sizing: border-box;
       padding: 12px;
       border-radius: 8px;
       background: #0f172a;
       box-shadow: 0 18px 38px rgba(0, 0, 0, 0.32);
       color: #dbeafe;
       line-height: 1.5;
+  }
+
+  .admin-notification-option:nth-last-child(-n + 2) .admin-notification-popover {
+      top: auto;
+      bottom: calc(100% + 8px);
   }
 
   .admin-notification-popover span,

@@ -1,5 +1,6 @@
 <template>
   <div class="home-page-wrapper" :class="{ 'contact-modal-open': isContactModalVisible }">
+    <div v-if="isAdminScanVisible" class="admin-access-scan" aria-hidden="true"></div>
     <div class="main-container">
       <h1 class="main-title">何以有数</h1>
       <p class="subtitle">
@@ -2477,6 +2478,8 @@
 
   // --- 🎹 键盘彩蛋逻辑 (Secret Codes) ---
   let keyBuffer = '' // 用于存储最近按下的键
+  const isAdminScanVisible = ref(false)
+  let adminScanTimer: number | null = null
 
   // 定义秘籍映射表：代码 -> 路由路径
   const secretCodes: Record<string, string> = {
@@ -2505,8 +2508,12 @@
           for (const [code, path] of Object.entries(secretCodes)) {
               if (keyBuffer.endsWith(code)) {
                   // 匹配成功！
-                  showMessage(`🚀 识别指令 [${code}]，正在跳转...`, 'success')
-                  router.push(path)
+                  isAdminScanVisible.value = true
+                  if (adminScanTimer !== null) window.clearTimeout(adminScanTimer)
+                  adminScanTimer = window.setTimeout(() => {
+                      adminScanTimer = null
+                      router.push(path)
+                  }, 420)
 
                   // 清空缓存，防止连续误触发 (比如 cbcb)
                   keyBuffer = ''
@@ -2517,6 +2524,10 @@
   }
 
   onMounted(async () => {
+      // 页面一挂载就注册入口，避免主页数据请求期间快捷键失效
+      window.addEventListener('keydown', handleSecretKeydown)
+      document.addEventListener('visibilitychange', handleHomeVisibilityChange)
+
       // 现在我们并行获取会员信息和所有的市场数据
       await fetchHomeDashboardData()
       lastHomeRealtimeRefreshAt = Date.now()
@@ -2530,9 +2541,6 @@
           const newState = { ...window.history.state, newUser: false }
           window.history.replaceState(newState, '')
       }
-      // 注册键盘监听
-      window.addEventListener('keydown', handleSecretKeydown)
-      document.addEventListener('visibilitychange', handleHomeVisibilityChange)
   })
   onUnmounted(() => {
       if (isContactModalVisible.value) {
@@ -2549,6 +2557,10 @@
       // 移除键盘监听
       window.removeEventListener('keydown', handleSecretKeydown)
       document.removeEventListener('visibilitychange', handleHomeVisibilityChange)
+      if (adminScanTimer !== null) {
+          window.clearTimeout(adminScanTimer)
+          adminScanTimer = null
+      }
       if (homeRealtimeRefreshTimer) {
           window.clearTimeout(homeRealtimeRefreshTimer)
           homeRealtimeRefreshTimer = null
@@ -3046,6 +3058,61 @@
 
 
 <style scoped>
+  .admin-access-scan {
+      position: fixed;
+      inset: 0;
+      z-index: 9999;
+      overflow: hidden;
+      pointer-events: none;
+      background: rgb(24 255 143 / 3%);
+  }
+
+  .admin-access-scan::before {
+      position: absolute;
+      top: -10vh;
+      left: 0;
+      width: 100%;
+      height: 3px;
+      background: #34f89a;
+      box-shadow: 0 0 10px #34f89a, 0 0 26px rgb(52 248 154 / 90%), 0 18px 42px rgb(52 248 154 / 38%);
+      content: '';
+      animation: admin-access-scan-line 420ms cubic-bezier(0.18, 0.72, 0.2, 1) forwards;
+  }
+
+  .admin-access-scan::after {
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(180deg, transparent 0%, rgb(52 248 154 / 8%) 48%, transparent 52%);
+      content: '';
+      animation: admin-access-scan-glow 420ms ease-out forwards;
+  }
+
+  @keyframes admin-access-scan-line {
+      0% {
+          opacity: 0;
+          transform: translateY(0);
+      }
+
+      10% {
+          opacity: 1;
+      }
+
+      100% {
+          opacity: 0;
+          transform: translateY(120vh);
+      }
+  }
+
+  @keyframes admin-access-scan-glow {
+      0%, 100% {
+          opacity: 0;
+      }
+
+      35% {
+          opacity: 1;
+      }
+  }
+
   /* --- 新增：页面加载动画定义 --- */
   @keyframes fadeInUp {
       from {
