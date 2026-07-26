@@ -769,6 +769,7 @@
                   maskedCookie: response.result.data.maskedCookie || '',
                   updatedAt: response.result.data.updatedAt || ''
               }
+              lastCookieCheck.value = formatDateTime(response.result.data.lastCheckedAt || '')
           }
       } catch (error) {
           console.error('读取雪球 Cookie 状态失败:', error)
@@ -1072,7 +1073,7 @@
           })
           const result = response.result || {}
           const message = result.message || result.msg || result.data?.message
-          lastCookieCheck.value = formatDateObject(new Date())
+          await fetchCookieStatus()
 
           if (result.success === false || result.valid === false || result.data?.valid === false) {
               showMessage(message || 'Cookie 已失效，请重新设置', 'error')
@@ -1146,7 +1147,7 @@
               data: { action: 'checkJisiluCookie' }
           })
           const result = response.result || {}
-          lastJisiluCookieCheck.value = formatDateObject(new Date())
+          await fetchJisiluCookieStatus()
           if (result.success === false) throw new Error(result.message || 'Cookie 校验失败')
           showMessage(result.message || '集思录 Cookie 状态正常', 'success')
       } catch (error: any) {
@@ -1215,7 +1216,7 @@
               data: { action: 'check' }
           })
           const result = response.result || {}
-          lastGuorenCookieCheck.value = formatDateObject(new Date())
+          await fetchGuorenCookieStatus()
           if (result.success === false) throw new Error(result.message || 'Cookie 校验失败')
           showMessage(result.message || '果仁 Cookie 状态正常', 'success')
       } catch (error: any) {
