@@ -53,85 +53,110 @@
           </p>
           <ul class="idea-list">
             <li><b>规模因子溢价：</b> 学术与历史数据均表明，长期来看，小市值公司的整体回报率倾向于超越大市值公司。本策略的目标正是捕获这种由“规模”这一因子本身带来的系统性超额收益。</li>
-            <li><b>每周动态再平衡：</b> 模型于<b>每周第一个交易日</b>进行调仓。若周一休市，则顺延至当周第一个实际交易日。这种再平衡机制，确保了策略能紧密跟随指数的成分变化，并及时捕捉市场动量，是策略获取阿尔法收益的关键环节。</li>
+            <li><b>每日排名检查：</b> 模型在每个交易日根据最新市场数据更新候选排名。现有持仓仍在前20名便继续持有，空位从前10名补足，以减少不必要的换手。</li>
             <li><b>作为“卫星”配置：</b> 鉴于微盘股的高波动特性，它适合作为投资组合中的“卫星”部分，用以增强整体收益弹性。建议配置比例不超过总投资资产的20%，并做好长期持有的准备。</li>
           </ul>
         </div>
         <div v-if="canViewPremiumContent" class="content-card">
           <div class="holdings-card-header">
             <h2 class="card-title">最新持仓与调仓建议</h2>
-            <button
-              v-if="canRefreshStrategy"
-              class="strategy-refresh-button"
-              :class="{ spinning: isStrategyRefreshing }"
-              :disabled="isStrategyRefreshing"
-              title="刷新微盘股策略数据"
-              aria-label="刷新微盘股策略数据"
-              @click="refreshStrategyData"
-            >
-              ↻
-            </button>
+            <div class="strategy-updated-at">
+              <span class="status-dot"></span>更新时间：{{ formattedDate }}
+            </div>
           </div>
-          <p class="card-description">
-            根据模型于 {{ formattedDate }} 生成的最新组合。
+          <div class="holdings-note">
+            <strong>前 10 买入，前 20 持有</strong>
+            <span>模型每日根据最新市场数据生成候选排名；现有持仓位于前 20 名便继续持有，排名第 21 名及以后才调出。</span>
+          </div>
+          <div class="rank-rule-strip" aria-label="排名缓冲规则">
+            <span class="entry">第 1—10 名 · 买入候选区</span>
+            <span class="buffer">第 11—20 名 · 持有缓冲区</span>
+            <span class="exit">第 21 名以后 · 退出区</span>
+          </div>
+          <div class="position-management-note">
+            <strong>仓位管理</strong>
+            <span>每日根据实际持仓检查权重；单只持仓严格超过 12% 时降至 10%，释放资金依次分配给当前权重最低的其他持仓。</span>
+          </div>
+          <div class="portfolio-view-header">
+            <h3 class="section-heading">持仓与排名</h3>
+            <div class="portfolio-view-toggle" aria-label="持仓与排名视图">
+              <button type="button" :class="{ active: portfolioView === 'holdings' }" :aria-pressed="portfolioView === 'holdings'" @click="portfolioView = 'holdings'">
+                <span>当前持仓</span><em>{{ latestPortfolio.length }}</em>
+              </button>
+              <button type="button" :class="{ active: portfolioView === 'ranking' }" :aria-pressed="portfolioView === 'ranking'" @click="portfolioView = 'ranking'">
+                <span>完整排名</span><em>{{ rankings.length }}</em>
+              </button>
+            </div>
+          </div>
+          <p class="ranking-note">
+            {{ portfolioView === 'holdings'
+              ? '当前持仓按本期排名由前到后展示；未触发排名或权重阈值时，不进行每日等权再平衡。'
+              : '前 10 名作为新股买入候选，第 11—20 名只为已有持仓提供缓冲，不代表组合同时持有 20 只股票。' }}
           </p>
-          <div class="calculator-toolbar">
-            <div class="calc-left">
-              <div class="input-wrapper">
-                <span class="currency-symbol">¥</span>
-                <input type="number" v-model="inputAmount" class="compact-input" placeholder="计划投入" @keyup.enter="handleCalculate" />
-              </div>
-              <button class="calc-btn-compact" :disabled="isCalculating" @click="handleCalculate">
-                {{ isCalculating ? '检查最新数据...' : '计算' }}
-              </button>
-              <button class="calc-btn-compact outline" @click="openHoldingsModal">
-                我的持仓
-              </button>
-            </div>
-
-            <div v-if="hasCalculated" class="calc-right-group">
-
-              <div class="stats-row">
-                <div class="summary-tag">
-                  <span class="label">计划买入</span>
-                  <span class="value highlight">{{ calcSummary.totalPlanned.toFixed(0) }}</span>
+          <div v-if="portfolioView === 'holdings'" class="allocation-section">
+            <h3 class="section-heading">调仓测算</h3>
+            <div class="calculator-toolbar">
+              <div class="calc-left">
+                <div class="input-wrapper">
+                  <span class="currency-symbol">¥</span>
+                  <input type="number" v-model="inputAmount" class="compact-input" placeholder="策略总资产" @keyup.enter="handleCalculate" />
                 </div>
-                <div class="summary-tag">
-                  <span class="label">利用率</span>
-                  <span class="value" :class="{'warn': parseFloat(calcSummary.utilization) < 95}">
-                    {{ calcSummary.utilization }}
-                  </span>
-                </div>
-                <div class="summary-tag">
-                  <span class="label">结余</span>
-                  <span class="value">{{ (Number(inputAmount) - calcSummary.totalPlanned).toFixed(0) }}</span>
-                </div>
+                <button class="calc-btn-compact" :disabled="isCalculating" @click="handleCalculate">
+                  {{ isCalculating ? '检查最新数据...' : '计算' }}
+                </button>
+                <button class="calc-btn-compact outline" @click="openHoldingsModal">
+                  我的持仓
+                </button>
               </div>
 
-              <button class="apply-result-btn" @click="requestApplyPlan">
-                录入此结果
-              </button>
+              <div v-if="hasCalculated" class="calc-right-group">
+
+                <div class="stats-row">
+                  <div class="summary-tag">
+                    <span class="label">计划买入</span>
+                    <span class="value highlight">{{ calcSummary.totalPlanned.toFixed(0) }}</span>
+                  </div>
+                  <div class="summary-tag">
+                    <span class="label">利用率</span>
+                    <span class="value" :class="{'warn': parseFloat(calcSummary.utilization) < 95}">
+                      {{ calcSummary.utilization }}
+                    </span>
+                  </div>
+                  <div class="summary-tag">
+                    <span class="label">结余</span>
+                    <span class="value">{{ (Number(inputAmount) - calcSummary.totalPlanned).toFixed(0) }}</span>
+                  </div>
+                </div>
+
+                <button class="apply-result-btn" @click="requestApplyPlan">
+                  录入此结果
+                </button>
+              </div>
             </div>
           </div>
 
-          <h3 class="card-subtitle">核心持仓展示 (10只)</h3>
-          <div class="table-wrapper">
+          <h3 v-if="portfolioView === 'holdings'" class="card-subtitle portfolio-table-title">当前持仓明细（{{ latestPortfolio.length }}只）</h3>
+          <div v-if="portfolioView === 'holdings'" class="table-wrapper">
             <table class="data-table portfolio-table">
               <thead>
                 <tr>
+                  <th>排名</th>
                   <th>代码</th>
                   <th>名称</th>
                   <th>现价</th>
+                  <th>策略权重</th>
                   <th v-if="hasCalculated" class="calc-col-head">建议手数</th>
                   <th v-if="hasCalculated" class="calc-col-head">计划金额</th>
-                  <th v-if="hasCalculated" class="calc-col-head">占比</th>
+                  <th v-if="hasCalculated" class="calc-col-head">实际占比</th>
                 </tr>
               </thead>
               <tbody>
                 <tr v-for="item in latestPortfolio" :key="item.code">
+                  <td>{{ item.rank || '20名以外' }}</td>
                   <td class="code-font">{{ item.code }}</td>
                   <td>{{ item.name }}</td>
                   <td>{{ item.price.toFixed(2) }}</td>
+                  <td class="strategy-weight">{{ formatStrategyWeight(item.weight) }}</td>
 
                   <template v-if="hasCalculated">
                     <td class="calc-col-cell">
@@ -148,8 +173,38 @@
               </tbody>
             </table>
           </div>
+          <div v-else class="table-wrapper">
+            <table class="data-table portfolio-table ranking-table">
+              <thead>
+                <tr>
+                  <th>排名</th>
+                  <th>代码</th>
+                  <th>名称</th>
+                  <th>现价</th>
+                  <th>总市值（亿元）</th>
+                  <th>行业</th>
+                  <th>排名区域</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr
+                  v-for="item in rankings"
+                  :key="`ranking-${item.code}`"
+                  :class="{ 'portfolio-ranking-row': portfolioCodes.has(item.code) }"
+                >
+                  <td>{{ item.rank }}</td>
+                  <td class="code-font">{{ item.code }}</td>
+                  <td>{{ item.name }}</td>
+                  <td>{{ Number(item.price).toFixed(2) }}</td>
+                  <td>{{ formatMarketCap(item.mktCap) }}</td>
+                  <td>{{ item.industry || '--' }}</td>
+                  <td><span class="rank-zone-badge" :class="getRankZoneClass(item.rank)">{{ getRankZoneLabel(item.rank) }}</span></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
 
-          <template v-if="hasCalculated">
+          <template v-if="portfolioView === 'holdings' && hasCalculated">
             <h3 class="card-subtitle" style="margin-top: 2rem;">组合调仓指引</h3>
             <div class="adjustments-grid">
               <div class="adjustment-block">
@@ -439,7 +494,6 @@
   const router = useRouter()
   const userStore = useUserStore()
   const canViewPremiumContent = computed(() => userStore.isVip || userStore.userInfo?.admin === true)
-  const canRefreshStrategy = computed(() => userStore.userInfo?.admin === true)
   // 引入云开发 SDK (请确保路径与您项目一致，通常是 @/lib/cloudbase 或类似的)
   import { callCloudFunction, throwIfAuthExpired } from '@/services/cloudFunction'
   import axios from 'axios'
@@ -453,6 +507,7 @@
       prepareStrategySeries
   } from '@/utils/strategyMetrics'
   import type { MonthlySummary, StrategyStats } from '@/utils/strategyMetrics'
+  import { calculateMicroCapAllocation } from '@/utils/microCapAllocation'
   const showMessage: any = inject('showMessage')
   const hasCalculated = ref(false) // 新增开关
   const strategyStats = ref<StrategyStats>({
@@ -640,11 +695,22 @@
           showMessage(err.message || '录入失败', 'error')
       }
   }
-  // 计算最小起投门槛 (最高价股票的1手 * 10)
+  const formatStrategyWeight = (value: number | null | undefined) =>
+      Number.isFinite(Number(value)) ? `${(Number(value) * 100).toFixed(2)}%` : '--'
+  const formatMarketCap = (value: number | null | undefined) =>
+      Number.isFinite(Number(value)) ? Number(value).toFixed(2) : '--'
+  const getRankZoneClass = (rank: number) => Number(rank) <= 10 ? 'entry' : 'buffer'
+  const getRankZoneLabel = (rank: number) => Number(rank) <= 10 ? '买入候选区' : '持有缓冲区'
+
+  // 计算使每只股票至少可以买入1手的最小资金门槛
   const minThreshold = computed(() => {
       if (!latestPortfolio.value || latestPortfolio.value.length === 0) return 0
-      const maxPrice = Math.max(...latestPortfolio.value.map((s: any) => s.price))
-      return Math.ceil(maxPrice * 100 * 10)
+      const fallbackWeight = 1 / latestPortfolio.value.length
+      return Math.ceil(Math.max(...latestPortfolio.value.map((stock: any) => {
+          const weight = Number(stock.weight)
+          const targetWeight = Number.isFinite(weight) && weight > 0 ? weight : fallbackWeight
+          return stock.price * 100 / targetWeight
+      })))
   })
 
   // 执行计算 (修复保底1手分配的瀑布流算法)
@@ -664,87 +730,30 @@
       }
       if (totalFunds < minThreshold.value) {
           showMessage(
-              `资金量过小，无法有效进行等权配置。\n当前策略建议最低起投金额为：${minThreshold.value}元\n(基于最高价股1手价格的10倍计算)`,
+              `资金量过小，无法按目标权重配置。\n当前策略建议最低起投金额为：${minThreshold.value}元\n(按每只股票至少1手计算)`,
               'error'
           )
           return
       }
 
-      // 2. 算法初始化
-      const fundsForAllocation = totalFunds
-      let remainingFunds = fundsForAllocation
+      // 2. 以用户当前持仓权重为基准：不超过12%保持不动，严格超过12%才降至10%。
+      const allocationRows = calculateMicroCapAllocation(stocks, userHoldings.value, totalFunds)
       const tempMap = new Map()
       let totalAllocated = 0
-
-      // [核心修复] 预计算后续股票保底1手所需的总资金 (后缀和机制)
-      // 作用：保证前面的股票就算四舍五入多买了，也不会把后面股票买1手的钱挤占掉
-      const minCostSuffix = new Array(stocks.length).fill(0)
-      let suffixSum = 0
-      for (let i = stocks.length - 1; i >= 0; i--) {
-          minCostSuffix[i] = suffixSum
-          suffixSum += stocks[i].price * 100
-      }
-
-      // 3. 循环计算 (瀑布流分配)
-      for (let i = 0; i < stocks.length; i++) {
-          const stock = stocks[i]
-          const currentPrice = stock.price
-
-          if (!currentPrice || currentPrice <= 0) continue
-
-          const remainingStocksCount = stocks.length - i
-          // 核心逻辑：剩余资金 / 剩余股票数
-          const idealInvestmentPerStock = remainingFunds / remainingStocksCount
-          const idealShares = idealInvestmentPerStock / currentPrice
-
-          // 四舍五入到整百
-          let sharesToBuy = Math.round(idealShares / 100) * 100
-
-          // 兜底逻辑：如果计算出0手，强制给1手
-          if (sharesToBuy === 0) sharesToBuy = 100
-
-          let actualCost = sharesToBuy * currentPrice
-
-          // [核心修复] 资金校验：当前买入后，剩下的钱必须足够后面所有股票各买至少1手
-          const requiredForRest = minCostSuffix[i]
-
-          // 当出现买不起，或者挤占了后续股票保底资金的情况，就减去100股，直到满足条件或降至1手
-          while (
-              sharesToBuy > 100 &&
-              (actualCost > remainingFunds || remainingFunds - actualCost < requiredForRest)
-          ) {
-              sharesToBuy -= 100
-              actualCost = sharesToBuy * currentPrice
-          }
-
-          // 极端情况兜底：万一连1手都买不起则归零 (有前面的 minThreshold 拦截，正常情况绝对不会走到这)
-          if (actualCost > remainingFunds) {
-              sharesToBuy = 0
-              actualCost = 0
-          }
-
-          // 记录结果
-          if (sharesToBuy > 0) {
-              remainingFunds -= actualCost
-              totalAllocated += actualCost
-
-              const actualWeight = actualCost / fundsForAllocation
-
-              tempMap.set(stock.code, {
-                  shares: sharesToBuy,
-                  cost: actualCost,
-                  weight: (actualWeight * 100).toFixed(2) + '%'
-              })
-          } else {
-              tempMap.set(stock.code, { shares: 0, cost: 0, weight: '0%' })
-          }
-      }
+      allocationRows.forEach(item => {
+          totalAllocated += item.cost
+          tempMap.set(item.code, {
+              shares: item.shares,
+              cost: item.cost,
+              weight: `${(item.weight * 100).toFixed(2)}%`
+          })
+      })
 
       // 4. 更新状态
       allocationData.value = tempMap
       calcSummary.value = {
           totalPlanned: totalAllocated,
-          utilization: ((totalAllocated / fundsForAllocation) * 100).toFixed(2) + '%',
+          utilization: ((totalAllocated / totalFunds) * 100).toFixed(2) + '%',
           msg: '计算完成'
       }
 
@@ -805,12 +814,15 @@
   // --- 1. 基础数据 ---
   const formattedDate = ref('加载中...')
   const isLoading = ref(true)
-  const isStrategyRefreshing = ref(false)
   const isCalculating = ref(false)
   let viewFetchPromise: Promise<any> | null = null
 
   // --- 2. 持仓与调仓数据 ---
   const latestPortfolio: any = ref([]) // 核心持仓
+  const rankings: any = ref([]) // 策略候选前20名
+  const portfolioView = ref<'holdings' | 'ranking'>('holdings')
+  const portfolioCodes = computed(() => new Set(latestPortfolio.value.map((item: any) => item.code)))
+  const portfolioByCode = computed(() => new Map(latestPortfolio.value.map((item: any) => [item.code, item])))
   const sellList: any = ref([]) // 建议卖出
   const buyList: any = ref([]) // 建议买入
 
@@ -836,7 +848,27 @@
 
                   formattedDate.value = data.updated_at
 
-                  latestPortfolio.value = data.ranking || []
+                  rankings.value = (Array.isArray(data.ranking) ? data.ranking : []).map(
+                      (item: any, index: number) => ({
+                          ...item,
+                          rank: Number.isFinite(Number(item.rank)) ? Number(item.rank) : index + 1
+                      })
+                  )
+                  const rankingByCode = new Map(
+                      rankings.value.map((item: any) => [item.code, item.rank])
+                  )
+                  const portfolio = Array.isArray(data.portfolio) && data.portfolio.length
+                      ? data.portfolio
+                      : rankings.value.slice(0, 10)
+                  latestPortfolio.value = portfolio.map((item: any, index: number) => ({
+                      ...item,
+                      rank: Number.isFinite(Number(item.rank))
+                          ? Number(item.rank)
+                          : rankingByCode.get(item.code) || index + 1,
+                      weight: Number.isFinite(Number(item.weight)) && Number(item.weight) > 0
+                          ? Number(item.weight)
+                          : 0.1
+                  }))
 
                   if (versionChanged) {
                       hasCalculated.value = false
@@ -895,30 +927,6 @@
           calculateWithCurrentData()
       } finally {
           isCalculating.value = false
-      }
-  }
-
-  const refreshStrategyData = async () => {
-      if (!canRefreshStrategy.value || isStrategyRefreshing.value) return
-
-      isStrategyRefreshing.value = true
-      try {
-          const res: any = await callCloudFunction({
-              name: 'strategyTaskGateway',
-              data: { action: 'refreshMicroCap' }
-          })
-          if (res.result?.success === false) {
-              throw new Error(res.result?.message || res.result?.msg || '微盘股策略刷新失败')
-          }
-
-          await fetchStrategyData()
-          showMessage?.('微盘股策略数据已刷新', 'success')
-      } catch (err: any) {
-          throwIfAuthExpired(err)
-          console.error('微盘股策略刷新失败', err)
-          showMessage?.(err.message || '微盘股策略刷新失败', 'error')
-      } finally {
-          isStrategyRefreshing.value = false
       }
   }
 
@@ -1560,15 +1568,35 @@
   const faqList = ref([
       {
           question: '我如何参与该策略？',
-          answer: '本策略精选沪深主板10只小市值个股，无科创/创业板门槛，但请务必认知其高波动风险。首次建仓建议在每周第一个交易日上午9:30进行；后续请严格跟随信号，在当周第一个实际交易日9:30第一时间完成调仓，以减少因股价快速波动带来的滑点损耗。'
+          answer: '本策略通过量化模型筛选符合要求的股票，并在每个交易日9:30检查排名：现有持仓仍在前20名便继续持有，出现调入调出信号时再按页面建议执行。'
+      },
+      {
+          question: '为什么前10名买入、前20名持有？',
+          answer: '前10名是新股票的买入候选区；已经持有的股票只要仍在前20名，就继续持有。第11—20名仅为现有持仓提供排名缓冲，不会作为新股买入，也不代表组合会同时持有20只股票。这样可以减少排名小幅波动造成的不必要换手。'
+      },
+      {
+          question: '策略何时更新，什么情况下需要调仓？',
+          answer: '策略在每个交易日9:30检查最新排名。只有组合出现股票调入或调出时，才需要根据页面提示换股；若组合成分没有变化，则按“今日无需调仓”处理。单只股票权重超过12%属于个人持仓管理，不作为换股通知的触发条件，需要用户自行检查和减仓。'
       },
       {
           question: '10支股票我应该如何分配资金？',
-          answer: '建议严格采取“等权配置”原则。无论上周个股涨跌如何，在每次调仓完成后，请务必通过买卖操作，将这10只股票的持仓市值调整至大致相等，即每只股票各占策略总仓位的10%。这种定期的“再平衡”有助于被动实现高抛低吸，维持组合风险均衡。'
+          answer: '首次建仓及新调入股票以10%为目标。策略不会每天把全部持仓恢复等权；只有单只权重严格超过12%时，才将其削减到10%，释放资金依次补给当前权重最低的其他持仓。'
       },
       {
-          question: '为何回测中1月和4月的收益表现特殊？',
-          answer: '这是策略主动规避微盘股“日历效应”的结果。1月面临年关流动性收紧，4月存在财报季暴雷风险，因此模型设定了空仓避险机制。表格中的微小数值是月初清仓瞬间产生的波动，实盘操作中建议投资者根据情况灵活提前空仓观望。'
+          question: '我应该如何管理实际持仓权重？',
+          answer: '建议在每个交易日收盘后，以证券账户中的实际持仓市值计算各股票权重。若单只股票权重严格超过12%，请自行将其减至约10%。由于每位用户的买入价格、持仓股数和资金变化不同，网页无法持续自动跟踪个人账户权重，页面数据仅作为检查与调仓参考。'
+      },
+      {
+          question: '遇到涨停、跌停或停牌时如何处理？',
+          answer: '待调出的持仓若处于涨停，本次不卖出并继续保留，也不会为该席位补入新股；待调入的股票若处于跌停，策略会跳过它，并从剩余前10名中顺延寻找其他未持有且可买入的股票。停牌持仓继续保留，新停牌股票不买入。'
+      },
+      {
+          question: '策略走势是否考虑交易成本？',
+          answer: '策略走势在发生调仓时，会按照单边0.1%的滑点，对实际买入和卖出换手分别计提成本。该数值用于模拟成交价格偏差，不等同于券商佣金、印花税等实际费用，真实交易成本请以个人账户为准。'
+      },
+      {
+          question: '策略在1月和4月会空仓吗？',
+          answer: '不会。当前策略全年保持满仓运行，1月和4月也不例外。模型每天根据最新排名检查持仓，满足调出条件时才更换个股，不会因月份切换为空仓。'
       },
       {
           question: '我应该配置多少比例？',
@@ -1904,48 +1932,257 @@
   .holdings-card-header {
       display: flex;
       justify-content: space-between;
-      align-items: flex-start;
+      align-items: center;
+      margin-bottom: 1rem;
       gap: 1rem;
   }
 
-  .strategy-refresh-button {
-      display: inline-grid;
-      padding: 0;
-      width: 26px;
-      height: 26px;
-      font-size: 1rem;
-      color: #8392a5;
-      background: rgb(0 0 0 / 16%);
-      border: 1px solid rgb(255 255 255 / 6%);
-      border-radius: 4px;
+  .holdings-card-header .card-title {
+      margin-bottom: 0;
+  }
+
+  .strategy-updated-at {
+      padding: 0.28rem 0.65rem;
+      font-size: 0.78rem;
+      white-space: nowrap;
+      color: #f4dda0;
+      background: rgb(240 230 140 / 8%);
+      border: 1px solid rgb(240 230 140 / 24%);
+      border-radius: 999px;
+  }
+
+  .status-dot {
+      display: inline-block;
+      margin-right: 0.4rem;
+      width: 6px;
+      height: 6px;
+      background: #f0e68c;
+      border-radius: 50%;
+      box-shadow: 0 0 6px #f0e68c;
+  }
+
+  .holdings-note {
+      display: flex;
+      align-items: center;
+      padding: 0.75rem 0.9rem;
+      margin-bottom: 0.85rem;
+      background: rgb(240 230 140 / 8%);
+      border: 1px solid rgb(240 230 140 / 24%);
+      border-radius: 8px;
+      gap: 0.7rem;
+  }
+
+  .holdings-note strong {
+      font-size: 0.85rem;
+      color: #f0e68c;
+      flex: 0 0 auto;
+      line-height: 1.6;
+  }
+
+  .holdings-note span {
+      font-size: 0.82rem;
+      color: #aebfd3;
+      line-height: 1.6;
+  }
+
+  .rank-rule-strip {
+      display: grid;
+      margin-bottom: 0.9rem;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 0.65rem;
+  }
+
+  .rank-rule-strip span {
+      padding: 0.55rem 0.7rem;
+      font-size: 0.8rem;
+      text-align: center;
+      border-radius: 7px;
+      font-weight: 600;
+  }
+
+  .rank-rule-strip .entry {
+      color: #fff8a8;
+      background: rgb(240 230 140 / 13%);
+      border: 1px solid rgb(240 230 140 / 34%);
+  }
+
+  .rank-rule-strip .buffer {
+      color: #d8d3a5;
+      background: rgb(240 230 140 / 6%);
+      border: 1px solid rgb(240 230 140 / 18%);
+  }
+
+  .rank-rule-strip .exit {
+      color: #fca5a5;
+      background: rgb(217 83 79 / 9%);
+      border: 1px solid rgb(217 83 79 / 25%);
+  }
+
+  .position-management-note {
+      display: flex;
+      align-items: flex-start;
+      padding: 0.75rem 0.9rem;
+      margin-bottom: 1.25rem;
+      background: rgb(255 255 255 / 3%);
+      border: 1px solid rgb(255 255 255 / 9%);
+      border-left: 3px solid rgb(240 230 140 / 60%);
+      border-radius: 8px;
+      gap: 0.7rem;
+  }
+
+  .position-management-note strong {
+      font-size: 0.85rem;
+      color: #f4dda0;
+      flex: 0 0 auto;
+      line-height: 1.6;
+  }
+
+  .position-management-note span {
+      font-size: 0.82rem;
+      color: #aebfd3;
+      line-height: 1.6;
+  }
+
+  .portfolio-view-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 0.75rem;
+      gap: 0.75rem;
+  }
+
+  .section-heading {
+      margin: 0;
+      font-size: 1.05rem;
+      color: #fff;
+  }
+
+  .portfolio-view-toggle {
+      display: inline-flex;
+      gap: 0.45rem;
+  }
+
+  .portfolio-view-toggle button {
+      display: inline-flex;
+      align-items: center;
+      padding: 0.4rem 0.55rem 0.4rem 0.75rem;
+      font-size: 0.82rem;
+      color: #94a3b8;
+      background: rgb(255 255 255 / 3%);
+      border: 1px solid rgb(255 255 255 / 10%);
+      border-radius: 999px;
+      cursor: pointer;
+      gap: 0.45rem;
       transition:
           color 0.2s ease,
-          border-color 0.2s ease,
-          background-color 0.2s ease;
-      flex: 0 0 26px;
-      line-height: 1;
-      cursor: pointer;
+          background-color 0.2s ease,
+          border-color 0.2s ease;
+  }
+
+  .portfolio-view-toggle button:hover {
+      color: #d8e4f2;
+      border-color: rgb(240 230 140 / 28%);
+  }
+
+  .portfolio-view-toggle button.active {
+      color: #f4dda0;
+      background: rgb(240 230 140 / 10%);
+      border-color: rgb(240 230 140 / 38%);
+      box-shadow: inset 0 0 0 1px rgb(240 230 140 / 6%);
+  }
+
+  .portfolio-view-toggle em {
+      display: grid;
+      min-width: 1.4rem;
+      height: 1.4rem;
+      font-size: 0.72rem;
+      background: rgb(0 0 0 / 18%);
+      border-radius: 999px;
       place-items: center;
+      font-style: normal;
+      font-weight: 700;
   }
 
-  .strategy-refresh-button:hover:not(:disabled) {
-      color: #f0e68c;
-      background: rgb(0 0 0 / 16%);
-      border-color: rgb(240 230 140 / 50%);
+  .portfolio-view-toggle button.active em {
+      color: #1c1917;
+      background: #f0e68c;
   }
 
-  .strategy-refresh-button:disabled {
-      cursor: wait;
-      opacity: 0.65;
+  .ranking-note {
+      margin: 0 0 1rem;
+      font-size: 0.82rem;
+      color: #9fb2cc;
+      line-height: 1.6;
   }
 
-  .strategy-refresh-button.spinning {
-      animation: strategyRefreshSpin 0.8s linear infinite;
+  .allocation-section {
+      padding-top: 1rem;
+      margin-top: 1rem;
+      border-top: 1px solid rgb(255 255 255 / 8%);
   }
 
-  @keyframes strategyRefreshSpin {
-      to {
-          transform: rotate(360deg);
+  .allocation-section .section-heading {
+      margin-bottom: 0.75rem;
+  }
+
+  .allocation-section .calculator-toolbar {
+      margin-bottom: 0;
+  }
+
+  .portfolio-table-title {
+      margin-top: 1.5rem;
+  }
+
+  .ranking-table {
+      min-width: 760px;
+  }
+
+  .portfolio-ranking-row {
+      background: rgb(240 230 140 / 14%);
+  }
+
+  .rank-zone-badge {
+      display: inline-block;
+      padding: 0.18rem 0.48rem;
+      font-size: 0.75rem;
+      border-radius: 999px;
+      font-weight: 600;
+  }
+
+  .rank-zone-badge.entry {
+      color: #1b190b;
+      background: linear-gradient(135deg, #fff8a8, #d4af37);
+      border: 1px solid rgb(255 248 168 / 72%);
+      font-weight: 700;
+      box-shadow: 0 0 10px rgb(240 230 140 / 12%);
+  }
+
+  .rank-zone-badge.buffer {
+      color: #f4dda0;
+      background: rgb(212 175 55 / 12%);
+      border: 1px solid rgb(212 175 55 / 30%);
+  }
+
+  .strategy-weight {
+      color: #f0e68c !important;
+      font-weight: 700;
+  }
+
+  @media (max-width: 768px) {
+      .holdings-card-header,
+      .holdings-note,
+      .position-management-note,
+      .portfolio-view-header {
+          align-items: flex-start;
+          flex-direction: column;
+      }
+
+      .rank-rule-strip {
+          grid-template-columns: 1fr;
+      }
+
+      .portfolio-view-toggle {
+          flex-wrap: wrap;
       }
   }
 

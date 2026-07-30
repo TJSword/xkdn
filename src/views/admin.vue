@@ -332,69 +332,152 @@
         </div>
       </section>
 
-      <section v-if="activeTab === 'data-view'" class="content-card admin-section">
-        <div class="card-header-with-toggle">
-          <div>
-            <h2 class="card-title">已采集数据</h2>
-            <p class="card-description">页面会读取已入库的数据；点击右侧按钮可重新抓取最新果仁微盘策略信号。</p>
-          </div>
+      <section
+        v-if="activeTab === 'data-view'"
+        class="content-card admin-section data-drawer-card"
+        :class="{ expanded: isCandidateDrawerOpen }"
+      >
+        <div class="card-header-with-toggle data-drawer-header">
+          <button
+            class="data-drawer-toggle"
+            type="button"
+            :aria-expanded="isCandidateDrawerOpen"
+            aria-controls="guoren-candidate-drawer"
+            @click="isCandidateDrawerOpen = !isCandidateDrawerOpen"
+          >
+            <span class="data-drawer-chevron" aria-hidden="true"></span>
+            <span class="data-drawer-heading">
+              <span class="card-title">果仁微盘30策略信号</span>
+              <span class="card-description">每个交易日 7:00 获取上一个实际交易日的全部果仁筛选结果，并按总市值升序展示。</span>
+            </span>
+          </button>
+          <button
+            class="button-secondary"
+            :disabled="isLoadingGuorenCandidates || isRefreshingGuorenCandidates"
+            @click="refreshGuorenCandidates"
+          >
+            {{ isRefreshingGuorenCandidates ? '更新中...' : '更新微盘30信号' }}
+          </button>
+        </div>
+
+        <div v-show="isCandidateDrawerOpen" id="guoren-candidate-drawer" class="data-drawer-body">
+          <div v-if="isLoadingGuorenCandidates" class="no-data">正在加载果仁微盘候选...</div>
+          <template v-else-if="guorenCandidates">
+            <p class="form-help collected-data-time">
+              候选数量：{{ guorenCandidates.data.length }} · 数据日期：{{ guorenCandidates.tradeDate || '--' }} · 更新时间：{{ formatDateTime(guorenCandidates.updatedAt) }}
+            </p>
+            <div class="table-wrapper candidate-table-wrapper">
+              <table class="portfolio-table collected-data-table candidate-data-table">
+                <thead>
+                  <tr>
+                    <th>排名</th>
+                    <th>股票名称</th>
+                    <th>股票代码</th>
+                    <th class="industry-cell">行业</th>
+                    <th>收盘价</th>
+                    <th>当日成交量（万）</th>
+                    <th>20日换手率</th>
+                    <th>总市值（亿元）</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="row in guorenCandidates.data" :key="`${row.stockCode}-${row.rank}`">
+                    <td>{{ row.rank }}</td>
+                    <td>{{ row.stockName }}</td>
+                    <td>{{ row.stockCode }}</td>
+                    <td class="industry-cell">{{ row.industry || '--' }}</td>
+                    <td>{{ formatCandidateClosePrice(row.closePrice) }}</td>
+                    <td>{{ formatCandidateVolume(row.volume) }}</td>
+                    <td>{{ formatCandidateTurnover(row.turnover20) }}</td>
+                    <td>{{ formatCandidateMarketCap(row.marketCap) }}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </template>
+          <div v-else class="no-data">暂无果仁微盘候选数据</div>
+        </div>
+      </section>
+
+      <section
+        v-if="activeTab === 'data-view'"
+        class="content-card admin-section data-drawer-card"
+        :class="{ expanded: isSignalDrawerOpen }"
+      >
+        <div class="card-header-with-toggle data-drawer-header">
+          <button
+            class="data-drawer-toggle"
+            type="button"
+            :aria-expanded="isSignalDrawerOpen"
+            aria-controls="guoren-signal-drawer"
+            @click="isSignalDrawerOpen = !isSignalDrawerOpen"
+          >
+            <span class="data-drawer-chevron" aria-hidden="true"></span>
+            <span class="data-drawer-heading">
+              <span class="card-title">果仁微盘10策略信号</span>
+              <span class="card-description">每个交易日 8:00 获取前一交易日的果仁微盘10策略信号；也可点击右侧按钮手动更新。</span>
+            </span>
+          </button>
           <button
             class="button-secondary"
             :disabled="isLoadingCollectedData || isRefreshingGuorenMicrocap"
             @click="refreshGuorenMicrocap"
           >
-            {{ isRefreshingGuorenMicrocap ? '更新中...' : '更新果仁信号' }}
+            {{ isRefreshingGuorenMicrocap ? '更新中...' : '更新微盘10信号' }}
           </button>
         </div>
 
-        <div v-if="isLoadingCollectedData" class="no-data">正在加载已采集数据...</div>
-        <template v-else-if="collectedData">
-          <p class="form-help collected-data-time">更新时间：{{ formatDateTime(collectedData.updatedAt) }}</p>
-          <div class="table-wrapper">
-            <table class="portfolio-table collected-data-table">
-              <thead>
-                <tr>
-                  <th>股票名称</th>
-                  <th>股票代码</th>
-                  <th>行业</th>
-                  <th>信号</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="(row, index) in collectedData.data" :key="`${row.stockCode}-${index}`">
-                  <td>{{ row.stockName }}</td>
-                  <td>{{ row.stockCode }}</td>
-                  <td>{{ row.industry }}</td>
-                  <td>{{ row.signal }}</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </template>
-        <div v-else class="no-data">暂无已采集数据</div>
+        <div v-show="isSignalDrawerOpen" id="guoren-signal-drawer" class="data-drawer-body">
+          <div v-if="isLoadingCollectedData" class="no-data">正在加载已采集数据...</div>
+          <template v-else-if="collectedData">
+            <p class="form-help collected-data-time">更新时间：{{ formatDateTime(collectedData.updatedAt) }}</p>
+            <div class="table-wrapper">
+              <table class="portfolio-table collected-data-table">
+                <thead>
+                  <tr>
+                    <th>股票名称</th>
+                    <th>股票代码</th>
+                    <th class="industry-cell">行业</th>
+                    <th>信号</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="(row, index) in collectedData.data" :key="`${row.stockCode}-${index}`">
+                    <td>{{ row.stockName }}</td>
+                    <td>{{ row.stockCode }}</td>
+                    <td class="industry-cell">{{ row.industry }}</td>
+                    <td>{{ row.signal }}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </template>
+          <div v-else class="no-data">暂无已采集数据</div>
+        </div>
       </section>
 
       <section v-if="activeTab === 'refresh'" class="content-card admin-section">
         <div class="card-header-with-toggle">
           <div>
-            <h2 class="card-title">策略刷新入口</h2>
-            <p class="card-description">手动触发 LOF、含权、微盘、高股息策略和转债全景的数据更新，适合补跑或验证云函数状态。</p>
+            <h2 class="card-title">手动更新任务</h2>
+            <p class="card-description">选择需要补跑的数据任务，手动拉取并保存最新结果。</p>
           </div>
         </div>
 
         <div class="refresh-grid">
           <article v-for="item in refreshTasks" :key="item.key" class="refresh-card">
-            <div>
+            <div class="refresh-card-content">
               <h3>{{ item.title }}</h3>
               <p>{{ item.description }}</p>
               <span v-if="item.lastRun" class="refresh-time">最近执行：{{ item.lastRun }}</span>
             </div>
             <button
-              class="button-primary"
+              class="button-primary refresh-action"
+              type="button"
               :disabled="refreshingKey === item.key"
               @click="runRefreshTask(item.key)"
             >
-              {{ refreshingKey === item.key ? '刷新中...' : '立即刷新' }}
+              {{ refreshingKey === item.key ? '更新中...' : item.actionLabel }}
             </button>
           </article>
         </div>
@@ -558,11 +641,28 @@
       updatedAt: string
   }
 
+  interface GuorenCandidateRow {
+      rank: number
+      stockName: string
+      stockCode: string
+      industry: string
+      closePrice: number
+      volume: number
+      turnover20: number
+      marketCap: number
+  }
+
+  interface GuorenCandidateData {
+      data: GuorenCandidateRow[]
+      tradeDate: string
+      updatedAt: string
+  }
+
   const tabs: Array<{ key: TabKey; label: string; description: string }> = [
       { key: 'users', label: '人员管理', description: '会员、通知、备注' },
       { key: 'data-source', label: '数据源配置', description: '统一维护访问凭据' },
       { key: 'data-view', label: '数据查看', description: '已采集数据总览' },
-      { key: 'refresh', label: '策略刷新', description: '手动补跑数据' }
+      { key: 'refresh', label: '数据更新', description: '手动补跑数据' }
   ]
   const activeTab = ref<TabKey>('users')
 
@@ -639,30 +739,35 @@
           key: 'lof' as RefreshTaskKey,
           title: 'LOF 溢价监控',
           description: '拉取并保存最新 LOF 场内价格、估值和折溢价数据。',
+          actionLabel: '更新 LOF',
           lastRun: ''
       },
       {
           key: 'rights' as RefreshTaskKey,
           title: '含权策略',
           description: '刷新含权策略实时组合和调仓建议。',
+          actionLabel: '更新含权',
           lastRun: ''
       },
       {
           key: 'micro_cap' as RefreshTaskKey,
           title: '微盘股策略',
           description: '刷新微盘 Top10 策略数据，依赖当前雪球 Cookie。',
+          actionLabel: '更新微盘',
           lastRun: ''
       },
       {
           key: 'high_dividend' as RefreshTaskKey,
           title: '高股息策略',
           description: '从果仁抓取最近一个已完成交易日的高股息持仓。',
+          actionLabel: '更新高股息',
           lastRun: ''
       },
       {
           key: 'bond_market' as RefreshTaskKey,
           title: '转债全景',
           description: '请求当前集思录实时转债列表，并保存一份日内快照。',
+          actionLabel: '更新转债',
           lastRun: ''
       }
   ])
@@ -701,6 +806,11 @@
   const collectedData = ref<CollectedData | null>(null)
   const isLoadingCollectedData = ref(false)
   const isRefreshingGuorenMicrocap = ref(false)
+  const isSignalDrawerOpen = ref(false)
+  const guorenCandidates = ref<GuorenCandidateData | null>(null)
+  const isLoadingGuorenCandidates = ref(false)
+  const isRefreshingGuorenCandidates = ref(false)
+  const isCandidateDrawerOpen = ref(false)
 
   function emptySubscriptions(): NotificationSubscriptions {
       return {
@@ -850,9 +960,51 @@
       }
   }
 
+  const fetchGuorenCandidates = async () => {
+      if (isLoadingGuorenCandidates.value) return
+
+      isLoadingGuorenCandidates.value = true
+      try {
+          const response: any = await callCloudFunction({
+              name: 'strategyTaskGateway',
+              data: { action: 'readGuorenMicrocapCandidates' }
+          })
+          if (!response.result?.success) throw new Error(response.result?.message || '读取果仁微盘候选失败')
+          guorenCandidates.value = response.result.data || null
+      } catch (error: any) {
+          showMessage(error.message || '读取果仁微盘候选失败', 'error')
+      } finally {
+          isLoadingGuorenCandidates.value = false
+      }
+  }
+
+  const refreshGuorenCandidates = async () => {
+      if (isRefreshingGuorenCandidates.value) return
+
+      isRefreshingGuorenCandidates.value = true
+      try {
+          const response: any = await callCloudFunction({
+              name: 'strategyTaskGateway',
+              data: { action: 'refreshGuorenMicrocapCandidates' }
+          })
+          const result = response.result || {}
+          if (result.ok !== true) throw new Error(result.message || '获取果仁微盘候选失败')
+
+          await fetchGuorenCandidates()
+          showMessage(`已获取 ${result.tradeDate} 的果仁微盘候选，共 ${result.rowCount} 条`, 'success')
+      } catch (error: any) {
+          showMessage(error.message || '获取果仁微盘候选失败', 'error')
+      } finally {
+          isRefreshingGuorenCandidates.value = false
+      }
+  }
+
   const selectTab = (tab: TabKey) => {
       activeTab.value = tab
-      if (tab === 'data-view') fetchCollectedData()
+      if (tab === 'data-view') {
+          fetchCollectedData()
+          fetchGuorenCandidates()
+      }
   }
 
   const toggleCookieEditor = (source: CookieSource) => {
@@ -1294,6 +1446,42 @@
       return formatDateObject(date)
   }
 
+  function formatCandidateMarketCap(value: number) {
+      return Number.isFinite(value)
+          ? (value / 100000000).toLocaleString('zh-CN', {
+              minimumFractionDigits: 2,
+              maximumFractionDigits: 2
+          })
+          : '--'
+  }
+
+  function formatCandidateClosePrice(value: number) {
+      return Number.isFinite(value)
+          ? value.toLocaleString('zh-CN', {
+              minimumFractionDigits: 2,
+              maximumFractionDigits: 2
+          })
+          : '--'
+  }
+
+  function formatCandidateVolume(value: number) {
+      return Number.isFinite(value)
+          ? (value / 10000).toLocaleString('zh-CN', {
+              minimumFractionDigits: 2,
+              maximumFractionDigits: 2
+          })
+          : '--'
+  }
+
+  function formatCandidateTurnover(value: number) {
+      return Number.isFinite(value)
+          ? `${(value * 100).toLocaleString('zh-CN', {
+              minimumFractionDigits: 2,
+              maximumFractionDigits: 2
+          })}%`
+          : '--'
+  }
+
   onMounted(() => {
       fetchUsers()
       fetchCookieStatus()
@@ -1619,15 +1807,15 @@
 
   .refresh-grid {
       display: grid;
-      grid-template-columns: repeat(4, minmax(0, 1fr));
+      grid-template-columns: repeat(2, minmax(0, 1fr));
       gap: 16px;
   }
 
   .refresh-card {
-      display: flex;
-      min-height: 190px;
-      flex-direction: column;
-      justify-content: space-between;
+      display: grid;
+      align-items: center;
+      min-height: 0;
+      grid-template-columns: minmax(0, 1fr) auto;
       gap: 16px;
   }
 
@@ -2290,16 +2478,17 @@
   }
 
   .refresh-card {
-      min-height: 210px;
+      min-height: 0;
       gap: 1rem;
   }
 
   .refresh-card::before {
       content: '';
-      display: block;
-      width: 36px;
-      height: 3px;
-      margin-bottom: 0.2rem;
+      position: absolute;
+      top: 1rem;
+      bottom: 1rem;
+      left: 0;
+      width: 3px;
       background: #0af;
       border-radius: 999px;
   }
@@ -2319,6 +2508,11 @@
       margin-top: 0.8rem;
       color: #8392a5;
       font-size: 0.8rem;
+  }
+
+  .refresh-action {
+      width: 7.5rem;
+      white-space: nowrap;
   }
 
   .modal-backdrop {
@@ -2420,6 +2614,15 @@
 
       .admin-tabs {
           grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .refresh-card {
+          align-items: stretch;
+          grid-template-columns: 1fr;
+      }
+
+      .refresh-action {
+          width: 100%;
       }
 
       .card-header-with-toggle {
@@ -2564,5 +2767,153 @@
   .row-actions .action-button {
       padding-right: 0.65rem;
       padding-left: 0.65rem;
+  }
+
+  .data-drawer-card {
+      padding: 0;
+      transition: border-color 0.2s ease;
+  }
+
+  .data-drawer-card.expanded {
+      border-color: rgb(0 170 255 / 38%);
+  }
+
+  .data-drawer-header {
+      align-items: center;
+      padding: 1rem 1.25rem;
+      margin-bottom: 0;
+  }
+
+  .data-drawer-toggle {
+      display: flex;
+      flex: 1;
+      align-items: center;
+      padding: 0;
+      min-width: 0;
+      text-align: left;
+      color: inherit;
+      background: transparent;
+      border: 0;
+      outline: none;
+      cursor: pointer;
+      gap: 0.8rem;
+  }
+
+  .data-drawer-toggle:focus-visible {
+      border-radius: 8px;
+      box-shadow: 0 0 0 2px rgb(0 170 255 / 28%);
+  }
+
+  .data-drawer-heading {
+      display: grid;
+      min-width: 0;
+      gap: 0.35rem;
+  }
+
+  .data-drawer-heading .card-title {
+      padding-left: 0;
+      margin: 0;
+      border-left: 0;
+  }
+
+  .data-drawer-chevron {
+      flex: 0 0 auto;
+      width: 8px;
+      height: 8px;
+      margin-left: 0.3rem;
+      color: #0af;
+      border-right: 2px solid currentcolor;
+      border-bottom: 2px solid currentcolor;
+      transform: rotate(-45deg);
+      transition: transform 0.2s ease;
+  }
+
+  .data-drawer-card.expanded .data-drawer-chevron {
+      transform: rotate(45deg);
+  }
+
+  .data-drawer-body {
+      padding: 0 1.25rem 1.25rem;
+      border-top: 1px solid rgb(255 255 255 / 8%);
+  }
+
+  .data-drawer-body .collected-data-time {
+      margin-top: 1rem;
+  }
+
+  .data-drawer-body .table-wrapper {
+      overflow-x: auto;
+  }
+
+  .data-drawer-body .candidate-table-wrapper {
+      overflow-x: hidden;
+  }
+
+  .data-drawer-body .collected-data-table {
+      min-width: 720px;
+      table-layout: auto;
+  }
+
+  .data-drawer-body .candidate-data-table {
+      width: 100%;
+      min-width: 0;
+      table-layout: fixed;
+  }
+
+  .data-drawer-body .candidate-data-table th,
+  .data-drawer-body .candidate-data-table td {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+  }
+
+  .data-drawer-body .candidate-data-table th:nth-child(1),
+  .data-drawer-body .candidate-data-table td:nth-child(1) {
+      width: 7%;
+  }
+
+  .data-drawer-body .candidate-data-table th:nth-child(2),
+  .data-drawer-body .candidate-data-table td:nth-child(2) {
+      width: 10%;
+  }
+
+  .data-drawer-body .candidate-data-table th:nth-child(3),
+  .data-drawer-body .candidate-data-table td:nth-child(3) {
+      width: 11%;
+  }
+
+  .data-drawer-body .candidate-data-table th:nth-child(4),
+  .data-drawer-body .candidate-data-table td:nth-child(4) {
+      width: 22%;
+  }
+
+  .data-drawer-body .candidate-data-table th:nth-child(5),
+  .data-drawer-body .candidate-data-table td:nth-child(5) {
+      width: 9%;
+  }
+
+  .data-drawer-body .candidate-data-table th:nth-child(6),
+  .data-drawer-body .candidate-data-table td:nth-child(6) {
+      width: 15%;
+  }
+
+  .data-drawer-body .candidate-data-table th:nth-child(7),
+  .data-drawer-body .candidate-data-table td:nth-child(7) {
+      width: 13%;
+  }
+
+  .data-drawer-body .candidate-data-table th:nth-child(8),
+  .data-drawer-body .candidate-data-table td:nth-child(8) {
+      width: 13%;
+  }
+
+  .data-drawer-body .industry-cell {
+      white-space: nowrap;
+  }
+
+  @media (max-width: 640px) {
+      .data-drawer-header {
+          align-items: stretch;
+      }
   }
 </style>

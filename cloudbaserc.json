@@ -223,6 +223,21 @@
       ]
     },
     {
+      "name": "getGuorenMicrocapCandidates",
+      "runtime": "Nodejs18.15",
+      "handler": "index.main",
+      "timeout": 30,
+      "memorySize": 256,
+      "description": "果仁微盘全部候选抓取、解密与入库；每个交易日 07:00 获取上一个实际交易日数据",
+      "triggers": [
+        {
+          "name": "refreshGuorenMicrocapCandidatesWeekday0700",
+          "type": "timer",
+          "config": "0 0 7 * * MON-FRI *"
+        }
+      ]
+    },
+    {
       "name": "getMicroCapRealtimeInfo",
       "runtime": "Nodejs18.15",
       "handler": "index.main",
@@ -236,7 +251,7 @@
       "handler": "index.main",
       "timeout": 60,
       "memorySize": 512,
-      "description": "微盘股 Top10 策略工作日 09:30 定时检查并在当周首个交易日更新",
+      "description": "微盘股日频 Top10 策略工作日 09:30 检查雪球与果仁交集排名、持有缓冲和权重阈值",
       "triggers": [
         {
           "name": "refreshMicroCapStrategyWeekday0930",
@@ -473,6 +488,14 @@
       "timeout": 5,
       "memorySize": 256,
       "description": "使用服务密钥读取雪球访问凭据（内部调用）"
+    },
+    {
+      "name": "getXueqiuCookieAndGuorenMicrocap30",
+      "runtime": "Nodejs18.15",
+      "handler": "index.main",
+      "timeout": 10,
+      "memorySize": 256,
+      "description": "独立读取雪球 Cookie 与果仁微盘30股票名称和代码，使用同名服务密钥"
     },
     {
       "name": "getLofData",

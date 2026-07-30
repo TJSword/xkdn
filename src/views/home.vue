@@ -98,12 +98,21 @@
         </article>
       </section>
 
-      <section class="realtime-nav-panel" aria-label="策略实时净值预览">
+      <section
+        class="realtime-nav-panel"
+        aria-label="策略实时净值预览"
+        :aria-busy="homeRealtimeRefreshState === 'refreshing'"
+      >
+        <span class="realtime-refresh-live" aria-live="polite">{{ homeRealtimeRefreshLiveMessage }}</span>
         <div class="realtime-nav-grid realtime-six-grid">
           <article
             v-for="item in displayStrategyRealtimeNavs"
             :key="item.id"
-            class="realtime-nav-card realtime-six-card"
+            :class="[
+              'realtime-nav-card',
+              'realtime-six-card',
+              { 'is-refreshing': homeRealtimeRefreshState === 'refreshing' }
+            ]"
             :style="{ '--accent-color': item.accent }"
             role="button"
             tabindex="0"
@@ -112,7 +121,14 @@
           >
             <div class="realtime-card-top">
               <span class="strategy-name">{{ item.name }}</span>
-              <span class="realtime-card-time">{{ item.isLoaded ? item.updatedAt : '--' }}</span>
+              <span
+                v-if="homeRealtimeRefreshState !== 'idle'"
+                :class="['realtime-card-time', 'realtime-card-refresh-status', `is-${homeRealtimeRefreshState}`]"
+              >
+                <i v-if="homeRealtimeRefreshState === 'refreshing'" aria-hidden="true"></i>
+                {{ homeRealtimeRefreshLabel }}
+              </span>
+              <span v-else class="realtime-card-time">{{ item.isLoaded ? item.updatedAt : '--' }}</span>
             </div>
             <div class="realtime-card-value">
               <span>当日涨幅</span>
@@ -2222,9 +2238,41 @@
 
   const HOME_REALTIME_REFRESH_DEBOUNCE_MS = 300
   const HOME_REALTIME_REFRESH_MIN_INTERVAL_MS = 60 * 1000
+  const HOME_REALTIME_REFRESH_FEEDBACK_MS = 1800
+  const homeRealtimeRefreshState = ref<'idle' | 'refreshing' | 'success' | 'error'>('idle')
   let homeRealtimeRefreshTimer: number | null = null
+  let homeRealtimeRefreshFeedbackTimer: number | null = null
   let homeRealtimeRefreshPromise: Promise<void> | null = null
   let lastHomeRealtimeRefreshAt = 0
+
+  const homeRealtimeRefreshLabel = computed(() => {
+      if (homeRealtimeRefreshState.value === 'refreshing') return '更新中'
+      if (homeRealtimeRefreshState.value === 'success') return '已更新'
+      if (homeRealtimeRefreshState.value === 'error') return '更新失败'
+      return ''
+  })
+
+  const homeRealtimeRefreshLiveMessage = computed(() => {
+      if (homeRealtimeRefreshState.value === 'refreshing') return '正在更新日内走势'
+      if (homeRealtimeRefreshState.value === 'success') return '日内走势已检查'
+      if (homeRealtimeRefreshState.value === 'error') return '日内走势更新失败，继续显示已有数据'
+      return ''
+  })
+
+  const setHomeRealtimeRefreshState = (state: 'idle' | 'refreshing' | 'success' | 'error') => {
+      if (homeRealtimeRefreshFeedbackTimer) {
+          window.clearTimeout(homeRealtimeRefreshFeedbackTimer)
+          homeRealtimeRefreshFeedbackTimer = null
+      }
+
+      homeRealtimeRefreshState.value = state
+      if (state === 'success' || state === 'error') {
+          homeRealtimeRefreshFeedbackTimer = window.setTimeout(() => {
+              homeRealtimeRefreshState.value = 'idle'
+              homeRealtimeRefreshFeedbackTimer = null
+          }, HOME_REALTIME_REFRESH_FEEDBACK_MS)
+      }
+  }
 
   const getShanghaiTimeParts = (date = new Date()) => {
       const parts = new Intl.DateTimeFormat('en-US', {
@@ -2278,8 +2326,13 @@
       if (now - lastHomeRealtimeRefreshAt < HOME_REALTIME_REFRESH_MIN_INTERVAL_MS) return
 
       lastHomeRealtimeRefreshAt = now
+      setHomeRealtimeRefreshState('refreshing')
       homeRealtimeRefreshPromise = fetchHomeRealtimeData()
+          .then(() => {
+              setHomeRealtimeRefreshState('success')
+          })
           .catch(error => {
+              setHomeRealtimeRefreshState('error')
               try {
                   throwIfAuthExpired(error)
               } catch {
@@ -2564,6 +2617,10 @@
       if (homeRealtimeRefreshTimer) {
           window.clearTimeout(homeRealtimeRefreshTimer)
           homeRealtimeRefreshTimer = null
+      }
+      if (homeRealtimeRefreshFeedbackTimer) {
+          window.clearTimeout(homeRealtimeRefreshFeedbackTimer)
+          homeRealtimeRefreshFeedbackTimer = null
       }
   })
 
@@ -3566,11 +3623,21 @@
   }
 
   .realtime-nav-panel {
+      position: relative;
       padding: 0;
       margin: 0 auto 1.05rem;
       text-align: left;
       opacity: 0;
       animation: fadeInUp 0.5s ease-out 0.5s forwards;
+  }
+
+  .realtime-refresh-live {
+      position: absolute;
+      overflow: hidden;
+      width: 1px;
+      height: 1px;
+      white-space: nowrap;
+      clip-path: inset(50%);
   }
 
   .panel-kicker {
@@ -3614,6 +3681,27 @@
       cursor: pointer;
   }
 
+  .realtime-nav-card.is-refreshing::after {
+      position: absolute;
+      inset: 0;
+      z-index: 0;
+      background: linear-gradient(
+          105deg,
+          transparent 28%,
+          color-mix(in srgb, var(--accent-color) 18%, transparent) 48%,
+          transparent 68%
+      );
+      content: '';
+      pointer-events: none;
+      transform: translateX(-120%);
+      animation: realtime-card-refresh-sweep 1.35s ease-in-out infinite;
+  }
+
+  .realtime-nav-card.is-refreshing > * {
+      position: relative;
+      z-index: 1;
+  }
+
   .realtime-nav-card:focus-visible {
       outline: 2px solid var(--accent-color);
       outline-offset: 3px;
@@ -3648,6 +3736,49 @@
       color: #94a3b8;
       flex: 0 0 auto;
       line-height: 1;
+  }
+
+  .realtime-card-refresh-status {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.32rem;
+  }
+
+  .realtime-card-refresh-status i {
+      width: 8px;
+      height: 8px;
+      border: 1.5px solid color-mix(in srgb, var(--accent-color) 35%, transparent);
+      border-top-color: var(--accent-color);
+      border-radius: 50%;
+      animation: realtime-card-refresh-spin 0.75s linear infinite;
+  }
+
+  .realtime-card-refresh-status.is-refreshing,
+  .realtime-card-refresh-status.is-success {
+      color: color-mix(in srgb, var(--accent-color) 72%, white);
+  }
+
+  .realtime-card-refresh-status.is-error {
+      color: #fda4af;
+  }
+
+  @keyframes realtime-card-refresh-spin {
+      to {
+          transform: rotate(360deg);
+      }
+  }
+
+  @keyframes realtime-card-refresh-sweep {
+      to {
+          transform: translateX(120%);
+      }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+      .realtime-nav-card.is-refreshing::after,
+      .realtime-card-refresh-status i {
+          animation-duration: 3s;
+      }
   }
 
   .realtime-nav-card.discipline-cash-card {

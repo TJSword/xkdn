@@ -925,7 +925,7 @@
                                 </strong>
                             </div>
                             <div class="attribution-copy attribution-weight">
-                                <span>{{ item.weight }}%</span>
+                                <span>{{ item.weight.toFixed(2) }}%</span>
                             </div>
                         </div>
                     </div>
@@ -1022,10 +1022,21 @@
                         </span>
                     </div>
                     <template v-if="activeDrawdownEpisode">
-                        <div class="drawdown-attribution-summary">
-                            <span>前高 {{ activeDrawdownEpisode.peakDate }}</span>
-                            <strong>当前 {{ activeDrawdownEpisode.troughDate }}</strong>
-                            <em :class="returnClass(activeDrawdownProfit)">{{ displayMoneyChange(activeDrawdownProfit) }}</em>
+                        <div class="drawdown-attribution-equation">
+                            <div>
+                                <span>亏损项合计</span>
+                                <strong :class="returnClass(drawdownLossTotal)">{{ displayMoneyChange(drawdownLossTotal) }}</strong>
+                            </div>
+                            <i aria-hidden="true">+</i>
+                            <div>
+                                <span>正向抵消</span>
+                                <strong :class="returnClass(drawdownOffsetTotal)">{{ displayMoneyChange(drawdownOffsetTotal) }}</strong>
+                            </div>
+                            <i aria-hidden="true">=</i>
+                            <div class="drawdown-attribution-net">
+                                <span>本轮净亏损</span>
+                                <strong :class="returnClass(activeDrawdownProfit)">{{ displayMoneyChange(activeDrawdownProfit) }}</strong>
+                            </div>
                         </div>
                         <div
                             class="drawdown-attribution-list"
@@ -1035,11 +1046,14 @@
                                     <i :style="{ backgroundColor: item.color }"></i>
                                     <strong>{{ item.name }}</strong>
                                 </div>
-                                <div class="drawdown-loss-track" :class="{ offset: item.amount >= 0 }">
+                                <div class="drawdown-loss-track" :class="{ offset: item.amount > 0 }">
                                     <span :style="{ width: `${item.share}%` }"></span>
                                 </div>
                                 <strong :class="returnClass(item.amount)">{{ displayMoneyChange(item.amount) }}</strong>
-                                <span>{{ item.share.toFixed(1) }}%</span>
+                                <span>
+                                    {{ item.amount > 0 ? '抵消亏损项合计' : '占亏损项合计' }}
+                                    {{ item.share.toFixed(1) }}%
+                                </span>
                             </div>
                         </div>
                     </template>
@@ -3452,7 +3466,7 @@ const filteredActualPerformanceData = computed(() => {
     const rows = aggregateRecordsByDate.value.filter(item => item.date >= start && item.date <= end)
     const first = rows[0]
     const previous = aggregateRecordsByDate.value.filter(item => item.date < start).at(-1)
-    const baselineAmount = first ? (previous ? previous.amount : Math.max(first.amount - first.cashFlow, 0)) : 0
+    const baselineAmount = first ? (previous ? previous.amount : accountConfig.openingPrincipal) : 0
     let cumulativeCashFlow = 0
 
     return rows.map(item => {
@@ -3619,6 +3633,18 @@ const drawdownAttributionRows = computed(() => {
         share: lossTotal ? Math.min((Math.abs(item.amount) / lossTotal) * 100, 100) : 0
     }))
 })
+const drawdownLossRows = computed(() =>
+    drawdownAttributionRows.value.filter(item => item.amount < 0)
+)
+const drawdownOffsetRows = computed(() =>
+    drawdownAttributionRows.value.filter(item => item.amount > 0)
+)
+const drawdownLossTotal = computed(() =>
+    drawdownLossRows.value.reduce((total, item) => total + item.amount, 0)
+)
+const drawdownOffsetTotal = computed(() =>
+    drawdownOffsetRows.value.reduce((total, item) => total + item.amount, 0)
+)
 const formatDrawdownRecoveryStatus = (item: DrawdownEpisode) => {
     if (item.recoveryDate) return `已恢复 · ${item.recoveryDays || 0} 天`
     const currentNav = latestPerformancePoint.value?.nav || item.troughNav
@@ -8492,33 +8518,49 @@ select:focus {
     margin-top: 0;
 }
 
-.drawdown-attribution-summary {
-    display: grid;
-    align-items: center;
-    padding: 11px 13px;
-    margin-bottom: 12px;
-    background: rgb(0 0 0 / 18%);
-    border: 1px solid rgb(255 255 255 / 8%);
-    border-radius: 8px;
-    grid-template-columns: 1fr 1fr auto;
-    gap: 12px;
-}
-
 .drawdown-attribution-panel {
     display: flex;
     flex-direction: column;
 }
 
-.drawdown-attribution-summary span,
-.drawdown-attribution-summary strong {
-    color: #9aabba;
-    font-size: 12px;
+.drawdown-attribution-equation {
+    display: grid;
+    align-items: stretch;
+    margin-bottom: 12px;
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) auto minmax(0, 1fr);
+    gap: 7px;
 }
 
-.drawdown-attribution-summary em {
-    font-size: 16px;
+.drawdown-attribution-equation > div {
+    padding: 9px 10px;
+    background: rgb(0 0 0 / 18%);
+    border: 1px solid rgb(255 255 255 / 8%);
+    border-radius: 7px;
+}
+
+.drawdown-attribution-equation > div > span {
+    display: block;
+    margin-bottom: 4px;
+    color: #718294;
+    font-size: 11px;
+}
+
+.drawdown-attribution-equation > div > strong {
+    display: block;
+    font-size: 13px;
+    white-space: nowrap;
+}
+
+.drawdown-attribution-equation > i {
+    align-self: center;
+    color: #607180;
+    font-size: 13px;
     font-style: normal;
     font-weight: 700;
+}
+
+.drawdown-attribution-equation .drawdown-attribution-net {
+    border-color: rgb(0 170 255 / 24%);
 }
 
 .drawdown-attribution-list {
@@ -8526,7 +8568,7 @@ select:focus {
     flex: 1;
     align-content: start;
     grid-template-columns: repeat(auto-fit, minmax(205px, 1fr));
-    gap: 10px;
+    gap: 16px;
 }
 
 .drawdown-attribution-list.single-column {
@@ -8536,7 +8578,7 @@ select:focus {
 .drawdown-attribution-row {
     display: grid;
     align-items: center;
-    padding: 10px 11px;
+    padding: 12px 11px;
     background: rgb(0 0 0 / 14%);
     border: 1px solid rgb(255 255 255 / 8%);
     border-radius: 7px;
@@ -10602,12 +10644,13 @@ label small {
         justify-self: end;
     }
 
-    .drawdown-attribution-summary {
-        grid-template-columns: 1fr 1fr;
+    .drawdown-attribution-equation {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 6px;
     }
 
-    .drawdown-attribution-summary em {
-        grid-column: 1 / -1;
+    .drawdown-attribution-equation > i {
+        display: none;
     }
 
     .drawdown-attribution-row {

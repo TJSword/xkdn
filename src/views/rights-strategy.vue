@@ -564,6 +564,8 @@
           return realtimeChanged.value
               ? realtimeRebalanced.value
                   ? `根据 ${comparison} 的周度调仓结果生成操作建议，并更新未来轮入观察名单。`
+                  : realtimeAdjustments.value.buys.length
+                  ? `持仓股今日为股权登记日，已生成调出及补位调入建议。`
                   : `持仓股今日为股权登记日，已生成调出建议。`
               : `${realtimeTradeDate.value} 的最新持仓与上一交易日一致，本次无需调仓。`
       }
