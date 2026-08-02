@@ -1,5 +1,11 @@
 <template>
-  <div class="home-page-wrapper" :class="{ 'contact-modal-open': isContactModalVisible }">
+  <div
+    class="home-page-wrapper"
+    :class="{
+      'contact-modal-open': isContactModalVisible,
+      'intro-active': shouldPlayHomeIntro
+    }"
+  >
     <div v-if="isAdminScanVisible" class="admin-access-scan" aria-hidden="true"></div>
     <div class="main-container">
       <h1 class="main-title">何以有数</h1>
@@ -951,6 +957,10 @@
   </div>
 </template>
 
+<script lang="ts">
+  let hasPlayedHomeIntro = false
+</script>
+
 <script setup lang="ts">
   import { ref, reactive, computed, watch, nextTick, onMounted, onUnmounted, inject } from 'vue'
   import { useRouter } from 'vue-router'
@@ -966,6 +976,8 @@
   const showMessage: any = inject('showMessage')
   const userStore: any = useUserStore()
   const router = useRouter()
+  const shouldPlayHomeIntro = ref(!hasPlayedHomeIntro)
+  hasPlayedHomeIntro = true
   // console.log(userStore.userInfo.admin)
 
   // --- 接口定义 ---
@@ -3170,7 +3182,88 @@
       }
   }
 
-  /* --- 新增：页面加载动画定义 --- */
+  @keyframes home-title-calibrate {
+      0% {
+          letter-spacing: 0.12em;
+          filter: blur(3px) brightness(0.72);
+          text-shadow: 0 0 0 transparent;
+      }
+
+      58% {
+          letter-spacing: 0.035em;
+          filter: blur(0.6px) brightness(0.94);
+          text-shadow: 0 0 14px rgb(148 210 255 / 28%);
+      }
+
+      100% {
+          letter-spacing: 0;
+          filter: blur(0) brightness(1);
+          text-shadow: 0 0 15px rgb(255 255 255 / 10%);
+      }
+  }
+
+  @keyframes home-module-lock {
+      0%, 100% {
+          box-shadow: inset 0 0 0 1px transparent, 0 0 0 transparent;
+      }
+
+      52% {
+          box-shadow:
+              inset 0 0 0 1px color-mix(in srgb, var(--lock-accent) 42%, transparent),
+              0 0 18px color-mix(in srgb, var(--lock-accent) 11%, transparent);
+      }
+  }
+
+  @keyframes home-signal-line {
+      0% {
+          opacity: 0;
+          transform: scaleX(0.04);
+      }
+
+      28% {
+          opacity: 0.95;
+      }
+
+      100% {
+          opacity: 0;
+          transform: scaleX(1);
+      }
+  }
+
+  @keyframes home-frame-lock {
+      0%, 100% {
+          opacity: 0;
+          transform: scale(0.992);
+      }
+
+      54% {
+          opacity: 0.78;
+          transform: scale(1);
+      }
+  }
+
+  @keyframes home-corner-lock {
+      0%, 100% {
+          opacity: 0;
+          transform: scale(0.985);
+      }
+
+      38%, 68% {
+          opacity: 0.92;
+          transform: scale(1);
+      }
+  }
+
+  @keyframes home-icon-lock {
+      0%, 100% {
+          filter: none;
+      }
+
+      52% {
+          filter: brightness(1.22) saturate(1.16) drop-shadow(0 0 7px color-mix(in srgb, var(--menu-accent, #60a5fa) 34%, transparent));
+      }
+  }
+
   @keyframes fadeInUp {
       from {
           opacity: 0;
@@ -3227,12 +3320,8 @@
   .main-title {
       margin-bottom: 0.55rem;
       font-size: 1.9rem;
-      opacity: 0;
       text-shadow: 0 0 15px rgb(255 255 255 / 10%);
       font-weight: 700;
-
-      /* 应用加载动画 */
-      animation: fadeInUp 0.5s ease-out forwards;
   }
 
   .subtitle {
@@ -3242,10 +3331,6 @@
       max-width: 550px;
       font-size: 0.92rem;
       color: #b0c4de;
-      opacity: 0;
-
-      /* 应用加载动画, 延迟0.2秒 */
-      animation: fadeInUp 0.5s ease-out 0.2s forwards;
   }
 
   .status-overview-strip {
@@ -3254,8 +3339,28 @@
       gap: 0.9rem;
       margin: 0 auto 1.05rem;
       text-align: left;
+  }
+
+  .intro-active .main-title {
+      animation: home-title-calibrate 0.58s cubic-bezier(0.2, 0.72, 0.2, 1) backwards;
+  }
+
+  .intro-active .status-overview-card:first-child {
+      --lock-accent: var(--overview-accent);
+
+      animation: home-module-lock 0.52s 0.12s cubic-bezier(0.2, 0.72, 0.2, 1) backwards;
+  }
+
+  .intro-active .status-overview-card:last-child {
+      --lock-accent: var(--overview-accent);
+
+      animation: home-module-lock 0.52s 0.16s cubic-bezier(0.2, 0.72, 0.2, 1) backwards;
+  }
+
+  .intro-active .status-overview-card::before {
       opacity: 0;
-      animation: fadeInUp 0.5s ease-out 0.4s forwards;
+      transform-origin: left center;
+      animation: home-signal-line 0.44s 0.16s cubic-bezier(0.2, 0.72, 0.2, 1) backwards;
   }
 
   .status-overview-card {
@@ -3627,8 +3732,27 @@
       padding: 0;
       margin: 0 auto 1.05rem;
       text-align: left;
-      opacity: 0;
-      animation: fadeInUp 0.5s ease-out 0.5s forwards;
+  }
+
+  .intro-active .realtime-six-card {
+      --lock-accent: var(--accent-color);
+
+      animation: home-module-lock 0.54s cubic-bezier(0.2, 0.72, 0.2, 1) backwards;
+  }
+
+  .intro-active .realtime-six-card:nth-child(3),
+  .intro-active .realtime-six-card:nth-child(4) {
+      animation-delay: 0.24s;
+  }
+
+  .intro-active .realtime-six-card:nth-child(2),
+  .intro-active .realtime-six-card:nth-child(5) {
+      animation-delay: 0.28s;
+  }
+
+  .intro-active .realtime-six-card:nth-child(1),
+  .intro-active .realtime-six-card:nth-child(6) {
+      animation-delay: 0.32s;
   }
 
   .realtime-refresh-live {
@@ -3681,6 +3805,43 @@
       cursor: pointer;
   }
 
+  .realtime-nav-card::before {
+      position: absolute;
+      top: 0;
+      right: 0;
+      left: 0;
+      z-index: 2;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, var(--accent-color), transparent);
+      content: '';
+      opacity: 0;
+      pointer-events: none;
+      transform: scaleX(0.04);
+      transform-origin: center;
+  }
+
+  .intro-active .realtime-six-card::before {
+      animation: home-signal-line 0.46s 0.34s cubic-bezier(0.2, 0.72, 0.2, 1) backwards;
+  }
+
+  .realtime-nav-card::after {
+      position: absolute;
+      z-index: 2;
+      background:
+          linear-gradient(var(--accent-color), var(--accent-color)) top left / 10px 1px no-repeat,
+          linear-gradient(var(--accent-color), var(--accent-color)) top left / 1px 10px no-repeat,
+          linear-gradient(var(--accent-color), var(--accent-color)) right bottom / 10px 1px no-repeat,
+          linear-gradient(var(--accent-color), var(--accent-color)) right bottom / 1px 10px no-repeat;
+      content: '';
+      opacity: 0;
+      pointer-events: none;
+      inset: 5px;
+  }
+
+  .intro-active .realtime-six-card::after {
+      animation: home-corner-lock 0.48s 0.3s cubic-bezier(0.2, 0.72, 0.2, 1) backwards;
+  }
+
   .realtime-nav-card.is-refreshing::after {
       position: absolute;
       inset: 0;
@@ -3692,6 +3853,7 @@
           transparent 68%
       );
       content: '';
+      opacity: 1;
       pointer-events: none;
       transform: translateX(-120%);
       animation: realtime-card-refresh-sweep 1.35s ease-in-out infinite;
@@ -3926,8 +4088,44 @@
       grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
       gap: 1.15rem 1rem;
       margin: 0 auto;
-      animation: fadeInUp 0.5s ease-out 0.6s forwards;
-      opacity: 0;
+  }
+
+  .intro-active .quick-menu-card {
+      --lock-accent: var(--menu-accent, #60a5fa);
+
+      animation: home-module-lock 0.54s cubic-bezier(0.2, 0.72, 0.2, 1) backwards;
+  }
+
+  .intro-active .quick-menu-card:nth-child(4n + 1) {
+      animation-delay: 0.42s;
+  }
+
+  .intro-active .quick-menu-card:nth-child(4n + 2) {
+      animation-delay: 0.45s;
+  }
+
+  .intro-active .quick-menu-card:nth-child(4n + 3) {
+      animation-delay: 0.48s;
+  }
+
+  .intro-active .quick-menu-card:nth-child(4n) {
+      animation-delay: 0.51s;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+      .intro-active .main-title,
+      .intro-active .status-overview-card,
+      .intro-active .realtime-six-card,
+      .intro-active .quick-menu-card,
+      .intro-active .status-overview-card::before,
+      .intro-active .realtime-six-card::before,
+      .intro-active .realtime-six-card::after,
+      .intro-active .quick-menu-card::after,
+      .intro-active .quick-menu-icon {
+          animation: none;
+          filter: none;
+          transform: none;
+      }
   }
 
   .quick-menu-card {
@@ -3975,6 +4173,14 @@
       box-shadow: inset 0 0 24px color-mix(in srgb, var(--menu-accent, #60a5fa) 8%, transparent);
       transition: opacity 0.2s ease;
       inset: 1px;
+  }
+
+  .intro-active .quick-menu-card::after {
+      animation: home-frame-lock 0.5s 0.52s cubic-bezier(0.2, 0.72, 0.2, 1) backwards;
+  }
+
+  .intro-active .quick-menu-icon {
+      animation: home-icon-lock 0.48s 0.46s cubic-bezier(0.2, 0.72, 0.2, 1) backwards;
   }
 
   .quick-menu-card:hover {
@@ -4464,14 +4670,8 @@
 
       /* 与上方网格保持足够距离 */
       color: #8392a5;
-      opacity: 0;
       font-weight: 500;
       gap: 0.8rem;
-
-      /* 在各项之间创建一些空间 */
-
-      /* 应用加载动画, 延迟0.8秒 */
-      animation: fadeInUp 0.5s ease-out 0.8s forwards;
   }
 
   .actions-wrapper {
