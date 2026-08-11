@@ -34,6 +34,16 @@ export interface LedgerRecord extends LedgerRecordInput {
 
 export type DailyLedgerRecordInput = Omit<LedgerRecordInput, 'date'>
 
+export interface LedgerTradingCalendar {
+    exchange: 'SSE'
+    source: 'asharehub'
+    status: 'ready' | 'partial' | 'unavailable'
+    coveredYears: number[]
+    missingYears: number[]
+    fetchedAtMs: number
+    dates: Array<{ date: string; isOpen: boolean }>
+}
+
 export interface LedgerBundle {
     account: LedgerAccountConfig
     strategies: LedgerStrategy[]
@@ -41,6 +51,7 @@ export interface LedgerBundle {
     truncated: boolean
     calculations: 'client'
     defaultEntryDate: string
+    tradingCalendar: LedgerTradingCalendar
 }
 
 export class InvestmentLedgerApiError extends Error {

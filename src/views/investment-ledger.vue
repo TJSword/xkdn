@@ -961,7 +961,7 @@
                         <div>
                             <h2 class="card-title">回撤修复路径</h2>
                             <p class="card-description">
-                                把“还差多少”拆成可观察的修复节点，方便判断恢复节奏。
+                                以本轮最大回撤为基准，把“还差多少”拆成可观察的修复节点。
                             </p>
                         </div>
                         <div class="recovery-estimate">
@@ -1484,7 +1484,9 @@
                         <button class="icon-button" type="button" aria-label="关闭" @click="showDeleteModal = false">×</button>
                     </div>
                     <p class="confirm-copy">
-                        {{ pendingDeleteRecord?.date }} · {{ pendingDeleteRecord?.strategy }}。相关资金流也会同步移除。
+                        {{ pendingDeleteRecord?.date }} · {{ pendingDeleteRecord?.strategy }} ·
+                        期末金额 {{ formatMoney(pendingDeleteRecord?.amount || 0) }} · 现金流
+                        {{ displayMoneyChange(pendingDeleteRecord?.cashFlow || 0) }}。删除后会重新计算净值、收益率和资金流。
                     </p>
                     <div class="modal-actions">
                         <button class="button secondary" type="button" @click="showDeleteModal = false">取消</button>
@@ -1746,6 +1748,63 @@
         </Transition>
 
         <Transition name="modal-fade">
+            <div v-if="showNonTradingDetailModal" class="modal-backdrop">
+                <div class="modal-panel missing-detail-modal">
+                    <div class="modal-header">
+                        <div>
+                            <span>数据审计</span>
+                            <h3>非交易日记录详情</h3>
+                        </div>
+                        <button
+                            class="icon-button"
+                            type="button"
+                            aria-label="关闭"
+                            @click="showNonTradingDetailModal = false">
+                            ×
+                        </button>
+                    </div>
+                    <p class="modal-muted-copy">
+                        以下记录落在上交所非交易日。这里只做提醒，不会自动删除或修改账本记录。
+                    </p>
+                    <div class="missing-detail-list">
+                        <div
+                            v-for="item in nonTradingRecordDetails"
+                            :key="item.key"
+                            class="missing-detail-row">
+                            <span>{{ item.date }}</span>
+                            <div class="non-trading-record-summary">
+                                <strong>{{ item.strategy }}</strong>
+                                <small>
+                                    期末 {{ formatMoney(item.record.amount) }} · 现金流
+                                    {{ displayMoneyChange(item.record.cashFlow) }}
+                                </small>
+                            </div>
+                            <div class="row-actions">
+                                <button type="button" @click="editNonTradingRecord(item.record)">
+                                    编辑
+                                </button>
+                                <button
+                                    class="danger"
+                                    type="button"
+                                    @click="deleteNonTradingRecord(item.record)">
+                                    删除
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-actions">
+                        <button
+                            class="button secondary"
+                            type="button"
+                            @click="showNonTradingDetailModal = false">
+                            关闭
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </Transition>
+
+        <Transition name="modal-fade">
             <div
                 v-if="showImportModal"
                 class="modal-backdrop">
@@ -1815,13 +1874,13 @@
                                 v-for="row in importPreviewRows.slice(0, 8)"
                                 :key="`${row.rowNumber}-${row.strategy}-${row.date}`"
                                 class="import-preview-row"
-                                :class="{ invalid: row.errors.length }">
+                                :class="{ invalid: row.errors.length, warning: row.warnings.length }">
                                 <span>{{ row.rowNumber }}</span>
                                 <span>{{ row.date || '-' }}</span>
                                 <span>{{ row.strategy || '-' }}</span>
                                 <span>{{ row.amount ? formatMoney(row.amount) : '-' }}</span>
                                 <span>{{ displayMoneyChange(row.cashFlow) }}</span>
-                                <span>{{ row.errors[0] || row.strategyStatus }}</span>
+                                <span>{{ row.errors[0] || row.warnings[0] || row.strategyStatus }}</span>
                             </div>
                         </div>
                         <p v-if="importPreviewRows.length > 8" class="import-preview-more">
@@ -1998,7 +2057,8 @@ import {
 } from '@/services/investmentLedger'
 import type {
     LedgerRecord as RemoteLedgerRecord,
-    LedgerStrategy as RemoteLedgerStrategy
+    LedgerStrategy as RemoteLedgerStrategy,
+    LedgerTradingCalendar
 } from '@/services/investmentLedger'
 
 use([CanvasRenderer, BarChart, LineChart, PieChart, GraphicComponent, GridComponent, LegendComponent, MarkPointComponent, TooltipComponent])
@@ -2047,6 +2107,7 @@ interface ImportPreviewRow {
     note: string
     strategyStatus: string
     errors: string[]
+    warnings: string[]
 }
 
 type WorksheetCell = string | number | boolean | null
@@ -2128,6 +2189,7 @@ const showStrategyModal = ref(false)
 const showDeleteStrategyModal = ref(false)
 const showArchiveStrategyModal = ref(false)
 const showMissingDetailModal = ref(false)
+const showNonTradingDetailModal = ref(false)
 const showAnnualTargetModal = ref(false)
 const annualTargetSaving = ref(false)
 const editingRecordId = ref('')
@@ -2219,6 +2281,15 @@ const accountConfig = reactive({
     openingPrincipal: 0,
     openingDate: '',
     annualProfitTargets: {} as Record<string, number>
+})
+const tradingCalendar = ref<LedgerTradingCalendar>({
+    exchange: 'SSE',
+    source: 'asharehub',
+    status: 'unavailable',
+    coveredYears: [],
+    missingYears: [],
+    fetchedAtMs: 0,
+    dates: []
 })
 const strategies = reactive<StrategyDraft[]>([])
 const archivedStrategies = reactive<StrategyDraft[]>([])
@@ -2334,7 +2405,8 @@ const attributionRows = reactive<
 const recoveryMilestones = computed(() => {
     if (!hasLedgerData.value) return []
 
-    const depth = Math.abs(Math.min(currentDrawdown.value, 0))
+    const activeEpisode = drawdownEpisodes.value.find(item => item.recoveryDate === null)
+    const depth = Math.abs(Math.min(activeEpisode?.drawdown ?? currentDrawdown.value, 0))
     const dynamicTargets = [
         {
             targetDrawdown: -(depth * 2) / 3,
@@ -2586,6 +2658,11 @@ const getShanghaiDateString = (date = new Date()) => {
 const todayDate = getShanghaiDateString()
 const defaultLedgerEntryDate = ref(todayDate)
 const dailyEntryDate = computed(() => defaultLedgerEntryDate.value || todayDate)
+const marketDayByDate = computed(
+    () => new Map(tradingCalendar.value.dates.map(item => [item.date, item.isOpen]))
+)
+const isKnownNonTradingDate = (date: string) =>
+    marketDayByDate.value.has(date) && marketDayByDate.value.get(date) === false
 const sortedRecordsAsc = computed(() =>
     [...recentRecords.value].sort((a, b) => a.date.localeCompare(b.date) || a.strategy.localeCompare(b.strategy))
 )
@@ -2829,7 +2906,9 @@ const anomalyRecords = computed(() => {
 })
 
 const allMissingRecordDetails = computed(() => {
-    const tradingDates = [...new Set(recentRecords.value.map(item => item.date))].sort()
+    const tradingDates = tradingCalendar.value.dates
+        .filter(item => item.isOpen && item.date <= latestLedgerDate.value)
+        .map(item => item.date)
     const recordsByStrategy = new Map<string, Set<string>>()
     recentRecords.value.forEach(item => {
         if (!recordsByStrategy.has(item.strategyId)) recordsByStrategy.set(item.strategyId, new Set())
@@ -2858,6 +2937,22 @@ const allMissingRecordDetails = computed(() => {
         .sort((a, b) => b.date.localeCompare(a.date) || a.strategy.localeCompare(b.strategy))
 })
 
+const nonTradingRecordDetails = computed(() =>
+    recentRecords.value
+        .filter(item => isKnownNonTradingDate(item.date))
+        .map(item => ({
+            key: `${item.id}__${item.date}`,
+            date: item.date,
+            strategy: item.strategy,
+            record: item
+        }))
+        .sort((a, b) => b.date.localeCompare(a.date) || a.strategy.localeCompare(b.strategy))
+)
+
+const nonTradingRecordDates = computed(() => [
+    ...new Set(nonTradingRecordDetails.value.map(item => item.date))
+])
+
 const missingRecordDetails = computed(() =>
     allMissingRecordDetails.value.filter(item => !ignoredMissingKeys.value.includes(item.key))
 )
@@ -2868,31 +2963,54 @@ const incompleteDates = computed(() => {
     return [...dates].sort((a, b) => b.localeCompare(a))
 })
 
-const dataQualityAlerts = computed(() => [
-    {
-        label: '重复日期提醒',
-        value: duplicateRecordGroups.value.length ? `${duplicateRecordGroups.value.length} 组` : '无重复',
-        detail: duplicateRecordGroups.value.length ? '同一策略同一天存在多条记录，请核对。' : '日期与策略组合均唯一。',
-        tone: duplicateRecordGroups.value.length ? 'danger' : 'ok',
-        clickable: false
-    },
-    {
-        label: '金额异常提醒',
-        value: anomalyRecords.value.length ? `${anomalyRecords.value.length} 条` : '无异常',
-        detail: anomalyRecords.value.length ? '扣除现金流后，金额单次变化超过 12%。' : '近期金额变化处于正常范围。',
-        tone: anomalyRecords.value.length ? 'danger' : 'ok',
-        clickable: false
-    },
-    {
-        label: '缺失交易日提醒',
-        value: incompleteDates.value.length ? `${incompleteDates.value.length} 日` : '记录完整',
-        detail: incompleteDates.value.length
-            ? `待补齐：${incompleteDates.value.slice(0, 2).join('、')}${incompleteDates.value.length > 2 ? '…' : ''}`
-            : '已有日期均包含全部策略。',
-        tone: incompleteDates.value.length ? 'warning' : 'ok',
-        clickable: incompleteDates.value.length > 0
-    }
-])
+const dataQualityAlerts = computed(() => {
+    const calendarUnavailable = tradingCalendar.value.status === 'unavailable'
+    const calendarPartial = tradingCalendar.value.status === 'partial'
+    return [
+        {
+            label: '重复日期提醒',
+            value: duplicateRecordGroups.value.length ? `${duplicateRecordGroups.value.length} 组` : '无重复',
+            detail: duplicateRecordGroups.value.length ? '同一策略同一天存在多条记录，请核对。' : '日期与策略组合均唯一。',
+            tone: duplicateRecordGroups.value.length ? 'danger' : 'ok',
+            clickable: false
+        },
+        {
+            label: '金额异常提醒',
+            value: anomalyRecords.value.length ? `${anomalyRecords.value.length} 条` : '无异常',
+            detail: anomalyRecords.value.length ? '扣除现金流后，金额单次变化超过 12%。' : '近期金额变化处于正常范围。',
+            tone: anomalyRecords.value.length ? 'danger' : 'ok',
+            clickable: false
+        },
+        {
+            label: '缺失交易日提醒',
+            value: calendarUnavailable
+                ? '日历不可用'
+                : incompleteDates.value.length
+                  ? `${incompleteDates.value.length} 日`
+                  : '记录完整',
+            detail: calendarUnavailable
+                ? '未取得交易所日历，已停止推断缺失日期。'
+                : incompleteDates.value.length
+                  ? `待补齐：${incompleteDates.value.slice(0, 2).join('、')}${incompleteDates.value.length > 2 ? '…' : ''}`
+                  : calendarPartial
+                    ? `已覆盖 ${tradingCalendar.value.coveredYears.join('、')} 年，未覆盖年份不参与审计。`
+                    : '真实交易日均包含全部策略。',
+            tone: calendarUnavailable || incompleteDates.value.length ? 'warning' : 'ok',
+            clickable: !calendarUnavailable && incompleteDates.value.length > 0
+        },
+        {
+            label: '非交易日记录提醒',
+            value: nonTradingRecordDates.value.length
+                ? `${nonTradingRecordDates.value.length} 日`
+                : '无记录',
+            detail: nonTradingRecordDates.value.length
+                ? `待核对：${nonTradingRecordDates.value.slice(0, 2).join('、')}${nonTradingRecordDates.value.length > 2 ? '…' : ''}`
+                : '账本中没有落在非交易日的记录。',
+            tone: nonTradingRecordDates.value.length ? 'warning' : 'ok',
+            clickable: nonTradingRecordDetails.value.length > 0
+        }
+    ]
+})
 
 const persistIgnoredMissingKeys = () => {
     localStorage.setItem('investment-ledger-ignored-missing', JSON.stringify(ignoredMissingKeys.value))
@@ -2913,10 +3031,16 @@ const openAuditAlertDetail = (label: string) => {
     if (label === '缺失交易日提醒' && missingRecordDetails.value.length) {
         showMissingDetailModal.value = true
     }
+    if (label === '非交易日记录提醒' && nonTradingRecordDetails.value.length) {
+        showNonTradingDetailModal.value = true
+    }
 }
 
 const recordFormWarnings = computed(() => {
     const warnings: string[] = []
+    if (isKnownNonTradingDate(recordForm.date)) {
+        warnings.push('所选日期是上交所非交易日；仍可保存，但会在数据审计中持续提醒。')
+    }
     const duplicate = recentRecords.value.find(
         item =>
             item.id !== editingRecordId.value &&
@@ -3243,7 +3367,7 @@ const monthlyHeatmapExtremes = computed(() => {
         (current, item) => (!current || item.profit > current.profit ? item : current),
         null
     )
-    const worst = rows.reduce<ReturnHeatmapCell | null>(
+    const worst = lossRows.reduce<ReturnHeatmapCell | null>(
         (current, item) => (!current || item.profit < current.profit ? item : current),
         null
     )
@@ -4246,8 +4370,10 @@ const applyLedgerBundle = (
         openingPrincipal?: number
         openingDate?: string
         annualProfitTargets?: Record<string, number>
-    }
+    },
+    remoteTradingCalendar: LedgerTradingCalendar
 ) => {
+    tradingCalendar.value = remoteTradingCalendar
     accountConfig.openingPrincipal = Number(account.openingPrincipal || 0)
     accountConfig.openingDate = account.openingDate || ''
     accountConfig.annualProfitTargets = { ...(account.annualProfitTargets || {}) }
@@ -4377,7 +4503,12 @@ const loadLedgerBundle = async () => {
             bundle.truncated
         )
         defaultLedgerEntryDate.value = bundle.defaultEntryDate || todayDate
-        applyLedgerBundle(bundle.strategies, completeRecords, bundle.account)
+        applyLedgerBundle(
+            bundle.strategies,
+            completeRecords,
+            bundle.account,
+            bundle.tradingCalendar
+        )
         ledgerLoaded.value = true
         await loadBenchmarkData()
     } catch (error) {
@@ -5180,6 +5311,16 @@ const openEditRecord = (record: LedgerRecord) => {
     showEntryModal.value = true
 }
 
+const editNonTradingRecord = (record: LedgerRecord) => {
+    showNonTradingDetailModal.value = false
+    openEditRecord(record)
+}
+
+const deleteNonTradingRecord = (record: LedgerRecord) => {
+    showNonTradingDetailModal.value = false
+    requestDeleteRecord(record)
+}
+
 const ensureRecordStrategy = async () => {
     const strategyName = recordForm.strategy.trim()
     const existingById = managedStrategies.value.find(item => item.id === recordForm.strategyId)
@@ -5751,7 +5892,8 @@ const buildImportPreviewRows = (rows: WorksheetCell[][]) => {
                     : strategies.some(item => item.name === strategy)
                       ? '匹配已有策略'
                       : '将新建策略',
-                errors: [] as string[]
+                errors: [] as string[],
+                warnings: [] as string[]
             }
         })
         .filter(row => row.date || row.strategy || Number.isFinite(row.amount))
@@ -5763,6 +5905,9 @@ const buildImportPreviewRows = (rows: WorksheetCell[][]) => {
         if (!Number.isFinite(row.amount) || row.amount < 0) row.errors.push('期末金额不正确')
         if (!Number.isFinite(row.cashFlow)) row.errors.push('现金流不正确')
         if ((fileKeyCounts.get(key) || 0) > 1) row.errors.push('文件内存在重复日期和策略')
+        if (row.date && isKnownNonTradingDate(row.date)) {
+            row.warnings.push('上交所非交易日；可导入但会持续提醒')
+        }
     })
 
     return previewRows
@@ -7465,7 +7610,7 @@ select:focus {
 .audit-alert-grid {
     display: grid;
     margin-top: 12px;
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(4, minmax(0, 1fr));
     gap: 10px;
 }
 
@@ -8331,6 +8476,10 @@ select:focus {
 .ledger-insight-grid {
     align-items: stretch;
     grid-template-columns: 1.08fr 0.92fr;
+}
+
+.ledger-insight-grid > .content-card {
+    min-width: 0;
 }
 
 .ledger-drawdown-grid {
@@ -9854,6 +10003,20 @@ label small {
     color: #e8eef5;
 }
 
+.non-trading-record-summary {
+    display: grid;
+    min-width: 0;
+    gap: 3px;
+}
+
+.non-trading-record-summary small {
+    overflow: hidden;
+    font-size: 11px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: #718294;
+}
+
 .upload-zone {
     display: grid;
     padding: 34px 20px;
@@ -10034,6 +10197,11 @@ label small {
     background: rgb(239 111 108 / 5%);
 }
 
+.import-preview-row.warning:not(.invalid) {
+    color: #f4c95d;
+    background: rgb(244 201 93 / 5%);
+}
+
 .import-preview-more {
     padding: 10px 14px 12px;
 }
@@ -10104,6 +10272,10 @@ label small {
 
     .signal-grid {
         grid-template-columns: repeat(2, 1fr);
+    }
+
+    .audit-alert-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 
     .monthly-heatmap-layout {

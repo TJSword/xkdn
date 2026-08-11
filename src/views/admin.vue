@@ -138,7 +138,7 @@
         <div class="card-header-with-toggle">
           <div>
             <h2 class="card-title">雪球 Cookie</h2>
-            <p class="card-description">统一维护雪球授权 Cookie，供 Cookie 校验和微盘策略刷新使用。</p>
+            <p class="card-description">统一维护雪球授权 Cookie，供独立 Cookie 校验和外部服务使用。</p>
           </div>
           <div class="cookie-card-state">
             <span :class="['status-pill', cookieStatus.configured ? 'success' : 'warning']">
@@ -752,7 +752,7 @@
       {
           key: 'micro_cap' as RefreshTaskKey,
           title: '微盘股策略',
-          description: '刷新微盘 Top10 策略数据，依赖当前雪球 Cookie。',
+          description: '刷新微盘 Top10 策略数据，使用腾讯行情与果仁候选排名。',
           actionLabel: '更新微盘',
           lastRun: ''
       },

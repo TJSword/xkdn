@@ -1158,8 +1158,8 @@
           nav: 1.0968,
           amount: 0,
           dailyReturn: 0,
-          monthReturn: 0,
-          yearReturn: 0,
+          monthReturn: Number.NaN,
+          yearReturn: Number.NaN,
           updatedAt: '--',
           accent: '#00aaff',
           trend: [],
@@ -1172,8 +1172,8 @@
           nav: 1.3275,
           amount: 0,
           dailyReturn: 0,
-          monthReturn: 0,
-          yearReturn: 0,
+          monthReturn: Number.NaN,
+          yearReturn: Number.NaN,
           updatedAt: '--',
           accent: '#add8e6',
           trend: [],
@@ -1186,8 +1186,8 @@
           nav: 1,
           amount: 0,
           dailyReturn: 0,
-          monthReturn: 0,
-          yearReturn: 0,
+          monthReturn: Number.NaN,
+          yearReturn: Number.NaN,
           updatedAt: '--',
           accent: '#2dd4bf',
           trend: [],
@@ -1200,8 +1200,8 @@
           nav: 1.1846,
           amount: 0,
           dailyReturn: 0,
-          monthReturn: 0,
-          yearReturn: 0,
+          monthReturn: Number.NaN,
+          yearReturn: Number.NaN,
           updatedAt: '--',
           accent: '#ef4444',
           trend: [],
@@ -1214,8 +1214,8 @@
           nav: 1.5621,
           amount: 0,
           dailyReturn: 0,
-          monthReturn: 0,
-          yearReturn: 0,
+          monthReturn: Number.NaN,
+          yearReturn: Number.NaN,
           updatedAt: '--',
           accent: '#ff5722',
           trend: [],
@@ -1228,8 +1228,8 @@
           nav: 1.9388,
           amount: 0,
           dailyReturn: 0,
-          monthReturn: 0,
-          yearReturn: 0,
+          monthReturn: Number.NaN,
+          yearReturn: Number.NaN,
           updatedAt: '--',
           accent: '#f0e68c',
           trend: [],
@@ -1259,7 +1259,7 @@
   const AFTERNOON_END_MINUTE = 15 * 60
 
   const formatRealtimePercent = (value: number, isLoaded = true) => {
-      if (!isLoaded) return '--'
+      if (!isLoaded || !Number.isFinite(value)) return '--'
       return `${value >= 0 ? '+' : ''}${value.toFixed(2)}%`
   }
 
@@ -1276,7 +1276,7 @@
   }
 
   const getRealtimeTone = (value: number, isLoaded = true) => {
-      if (!isLoaded) return 'neutral'
+      if (!isLoaded || !Number.isFinite(value)) return 'neutral'
       if (value > 0) return 'positive'
       if (value < 0) return 'negative'
       return 'neutral'
@@ -2370,6 +2370,17 @@
       }, HOME_REALTIME_REFRESH_DEBOUNCE_MS)
   }
 
+  const handleHomeRealtimeRefreshKeydown = (event: KeyboardEvent) => {
+      if (event.code !== 'Space' || event.repeat || event.ctrlKey || event.altKey || event.metaKey || event.shiftKey) return
+      if (event.defaultPrevented) return
+
+      const target = event.target as HTMLElement | null
+      if (target?.closest('input, textarea, select, button, a, [contenteditable="true"], [role="button"]')) return
+
+      event.preventDefault()
+      refreshHomeRealtimeOnReturn()
+  }
+
   const isWelcomeModalVisible = ref(false)
   const closeWelcomeModal = () => {
       isWelcomeModalVisible.value = false
@@ -2591,6 +2602,7 @@
   onMounted(async () => {
       // 页面一挂载就注册入口，避免主页数据请求期间快捷键失效
       window.addEventListener('keydown', handleSecretKeydown)
+      window.addEventListener('keydown', handleHomeRealtimeRefreshKeydown)
       document.addEventListener('visibilitychange', handleHomeVisibilityChange)
 
       // 现在我们并行获取会员信息和所有的市场数据
@@ -2621,6 +2633,7 @@
 
       // 移除键盘监听
       window.removeEventListener('keydown', handleSecretKeydown)
+      window.removeEventListener('keydown', handleHomeRealtimeRefreshKeydown)
       document.removeEventListener('visibilitychange', handleHomeVisibilityChange)
       if (adminScanTimer !== null) {
           window.clearTimeout(adminScanTimer)
@@ -4982,6 +4995,7 @@
 
   .realtime-chart-backdrop {
       padding: 1rem;
+      box-sizing: border-box;
   }
 
   .realtime-chart-modal-content {
@@ -6769,7 +6783,6 @@
       .quick-menu-title-wrap strong {
           display: -webkit-box;
           overflow: hidden;
-          min-height: 2.3em;
           text-overflow: clip;
           white-space: normal;
           -webkit-box-orient: vertical;

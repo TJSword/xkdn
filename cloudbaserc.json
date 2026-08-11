@@ -251,7 +251,7 @@
       "handler": "index.main",
       "timeout": 60,
       "memorySize": 512,
-      "description": "微盘股日频 Top10 策略工作日 09:30 检查雪球与果仁交集排名、持有缓冲和权重阈值",
+      "description": "微盘股日频 Top10 策略工作日 09:30 按腾讯总市值排序果仁候选、检查持有缓冲和权重阈值",
       "triggers": [
         {
           "name": "refreshMicroCapStrategyWeekday0930",
@@ -757,6 +757,21 @@
       "timeout": 30,
       "memorySize": 256,
       "description": "首页市场概览、策略实时数据与观察指标查询（无定时刷新）"
+    },
+    {
+      "name": "syncTradingCalendar",
+      "runtime": "Nodejs18.15",
+      "handler": "index.main",
+      "timeout": 60,
+      "memorySize": 256,
+      "description": "按季度同步并缓存上交所交易日历",
+      "triggers": [
+        {
+          "name": "refreshTradingCalendarQuarterly",
+          "type": "timer",
+          "config": "0 15 3 2 1,4,7,10 * *"
+        }
+      ]
     },
     {
       "name": "investmentLedger",
