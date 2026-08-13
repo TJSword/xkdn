@@ -365,18 +365,20 @@
         class="modal-backdrop strategy-observation-backdrop"
         @click="closeStrategyObservationModal"
       >
-        <div class="modal-content strategy-observation-modal-content" @click.stop>
+        <div
+          class="modal-content strategy-observation-modal-content"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="strategy-observation-title"
+          @click.stop="hideStrategyObservationTooltip"
+        >
           <div class="modal-header">
             <div>
-              <h3>策略观察</h3>
+              <h3 id="strategy-observation-title">策略观察</h3>
             </div>
-            <button class="modal-close-button" @click="closeStrategyObservationModal">×</button>
-          </div>
-          <div class="strategy-observation-modal-intro">
-            <span>{{ strategyObservationUpdatedAt ? `更新至 ${strategyObservationUpdatedAt}` : '暂无数据' }}</span>
-            <p>
-              横向观察各策略状态、回撤与收益分位、回撤时长与修复进度。
-            </p>
+            <button class="modal-close-button" aria-label="关闭策略观察弹窗" @click="closeStrategyObservationModal">
+              ×
+            </button>
           </div>
           <div class="strategy-observation-modal-list">
             <article
@@ -386,99 +388,86 @@
               :class="item.statusClass"
             >
               <div class="strategy-observation-modal-top">
-                <strong>{{ item.name }}</strong>
-                <span>{{ item.status }}</span>
+                <div>
+                  <strong>{{ item.name }}</strong>
+                  <span>{{ item.status }}</span>
+                </div>
+                <time v-if="item.latestDate">{{ item.latestDate }}</time>
               </div>
-              <div class="strategy-observation-primary">
-                <div>
-                  <span>当前回撤</span>
-                  <strong :class="{ neutral: item.isNewHigh }">{{ formatObservationDrawdown(item.drawdownPercent) }}</strong>
-                </div>
-                <div>
-                  <span>本轮最大回撤</span>
-                  <strong :class="{ neutral: item.isNewHigh }">{{ formatOptionalObservationDrawdown(item.currentMaxDrawdownPercent) }}</strong>
-                </div>
-                <div>
-                  <span>距上次创新高</span>
-                  <strong>{{ item.daysSinceLastHigh }} 天</strong>
-                </div>
-                <div>
-                  <span>本轮回撤</span>
-                  <strong>{{ item.currentDrawdownDays }} 天</strong>
-                </div>
-                <div>
-                  <span>本轮修复</span>
-                  <strong>{{ formatObservationDays(item.currentRecoveryDays) }}</strong>
-                </div>
-                <div>
-                  <span>修复进度</span>
-                  <strong>{{ formatObservationPercent(item.recoveryProgressPercent) }}</strong>
-                </div>
-                <div>
-                  <span>连续创新高</span>
-                  <strong>{{ item.isNewHigh ? `${item.consecutiveHighDays} 天` : '--' }}</strong>
-                </div>
-              </div>
-              <div class="strategy-percentile-grid">
-                <div
-                  class="strategy-percentile-metric strategy-percentile-metric--drawdown"
-                  :style="{ '--percentile-value': `${item.drawdownPercentile}%` }"
-                >
-                  <div class="strategy-percentile-label">
-                    <span class="strategy-percentile-title">
-                      回撤历史分位
-                      <button
-                        type="button"
-                        class="strategy-observation-help"
-                        aria-label="查看回撤历史分位说明"
-                        @mouseenter="showStrategyObservationTooltip($event, strategyObservationDrawdownHelpText)"
-                        @focus="showStrategyObservationTooltip($event, strategyObservationDrawdownHelpText)"
-                        @mouseleave="hideStrategyObservationTooltip"
-                        @blur="hideStrategyObservationTooltip"
+              <p v-if="item.dataState === 'invalid'" class="strategy-observation-error">
+                数据异常：{{ item.errorMessage }}
+              </p>
+              <template v-else>
+                <section class="strategy-observation-section" aria-label="回撤过程与判断依据">
+                  <div
+                    class="strategy-observation-metric-grid strategy-observation-analysis-grid"
+                    style="grid-template-columns: repeat(4, minmax(0, 1fr))"
+                  >
+                    <div v-for="metric in getObservationAnalysisMetrics(item)" :key="metric.key" class="strategy-observation-metric">
+                      <span class="strategy-observation-metric-label">
+                        {{ metric.label }}
+                        <button
+                          type="button"
+                          class="strategy-observation-help"
+                          :aria-label="`解释：${metric.label}`"
+                          :aria-expanded="isObservationTooltipExpanded(item.id, metric.key)"
+                          @mouseenter="showStrategyObservationTooltip($event, item.id, metric.key, metric.help)"
+                          @focus="showStrategyObservationTooltip($event, item.id, metric.key, metric.help)"
+                          @mouseleave="hideUnpinnedStrategyObservationTooltip"
+                          @blur="hideStrategyObservationTooltip"
+                          @click.stop="pinStrategyObservationTooltip($event, item.id, metric.key, metric.help)"
+                        >
+                          ?
+                        </button>
+                      </span>
+                      <strong>{{ metric.display }}</strong>
+                    </div>
+                  </div>
+                </section>
+
+                <section class="strategy-observation-section" aria-label="当前策略体感">
+                  <div class="strategy-observation-metric-grid strategy-observation-temperature-grid">
+                    <div
+                      v-for="metric in getObservationTemperatureMetrics(item)"
+                      :key="metric.key"
+                      class="strategy-observation-temperature"
+                    >
+                      <div class="strategy-observation-temperature-label">
+                        <span class="strategy-observation-metric-label">
+                          {{ metric.label }}
+                          <button
+                            type="button"
+                            class="strategy-observation-help"
+                            :aria-label="`解释：${metric.label}`"
+                            :aria-expanded="isObservationTooltipExpanded(item.id, metric.key)"
+                            @mouseenter="showStrategyObservationTooltip($event, item.id, metric.key, metric.help)"
+                            @focus="showStrategyObservationTooltip($event, item.id, metric.key, metric.help)"
+                            @mouseleave="hideUnpinnedStrategyObservationTooltip"
+                            @blur="hideStrategyObservationTooltip"
+                            @click.stop="pinStrategyObservationTooltip($event, item.id, metric.key, metric.help)"
+                          >
+                            ?
+                          </button>
+                        </span>
+                        <strong>{{ metric.display }}</strong>
+                      </div>
+                      <div
+                        v-if="metric.value !== null"
+                        class="strategy-observation-progress"
+                        :style="{ '--progress-value': `${metric.value}%` }"
+                        role="progressbar"
+                        aria-valuemin="0"
+                        aria-valuemax="100"
+                        :aria-valuenow="metric.value"
+                        :aria-valuetext="`${metric.label} ${metric.display}`"
                       >
-                        ?
-                      </button>
-                    </span>
-                    <strong>{{ formatPercentilePercent(item.drawdownPercentile) }}</strong>
+                        <span></span>
+                      </div>
+                      <p v-else-if="metric.note" class="strategy-observation-temperature-note">{{ metric.note }}</p>
+                    </div>
                   </div>
-                  <div class="strategy-percentile-track" aria-hidden="true">
-                    <span></span>
-                  </div>
-                  <div class="strategy-percentile-axis">
-                    <span>低分位</span>
-                    <span>高分位</span>
-                  </div>
-                </div>
-                <div
-                  class="strategy-percentile-metric strategy-percentile-metric--return"
-                  :style="{ '--percentile-value': `${item.twentyDayReturnPercentile ?? 0}%` }"
-                >
-                  <div class="strategy-percentile-label">
-                    <span class="strategy-percentile-title">
-                      20 日收益分位
-                      <button
-                        type="button"
-                        class="strategy-observation-help"
-                        aria-label="查看 20 日收益分位说明"
-                        @mouseenter="showStrategyObservationTooltip($event, strategyObservationReturnHelpText)"
-                        @focus="showStrategyObservationTooltip($event, strategyObservationReturnHelpText)"
-                        @mouseleave="hideStrategyObservationTooltip"
-                        @blur="hideStrategyObservationTooltip"
-                      >
-                        ?
-                      </button>
-                    </span>
-                    <strong>{{ formatPercentilePercent(item.twentyDayReturnPercentile) }}</strong>
-                  </div>
-                  <div class="strategy-percentile-track" aria-hidden="true">
-                    <span></span>
-                  </div>
-                  <div class="strategy-percentile-axis">
-                    <span>低分位</span>
-                    <span>高分位</span>
-                  </div>
-                </div>
-              </div>
+                </section>
+              </template>
             </article>
           </div>
           <p class="strategy-observation-disclaimer">
@@ -488,17 +477,19 @@
       </div>
     </Transition>
 
-    <div
-      v-if="strategyObservationTooltip.visible"
-      :class="[
-        'strategy-observation-tooltip',
-        `strategy-observation-tooltip--${strategyObservationTooltip.placement}`
-      ]"
-      :style="{ left: `${strategyObservationTooltip.x}px`, top: `${strategyObservationTooltip.y}px` }"
-      role="tooltip"
-    >
-      {{ strategyObservationTooltip.text }}
-    </div>
+    <Teleport to="body">
+      <div
+        v-if="strategyObservationTooltip.visible"
+        :class="[
+          'strategy-observation-tooltip',
+          `strategy-observation-tooltip--${strategyObservationTooltip.placement}`
+        ]"
+        :style="{ left: `${strategyObservationTooltip.x}px`, top: `${strategyObservationTooltip.y}px` }"
+        role="tooltip"
+      >
+        {{ strategyObservationTooltip.text }}
+      </div>
+    </Teleport>
 
     <Transition name="modal-fade">
       <div v-if="selectedRealtimeNav" class="modal-backdrop realtime-chart-backdrop" @click="closeRealtimeChartModal">
@@ -1044,39 +1035,92 @@
       x: number
       y: number
       placement: 'top' | 'bottom'
+      key: string
+      pinned: boolean
   }
 
   interface StrategyObservationItem {
       id: string
       name: string
-      status: '回撤中' | '修复中' | '创新高'
-      statusClass: 'drawdown' | 'repairing' | 'new-high'
+      dataState: 'ready' | 'invalid'
+      errorMessage: string | null
+      status: '回撤中' | '修复中' | '创新高' | '数据异常'
+      statusClass: 'drawdown' | 'repairing' | 'new-high' | 'invalid'
+      summary: string
       isNewHigh: boolean
-      drawdownPercent: number
-      currentMaxDrawdownPercent?: number
-      drawdownPercentile: number
-      twentyDayReturnPercent: number | null
-      twentyDayReturnPercentile: number | null
-      twentyDayReturnSampleSize: number
-      daysSinceLastHigh: number
-      currentDrawdownDays: number
-      currentRecoveryDays: number
-      recoveryProgressPercent: number
-      consecutiveHighDays: number
+      drawdownPercent: number | null
+      currentMaxDrawdownPercent: number | null
+      drawdownPercentile: number | null
+      depthPercentile: number | null
+      volatilityRatio: number | null
+      es95Percentile: number | null
+      ram60: number | null
+      daysSinceLastHigh: number | null
+      currentDrawdownDays: number | null
+      currentRecoveryDays: number | null
+      recoveryProgressPercent: number | null
+      consecutiveHighDays: number | null
+      trendTemperature: number | null
+      repairTemperature: number | null
+      inRepairZone: boolean | null
+      riskPressure: number | null
+      latestDate: string | null
+  }
+
+  interface StrategyObservationMetric {
+      key: string
+      label: string
+      display: string
+      help: string
+  }
+
+  interface StrategyObservationTemperatureMetric extends StrategyObservationMetric {
+      value: number | null
+      note: string
   }
 
   const strategyObservationItems = ref<StrategyObservationItem[]>([])
   const strategyObservationUpdatedAt = ref('')
-  const strategyObservationDrawdownHelpText =
-      '回撤历史百分位用来观察当前回撤在历史每日回撤中的严重程度。创新高或无回撤时固定显示为 0%；数值越高，说明当前回撤比越多历史交易日更深，越接近历史极端回撤区间。它是状态观察指标，不代表交易建议。'
-  const strategyObservationReturnHelpText =
-      '20 日收益分位将当前 20 个交易日的收益率，与该策略完整历史中所有滚动 20 个交易日收益率比较。数值越高，表示近期 20 日收益在自身历史中越靠前。'
+  const strategyObservationHelpText = {
+      currentDrawdown:
+          '它是什么：当前净值距离本轮前高还有多少。\n怎么看：越接近 0，说明越接近收复前高；例如 -8% 表示当前仍低于前高约 8%。\n怎么算：（当前净值 ÷ 最近一次历史新高净值 - 1）× 100%。',
+      episodeMaxDrawdown:
+          '它是什么：最近一轮从峰值到谷底最深跌了多少，描述这一轮的最深伤势。\n怎么看：负值越接近 0，本轮下跌越浅；绝对值越大，伤势越深。\n怎么算：（本轮最低净值 ÷ 本轮峰值净值 - 1）× 100%。它不是全历史最大回撤。',
+      daysSinceHigh:
+          '它是什么：净值在最近一次历史新高之下已经停留多久。\n怎么看：这是持续时间，没有简单的越高越好或越低越好，需要结合回撤深度和修复进度一起看。\n怎么算：当前日期与本轮峰值日期之间的自然日数。',
+      drawdownDays:
+          '它是什么：从本轮峰值跌到本轮最低点用了多久。\n怎么看：它描述下跌阶段的持续时间，本身没有单调好坏；较短可能是急跌，较长可能是缓慢下跌。\n怎么算：本轮峰值日期与本轮谷底日期之间的自然日数。',
+      recoveryDays:
+          '它是什么：从本轮最低点到当前已经过了多久。\n怎么看：它描述修复阶段的时长，本身没有单调好坏，需要结合修复进度判断；不代表期间每天都在上涨。\n怎么算：当前日期与本轮谷底日期之间的自然日数。',
+      recoveryProgress:
+          '它是什么：从谷底到旧前高的净值缺口已经填回多少，也就是“填坑进度”。\n怎么看：0% 表示仍在谷底，100% 表示回到旧前高；越高说明已填回的缺口越多。\n怎么算：（当前净值 - 谷底净值）÷（峰值净值 - 谷底净值）× 100%，并限制在 0%～100%。',
+      consecutiveHighDays:
+          '它是什么：截至当前，净值连续多少个交易日严格创出历史新高。\n怎么看：天数越多，表示近期创新高的延续性越强，但不代表未来必涨。\n怎么算：从当前向前回溯，连续统计“当日净值严格高于此前历史最高净值”的交易日数；没有时显示“—”。',
+      trendTemperature:
+          '它是什么：综合 20、60、120、250 日风险调整动量，观察多个周期的趋势是否完整。\n怎么看：范围 0～100，越高表示多周期趋势越完整；越低表示趋势偏弱或分化，但它不是未来上涨概率。\n怎么算：各周期收益除以对应的正常波动得到 RAM，经曲线映射成分数后，按 15%／30%／35%／20% 加权。',
+      repairTemperature:
+          '它是什么：观察一次深度回撤进入修复阶段后，跌速、波动和中期方向是否出现稳定迹象。\n怎么看：范围 0～100，采用连续计分；越高代表修复证据越充分，但不代表一定反转。\n怎么算：本轮回撤过程中，只要回撤历史分位或 Depth 历史分位曾达到 80%，就进入修复观察周期。启动后，将短期冲击缓和程度、波动降温程度和中期方向稳定程度分别平滑映射为 0～100 分，再等权平均；原来的 Shock=-1、VR=1、RAM=-0.25 分别对应各自证据约 50 分。即使当前分位回落到 80% 以下，仍持续展示修复温度，直到净值严格创新高后重置。若本轮从未进入深跌区，则显示“未进入修复区”。',
+      riskPressure:
+          '它是什么：综合近期波动、尾部损失和短期下行冲击，观察当前风险是否升温。\n怎么看：范围 0～100，越高代表波动和尾部风险越热；与趋势温度不同，它不是越高越好。\n怎么算：30%×VR 历史分位 + 20%×20 日波动历史分位 + 25%×ES95 历史分位 + 25%×下行冲击严重度。',
+      drawdownPercentile:
+          '它是什么：当前回撤深于自身过去多少比例的有效观测。\n怎么看：分位越高，说明这次回撤对该策略自身越深、越少见；它不是随后上涨的概率。\n怎么算：在过去最多 756 个有效回撤中，统计小于等于当前回撤深度的比例；当前值不进入比较样本。',
+      depthPercentile:
+          '它是什么：先用策略自身的 120 日波动调整回撤深度，再与自身历史比较。\n怎么看：分位越高，说明即使考虑策略本身的波动，这次回撤也属于较深水平。\n怎么算：Depth＝当前回撤深度 ÷ 120 日年化波动，再计算它在过去最多 756 个有效 Depth 中的历史分位。',
+      volatilityRatio:
+          '它是什么：VR 用来比较近期与中期波动，判断最近波动是在升温还是降温。\n怎么看：低于 1 表示近期波动降温，接近 1 表示变化不明显，高于 1 表示近期波动升温。\n怎么算：VR＝最近 20 日年化波动 ÷ 最近 120 日年化波动。',
+      es95Percentile:
+          '它是什么：观察近期极差交易日的平均损失，在该策略自身历史中处于什么位置。\n怎么看：分位越高，说明近期尾部损失相对自身历史越异常、风险越热。\n怎么算：先计算最近 250 日中最差约 5% 交易日的平均损失得到 ES95，再计算其在过去最多 756 个有效 ES95 中的历史分位。',
+      ram60:
+          '它是什么：RAM60 衡量最近 60 日收益相对于策略正常波动的方向和强弱。\n怎么看：大于 0 表示 60 日方向偏强，小于 0 表示偏弱，接近 0 表示方向不明显。\n怎么算：60 日收益 ÷［截至前一交易日的近 120 日年化波动率 × √（60÷252）］。'
+  }
   const strategyObservationTooltip = ref<FloatingTooltip>({
       visible: false,
       text: '',
       x: 0,
       y: 0,
-      placement: 'top'
+      placement: 'top',
+      key: '',
+      pinned: false
   })
 
   const applyStrategyObservation = (observation: any) => {
@@ -1091,34 +1135,171 @@
           name: item.name,
           status: item.status,
           statusClass: item.statusClass,
-          displayValue: item.isNewHigh ? '创新高' : `${item.drawdownPercent.toFixed(2)}%`,
-          drawdownValue: `${item.drawdownPercent.toFixed(2)}%`
+          displayValue:
+              item.dataState === 'invalid'
+                  ? '数据异常'
+                  : item.isNewHigh
+                    ? '创新高'
+                    : formatObservationDrawdown(item.drawdownPercent),
+          drawdownValue: formatObservationDrawdown(item.drawdownPercent)
       }))
   })
   const isStrategyObservationReady = computed(() => strategyObservationSummary.value.length > 0)
 
-  const formatObservationDrawdown = (value: number) => {
-      return value === 0 ? '0.00%' : `${value.toFixed(2)}%`
+  function formatObservationDrawdown(value: number | null | undefined) {
+      if (!Number.isFinite(value)) return '数据不足'
+      return Number(value) === 0 ? '0.00%' : `${Number(value).toFixed(2)}%`
   }
 
   const formatOptionalObservationDrawdown = (value: number | null | undefined) => {
-      if (!Number.isFinite(value)) return '--'
+      if (!Number.isFinite(value)) return '数据不足'
       return formatObservationDrawdown(Number(value))
   }
 
-  const formatObservationPercent = (value: number) => {
-      return `${Math.max(0, Math.min(100, value)).toFixed(0)}%`
+  const formatObservationPercent = (value: number | null | undefined, digits = 1) => {
+      if (!Number.isFinite(value)) return '数据不足'
+      return `${Math.max(0, Math.min(100, Number(value))).toFixed(digits)}%`
   }
   const formatPercentilePercent = (value: number | null | undefined) => {
-      if (!Number.isFinite(value)) return '--'
-      return `${Math.max(0, Math.min(100, Number(value))).toFixed(2)}%`
+      return formatObservationPercent(value, 1)
   }
 
-  const formatObservationDays = (value: number) => {
-      return value > 0 ? `${value} 天` : '--'
+  const formatObservationDays = (value: number | null | undefined) => {
+      return Number.isFinite(value) ? `${value}日` : '数据不足'
   }
 
-  const showStrategyObservationTooltip = (event: MouseEvent | FocusEvent, text: string) => {
+  const formatObservationNumber = (value: number | null | undefined, digits = 2) => {
+      return Number.isFinite(value) ? Number(value).toFixed(digits) : '数据不足'
+  }
+
+  const getObservationProcessMetrics = (item: StrategyObservationItem): StrategyObservationMetric[] => [
+      {
+          key: 'currentDrawdown',
+          label: '当前回撤',
+          display: formatObservationDrawdown(item.drawdownPercent),
+          help: strategyObservationHelpText.currentDrawdown
+      },
+      {
+          key: 'episodeMaxDrawdown',
+          label: '本轮最大回撤',
+          display: formatOptionalObservationDrawdown(item.currentMaxDrawdownPercent),
+          help: strategyObservationHelpText.episodeMaxDrawdown
+      },
+      {
+          key: 'daysSinceHigh',
+          label: '距上次创新高',
+          display: formatObservationDays(item.daysSinceLastHigh),
+          help: strategyObservationHelpText.daysSinceHigh
+      },
+      {
+          key: 'drawdownDays',
+          label: '本轮回撤',
+          display: formatObservationDays(item.currentDrawdownDays),
+          help: strategyObservationHelpText.drawdownDays
+      },
+      {
+          key: 'recoveryDays',
+          label: '本轮修复',
+          display: formatObservationDays(item.currentRecoveryDays),
+          help: strategyObservationHelpText.recoveryDays
+      },
+      {
+          key: 'recoveryProgress',
+          label: '修复进度',
+          display: item.isNewHigh ? '— / 已创新高' : formatObservationPercent(item.recoveryProgressPercent),
+          help: strategyObservationHelpText.recoveryProgress
+      },
+      {
+          key: 'consecutiveHighDays',
+          label: '连续创新高',
+          display: item.consecutiveHighDays ? `${item.consecutiveHighDays}日` : '—',
+          help: strategyObservationHelpText.consecutiveHighDays
+      }
+  ]
+
+  const getObservationTemperatureMetrics = (
+      item: StrategyObservationItem
+  ): StrategyObservationTemperatureMetric[] => [
+      {
+          key: 'trendTemperature',
+          label: '趋势温度',
+          display: formatObservationNumber(item.trendTemperature, 1),
+          value: item.trendTemperature,
+          note: '计算窗口不足',
+          help: strategyObservationHelpText.trendTemperature
+      },
+      {
+          key: 'repairTemperature',
+          label: '修复温度',
+          display:
+              item.inRepairZone === false ? '-' : formatObservationNumber(item.repairTemperature, 0),
+          value: item.inRepairZone === false ? null : item.repairTemperature,
+          note:
+              item.inRepairZone === false ? '未进入深跌区' : '计算窗口不足',
+          help: strategyObservationHelpText.repairTemperature
+      },
+      {
+          key: 'riskPressure',
+          label: '风险压力',
+          display: formatObservationNumber(item.riskPressure, 1),
+          value: item.riskPressure,
+          note: '计算窗口不足',
+          help: strategyObservationHelpText.riskPressure
+      }
+  ]
+
+  const getObservationEvidenceMetrics = (item: StrategyObservationItem): StrategyObservationMetric[] => [
+      {
+          key: 'drawdownPercentile',
+          label: '回撤历史分位',
+          display: formatPercentilePercent(item.drawdownPercentile),
+          help: strategyObservationHelpText.drawdownPercentile
+      },
+      {
+          key: 'depthPercentile',
+          label: 'Depth 历史分位',
+          display: formatPercentilePercent(item.depthPercentile),
+          help: strategyObservationHelpText.depthPercentile
+      },
+      {
+          key: 'volatilityRatio',
+          label: 'VR 20/120',
+          display: formatObservationNumber(item.volatilityRatio),
+          help: strategyObservationHelpText.volatilityRatio
+      },
+      {
+          key: 'es95Percentile',
+          label: 'ES95 历史分位',
+          display: formatPercentilePercent(item.es95Percentile),
+          help: strategyObservationHelpText.es95Percentile
+      },
+      {
+          key: 'ram60',
+          label: 'RAM60',
+          display: formatObservationNumber(item.ram60),
+          help: strategyObservationHelpText.ram60
+      }
+  ]
+
+  const getObservationAnalysisMetrics = (item: StrategyObservationItem): StrategyObservationMetric[] => [
+      ...getObservationProcessMetrics(item),
+      ...getObservationEvidenceMetrics(item)
+  ]
+
+  const getObservationTooltipKey = (itemId: string, metricKey: string) => `${itemId}:${metricKey}`
+
+  const isObservationTooltipExpanded = (itemId: string, metricKey: string) => {
+      return strategyObservationTooltip.value.visible &&
+          strategyObservationTooltip.value.key === getObservationTooltipKey(itemId, metricKey)
+  }
+
+  const showStrategyObservationTooltip = (
+      event: MouseEvent | FocusEvent,
+      itemId: string,
+      metricKey: string,
+      text: string,
+      pinned = false
+  ) => {
       const target = event.currentTarget as HTMLElement
       const rect = target.getBoundingClientRect()
       const tooltipHalfWidth = 160
@@ -1134,12 +1315,43 @@
           text,
           x,
           y: placement === 'bottom' ? rect.bottom + 10 : rect.top - 10,
-          placement
+          placement,
+          key: getObservationTooltipKey(itemId, metricKey),
+          pinned
       }
+  }
+
+  const pinStrategyObservationTooltip = (
+      event: MouseEvent,
+      itemId: string,
+      metricKey: string,
+      text: string
+  ) => {
+      const key = getObservationTooltipKey(itemId, metricKey)
+      if (
+          strategyObservationTooltip.value.visible &&
+          strategyObservationTooltip.value.key === key &&
+          strategyObservationTooltip.value.pinned
+      ) {
+          hideStrategyObservationTooltip()
+          return
+      }
+      showStrategyObservationTooltip(event, itemId, metricKey, text, true)
   }
 
   const hideStrategyObservationTooltip = () => {
       strategyObservationTooltip.value.visible = false
+      strategyObservationTooltip.value.pinned = false
+  }
+
+  const hideUnpinnedStrategyObservationTooltip = () => {
+      if (!strategyObservationTooltip.value.pinned) hideStrategyObservationTooltip()
+  }
+
+  const handleStrategyObservationEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && strategyObservationTooltip.value.visible) {
+          hideStrategyObservationTooltip()
+      }
   }
 
   const isStrategyObservationModalVisible = ref(false)
@@ -2603,6 +2815,9 @@
       // 页面一挂载就注册入口，避免主页数据请求期间快捷键失效
       window.addEventListener('keydown', handleSecretKeydown)
       window.addEventListener('keydown', handleHomeRealtimeRefreshKeydown)
+      window.addEventListener('keydown', handleStrategyObservationEscape)
+      window.addEventListener('scroll', hideStrategyObservationTooltip, true)
+      document.addEventListener('click', hideStrategyObservationTooltip)
       document.addEventListener('visibilitychange', handleHomeVisibilityChange)
 
       // 现在我们并行获取会员信息和所有的市场数据
@@ -2634,6 +2849,9 @@
       // 移除键盘监听
       window.removeEventListener('keydown', handleSecretKeydown)
       window.removeEventListener('keydown', handleHomeRealtimeRefreshKeydown)
+      window.removeEventListener('keydown', handleStrategyObservationEscape)
+      window.removeEventListener('scroll', hideStrategyObservationTooltip, true)
+      document.removeEventListener('click', hideStrategyObservationTooltip)
       document.removeEventListener('visibilitychange', handleHomeVisibilityChange)
       if (adminScanTimer !== null) {
           window.clearTimeout(adminScanTimer)
@@ -3728,6 +3946,15 @@
 
   .strategy-status-item.drawdown strong {
       color: #fda4af;
+  }
+
+  .strategy-status-item.invalid .strategy-status-name i {
+      color: #fbbf24;
+      background-color: #fbbf24;
+  }
+
+  .strategy-status-item.invalid strong {
+      color: #fde68a;
   }
 
   @keyframes strategy-status-skeleton {
@@ -5280,73 +5507,91 @@
 
   .strategy-observation-backdrop {
       padding: 1rem;
+      background: rgb(0 0 0 / 70%);
+      backdrop-filter: blur(8px);
   }
 
   .strategy-observation-modal-content {
+      position: relative;
+      overflow-x: hidden;
       overflow-y: auto;
-      padding: 1.15rem 1.25rem;
-      width: min(720px, calc(100vw - 2rem));
-      max-width: 720px;
+      padding: 0.9rem 1rem;
+      width: min(1200px, calc(100vw - 2rem));
+      max-width: 1200px;
       max-height: calc(100vh - 2rem);
-      background: linear-gradient(180deg, rgb(17 28 46 / 99%), rgb(10 18 32 / 99%));
-      border-color: rgb(148 163 184 / 22%);
-      border-radius: 10px;
+      background: #111827;
+      border-color: rgb(255 255 255 / 18%);
+      border-radius: 8px;
+      box-shadow: 0 16px 50px rgb(0 0 0 / 45%);
+      isolation: isolate;
+  }
+
+  .strategy-observation-modal-content::-webkit-scrollbar {
+      width: 5px;
+  }
+
+  .strategy-observation-modal-content::-webkit-scrollbar-track {
+      background: transparent;
+  }
+
+  .strategy-observation-modal-content::-webkit-scrollbar-thumb {
+      background: #475569;
+      border-radius: 999px;
   }
 
   .strategy-observation-modal-content .modal-header {
-      align-items: flex-start;
-      padding-bottom: 0.85rem;
-      margin-bottom: 0.75rem;
+      align-items: center;
+      padding: 0.15rem 0.1rem 0.72rem;
+      margin-bottom: 0.65rem;
+      border-bottom-color: rgb(125 211 252 / 17%);
   }
 
   .strategy-observation-modal-content .modal-header h3 {
+      display: flex;
+      align-items: center;
       margin: 0;
-      font-size: 1.24rem;
+      font-size: 1.3rem;
       color: #fff;
       line-height: 1.2;
+      letter-spacing: 0.02em;
   }
 
-  .strategy-observation-modal-intro {
-      display: flex;
-      gap: 0.6rem;
+  .strategy-observation-modal-content .modal-close-button {
+      display: inline-flex;
+      justify-content: center;
       align-items: center;
-      padding: 0 0 0.7rem;
-      margin-bottom: 0.7rem;
-      border-bottom: 1px solid rgb(148 163 184 / 14%);
+      width: 30px;
+      height: 30px;
+      color: #94a3b8;
+      background: rgb(15 23 42 / 68%);
+      border: 0;
+      border-radius: 9px;
+      transition: color 0.2s ease, border-color 0.2s ease, background 0.2s ease;
   }
 
-  .strategy-observation-modal-intro span {
-      flex: 0 0 auto;
-      padding: 0.14rem 0.42rem;
-      font-size: 0.72rem;
-      color: #dbeafe;
-      background: rgb(59 130 246 / 12%);
-      border-radius: 4px;
-      line-height: 1.2;
-  }
-
-  .strategy-observation-modal-intro p {
-      margin: 0;
-      font-size: 0.76rem;
-      color: #cbd5e1;
-      line-height: 1.4;
+  .strategy-observation-modal-content .modal-close-button:hover {
+      color: #e0f2fe;
+      background: rgb(56 189 248 / 10%);
   }
 
   .strategy-observation-modal-list {
       display: grid;
-      grid-template-columns: 1fr;
-      gap: 0.5rem;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 0.72rem;
+      align-items: start;
   }
 
   .strategy-observation-modal-item {
       --status-accent: #94a3b8;
 
-      padding: 0.62rem 0.72rem;
+      position: relative;
+      overflow: hidden;
+      padding: 0.62rem 0.68rem 0.68rem;
       min-width: 0;
       background: rgb(15 23 42 / 62%);
-      border: 1px solid rgb(148 163 184 / 14%);
-      border-left: 3px solid var(--status-accent);
-      border-radius: 6px;
+      border: 1px solid rgb(148 163 184 / 18%);
+      border-radius: 8px;
+      box-shadow: none;
   }
 
   .strategy-observation-modal-item.new-high {
@@ -5361,113 +5606,172 @@
       --status-accent: #fb7185;
   }
 
+  .strategy-observation-modal-item.invalid {
+      --status-accent: #f59e0b;
+  }
+
   .strategy-observation-modal-top {
       display: flex;
       justify-content: space-between;
       gap: 0.45rem;
       align-items: center;
-      margin-bottom: 0.38rem;
+      padding-bottom: 0.48rem;
+      margin-bottom: 0.3rem;
+      border-bottom: 1px solid color-mix(in srgb, var(--status-accent) 16%, transparent);
+  }
+
+  .strategy-observation-modal-top div {
+      display: flex;
+      gap: 0.5rem;
+      align-items: center;
+      min-width: 0;
   }
 
   .strategy-observation-modal-top strong {
-      overflow: hidden;
-      min-width: 0;
-      font-size: 1.04rem;
-      text-overflow: ellipsis;
-      white-space: nowrap;
+      font-size: 1rem;
       color: #f8fafc;
       line-height: 1.2;
   }
 
   .strategy-observation-modal-top span {
       flex: 0 0 auto;
-      padding: 0.18rem 0.5rem;
-      font-size: 0.76rem;
+      padding: 0.16rem 0.46rem;
+      font-size: 0.7rem;
       color: var(--status-accent);
       background: color-mix(in srgb, var(--status-accent) 10%, transparent);
-      border: 1px solid color-mix(in srgb, var(--status-accent) 26%, transparent);
+      border: 1px solid color-mix(in srgb, var(--status-accent) 38%, transparent);
       border-radius: 999px;
       line-height: 1.2;
+      box-shadow: 0 0 12px color-mix(in srgb, var(--status-accent) 12%, transparent);
   }
 
-  .strategy-observation-primary {
-      display: grid;
-      grid-template-columns: repeat(7, minmax(0, 1fr));
-      gap: 0;
-      padding: 0.48rem 0;
-      margin-bottom: 0.42rem;
-      border-top: 1px solid rgb(148 163 184 / 12%);
-      border-bottom: 1px solid rgb(148 163 184 / 12%);
-  }
-
-  .strategy-observation-primary div {
-      padding: 0.05rem 0.52rem;
-      min-width: 0;
-      border-left: 1px solid rgb(148 163 184 / 12%);
-  }
-
-  .strategy-observation-primary div:first-child {
-      padding-left: 0;
-      border-left: 0;
-  }
-
-  .strategy-observation-primary span {
-      display: block;
-      margin-bottom: 0.2rem;
-      font-size: 0.72rem;
-      color: #cbd5e1;
+  .strategy-observation-modal-top time {
+      flex: 0 0 auto;
+      padding: 0.16rem 0.38rem;
+      font-size: 0.66rem;
+      color: #9fb0c5;
+      background: rgb(15 23 42 / 52%);
+      border: 1px solid rgb(148 163 184 / 11%);
+      border-radius: 5px;
       line-height: 1.2;
-      font-weight: 400;
   }
 
-  .strategy-observation-primary strong {
-      display: block;
-      overflow: hidden;
-      font-size: 0.98rem;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-      color: #f8fafc;
-      line-height: 1.15;
+  .strategy-observation-section {
+      padding-top: 0.4rem;
+      margin-top: 0.32rem;
+      border-top: 1px solid rgb(148 163 184 / 12%);
   }
 
-  .strategy-percentile-grid {
+  .strategy-observation-modal-top + .strategy-observation-section {
+      padding-top: 0;
+      margin-top: 0;
+      border-top: 0;
+  }
+
+  .strategy-observation-metric-grid {
       display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 0.9rem;
-      margin-bottom: 0.22rem;
+      gap: 0.34rem;
   }
 
-  .strategy-percentile-metric {
-      --percentile-accent: #f59e0b;
+  .strategy-observation-analysis-grid {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
 
+  .strategy-observation-temperature-grid {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .strategy-observation-metric,
+  .strategy-observation-temperature {
+      position: relative;
+      padding: 0.3rem 0.42rem;
       min-width: 0;
+      background: linear-gradient(145deg, rgb(51 65 85 / 36%), rgb(15 23 42 / 42%));
+      border: 1px solid rgb(148 163 184 / 11%);
+      border-radius: 8px;
+      box-shadow: inset 0 1px 0 rgb(255 255 255 / 2%);
+      transition: background 0.2s ease, border-color 0.2s ease;
   }
 
-  .strategy-percentile-metric + .strategy-percentile-metric {
-      padding-left: 0.9rem;
-      border-left: 1px solid rgb(148 163 184 / 14%);
+  .strategy-observation-metric {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      min-height: 48px;
   }
 
-  .strategy-percentile-metric--return {
-      --percentile-accent: #38bdf8;
+  .strategy-observation-metric:hover,
+  .strategy-observation-temperature:hover {
+      background: linear-gradient(145deg, rgb(51 65 85 / 48%), rgb(15 23 42 / 52%));
+      border-color: color-mix(in srgb, var(--status-accent) 24%, #334155);
   }
 
-  .strategy-percentile-label {
+  .strategy-observation-metric-label {
+      display: inline-flex;
+      gap: 0.22rem;
+      align-items: center;
+      max-width: 100%;
+      font-size: 0.66rem;
+      color: #9fb0c5;
+      line-height: 1.25;
+  }
+
+  .strategy-observation-metric > strong {
+      display: block;
+      margin-top: 0.17rem;
+      font-size: 0.86rem;
+      overflow-wrap: anywhere;
+      color: #f8fafc;
+      line-height: 1.2;
+      font-variant-numeric: tabular-nums;
+  }
+
+  .strategy-observation-analysis-grid .strategy-observation-metric:nth-child(-n + 2) > strong {
+      color: #fda4af;
+  }
+
+  .strategy-observation-analysis-grid .strategy-observation-metric:nth-child(6) > strong {
+      color: #5eead4;
+  }
+
+  .strategy-observation-temperature-label {
       display: flex;
       justify-content: space-between;
-      gap: 0.65rem;
+      gap: 0.45rem;
       align-items: center;
-      margin-bottom: 0.22rem;
-      font-size: 0.72rem;
-      color: #cbd5e1;
-      line-height: 1.2;
   }
 
-  .strategy-percentile-title {
-      display: inline-flex;
-      align-items: center;
-      gap: 0.26rem;
-      min-width: 0;
+  .strategy-observation-temperature-label strong {
+      font-size: 0.88rem;
+      text-align: right;
+      overflow-wrap: anywhere;
+      color: #f8fafc;
+      line-height: 1.2;
+      font-variant-numeric: tabular-nums;
+  }
+
+  .strategy-observation-temperature:nth-child(1) {
+      --temperature-accent: #38bdf8;
+  }
+
+  .strategy-observation-temperature:nth-child(2) {
+      --temperature-accent: #2dd4bf;
+  }
+
+  .strategy-observation-temperature:nth-child(3) {
+      --temperature-accent: #fb7185;
+  }
+
+  .strategy-observation-temperature {
+      background:
+          linear-gradient(135deg, color-mix(in srgb, var(--temperature-accent) 9%, transparent), transparent 70%),
+          rgb(30 41 59 / 38%);
+      border-color: color-mix(in srgb, var(--temperature-accent) 18%, #334155);
+      border-radius: 6px;
+  }
+
+  .strategy-observation-temperature .strategy-observation-temperature-label strong {
+      color: color-mix(in srgb, var(--temperature-accent) 78%, #fff);
   }
 
   .strategy-observation-help {
@@ -5475,44 +5779,67 @@
       justify-content: center;
       align-items: center;
       padding: 0;
-      width: 13px;
-      height: 13px;
+      width: 12px;
+      height: 12px;
       font: inherit;
       font-size: 9px;
-      color: #94a3b8;
-      background: rgb(15 23 42 / 62%);
-      border: 1px solid rgb(148 163 184 / 58%);
+      color: #a8c4df;
+      background: rgb(15 23 42 / 78%);
+      border: 1px solid rgb(125 211 252 / 38%);
       border-radius: 50%;
       cursor: help;
       line-height: 1;
       font-weight: 800;
+      flex: 0 0 auto;
+      transition: color 0.18s ease, border-color 0.18s ease, background 0.18s ease, box-shadow 0.18s ease;
   }
 
   .strategy-observation-help:hover,
-  .strategy-observation-help:focus {
-      color: var(--percentile-accent);
-      border-color: var(--percentile-accent);
+  .strategy-observation-help:focus-visible,
+  .strategy-observation-help[aria-expanded='true'] {
+      color: #93c5fd;
+      background: rgb(56 189 248 / 12%);
+      border-color: #60a5fa;
       outline: none;
-      box-shadow: 0 0 8px color-mix(in srgb, var(--percentile-accent) 34%, transparent);
+      box-shadow: 0 0 8px rgb(96 165 250 / 34%);
   }
 
   .strategy-observation-tooltip {
       position: fixed;
       z-index: 5000;
-      padding: 0.66rem 0.78rem;
+      box-sizing: border-box;
+      padding: 2.05rem 0.86rem 0.78rem;
       width: 320px;
       max-width: calc(100vw - 24px);
       font-size: 0.78rem;
       text-align: left;
-      white-space: normal;
-      color: #dbeafe;
-      background: rgb(15 23 42 / 98%);
-      border: 1px solid rgb(96 165 250 / 42%);
-      border-radius: 8px;
-      box-shadow: 0 14px 36px rgb(0 0 0 / 42%), 0 0 18px rgb(96 165 250 / 14%);
-      line-height: 1.58;
+      white-space: pre-line;
+      color: #d9e5f3;
+      background:
+          radial-gradient(circle at 0% 0%, rgb(56 189 248 / 13%), transparent 38%),
+          rgb(10 18 32 / 98%);
+      border: 1px solid rgb(125 211 252 / 38%);
+      border-radius: 11px;
+      box-shadow: 0 18px 46px rgb(0 0 0 / 52%), 0 0 22px rgb(56 189 248 / 12%);
+      line-height: 1.65;
       pointer-events: none;
       backdrop-filter: blur(12px);
+  }
+
+  .strategy-observation-tooltip::before {
+      position: absolute;
+      top: 0.62rem;
+      left: 0.86rem;
+      padding: 0.14rem 0.42rem;
+      font-size: 0.64rem;
+      color: #7dd3fc;
+      background: rgb(14 165 233 / 10%);
+      border: 1px solid rgb(56 189 248 / 18%);
+      border-radius: 999px;
+      content: '指标说明';
+      letter-spacing: 0.06em;
+      line-height: 1.2;
+      font-weight: 700;
   }
 
   .strategy-observation-tooltip--top {
@@ -5523,58 +5850,62 @@
       transform: translate(-50%, 0);
   }
 
-  .strategy-percentile-label strong {
-      font-size: 0.9rem;
-      color: #f8fafc;
-  }
-
-  .strategy-percentile-track {
+  .strategy-observation-progress {
       position: relative;
+      overflow: hidden;
+      margin-top: 0.3rem;
       height: 6px;
       background: rgb(148 163 184 / 16%);
+      border: 1px solid rgb(148 163 184 / 8%);
       border-radius: 999px;
   }
 
-  .strategy-percentile-track::before {
+  .strategy-observation-progress span {
       position: absolute;
       top: 0;
       bottom: 0;
       left: 0;
-      width: clamp(0%, var(--percentile-value), 100%);
-      background: linear-gradient(
-          90deg,
-          color-mix(in srgb, var(--percentile-accent) 38%, transparent),
-          var(--percentile-accent)
-      );
+      width: clamp(0%, var(--progress-value), 100%);
+      background: linear-gradient(90deg, color-mix(in srgb, var(--temperature-accent) 45%, #1e293b), var(--temperature-accent));
       border-radius: inherit;
-      content: '';
+      box-shadow: 0 0 10px color-mix(in srgb, var(--temperature-accent) 42%, transparent);
   }
 
-  .strategy-percentile-track span {
-      position: absolute;
-      top: 50%;
-      left: clamp(0%, var(--percentile-value), 100%);
-      width: 10px;
-      height: 10px;
-      background: #fff;
-      border: 2px solid var(--percentile-accent);
-      border-radius: 50%;
-      transform: translate(-50%, -50%);
-  }
-
-  .strategy-percentile-axis {
+  .strategy-observation-temperature-note {
       display: flex;
-      justify-content: space-between;
-      margin-top: 0.22rem;
-      font-size: 0.62rem;
-      color: #94a3b8;
-      line-height: 1.2;
+      justify-content: center;
+      align-items: center;
+      overflow: hidden;
+      margin: 0.18rem 0 0;
+      height: 14px;
+      font-size: 0.58rem;
+      color: #a8b6c8;
+      background: linear-gradient(90deg, rgb(71 85 105 / 14%), rgb(100 116 139 / 24%), rgb(71 85 105 / 14%));
+      border: 1px solid rgb(148 163 184 / 12%);
+      border-radius: 999px;
+      line-height: 1;
+      letter-spacing: 0.02em;
+  }
+
+  .strategy-observation-error {
+      padding: 0.65rem;
+      margin: 0;
+      font-size: 0.78rem;
+      color: #fde68a;
+      background: rgb(245 158 11 / 10%);
+      border: 1px solid rgb(245 158 11 / 22%);
+      border-radius: 8px;
+      line-height: 1.4;
   }
 
   .strategy-observation-disclaimer {
-      margin: 0.5rem 0 0;
+      padding: 0.5rem 0.62rem;
+      margin: 0.7rem 0 0;
       font-size: 0.74rem;
-      color: #94a3b8;
+      color: #9fb0c5;
+      background: rgb(15 23 42 / 42%);
+      border: 1px solid rgb(148 163 184 / 10%);
+      border-radius: 8px;
       line-height: 1.45;
   }
 
@@ -6728,8 +7059,16 @@
           grid-template-columns: repeat(3, minmax(0, 1fr));
       }
 
-      .strategy-observation-primary {
-          grid-template-columns: repeat(7, minmax(0, 1fr));
+      .strategy-observation-modal-list {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .strategy-observation-analysis-grid {
+          grid-template-columns: repeat(4, minmax(0, 1fr));
+      }
+
+      .strategy-observation-temperature-grid {
+          grid-template-columns: repeat(3, minmax(0, 1fr));
       }
 
       .strategy-status-item {
@@ -6816,23 +7155,12 @@
           width: 100%;
       }
 
-      .strategy-observation-primary {
-          grid-template-columns: repeat(3, minmax(0, 1fr));
-      }
-
-      .strategy-observation-primary div:nth-child(3n + 1) {
-          padding-left: 0;
-          border-left: 0;
-      }
-
-      .strategy-observation-primary div:nth-child(n + 4) {
-          padding-top: 0.42rem;
-          margin-top: 0.42rem;
-          border-top: 1px solid rgb(148 163 184 / 12%);
-      }
-
       .realtime-nav-grid {
           grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .strategy-observation-modal-list {
+          grid-template-columns: 1fr;
       }
 
       .quick-menu-grid {
@@ -7108,42 +7436,12 @@
           padding: 1rem;
       }
 
-      .strategy-observation-modal-intro {
-          align-items: flex-start;
-          flex-direction: column;
-          gap: 0.5rem;
+      .strategy-observation-analysis-grid {
+          grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
       }
 
-      .strategy-observation-primary {
-          grid-template-columns: repeat(2, minmax(0, 1fr));
-      }
-
-      .strategy-observation-primary div:nth-child(3n + 1) {
-          padding-left: 0.52rem;
-          border-left: 1px solid rgb(148 163 184 / 12%);
-      }
-
-      .strategy-observation-primary div:nth-child(odd) {
-          padding-left: 0;
-          border-left: 0;
-      }
-
-      .strategy-observation-primary div:nth-child(n + 3) {
-          padding-top: 0.42rem;
-          margin-top: 0.42rem;
-          border-top: 1px solid rgb(148 163 184 / 12%);
-      }
-
-      .strategy-percentile-grid {
+      .strategy-observation-temperature-grid {
           grid-template-columns: 1fr;
-          gap: 0.5rem;
-      }
-
-      .strategy-percentile-metric + .strategy-percentile-metric {
-          padding-top: 0.5rem;
-          padding-left: 0;
-          border-top: 1px solid rgb(148 163 184 / 14%);
-          border-left: 0;
       }
 
       .realtime-chart-metrics {
@@ -7283,7 +7581,7 @@
       .modal-content.strategy-observation-modal-content {
           margin: auto;
           width: 100%;
-          max-width: 720px;
+          max-width: 1120px;
           max-height: calc(100dvh - 1.5rem);
           background-clip: padding-box;
           border-radius: 10px;
