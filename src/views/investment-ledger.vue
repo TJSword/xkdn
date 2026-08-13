@@ -25,6 +25,7 @@
                         <button
                             class="button secondary featured-action"
                             type="button"
+                            :disabled="!canOpenTodayEntry"
                             @click="openTodayEntry">
                             录入今日
                         </button>
@@ -2686,6 +2687,9 @@ const totalAssets = computed(() =>
 )
 const hasLedgerData = computed(() => recentRecords.value.length > 0)
 const showEmptyState = computed(() => ledgerLoaded.value && !hasLedgerData.value)
+const canOpenTodayEntry = computed(
+    () => ledgerLoaded.value && !ledgerLoading.value && !ledgerError.value
+)
 const ledgerStatusText = computed(() => {
     if (ledgerLoading.value) return '正在读取云端账本'
     if (ledgerError.value) return `读取失败 · ${ledgerError.value}`
@@ -5264,6 +5268,8 @@ const openNewRecord = () => {
 }
 
 const openTodayEntry = () => {
+    if (!canOpenTodayEntry.value) return
+
     if (hasStrategies.value) {
         strategies.forEach(strategy => {
             const targetRecord = recentRecords.value.find(
@@ -10400,8 +10406,12 @@ label small {
 
     .annual-target-meta {
         display: grid;
-        grid-template-columns: 1fr;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
         gap: 6px;
+    }
+
+    .annual-target-meta span:first-child {
+        grid-column: 1 / -1;
     }
 
     .account-status-line {
