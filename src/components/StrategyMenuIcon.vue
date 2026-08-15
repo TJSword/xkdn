@@ -5,6 +5,19 @@
       <circle cx="24" cy="24" r="3.2" class="icon-cutout" />
     </g>
 
+    <g v-else-if="type === 'strategy-observation'" class="strategy-observation-glyph">
+      <path
+        class="strategy-observation-links"
+        d="M24 9 36 16.5v15L24 39l-12-7.5v-15ZM24 9v30M12 16.5 36 31.5M36 16.5 12 31.5"
+      />
+      <circle class="strategy-observation-node strategy-observation-node-one" cx="24" cy="9" r="2.7" />
+      <circle class="strategy-observation-node strategy-observation-node-two" cx="36" cy="16.5" r="2.7" />
+      <circle class="strategy-observation-node strategy-observation-node-three" cx="36" cy="31.5" r="2.7" />
+      <circle class="strategy-observation-node strategy-observation-node-four" cx="24" cy="39" r="2.7" />
+      <circle class="strategy-observation-node strategy-observation-node-five" cx="12" cy="31.5" r="2.7" />
+      <circle class="strategy-observation-node strategy-observation-node-six" cx="12" cy="16.5" r="2.7" />
+    </g>
+
     <g v-else-if="type === 'convertible-bond'" class="convertible-glyph">
       <path class="convertible-flow convertible-flow-top" d="M14 12c7-5 17-4 23 2" />
       <path class="convertible-flow convertible-flow-top" d="m33.5 13.5 3.8.8-.7-3.8" />
@@ -271,6 +284,61 @@
 
   .icon-node-three {
       fill: #52e3bd;
+  }
+
+  .strategy-observation-glyph {
+      filter: drop-shadow(0 0 7px rgb(96 165 250 / 28%));
+  }
+
+  .strategy-observation-links {
+      fill: rgb(96 165 250 / 4%);
+      stroke: #7ddcff;
+      stroke-width: 1.15;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      stroke-dasharray: 3 3;
+      animation: strategy-observation-flow 2.4s linear infinite;
+      opacity: 0.58;
+  }
+
+  .strategy-observation-node {
+      fill: #7ddcff;
+      filter: drop-shadow(0 0 4px #0af);
+      animation: strategy-observation-node-pulse 1.8s ease-in-out infinite;
+      transform-box: fill-box;
+      transform-origin: center;
+  }
+
+  .strategy-observation-node-two,
+  .strategy-observation-node-five {
+      fill: #52e3bd;
+      filter: drop-shadow(0 0 4px #52e3bd);
+  }
+
+  .strategy-observation-node-three,
+  .strategy-observation-node-six {
+      fill: #ffd166;
+      filter: drop-shadow(0 0 4px #ffd166);
+  }
+
+  .strategy-observation-node-two {
+      animation-delay: 0.15s;
+  }
+
+  .strategy-observation-node-three {
+      animation-delay: 0.3s;
+  }
+
+  .strategy-observation-node-four {
+      animation-delay: 0.45s;
+  }
+
+  .strategy-observation-node-five {
+      animation-delay: 0.6s;
+  }
+
+  .strategy-observation-node-six {
+      animation-delay: 0.75s;
   }
 
   .convertible-glyph {
@@ -877,6 +945,25 @@
       }
   }
 
+  @keyframes strategy-observation-flow {
+      to {
+          stroke-dashoffset: -12;
+      }
+  }
+
+  @keyframes strategy-observation-node-pulse {
+      0%,
+      100% {
+          opacity: 0.55;
+          transform: scale(0.78);
+      }
+
+      50% {
+          opacity: 1;
+          transform: scale(1.12);
+      }
+  }
+
   .about-back-card {
       opacity: 0.35;
   }
@@ -941,7 +1028,10 @@
   @media (prefers-reduced-motion: reduce) {
       .icon-orbit,
       .icon-node,
-      .icon-glyph {
+      .icon-glyph,
+      .strategy-observation-links,
+      .strategy-observation-node {
+          animation-duration: 5s;
           transition-duration: 0.01ms;
       }
   }

@@ -2765,6 +2765,9 @@ const calculateXirr = (cashFlows: Array<{ date: string; amount: number }>) => {
     }
 }
 
+const resolveActualProfitBaseline = (previousAmount: number | undefined, openingAmount = 0) =>
+    previousAmount ?? openingAmount
+
 const accountSummary = computed(() => {
     const additionalInflow = cashFlowEvents.value
         .filter(item => item.amount > 0)
@@ -2839,10 +2842,10 @@ const annualTargetProfit = computed(() => {
     const previousGroup = recordsGroupedByDate.value
         .filter(group => group.date < yearStart)
         .at(-1)
-    const firstYearGroup = yearGroups[0]
-    const baselineAssets = previousGroup
-        ? previousGroup.total
-        : Math.max(firstYearGroup.total - firstYearGroup.cashFlow, 0)
+    const baselineAssets = resolveActualProfitBaseline(
+        previousGroup?.total,
+        accountConfig.openingPrincipal
+    )
     const netCashFlow = cashFlowEvents.value
         .filter(item => item.date >= yearStart && item.date <= latestGroup.date)
         .reduce((sum, item) => sum + Number(item.amount || 0), 0)
@@ -3116,6 +3119,9 @@ const heatmapRecordsByDate = computed(() => {
             cashFlow: rows.reduce((total, record) => total + Number(record.cashFlow || 0), 0)
         }))
 })
+const heatmapOpeningAmount = computed(() =>
+    heatmapStrategyId.value === ACCOUNT_HEATMAP_SCOPE ? accountConfig.openingPrincipal : 0
+)
 const calculateActualReturnPeriod = (startDate: string, endDate: string): ReturnHeatmapCell => {
     const records = heatmapRecordsByDate.value
     const rows = records.filter(item => item.date >= startDate && item.date <= endDate)
@@ -3136,7 +3142,10 @@ const calculateActualReturnPeriod = (startDate: string, endDate: string): Return
     const last = rows.at(-1) || first
     const previous = records.filter(item => item.date < startDate).at(-1)
     const firstRecordIndex = records.findIndex(item => item.date === first.date)
-    const startAmount = previous ? previous.amount : Math.max(first.amount - first.cashFlow, 0)
+    const startAmount = resolveActualProfitBaseline(
+        previous?.amount,
+        heatmapOpeningAmount.value
+    )
     const cashFlow = rows.reduce((total, item) => total + Number(item.cashFlow || 0), 0)
     const profit = last.amount - startAmount - cashFlow
     const timeWeightedGrowth = rows.reduce((growth, item, index) => {
@@ -3162,8 +3171,11 @@ const calculateActualReturnPeriod = (startDate: string, endDate: string): Return
 const dailyActualReturnRows = computed<ReturnHeatmapCell[]>(() =>
     heatmapRecordsByDate.value.map((item, index) => {
         const previous = heatmapRecordsByDate.value[index - 1]
-        const startAmount = previous ? previous.amount : Math.max(item.amount - item.cashFlow, 0)
-        const profit = previous ? item.amount - previous.amount - item.cashFlow : 0
+        const startAmount = resolveActualProfitBaseline(
+            previous?.amount,
+            heatmapOpeningAmount.value
+        )
+        const profit = item.amount - startAmount - item.cashFlow
 
         return {
             key: item.date,
@@ -3180,18 +3192,22 @@ const dailyActualReturnRows = computed<ReturnHeatmapCell[]>(() =>
 )
 const dailyExtremeMode = ref<'rate' | 'amount'>('rate')
 const accountDailyReturnRows = computed<ReturnHeatmapCell[]>(() =>
-    aggregateRecordsByDate.value.slice(1).map((item, index) => {
-        const previous = aggregateRecordsByDate.value[index]
-        const profit = item.amount - previous.amount - item.cashFlow
+    aggregateRecordsByDate.value.map((item, index) => {
+        const previous = aggregateRecordsByDate.value[index - 1]
+        const startAmount = resolveActualProfitBaseline(
+            previous?.amount,
+            accountConfig.openingPrincipal
+        )
+        const profit = item.amount - startAmount - item.cashFlow
 
         return {
             key: item.date,
             period: item.date,
             date: item.date,
             profit,
-            return: previous.amount ? (profit / previous.amount) * 100 : 0,
+            return: startAmount ? (profit / startAmount) * 100 : 0,
             cashFlow: item.cashFlow,
-            startAmount: previous.amount,
+            startAmount,
             endAmount: item.amount,
             hasData: true
         }
@@ -3594,7 +3610,9 @@ const filteredActualPerformanceData = computed(() => {
     const rows = aggregateRecordsByDate.value.filter(item => item.date >= start && item.date <= end)
     const first = rows[0]
     const previous = aggregateRecordsByDate.value.filter(item => item.date < start).at(-1)
-    const baselineAmount = first ? (previous ? previous.amount : accountConfig.openingPrincipal) : 0
+    const baselineAmount = first
+        ? resolveActualProfitBaseline(previous?.amount, accountConfig.openingPrincipal)
+        : 0
     let cumulativeCashFlow = 0
 
     return rows.map(item => {
@@ -3639,7 +3657,12 @@ const todayAssetChange = computed(() => {
     const latest = aggregateRecordsByDate.value.at(-1)
     const previous = aggregateRecordsByDate.value.at(-2)
 
-    return latest && previous ? latest.amount - previous.amount - latest.cashFlow : 0
+    if (!latest) return 0
+    const startAmount = resolveActualProfitBaseline(
+        previous?.amount,
+        accountConfig.openingPrincipal
+    )
+    return latest.amount - startAmount - latest.cashFlow
 })
 const classifyDrawdownStatus = (current: number, deepest?: number) => {
     if (current >= -0.005) return '创新高'
@@ -3995,7 +4018,12 @@ const calculateRecordsReturn = (
     if (first.id === last.id) return last.return
     return first.nav ? ((last.nav / first.nav) - 1) * 100 : 0
 }
-const calculateRecordsProfit = (records: LedgerRecord[], startDate: string, endDate: string) => {
+const calculateRecordsProfit = (
+    records: LedgerRecord[],
+    startDate: string,
+    endDate: string,
+    openingAmount = 0
+) => {
     const orderedRows = records
         .filter(item => item.date <= endDate)
         .sort((a, b) => a.date.localeCompare(b.date))
@@ -4005,7 +4033,7 @@ const calculateRecordsProfit = (records: LedgerRecord[], startDate: string, endD
     if (!first || !last) return 0
 
     const previous = orderedRows.filter(item => item.date < startDate).at(-1)
-    const startAmount = previous ? previous.amount : Math.max(first.amount - first.cashFlow, 0)
+    const startAmount = resolveActualProfitBaseline(previous?.amount, openingAmount)
     const cashFlow = rows.reduce((total, item) => total + Number(item.cashFlow || 0), 0)
     return last.amount - startAmount - cashFlow
 }
@@ -4082,7 +4110,8 @@ const attributionAccountProfit = computed(() =>
     calculateRecordsProfit(
         accountActualRecords.value,
         normalizedAttributionRange.value.start,
-        normalizedAttributionRange.value.end
+        normalizedAttributionRange.value.end,
+        accountConfig.openingPrincipal
     )
 )
 const attributionWaterfallOption = computed(() => {

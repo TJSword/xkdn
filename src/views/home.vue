@@ -15,10 +15,12 @@
 
       <section class="status-overview-strip" aria-label="市场与策略状态">
         <article
-          class="status-overview-card market-thermometer-container clickable"
+          :class="['status-overview-card', 'market-thermometer-container', { 'is-interactive': isMarketSummaryReady }]"
+          :aria-busy="!isMarketSummaryReady"
+          :aria-disabled="!isMarketSummaryReady && !marketDataLoadFailed"
           role="button"
-          tabindex="0"
-          title="点击查看详细图表"
+          :tabindex="isMarketSummaryReady ? 0 : -1"
+          :title="isMarketSummaryReady ? '点击查看详细图表' : undefined"
           @click="openModal"
           @keydown.enter="openModal"
           @keydown.space.prevent="openModal"
@@ -59,11 +61,12 @@
         </article>
 
         <article
-          class="status-overview-card strategy-observation-card"
+          :class="['status-overview-card', 'strategy-observation-card', { 'is-interactive': isStrategyObservationReady }]"
           :aria-busy="!isStrategyObservationReady"
+          :aria-disabled="!isStrategyObservationReady"
           role="button"
-          tabindex="0"
-          title="点击查看策略横向观察"
+          :tabindex="isStrategyObservationReady ? 0 : -1"
+          :title="isStrategyObservationReady ? '点击查看策略横向观察' : undefined"
           @click="openStrategyObservationModal"
           @keydown.enter="openStrategyObservationModal"
           @keydown.space.prevent="openStrategyObservationModal"
@@ -117,11 +120,15 @@
             :class="[
               'realtime-nav-card',
               'realtime-six-card',
-              { 'is-refreshing': homeRealtimeRefreshState === 'refreshing' }
+              {
+                'is-refreshing': homeRealtimeRefreshState === 'refreshing',
+                'is-interactive': item.isLoaded
+              }
             ]"
             :style="{ '--accent-color': item.accent }"
+            :aria-disabled="!item.isLoaded"
             role="button"
-            tabindex="0"
+            :tabindex="item.isLoaded ? 0 : -1"
             @click="openRealtimeChartModal(item)"
             @keydown.enter="openRealtimeChartModal(item)"
           >
@@ -353,7 +360,12 @@
             <button class="modal-close-button" @click="closeModal">×</button>
           </div>
           <div class="modal-body">
-            <div ref="echartContainer" class="echart-container"></div>
+            <div v-if="marketHistoryLoadState === 'loading'" class="loading-state">市场历史加载中...</div>
+            <div v-else-if="marketHistoryLoadState === 'error'" class="loading-state">
+              <span>市场历史加载失败</span>
+              <button type="button" class="market-data-retry" @click="fetchMarketHistory">重试</button>
+            </div>
+            <div v-else ref="echartContainer" class="echart-container"></div>
           </div>
         </div>
       </div>
@@ -380,7 +392,18 @@
               ×
             </button>
           </div>
-          <div class="strategy-observation-modal-list">
+          <StrategyLoading
+            v-if="strategyObservationLoadState === 'loading'"
+            mode="panel"
+            title="正在分析策略状态"
+            description="计算回撤、历史分位与风险温度，请稍候"
+            icon-type="strategy-observation"
+          />
+          <div v-else-if="strategyObservationLoadState === 'error'" class="loading-state">
+            <span>策略回撤数据加载失败</span>
+            <button type="button" class="market-data-retry" @click="fetchStrategyObservationDetails">重试</button>
+          </div>
+          <div v-else class="strategy-observation-modal-list">
             <article
               v-for="item in strategyObservationItems"
               :key="item.id"
@@ -1009,6 +1032,8 @@
       monthReturn: number
       yearReturn: number
       updatedAt: string
+      updatedDate?: string
+      updatedMinute?: string
       accent: string
       trend: number[]
       intraday: number[]
@@ -1081,6 +1106,7 @@
 
   const strategyObservationItems = ref<StrategyObservationItem[]>([])
   const strategyObservationUpdatedAt = ref('')
+  const strategyObservationLoadState = ref<'idle' | 'loading' | 'loaded' | 'error'>('idle')
   const strategyObservationHelpText = {
       currentDrawdown:
           '它是什么：当前净值距离本轮前高还有多少。\n怎么看：越接近 0，说明越接近收复前高；例如 -8% 表示当前仍低于前高约 8%。\n怎么算：（当前净值 ÷ 最近一次历史新高净值 - 1）× 100%。',
@@ -1163,7 +1189,6 @@
   const formatPercentilePercent = (value: number | null | undefined) => {
       return formatObservationPercent(value, 1)
   }
-
   const formatObservationDays = (value: number | null | undefined) => {
       return Number.isFinite(value) ? `${value}日` : '数据不足'
   }
@@ -1231,11 +1256,9 @@
       {
           key: 'repairTemperature',
           label: '修复温度',
-          display:
-              item.inRepairZone === false ? '-' : formatObservationNumber(item.repairTemperature, 0),
+          display: item.inRepairZone === false ? '-' : formatObservationNumber(item.repairTemperature, 0),
           value: item.inRepairZone === false ? null : item.repairTemperature,
-          note:
-              item.inRepairZone === false ? '未进入深跌区' : '计算窗口不足',
+          note: item.inRepairZone === false ? '未进入深跌区' : '计算窗口不足',
           help: strategyObservationHelpText.repairTemperature
       },
       {
@@ -1355,8 +1378,30 @@
   }
 
   const isStrategyObservationModalVisible = ref(false)
+  const fetchStrategyObservationDetails = async () => {
+      if (strategyObservationLoadState.value === 'loading') return
+      strategyObservationLoadState.value = 'loading'
+      try {
+          const response: any = await callCloudFunction({
+              name: 'getHomeDashboardData',
+              data: { scope: 'strategy-observation' }
+          })
+          const observation = response.result?.data?.strategyObservation
+          if (!response.result?.success || !Array.isArray(observation?.items)) {
+              throw new Error(response.result?.message || 'strategy observation returned no data')
+          }
+          applyStrategyObservation(observation)
+          strategyObservationLoadState.value = 'loaded'
+      } catch (error) {
+          throwIfAuthExpired(error)
+          strategyObservationLoadState.value = 'error'
+          console.warn('strategy observation details failed:', error)
+      }
+  }
   const openStrategyObservationModal = () => {
+      if (!isStrategyObservationReady.value) return
       isStrategyObservationModalVisible.value = true
+      if (strategyObservationLoadState.value !== 'loaded') void fetchStrategyObservationDetails()
   }
   const closeStrategyObservationModal = () => {
       isStrategyObservationModalVisible.value = false
@@ -1495,6 +1540,7 @@
   }
 
   const openRealtimeChartModal = (item: StrategyRealtimeNav) => {
+      if (!item.isLoaded) return
       selectedRealtimeNav.value = item
       realtimeChartHover.value = null
   }
@@ -1816,6 +1862,12 @@
       return minuteText.startsWith('15:') ? '15:00' : minuteText
   }
 
+  const getRealtimePayloadDate = (payload: any) => {
+      const dateValue = payload?.tradeDate || payload?.updatedAt || payload?.updatedMinute || payload?.baseDate
+      const match = String(dateValue || '').match(/\b(\d{4})-(\d{2})-(\d{2})\b/)
+      return match ? `${match[1]}-${match[2]}-${match[3]}` : ''
+  }
+
   const toRealtimePercent = (value: unknown) => {
       if (value === null || value === undefined || value === '') return NaN
       return Number(value) * 100
@@ -1872,6 +1924,8 @@
               monthReturn: Number.isFinite(monthReturn) ? monthReturn : allWeatherItem.monthReturn,
               yearReturn: Number.isFinite(yearReturn) ? yearReturn : allWeatherItem.yearReturn,
               updatedAt: payloadUpdatedMinute || allWeatherItem.updatedAt,
+              updatedDate: getRealtimePayloadDate(payload) || allWeatherItem.updatedDate,
+              updatedMinute: payloadUpdatedMinute || allWeatherItem.updatedMinute,
               trend: hasIntradayPayload ? intradayAmounts : allWeatherItem.trend,
               intraday: hasIntradayPayload ? intradayAmounts : allWeatherItem.intraday,
               intradayTimes: hasIntradayPayload && intradayTimes.length === intradayAmounts.length ? intradayTimes : [],
@@ -1928,6 +1982,8 @@
               monthReturn: Number.isFinite(monthReturn) ? monthReturn : bondItem.monthReturn,
               yearReturn: Number.isFinite(yearReturn) ? yearReturn : bondItem.yearReturn,
               updatedAt: normalizeRealtimeDisplayMinute(payload.updatedAt || payload.updatedMinute) || bondItem.updatedAt,
+              updatedDate: getRealtimePayloadDate(payload) || bondItem.updatedDate,
+              updatedMinute: normalizeRealtimeDisplayMinute(payload.updatedAt || payload.updatedMinute) || bondItem.updatedMinute,
               trend: intradayAmounts.length >= 2 ? intradayAmounts : bondItem.trend,
               intraday: intradayAmounts.length >= 2 ? intradayAmounts : bondItem.intraday,
               intradayTimes: intradayTimes.length === intradayAmounts.length ? intradayTimes : bondItem.intradayTimes,
@@ -1983,6 +2039,8 @@
               monthReturn: Number.isFinite(monthReturn) ? monthReturn : rightsItem.monthReturn,
               yearReturn: Number.isFinite(yearReturn) ? yearReturn : rightsItem.yearReturn,
               updatedAt: normalizeRealtimeDisplayMinute(payload.updatedAt || payload.updatedMinute) || rightsItem.updatedAt,
+              updatedDate: getRealtimePayloadDate(payload) || rightsItem.updatedDate,
+              updatedMinute: normalizeRealtimeDisplayMinute(payload.updatedAt || payload.updatedMinute) || rightsItem.updatedMinute,
               trend: intradayAmounts.length >= 2 ? intradayAmounts : rightsItem.trend,
               intraday: intradayAmounts.length >= 2 ? intradayAmounts : rightsItem.intraday,
               intradayTimes: intradayTimes.length === intradayAmounts.length ? intradayTimes : rightsItem.intradayTimes,
@@ -2036,6 +2094,8 @@
               monthReturn: Number.isFinite(monthReturn) ? monthReturn : momentumItem.monthReturn,
               yearReturn: Number.isFinite(yearReturn) ? yearReturn : momentumItem.yearReturn,
               updatedAt: normalizeRealtimeDisplayMinute(payload.updatedAt || payload.updatedMinute) || momentumItem.updatedAt,
+              updatedDate: getRealtimePayloadDate(payload) || momentumItem.updatedDate,
+              updatedMinute: normalizeRealtimeDisplayMinute(payload.updatedAt || payload.updatedMinute) || momentumItem.updatedMinute,
               trend: intradayAmounts.length >= 2 ? intradayAmounts : momentumItem.trend,
               intraday: intradayAmounts.length >= 2 ? intradayAmounts : momentumItem.intraday,
               intradayTimes: intradayTimes.length === intradayAmounts.length ? intradayTimes : momentumItem.intradayTimes,
@@ -2098,6 +2158,8 @@
               updatedAt: showDisciplineCash
                   ? '纪律空仓'
                   : normalizeRealtimeDisplayMinute(payload.updatedAt || payload.updatedMinute) || microCapItem.updatedAt,
+              updatedDate: getRealtimePayloadDate(payload) || microCapItem.updatedDate,
+              updatedMinute: normalizeRealtimeDisplayMinute(payload.updatedAt || payload.updatedMinute) || microCapItem.updatedMinute,
               trend: showDisciplineCash ? [] : intradayAmounts.length >= 2 ? intradayAmounts : microCapItem.trend,
               intraday: showDisciplineCash ? [] : intradayAmounts.length >= 2 ? intradayAmounts : microCapItem.intraday,
               intradayTimes: showDisciplineCash ? [] : intradayTimes.length === intradayAmounts.length ? intradayTimes : microCapItem.intradayTimes,
@@ -2156,6 +2218,8 @@
               monthReturn: Number.isFinite(monthReturn) ? monthReturn : highDividendItem.monthReturn,
               yearReturn: Number.isFinite(yearReturn) ? yearReturn : highDividendItem.yearReturn,
               updatedAt: normalizeRealtimeDisplayMinute(payload.updatedMinute || payload.updatedAt) || highDividendItem.updatedAt,
+              updatedDate: getRealtimePayloadDate(payload) || highDividendItem.updatedDate,
+              updatedMinute: normalizeRealtimeDisplayMinute(payload.updatedMinute || payload.updatedAt) || highDividendItem.updatedMinute,
               trend: intradayAmounts.length >= 2 ? intradayAmounts : highDividendItem.trend,
               intraday: intradayAmounts.length >= 2 ? intradayAmounts : highDividendItem.intraday,
               intradayTimes: intradayTimes.length === intradayAmounts.length ? intradayTimes : highDividendItem.intradayTimes,
@@ -2336,12 +2400,14 @@
   // --- 市场温度计与数据处理 ---
   const rawHistoryData = ref<StarDataItem[]>([])
   const processedMarketData = ref<ProcessedDataItem[]>([])
+  const marketHistoryLoadState = ref<'idle' | 'loading' | 'loaded' | 'error'>('idle')
   let minStar = ref(1.8)
   let maxStar = ref(5.98)
 
   const latestStar = ref(5.98)
   const latestTemperature = ref(0)
   const latestDate = ref('加载中...')
+  const isMarketSummaryReady = computed(() => latestDate.value !== '加载中...')
   let pollingInterval: number | null = null
 
   function processDataWithLinearMapping() {
@@ -2365,8 +2431,6 @@
   }
 
   function updateLatestTemperature(starRating: number) {
-      if (processedMarketData.value.length === 0) return
-
       const range = maxStar.value - minStar.value
       if (range === 0) {
           latestTemperature.value = 50
@@ -2378,9 +2442,13 @@
   const applyMarketData = (marketData: any) => {
       const { today, history } = marketData || {}
 
+      if (Number.isFinite(Number(marketData?.minStar))) minStar.value = Number(marketData.minStar)
+      if (Number.isFinite(Number(marketData?.maxStar))) maxStar.value = Number(marketData.maxStar)
+
       if (today?.result) {
           latestStar.value = today.result.star
           latestDate.value = today.result.update_time
+          updateLatestTemperature(latestStar.value)
       }
 
       if (history?.result) {
@@ -2421,6 +2489,27 @@
       void fetchHomeDashboardData()
   }
 
+  const fetchMarketHistory = async () => {
+      if (marketHistoryLoadState.value === 'loading') return
+      marketHistoryLoadState.value = 'loading'
+      try {
+          const response: any = await callCloudFunction({
+              name: 'getHomeDashboardData',
+              data: { scope: 'market-history' }
+          })
+          const market = response.result?.data?.market
+          if (!response.result?.success || !market?.history?.result) {
+              throw new Error(response.result?.message || 'market history returned no data')
+          }
+          applyMarketData(market)
+          marketHistoryLoadState.value = 'loaded'
+      } catch (error) {
+          throwIfAuthExpired(error)
+          marketHistoryLoadState.value = 'error'
+          console.warn('market history failed:', error)
+      }
+  }
+
   const fetchHomeDashboardData = async () => {
       try {
           const response: any = await callCloudFunction({
@@ -2433,7 +2522,7 @@
           }
 
            applyMarketData(payload.market)
-           marketDataLoadFailed.value = false
+           marketDataLoadFailed.value = !payload.market?.today?.result
            applyStrategyObservation(payload.strategyObservation)
 
           const realtime = payload.realtime || {}
@@ -2501,6 +2590,9 @@
   const getShanghaiTimeParts = (date = new Date()) => {
       const parts = new Intl.DateTimeFormat('en-US', {
           timeZone: 'Asia/Shanghai',
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit',
           weekday: 'short',
           hour: '2-digit',
           minute: '2-digit',
@@ -2509,6 +2601,7 @@
       const values = Object.fromEntries(parts.map(part => [part.type, part.value]))
       return {
           weekday: values.weekday,
+          dateKey: `${values.year}-${values.month}-${values.day}`,
           minuteOfDay: Number(values.hour) * 60 + Number(values.minute)
       }
   }
@@ -2521,6 +2614,30 @@
           (minuteOfDay >= 9 * 60 && minuteOfDay <= 11 * 60 + 30) ||
           (minuteOfDay >= 13 * 60 && minuteOfDay <= 15 * 60 + 5)
       )
+  }
+
+  const getHomeRealtimeCatchUpTarget = (date = new Date()) => {
+      const { weekday, dateKey, minuteOfDay } = getShanghaiTimeParts(date)
+      if (!['Mon', 'Tue', 'Wed', 'Thu', 'Fri'].includes(weekday)) return null
+
+      if (minuteOfDay > 11 * 60 + 30 && minuteOfDay < 13 * 60) {
+          return { dateKey, minuteOfDay: 11 * 60 + 30 }
+      }
+      if (minuteOfDay > 15 * 60 + 5) {
+          return { dateKey, minuteOfDay: 15 * 60 }
+      }
+      return null
+  }
+
+  const needsHomeRealtimeCatchUp = (date = new Date()) => {
+      const target = getHomeRealtimeCatchUpTarget(date)
+      if (!target) return false
+
+      return strategyRealtimeNavs.value.some(item => {
+          if (!item.isLoaded || item.updatedDate !== target.dateKey) return true
+          const updatedMinute = getMinuteValueFromTime(item.updatedMinute || item.updatedAt)
+          return updatedMinute === null || updatedMinute < target.minuteOfDay
+      })
   }
 
   const fetchHomeRealtimeData = async () => {
@@ -2545,7 +2662,9 @@
 
   const refreshHomeRealtimeOnReturn = () => {
       const now = Date.now()
-      if (document.visibilityState !== 'visible' || !isHomeRealtimeRefreshWindow()) return
+      const requestDate = new Date(now)
+      const shouldRefresh = isHomeRealtimeRefreshWindow(requestDate) || needsHomeRealtimeCatchUp(requestDate)
+      if (document.visibilityState !== 'visible' || !shouldRefresh) return
       if (homeRealtimeRefreshPromise) return
       if (now - lastHomeRealtimeRefreshAt < HOME_REALTIME_REFRESH_MIN_INTERVAL_MS) return
 
@@ -2886,7 +3005,9 @@
   let myChart: echarts.ECharts | null = null
 
   const openModal = () => {
+      if (!isMarketSummaryReady.value) return
       isModalVisible.value = true
+      if (marketHistoryLoadState.value !== 'loaded') void fetchMarketHistory()
   }
   const closeModal = () => {
       isModalVisible.value = false
@@ -2945,8 +3066,8 @@
       }
   })
 
-  watch(isModalVisible, newValue => {
-      if (newValue && processedMarketData.value.length > 0) {
+  watch([isModalVisible, marketHistoryLoadState], ([isVisible, historyState]) => {
+      if (isVisible && historyState === 'loaded' && processedMarketData.value.length > 0) {
           nextTick(() => {
               if (echartContainer.value) {
                   myChart = echarts.init(echartContainer.value)
@@ -3609,6 +3730,10 @@
       border-radius: 8px;
       transition: transform 0.25s ease, border-color 0.25s ease, background 0.25s ease;
       backdrop-filter: blur(10px);
+      cursor: default;
+  }
+
+  .status-overview-card.is-interactive {
       cursor: pointer;
   }
 
@@ -3631,7 +3756,7 @@
       border-color: color-mix(in srgb, var(--overview-accent) 58%, transparent);
   }
 
-  .status-overview-card:focus-visible {
+  .status-overview-card.is-interactive:focus-visible {
       outline: 2px solid #0af;
       outline-offset: 3px;
   }
@@ -3642,11 +3767,7 @@
       text-align: left;
   }
 
-  .market-thermometer-container.clickable {
-      cursor: pointer;
-  }
-
-  .market-thermometer-container.clickable:hover {
+  .market-thermometer-container:hover {
       border-color: rgb(56 189 248 / 58%);
   }
 
@@ -4042,6 +4163,10 @@
       border: 1px solid color-mix(in srgb, var(--accent-color) 28%, rgb(255 255 255 / 10%));
       border-radius: 8px;
       transition: transform 0.2s ease, border-color 0.2s ease, background 0.2s ease;
+      cursor: default;
+  }
+
+  .realtime-nav-card.is-interactive {
       cursor: pointer;
   }
 
@@ -4104,12 +4229,12 @@
       z-index: 1;
   }
 
-  .realtime-nav-card:focus-visible {
+  .realtime-nav-card.is-interactive:focus-visible {
       outline: 2px solid var(--accent-color);
       outline-offset: 3px;
   }
 
-  .realtime-nav-card:hover {
+  .realtime-nav-card.is-interactive:hover {
       background:
           linear-gradient(135deg, color-mix(in srgb, var(--accent-color) 21%, transparent), transparent 60%),
           rgb(30 41 59 / 62%);
