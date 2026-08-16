@@ -558,13 +558,34 @@
             <div
               v-for="asset in selectedRealtimeNav.allocation"
               :key="asset.id"
-              class="realtime-allocation-item"
+              :class="[
+                'realtime-allocation-item',
+                {
+                  'realtime-allocation-item--take-profit': asset.takeProfitTriggered === true
+                }
+              ]"
             >
-              <span>{{ asset.name }}</span>
+              <div class="realtime-allocation-heading">
+                <span>{{ asset.name }}</span>
+                <small
+                  v-if="asset.takeProfitTriggered === true"
+                  class="realtime-take-profit-badge"
+                >
+                  已止盈
+                </small>
+              </div>
               <div class="realtime-allocation-values">
                 <strong>{{ formatAllocationPercent(asset.weight) }}</strong>
-                <em :class="getRealtimeTone(asset.return ?? 0, asset.return !== null && asset.return !== undefined)">
-                  {{ formatRealtimePercent(asset.return ?? 0, asset.return !== null && asset.return !== undefined) }}
+                <em
+                  :class="
+                    asset.takeProfitTriggered === true
+                      ? 'realtime-take-profit-value'
+                      : getRealtimeTone(asset.return ?? 0, asset.return !== null && asset.return !== undefined)
+                  "
+                >
+                  {{
+                    formatRealtimePercent(asset.return ?? 0, asset.return !== null && asset.return !== undefined)
+                  }}
                 </em>
               </div>
             </div>
@@ -1020,6 +1041,8 @@
       weight: number
       targetWeight?: number
       return?: number | null
+      takeProfitTriggered?: boolean
+      takeProfitTime?: string
   }
 
   interface StrategyRealtimeNav {
@@ -1962,13 +1985,26 @@
           const activeHoldings = Array.isArray(payload.activeHoldings) ? payload.activeHoldings : []
           const driftedHoldings = Array.isArray(payload.closingHoldings) ? payload.closingHoldings : []
           const holdings = canViewHoldings ? (driftedHoldings.length ? driftedHoldings : activeHoldings) : []
+          const takeProfitEvents = canViewHoldings && Array.isArray(payload.takeProfitEvents)
+              ? payload.takeProfitEvents
+              : []
           const assetReturnMap = buildAssetReturnMap(payload)
-          const allocation = holdings.map((holding: any, index: number) => ({
-              id: holding.code || `bond-${index}`,
-              name: holding.name || holding.code || `Bond ${index + 1}`,
-              weight: Number.isFinite(Number(holding.weight)) ? Number(holding.weight) : holdings.length ? 1 / holdings.length : 0,
-              return: getHoldingReturnPercent(holding, assetReturnMap)
-          }))
+          const allocation = [
+              ...takeProfitEvents.map((event: any, index: number) => ({
+                  id: `take-profit-${event.code || index}`,
+                  name: event.name || event.code || `Bond ${index + 1}`,
+                  weight: Number.isFinite(Number(event.weight)) ? Number(event.weight) : 0,
+                  return: Number(event.return) * 100,
+                  takeProfitTriggered: true,
+                  takeProfitTime: event.triggerTime
+              })),
+              ...holdings.map((holding: any, index: number) => ({
+                  id: holding.code || `bond-${index}`,
+                  name: holding.name || holding.code || `Bond ${index + 1}`,
+                  weight: Number.isFinite(Number(holding.weight)) ? Number(holding.weight) : holdings.length ? 1 / holdings.length : 0,
+                  return: getHoldingReturnPercent(holding, assetReturnMap)
+              }))
+          ]
           const amount = Number(payload.strategyAmount ?? payload.strategyValue ?? payload.strategyIndexValue)
           const baseAmount = Number(payload.baseAmount ?? payload.baseIndexValue)
           const dailyReturn = Number(payload.dailyReturn) * 100
@@ -5429,6 +5465,8 @@
   }
 
   .realtime-allocation-item {
+      position: relative;
+      overflow: hidden;
       padding: 0.68rem 0.72rem;
       min-width: 0;
       background: rgb(255 255 255 / 3.5%);
@@ -5436,14 +5474,54 @@
       border-radius: 8px;
   }
 
+  .realtime-allocation-item--take-profit {
+      background:
+          linear-gradient(135deg, rgb(251 191 36 / 16%), transparent 66%),
+          rgb(255 255 255 / 4.5%);
+      border-color: rgb(251 191 36 / 68%);
+      box-shadow: inset 0 0 0 1px rgb(251 191 36 / 10%), 0 0 18px rgb(245 158 11 / 10%);
+  }
+
+  .realtime-allocation-item--take-profit::before {
+      position: absolute;
+      top: 0;
+      right: 0;
+      left: 0;
+      height: 2px;
+      background: linear-gradient(90deg, #f59e0b, #fcd34d 62%, transparent);
+      content: '';
+  }
+
+  .realtime-allocation-heading {
+      display: flex;
+      align-items: center;
+      min-width: 0;
+      gap: 0.4rem;
+  }
+
   .realtime-allocation-item span {
       display: block;
+      flex: 1 1 auto;
       overflow: hidden;
+      min-width: 0;
       font-size: 0.72rem;
       text-overflow: ellipsis;
       white-space: nowrap;
       color: #94a3b8;
       line-height: 1.2;
+  }
+
+  .realtime-take-profit-badge {
+      flex: 0 0 auto;
+      padding: 0.12rem 0.34rem;
+      font-size: 0.58rem;
+      white-space: nowrap;
+      color: #fde68a;
+      background: rgb(245 158 11 / 18%);
+      border: 1px solid rgb(251 191 36 / 42%);
+      border-radius: 999px;
+      line-height: 1.15;
+      font-weight: 700;
   }
 
   .realtime-allocation-values {
@@ -5469,6 +5547,11 @@
       line-height: 1.15;
       font-style: normal;
       font-weight: 700;
+  }
+
+  .realtime-allocation-item .realtime-take-profit-value {
+      color: #fbbf24;
+      text-shadow: 0 0 10px rgb(251 191 36 / 28%);
   }
 
   .realtime-large-chart {

@@ -37,8 +37,11 @@
         </div>
 
         <!-- 新增：转债市场概览 -->
-        <div v-if="canViewPremiumContent" class="content-card">
-          <h2 class="card-title">转债市场概览</h2>
+        <router-link v-if="canViewPremiumContent" to="/bond-market" class="content-card market-overview-link" aria-label="查看转债全景">
+          <div class="market-overview-header">
+            <h2 class="card-title">转债市场概览</h2>
+            <span class="market-overview-link-hint">查看转债全景 →</span>
+          </div>
           <p class="card-description">
             以下为截至 <strong>{{ marketTimestamp }}</strong> 的全市场可转债核心数据，反映当前市场温度。
           </p>
@@ -92,7 +95,7 @@
               <div class="dist-range">&gt; 130元</div>
             </div>
           </div>
-        </div>
+        </router-link>
 
         <!-- 组合思想 -->
         <div class="content-card">
@@ -149,10 +152,14 @@
         </div>
 
         <div v-if="canViewPremiumContent" class="content-card">
-          <h2 class="card-title">最新持仓与调仓建议</h2>
-          <p class="card-description">
-            根据模型于 {{ formattedDate }} 14:40 生成的最新组合与操作建议。请结合自身情况参考。
-          </p>
+          <div class="card-header-row holdings-header">
+            <h2 class="card-title">最新持仓与调仓建议</h2>
+            <div class="system-status"><span class="status-dot"></span>更新时间：{{ formattedDate }} 14:40</div>
+          </div>
+          <div class="position-rule-note">
+            <strong>持仓执行规则</strong>
+            <span>组合内每只转债按相同张数持有；每天开盘前，为每只当前持仓挂出较前一交易日收盘价上涨 6% 的限价卖单。</span>
+          </div>
 
           <!-- 最新持仓组合 -->
           <h3 class="card-subtitle">最新持仓组合 ({{ strategyData?.latest_portfolio.length }}只)</h3>
@@ -1309,6 +1316,46 @@
       border-color: rgb(173 216 230 / 50%); /* 主题色 */
   }
 
+  .market-overview-link {
+      display: block;
+      color: inherit;
+      text-decoration: none;
+      cursor: pointer;
+  }
+
+  .market-overview-link:hover,
+  .market-overview-link:focus-visible {
+      border-color: rgb(173 216 230 / 70%);
+      box-shadow: 0 0 18px rgb(173 216 230 / 12%);
+  }
+
+  .market-overview-link:focus-visible {
+      outline: 2px solid #add8e6;
+      outline-offset: 3px;
+  }
+
+  .market-overview-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 1rem;
+      gap: 1rem;
+  }
+
+  .market-overview-header .card-title {
+      margin-bottom: 0;
+  }
+
+  .market-overview-link-hint {
+      padding: 0.28rem 0.65rem;
+      font-size: 0.78rem;
+      white-space: nowrap;
+      color: #add8e6;
+      background: rgb(173 216 230 / 10%);
+      border: 1px solid rgb(173 216 230 / 28%);
+      border-radius: 999px;
+  }
+
   .content-card:nth-child(1) {
       animation-delay: 0.2s;
   }
@@ -1392,6 +1439,33 @@
       font-size: 0.95rem;
       color: #b0c4de;
       line-height: 1.7;
+  }
+
+  .position-rule-note {
+      display: flex;
+      align-items: flex-start;
+      padding: 0.75rem 0.9rem;
+      background: rgb(173 216 230 / 8%);
+      border: 1px solid rgb(173 216 230 / 24%);
+      border-radius: 8px;
+      gap: 0.7rem;
+  }
+
+  .position-rule-note strong {
+      flex: 0 0 auto;
+      font-size: 0.85rem;
+      color: #add8e6;
+      line-height: 1.6;
+  }
+
+  .position-rule-note span {
+      font-size: 0.82rem;
+      color: #aebfd3;
+      line-height: 1.6;
+  }
+
+  .position-rule-note + .card-subtitle {
+      margin-top: 1rem;
   }
 
   .idea-list {
@@ -1719,6 +1793,35 @@
       gap: 1rem;
   }
 
+  .holdings-header {
+      align-items: flex-start;
+      margin-bottom: 1rem;
+  }
+
+  .holdings-header .card-title {
+      margin-bottom: 0;
+  }
+
+  .system-status {
+      padding: 0.28rem 0.65rem;
+      font-size: 0.78rem;
+      white-space: nowrap;
+      color: #add8e6;
+      background: rgb(173 216 230 / 10%);
+      border: 1px solid rgb(173 216 230 / 28%);
+      border-radius: 999px;
+  }
+
+  .status-dot {
+      display: inline-block;
+      margin-right: 0.4rem;
+      width: 6px;
+      height: 6px;
+      background: #add8e6;
+      border-radius: 50%;
+      box-shadow: 0 0 6px #add8e6;
+  }
+
   .card-title.no-margin {
       margin-bottom: 0;
   }
@@ -2011,6 +2114,11 @@
 
       .card-description {
           font-size: 0.9rem;
+      }
+
+      .position-rule-note {
+          flex-direction: column;
+          gap: 0.3rem;
       }
 
       .stats-bar {

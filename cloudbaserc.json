@@ -645,6 +645,14 @@
       "description": "债券策略最新盘中快照查询（无定时刷新）"
     },
     {
+      "name": "getBondPortfolio",
+      "runtime": "Nodejs18.15",
+      "handler": "index.main",
+      "timeout": 3,
+      "memorySize": 256,
+      "description": "可转债策略详情中的推荐转债组合与操作建议"
+    },
+    {
       "name": "updateBondStrategyRealtime",
       "runtime": "Nodejs18.15",
       "handler": "index.main",
