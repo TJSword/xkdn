@@ -12,6 +12,7 @@ declare module '@vue/runtime-core' {
     AllWeatherMenuIcon: typeof import('./../src/components/AllWeatherMenuIcon.vue')['default']
     ChartDateRangePicker: typeof import('./../src/components/ChartDateRangePicker.vue')['default']
     ElConfigProvider: typeof import('element-plus/es')['ElConfigProvider']
+    ElTooltip: typeof import('element-plus/es')['ElTooltip']
     FeaturePageIcon: typeof import('./../src/components/FeaturePageIcon.vue')['default']
     Main: typeof import('./../src/components/loading/main.vue')['default']
     Message: typeof import('./../src/components/Message.vue')['default']

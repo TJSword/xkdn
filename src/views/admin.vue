@@ -333,6 +333,74 @@
       </section>
 
       <section
+        v-if="activeTab === 'data-source'"
+        class="content-card admin-section cookie-config-card"
+        :class="{ expanded: expandedCookieSource === 'tonghuashun' }"
+      >
+        <div
+          class="cookie-card-summary-toggle"
+          role="button"
+          tabindex="0"
+          :aria-expanded="expandedCookieSource === 'tonghuashun'"
+          aria-controls="tonghuashun-cookie-editor"
+          :aria-label="expandedCookieSource === 'tonghuashun' ? '收起同花顺 Cookie 编辑区' : '展开同花顺 Cookie 编辑区'"
+          @click="toggleCookieEditor('tonghuashun')"
+          @keydown.enter="toggleCookieEditor('tonghuashun')"
+          @keydown.space.prevent="toggleCookieEditor('tonghuashun')"
+        >
+        <div class="card-header-with-toggle">
+          <div>
+            <h2 class="card-title">投资账本 Cookie</h2>
+            <p class="card-description">用于账户观察页的两个实盘策略走势请求，完整凭证仅保存在云数据库。</p>
+          </div>
+          <div class="cookie-card-state">
+            <span :class="['status-pill', tonghuashunCookieStatus.configured ? 'success' : 'warning']">
+              {{ tonghuashunCookieStatus.configured ? '已配置' : '未配置' }}
+            </span>
+          </div>
+        </div>
+
+        <div class="cookie-summary-grid">
+          <div class="cookie-summary-item">
+            <span>凭证状态</span>
+            <strong>{{ tonghuashunCookieStatus.maskedCookie || '--' }}</strong>
+          </div>
+          <div class="cookie-summary-item">
+            <span>更新时间</span>
+            <strong>{{ formatDateTime(tonghuashunCookieStatus.updatedAt) }}</strong>
+          </div>
+          <div class="cookie-summary-item">
+            <span>最近校验</span>
+            <strong>{{ lastTonghuashunCookieCheck || '--' }}</strong>
+          </div>
+        </div>
+        </div>
+
+        <div
+          v-if="expandedCookieSource === 'tonghuashun'"
+          id="tonghuashun-cookie-editor"
+          class="settings-panel cookie-editor-panel"
+        >
+          <label class="form-label" for="tonghuashun-cookie">Cookie 内容</label>
+          <textarea
+            id="tonghuashun-cookie"
+            v-model="tonghuashunCookie"
+            class="cookie-textarea"
+            placeholder="在这里粘贴同花顺网页版请求头中的完整 Cookie"
+          ></textarea>
+          <p class="form-help">保存后可使用“检查有效性”同时验证两个子账户，校验不会返回金额或持仓。</p>
+          <div class="settings-actions">
+            <button class="button-primary" type="button" :disabled="isSavingTonghuashunCookie || isCheckingTonghuashunCookie || !tonghuashunCookie.trim()" @click="saveTonghuashunCookieData">
+              {{ isSavingTonghuashunCookie ? '保存中...' : '保存 Cookie' }}
+            </button>
+            <button class="button-secondary" type="button" :disabled="isCheckingTonghuashunCookie || isSavingTonghuashunCookie" @click="checkTonghuashunCookie">
+              {{ isCheckingTonghuashunCookie ? '检查中...' : '检查有效性' }}
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <section
         v-if="activeTab === 'data-view'"
         class="content-card admin-section data-drawer-card"
         :class="{ expanded: isCandidateDrawerOpen }"
@@ -627,7 +695,7 @@
 
   type TabKey = 'users' | 'data-source' | 'data-view' | 'refresh'
   type RefreshTaskKey = 'lof' | 'rights' | 'micro_cap' | 'high_dividend' | 'bond_market'
-  type CookieSource = 'xueqiu' | 'jisilu' | 'guoren'
+  type CookieSource = 'xueqiu' | 'jisilu' | 'guoren' | 'tonghuashun'
 
   interface CollectedDataRow {
       stockName: string
@@ -802,6 +870,15 @@
   const isCheckingGuorenCookie = ref(false)
   const isResettingGuorenCookie = ref(false)
   const lastGuorenCookieCheck = ref('')
+  const tonghuashunCookieStatus = ref({
+      configured: false,
+      maskedCookie: '',
+      updatedAt: ''
+  })
+  const tonghuashunCookie = ref('')
+  const isSavingTonghuashunCookie = ref(false)
+  const isCheckingTonghuashunCookie = ref(false)
+  const lastTonghuashunCookieCheck = ref('')
   const expandedCookieSource = ref<CookieSource | null>(null)
   const collectedData = ref<CollectedData | null>(null)
   const isLoadingCollectedData = ref(false)
@@ -921,6 +998,25 @@
           }
       } catch (error) {
           console.error('读取果仁 Cookie 状态失败:', error)
+      }
+  }
+
+  const fetchTonghuashunCookieStatus = async () => {
+      try {
+          const response: any = await callCloudFunction({
+              name: 'tonghuashunAccountConfig',
+              data: { action: 'get' }
+          })
+          if (response.result?.success) {
+              tonghuashunCookieStatus.value = {
+                  configured: response.result.data.configured === true,
+                  maskedCookie: response.result.data.maskedCookie || '',
+                  updatedAt: response.result.data.updatedAt || ''
+              }
+              lastTonghuashunCookieCheck.value = formatDateTime(response.result.data.lastCheckedAt || '')
+          }
+      } catch (error) {
+          console.error('读取同花顺 Cookie 状态失败:', error)
       }
   }
 
@@ -1399,6 +1495,54 @@
       }
   }
 
+  const saveTonghuashunCookieData = async () => {
+      if (!tonghuashunCookie.value.trim()) {
+          showMessage('Cookie 不能为空', 'warning')
+          return
+      }
+
+      isSavingTonghuashunCookie.value = true
+      try {
+          const response: any = await callCloudFunction({
+              name: 'tonghuashunAccountConfig',
+              data: {
+                  action: 'update',
+                  cookie: tonghuashunCookie.value
+              }
+          })
+          if (!response.result?.success) throw new Error(response.result?.message || '保存失败')
+
+          showMessage('同花顺 Cookie 已保存', 'success')
+          tonghuashunCookie.value = ''
+          await fetchTonghuashunCookieStatus()
+          expandedCookieSource.value = null
+      } catch (error: any) {
+          showMessage(error.message || 'Cookie 保存失败', 'error')
+      } finally {
+          isSavingTonghuashunCookie.value = false
+      }
+  }
+
+  const checkTonghuashunCookie = async () => {
+      if (isCheckingTonghuashunCookie.value) return
+
+      isCheckingTonghuashunCookie.value = true
+      try {
+          const response: any = await callCloudFunction({
+              name: 'tonghuashunAccountConfig',
+              data: { action: 'check' }
+          })
+          const result = response.result || {}
+          await fetchTonghuashunCookieStatus()
+          if (result.success === false) throw new Error(result.message || 'Cookie 校验失败')
+          showMessage(result.message || '两个子账户数据正常', 'success')
+      } catch (error: any) {
+          showMessage(error.message || 'Cookie 状态检查失败', 'error')
+      } finally {
+          isCheckingTonghuashunCookie.value = false
+      }
+  }
+
   const runRefreshTask = async (key: RefreshTaskKey) => {
       if (refreshingKey.value) return
 
@@ -1487,6 +1631,7 @@
       fetchCookieStatus()
       fetchJisiluCookieStatus()
       fetchGuorenCookieStatus()
+      fetchTonghuashunCookieStatus()
   })
 </script>
 

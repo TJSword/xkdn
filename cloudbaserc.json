@@ -751,6 +751,22 @@
       ]
     },
     {
+      "name": "tonghuashunAccountConfig",
+      "runtime": "Nodejs20.19",
+      "handler": "index.main",
+      "timeout": 30,
+      "memorySize": 256,
+      "description": "管理员维护同花顺账户观察 Cookie 并校验两个子账户数据"
+    },
+    {
+      "name": "getAccountObservation",
+      "runtime": "Nodejs20.19",
+      "handler": "index.main",
+      "timeout": 30,
+      "memorySize": 256,
+      "description": "已登录用户查询惊鸿策略与小狮子策略的脱敏收益走势和当前持仓"
+    },
+    {
       "name": "getMarketData",
       "runtime": "Nodejs18.15",
       "handler": "index.main",

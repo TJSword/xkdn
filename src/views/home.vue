@@ -2926,18 +2926,16 @@
 
   // 定义秘籍映射表：代码 -> 路由路径
   const secretCodes: Record<string, string> = {
-      zz: '/admin'
+      zz: '/admin',
+      aa: '/nav'
   }
 
   const handleSecretKeydown = (e: KeyboardEvent) => {
-      // 1. 安全守卫：如果不是管理员，或者没有用户信息，直接忽略
-      if (!userStore.userInfo?.admin) return
-
-      // 2. 防误触：如果用户正在输入框(Input/Textarea)里打字，不触发秘籍
+      // 1. 防误触：如果用户正在输入框(Input/Textarea)里打字，不触发秘籍
       const target = e.target as HTMLElement
       if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') return
 
-      // 3. 记录按键：只记录单个字母按键，并转为小写
+      // 2. 记录按键：只记录单个字母按键，并转为小写
       if (e.key.length === 1 && /[a-zA-Z]/.test(e.key)) {
           keyBuffer += e.key.toLowerCase()
           console.log(keyBuffer)
@@ -2947,9 +2945,14 @@
               keyBuffer = keyBuffer.slice(-3)
           }
 
-          // 4. 匹配检测
+          // 3. 匹配检测
           for (const [code, path] of Object.entries(secretCodes)) {
               if (keyBuffer.endsWith(code)) {
+                  // 管理员入口单独校验身份，净值入口无需管理员权限
+                  if (code === 'zz' && !userStore.userInfo?.admin) {
+                      keyBuffer = ''
+                      return
+                  }
                   // 匹配成功！
                   isAdminScanVisible.value = true
                   if (adminScanTimer !== null) window.clearTimeout(adminScanTimer)

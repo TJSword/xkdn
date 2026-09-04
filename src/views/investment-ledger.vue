@@ -1023,7 +1023,7 @@
                         </span>
                     </div>
                     <template v-if="activeDrawdownEpisode">
-                        <div class="drawdown-attribution-equation">
+                        <div v-if="isDrawdownAttributionReconciled" class="drawdown-attribution-equation">
                             <div>
                                 <span>亏损项合计</span>
                                 <strong :class="returnClass(drawdownLossTotal)">{{ displayMoneyChange(drawdownLossTotal) }}</strong>
@@ -1036,8 +1036,15 @@
                             <i aria-hidden="true">=</i>
                             <div class="drawdown-attribution-net">
                                 <span>本轮净亏损</span>
-                                <strong :class="returnClass(activeDrawdownProfit)">{{ displayMoneyChange(activeDrawdownProfit) }}</strong>
+                                <strong :class="returnClass(drawdownAttributedProfit)">{{ displayMoneyChange(drawdownAttributedProfit) }}</strong>
                             </div>
+                        </div>
+                        <div v-else class="drawdown-attribution-warning">
+                            <strong>归因数据未闭合</strong>
+                            <span>
+                                整体账户 {{ displayMoneyChange(activeDrawdownProfit) }}，策略合计
+                                {{ displayMoneyChange(drawdownAttributedProfit) }}
+                            </span>
                         </div>
                         <div
                             class="drawdown-attribution-list"
@@ -3767,14 +3774,19 @@ const drawdownAttributionRows = computed(() => {
     const episode = activeDrawdownEpisode.value
     if (!episode) return []
 
-    const rows = strategies
-        .map(strategy => {
+    const rows = managedStrategies.value
+        .flatMap(strategy => {
             const records = recentRecords.value.filter(record => record.strategyId === strategy.id)
-            return {
-                name: strategy.name,
+            const hasIntervalRecords = records.some(
+                record => record.date > episode.peakDate && record.date <= episode.troughDate
+            )
+            if (!hasIntervalRecords) return []
+
+            return [{
+                name: `${strategy.name}${strategy.archived ? '（已归档）' : ''}`,
                 color: strategy.color,
                 amount: calculateRecordsProfitBetween(records, episode.peakDate, episode.troughDate)
-            }
+            }]
         })
         .sort((a, b) => a.amount - b.amount)
     const lossTotal = rows.reduce((total, item) => total + Math.max(-item.amount, 0), 0)
@@ -3795,6 +3807,12 @@ const drawdownLossTotal = computed(() =>
 )
 const drawdownOffsetTotal = computed(() =>
     drawdownOffsetRows.value.reduce((total, item) => total + item.amount, 0)
+)
+const drawdownAttributedProfit = computed(() =>
+    drawdownAttributionRows.value.reduce((total, item) => total + item.amount, 0)
+)
+const isDrawdownAttributionReconciled = computed(
+    () => Math.abs(activeDrawdownProfit.value - drawdownAttributedProfit.value) <= 0.01
 )
 const formatDrawdownRecoveryStatus = (item: DrawdownEpisode) => {
     if (item.recoveryDate) return `已恢复 · ${item.recoveryDays || 0} 天`
@@ -4046,13 +4064,13 @@ const calculateRecordsProfitBetween = (
         .filter(item => item.date <= endDate)
         .sort((a, b) => a.date.localeCompare(b.date))
     const baseline = orderedRows.filter(item => item.date <= startDate).at(-1)
-    const last = orderedRows.at(-1)
-    if (!baseline || !last) return 0
+    const rows = orderedRows.filter(item => item.date > startDate)
+    const last = rows.at(-1)
+    if (!last) return 0
 
-    const cashFlow = orderedRows
-        .filter(item => item.date > startDate)
-        .reduce((total, item) => total + Number(item.cashFlow || 0), 0)
-    return last.amount - baseline.amount - cashFlow
+    const startAmount = resolveActualProfitBaseline(baseline?.amount)
+    const cashFlow = rows.reduce((total, item) => total + Number(item.cashFlow || 0), 0)
+    return last.amount - startAmount - cashFlow
 }
 const performanceStrategySummaries = computed(() =>
     strategies.map(strategy => {
@@ -8747,6 +8765,22 @@ select:focus {
     border-color: rgb(0 170 255 / 24%);
 }
 
+.drawdown-attribution-warning {
+    display: grid;
+    padding: 12px;
+    margin-bottom: 12px;
+    color: #f4c95d;
+    background: rgb(244 201 93 / 8%);
+    border: 1px solid rgb(244 201 93 / 28%);
+    border-radius: 7px;
+    gap: 4px;
+}
+
+.drawdown-attribution-warning span {
+    color: #9aabba;
+    font-size: 12px;
+}
+
 .drawdown-attribution-list {
     display: grid;
     flex: 1;
@@ -8775,6 +8809,10 @@ select:focus {
 
 .drawdown-attribution-row .attribution-name {
     grid-area: name;
+}
+
+.drawdown-attribution-row .attribution-name strong {
+    white-space: nowrap;
 }
 
 .drawdown-attribution-row .drawdown-loss-track {

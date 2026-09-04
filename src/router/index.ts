@@ -165,6 +165,16 @@ export const constantRoutes = [
     }
   },
   {
+    path: '/nav',
+    component: () => import('@/views/account-observation.vue'),
+    meta: {
+      requiresAuth: true,
+      capability: 'app:read',
+      title: '策略净值',
+      description: '查看惊鸿策略与小狮子策略的当日收益走势和当前持仓。'
+    }
+  },
+  {
     path: '/admin',
     component: () => import('@/views/admin.vue'),
     meta: {

@@ -61,7 +61,16 @@
 
       <section v-else class="full-metric-band" aria-label="完整市场指标">
         <article v-for="item in fullMetricCards" :key="item.label" class="full-metric-item">
-          <span>{{ item.label }}</span>
+          <el-tooltip
+            v-if="item.description"
+            :content="item.description"
+            :trigger="['hover', 'focus']"
+            :popper-style="{ maxWidth: '280px', lineHeight: '1.6' }"
+            placement="top"
+          >
+            <span class="full-metric-label" tabindex="0">{{ item.label }}</span>
+          </el-tooltip>
+          <span v-else>{{ item.label }}</span>
           <strong :class="item.tone">{{ item.value }}</strong>
           <em>{{ item.note }}</em>
         </article>
@@ -332,6 +341,8 @@
   import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
   import { callCloudFunction } from '@/services/cloudFunction'
   import { useUserStore } from '@/store/user'
+  import { calculateBondMarketPercentile } from '@/utils/bondMarketPercentile'
+  import type { BondMarketMetric } from '@/utils/bondMarketPercentile'
   import { use } from 'echarts/core'
   import { CanvasRenderer } from 'echarts/renderers'
   import { BarChart, HeatmapChart, LineChart, ScatterChart } from 'echarts/charts'
@@ -355,6 +366,14 @@
       balance: number
       turnover: number
       count: number
+  }
+
+  type MetricCard = {
+      label: string
+      value: string
+      note: string
+      tone: string
+      description?: string
   }
 
   type PriceSegment = {
@@ -423,10 +442,10 @@
       start: defaultHistoryStart,
       end: defaultHistoryEnd
   })
-  const trendLegendNames = ['等权指数', '平均价格', '价格中位数', '平均溢价率', '溢价率中位数', '成交额', '换手率']
+  const trendLegendNames = ['等权指数', '价格平均数', '价格中位数', '溢价率平均数', '溢价率中位数', '成交额', '换手率']
   const trendLegendSelected = ref<Record<string, boolean>>({
-      平均价格: false,
-      平均溢价率: false,
+      价格平均数: false,
+      溢价率平均数: false,
       溢价率中位数: false,
       成交额: false,
       换手率: false
@@ -637,7 +656,31 @@
       })
   })
 
-  const fullMetricCards = computed(() => {
+  const percentileMetricCards = computed<MetricCard[]>(() => {
+      const latestIndex = latestMarketIndex.value
+      const metrics: Array<{ key: BondMarketMetric; label: string; unit: string }> = [
+          { key: 'midPrice', label: '价格中位数', unit: '' },
+          { key: 'avgPrice', label: '价格平均数', unit: '' },
+          { key: 'midPremium', label: '溢价率中位数', unit: '%' },
+          { key: 'avgPremium', label: '溢价率平均数', unit: '%' }
+      ]
+      return metrics.map(metric => {
+          const result = calculateBondMarketPercentile(history.value, latestIndex, metric.key)
+          const currentValue = latestIndex?.[metric.key]
+          return {
+              label: `${metric.label}百分位`,
+              value: result ? `${result.percentile.toFixed(2)}%` : '--',
+              note: typeof currentValue === 'number' && Number.isFinite(currentValue)
+                  ? `当前 ${currentValue.toFixed(2)}${metric.unit}` : '等待日截面更新',
+              description: result
+                  ? `这是当前${metric.label}在全部可用历史中的百分位。统计范围：${result.startDate} 至 ${result.endDate}，共 ${result.count} 个有效收盘样本。百分位为历史值不高于当前值的样本占比，排除当前交易日，不随图表时间范围变化。`
+                  : '这是当前值在全部可用历史中的百分位，需要有效的当前值及此前交易日历史数据才能计算。',
+              tone: 'neutral'
+          }
+      })
+  })
+
+  const fullMetricCards = computed<MetricCard[]>(() => {
       const latestIndex = latestMarketIndex.value
       return [
           {
@@ -655,13 +698,13 @@
           {
               label: '价格中位数',
               value: latestIndex ? latestIndex.midPrice.toFixed(2) : '--',
-              note: latestIndex ? `日截面平均价 ${latestIndex.avgPrice.toFixed(2)}` : '等待日截面更新',
+              note: latestIndex ? `价格平均数 ${latestIndex.avgPrice.toFixed(2)}` : '等待日截面更新',
               tone: 'neutral'
           },
           {
               label: '溢价率中位数',
               value: latestIndex ? `${latestIndex.midPremium.toFixed(2)}%` : '--',
-              note: latestIndex ? `日截面平均 ${latestIndex.avgPremium.toFixed(2)}%` : '等待日截面更新',
+              note: latestIndex ? `溢价率平均数 ${latestIndex.avgPremium.toFixed(2)}%` : '等待日截面更新',
               tone: 'neutral'
           },
           {
@@ -682,7 +725,8 @@
               note: latestIndex ? '日截面平均到期收益率' : '等待日截面更新',
               tone: latestIndex ? latestIndex.avgYtm >= 0 ? 'positive' : 'negative' : 'neutral'
           },
-          { label: '实时样本', value: latestIndex ? `${latestIndex.count} 只` : '--', note: latestIndex ? '集思录实时转债样本' : '等待实时指数更新', tone: 'neutral' }
+          { label: '实时样本', value: latestIndex ? `${latestIndex.count} 只` : '--', note: latestIndex ? '集思录实时转债样本' : '等待实时指数更新', tone: 'neutral' },
+          ...percentileMetricCards.value
       ]
   })
 
@@ -702,15 +746,15 @@
           xAxis: axis('category', dates),
           yAxis: [
               { ...valueAxis('指数'), show: isTrendAxisVisible(['等权指数']) },
-              { ...valueAxis('价格'), show: isTrendAxisVisible(['平均价格', '价格中位数']), position: 'right', axisLabel: { color: '#8aa0b8', fontSize: 14 } },
-              { ...valueAxis('百分比'), show: isTrendAxisVisible(['平均溢价率', '溢价率中位数', '换手率']), position: 'right', offset: 48, axisLabel: { color: '#8aa0b8', fontSize: 14, formatter: '{value}%' } },
+              { ...valueAxis('价格'), show: isTrendAxisVisible(['价格平均数', '价格中位数']), position: 'right', axisLabel: { color: '#8aa0b8', fontSize: 14 } },
+              { ...valueAxis('百分比'), show: isTrendAxisVisible(['溢价率平均数', '溢价率中位数', '换手率']), position: 'right', offset: 48, axisLabel: { color: '#8aa0b8', fontSize: 14, formatter: '{value}%' } },
               { ...valueAxis('成交额'), show: isTrendAxisVisible(['成交额']), position: 'right', offset: 96, axisLabel: { color: '#8aa0b8', fontSize: 14, formatter: '{value}亿' } }
           ],
           series: [
               lineSeries('等权指数', rows.map(item => item.index), '#f59e0b'),
-              lineSeries('平均价格', rows.map(item => item.avgPrice), '#d8e8ff', 1),
+              lineSeries('价格平均数', rows.map(item => item.avgPrice), '#d8e8ff', 1),
               lineSeries('价格中位数', rows.map(item => item.midPrice), '#8fa3bb', 1),
-              lineSeries('平均溢价率', rows.map(item => item.avgPremium), '#7bc8a4', 2),
+              lineSeries('溢价率平均数', rows.map(item => item.avgPremium), '#7bc8a4', 2),
               lineSeries('溢价率中位数', rows.map(item => item.midPremium), '#9fb9d3', 2),
               lineSeries('成交额', rows.map(item => item.amount), '#c8d7e8', 3),
               lineSeries('换手率', rows.map(item => item.turnover), '#94a3b8', 2)
@@ -1281,6 +1325,11 @@
       display: block;
       color: #b0c4de;
       font-size: 0.82rem;
+  }
+
+  .full-metric-item .full-metric-label {
+      width: fit-content;
+      cursor: help;
   }
 
   .full-metric-item strong {
