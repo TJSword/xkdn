@@ -2521,6 +2521,7 @@
 .monthly-calendar-cell {
     position: relative;
     display: grid;
+    box-sizing: border-box;
     min-height: 68px;
     padding: 0.55rem;
     color: #6f8094;
