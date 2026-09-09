@@ -362,7 +362,8 @@
       calculateSortinoRatio,
       calculateStats,
       formatBacktestPeriod,
-      prepareStrategySeries
+      prepareStrategySeries,
+      includeInitialReturn
   } from '@/utils/strategyMetrics'
   import type {
       DrawdownDistributionItem,
@@ -377,6 +378,7 @@
   interface RightsStrategyData {
       dateList: string[]
       strategyData: number[]
+      dailyReturn?: number[]
       hs300?: number[]
   }
 
@@ -495,7 +497,7 @@
       const endIndex = selectedEndIndex.value || dates.length - 1
       const selectedDates = dates.slice(startIndex, endIndex + 1)
       const strategyDisplayData = getChartDisplayData(
-          rebaseSeries(strategySeries.value.values, startIndex).slice(startIndex, endIndex + 1)
+          rebaseSeries(strategySeries.value.values, startIndex, initialStrategyValue.value).slice(startIndex, endIndex + 1)
       )
       const benchmarkDisplayData = getChartDisplayData(
           rebaseSeries(strategyData.value.hs300 || [], startIndex).slice(startIndex, endIndex + 1)
@@ -593,7 +595,8 @@
       const startIndex = selectedStartIndex.value
       const endIndex = selectedEndIndex.value || strategySeries.value.dates.length - 1
       const numericData = data.map(value => Number(value))
-      const displayData = getChartDisplayData(rebaseSeries(numericData, startIndex).slice(startIndex, endIndex + 1))
+      const initialValue = name === '含权策略' ? initialStrategyValue.value : undefined
+      const displayData = getChartDisplayData(rebaseSeries(numericData, startIndex, initialValue).slice(startIndex, endIndex + 1))
 
       return {
           name,
@@ -607,8 +610,15 @@
 
   const CHART_REBASE_VALUE = 1000
 
-  const rebaseSeries = (data: number[], startIndex: number) => {
-      const startValue = data[startIndex]
+  const initialStrategyValue = computed(() => {
+      const series = strategySeries.value
+      const raw = strategyData.value
+      if (series.dates[0] !== raw.dateList[0] || series.values[0] !== raw.strategyData[0]) return undefined
+      return includeInitialReturn(series, raw.dailyReturn?.[0]).values[0]
+  })
+
+  const rebaseSeries = (data: number[], startIndex: number, initialValue?: number) => {
+      const startValue = startIndex === 0 && initialValue !== undefined ? initialValue : data[startIndex]
       if (!Number.isFinite(startValue) || startValue <= 0) {
           return data.map(value => (Number.isFinite(value) ? value : null))
       }
@@ -741,15 +751,21 @@
 
       const boundedStartIndex = clampIndex(startIndex, maxIndex)
       const boundedEndIndex = clampIndex(Math.max(endIndex, boundedStartIndex), maxIndex)
-      const selectedDates = dates.slice(boundedStartIndex, boundedEndIndex + 1)
-      const selectedValues = values.slice(boundedStartIndex, boundedEndIndex + 1)
+      const selected = {
+          dates: dates.slice(boundedStartIndex, boundedEndIndex + 1),
+          values: values.slice(boundedStartIndex, boundedEndIndex + 1)
+      }
+      const raw = strategyData.value
+      const firstReturn = boundedStartIndex === 0 && selected.dates[0] === raw.dateList[0] && selected.values[0] === raw.strategyData[0]
+          ? raw.dailyReturn?.[0] : undefined
+      const { dates: selectedDates, values: selectedValues } = includeInitialReturn(selected, firstReturn)
       const drawdownAnalysis = calculateDrawdownAnalysis(selectedValues, selectedDates)
 
       selectedStartIndex.value = boundedStartIndex
       selectedEndIndex.value = boundedEndIndex
       dateRangeStart.value = dates[boundedStartIndex] || ''
       dateRangeEnd.value = dates[boundedEndIndex] || ''
-      strategyStats.value = calculateStats(selectedValues)
+      strategyStats.value = calculateStats(selectedValues, selectedDates)
       monthlyRows.value = calculateMonthlyReturns(selectedValues, selectedDates)
       monthlySummary.value = calculateMonthlySummary(monthlyRows.value)
       sortinoRatio.value = calculateSortinoRatio(selectedValues)
@@ -790,18 +806,10 @@
               throw new Error(res.result?.message || '含权策略数据为空')
           }
           const series = prepareStrategySeries(backendData.dateList, backendData.strategyData)
-          const drawdownAnalysis = calculateDrawdownAnalysis(series.values, series.dates)
-
           strategyData.value = backendData
           strategySeries.value = series
           chartMinDate.value = series.dates[0] || ''
           chartMaxDate.value = series.dates[series.dates.length - 1] || ''
-          strategyStats.value = calculateStats(series.values)
-          monthlyRows.value = calculateMonthlyReturns(series.values, series.dates)
-          monthlySummary.value = calculateMonthlySummary(monthlyRows.value)
-          sortinoRatio.value = calculateSortinoRatio(series.values)
-          drawdownRows.value = drawdownAnalysis.drawdowns.slice(0, 10)
-          drawdownDistribution.value = drawdownAnalysis.distribution
           updateSelectedRangeMetrics(0, series.dates.length - 1)
       } catch (error) {
           throwIfAuthExpired(error)

@@ -574,8 +574,8 @@
                 <input id="days-input" v-model.number="daysToAdd" type="number" min="-3650" max="3650" step="1" class="form-input" placeholder="例如：30 或 -7" />
               </div>
               <div class="form-group">
-                <label for="renewal-reason">调整原因</label>
-                <textarea id="renewal-reason" v-model="adjustmentReason" class="form-input" maxlength="200" placeholder="请填写本次会员期限调整原因"></textarea>
+                <label for="renewal-reason">调整原因（选填）</label>
+                <textarea id="renewal-reason" v-model="adjustmentReason" class="form-input" maxlength="200" placeholder="可留空，最多 200 字"></textarea>
               </div>
               <div v-if="newExpiryDate" class="form-group">
                 <label>调整后到期时间</label>
@@ -585,8 +585,8 @@
           </div>
           <div class="modal-footer">
             <button class="button-secondary" @click="closeModal">取消</button>
-            <button class="button-primary" :disabled="!daysToAdd || daysToAdd === 0 || !adjustmentReason.trim()" @click="confirmRenewal">
-              确认调整
+            <button class="button-primary" :disabled="!daysToAdd || daysToAdd === 0 || isRenewing" @click="confirmRenewal">
+              {{ isRenewing ? '调整中...' : '确认调整' }}
             </button>
           </div>
         </div>
@@ -1149,6 +1149,7 @@
   const selectedUser = ref<User | null>(null)
   const daysToAdd = ref<number | null>(null)
   const adjustmentReason = ref('')
+  const isRenewing = ref(false)
 
   const openRenewalModal = (user: User) => {
       selectedUser.value = user
@@ -1156,6 +1157,7 @@
   }
 
   const closeModal = () => {
+      if (isRenewing.value) return
       isModalVisible.value = false
       selectedUser.value = null
       daysToAdd.value = null
@@ -1173,7 +1175,8 @@
   })
 
   const confirmRenewal = () => {
-      if (!selectedUser.value || !daysToAdd.value || !adjustmentReason.value.trim()) return
+      if (!selectedUser.value || !daysToAdd.value || isRenewing.value) return
+      isRenewing.value = true
 
       callCloudFunction({
           name: 'renewMembership',
@@ -1187,6 +1190,7 @@
           .then((res: any) => {
               if (res.result?.success) {
                   showMessage('操作成功！', 'success')
+                  isRenewing.value = false
                   closeModal()
                   fetchUsers()
               } else {
@@ -1194,7 +1198,11 @@
               }
           })
           .catch(() => {
-              showMessage('网络错误，操作失败', 'error')
+              showMessage('未收到调整结果，请刷新用户列表核对到期时间后再试', 'error')
+              fetchUsers()
+          })
+          .finally(() => {
+              isRenewing.value = false
           })
   }
 

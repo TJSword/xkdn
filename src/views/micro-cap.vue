@@ -204,13 +204,21 @@
             </table>
           </div>
 
-          <template v-if="portfolioView === 'holdings' && hasCalculated">
-            <h3 class="card-subtitle" style="margin-top: 2rem;">组合调仓指引</h3>
+          <template v-if="portfolioView === 'holdings'">
+            <h3 class="card-subtitle" style="margin-top: 2rem;">{{ hasCalculated ? '我的调仓结果' : '本期策略调仓' }}</h3>
+            <p class="ranking-note">
+              <template v-if="hasCalculated">根据我的持仓与本次测算的目标持仓生成，以下为需要买卖的股数。</template>
+              <template v-else-if="strategyRebalance">
+                {{ strategyRebalance.date }} · 根据本期与上一期策略实际持仓生成，无需输入资金即可查看。
+                <span v-if="strategyRebalance.weightRebalanceRequired">本期另有仓位权重调整，个人买卖股数请结合“我的持仓”进行测算。</span>
+              </template>
+              <template v-else>暂未获取到本期策略调仓数据。</template>
+            </p>
             <div class="adjustments-grid">
               <div class="adjustment-block">
                 <h4 class="adjustment-title sell">⬇️ 建议调出</h4>
                 <ul class="adjustment-list">
-                  <li v-for="item in sellList" :key="item.code" class="adjustment-item">
+                  <li v-for="item in displayedSellList" :key="item.code" class="adjustment-item">
                     <div class="item-left">
                       <span class="stock-name">{{ item.name }}</span>
                       <span class="code-tiny">{{ item.code }}</span>
@@ -220,14 +228,14 @@
                       <span class="action-badge" :class="item.subType">{{ item.action }}</span>
                     </div>
                   </li>
-                  <li v-if="sellList.length == 0" class="adjustment-item-empty">今日无调出建议</li>
+                  <li v-if="displayedSellList.length === 0" class="adjustment-item-empty">{{ hasCalculated ? '本次无需卖出' : strategyRebalance ? '本期无个股调出' : '暂无调出数据' }}</li>
                 </ul>
               </div>
 
               <div class="adjustment-block">
                 <h4 class="adjustment-title buy">⬆️ 建议调入</h4>
                 <ul class="adjustment-list">
-                  <li v-for="item in buyList" :key="item.code" class="adjustment-item">
+                  <li v-for="item in displayedBuyList" :key="item.code" class="adjustment-item">
                     <div class="item-left">
                       <span class="stock-name">{{ item.name }}</span>
                       <span class="code-tiny">{{ item.code }}</span>
@@ -237,7 +245,7 @@
                       <span class="action-badge" :class="item.subType">{{ item.action }}</span>
                     </div>
                   </li>
-                  <li v-if="buyList.length === 0" class="adjustment-item-empty">今日无调入建议</li>
+                  <li v-if="displayedBuyList.length === 0" class="adjustment-item-empty">{{ hasCalculated ? '本次无需买入' : strategyRebalance ? '本期无个股调入' : '暂无调入数据' }}</li>
                 </ul>
               </div>
             </div>
@@ -825,6 +833,20 @@
   const portfolioByCode = computed(() => new Map(latestPortfolio.value.map((item: any) => [item.code, item])))
   const sellList: any = ref([]) // 建议卖出
   const buyList: any = ref([]) // 建议买入
+  const strategyRebalance = ref<{
+      date: string
+      out: { code: string; name: string }[]
+      in: { code: string; name: string }[]
+      weightRebalanceRequired: boolean
+  } | null>(null)
+  const displayedSellList = computed(() => hasCalculated.value ? sellList.value :
+      (strategyRebalance.value?.out || []).map(item => ({
+          code: item.code, name: item.name, action: '策略调出', subType: 'clear-sell'
+      })))
+  const displayedBuyList = computed(() => hasCalculated.value ? buyList.value :
+      (strategyRebalance.value?.in || []).map(item => ({
+          code: item.code, name: item.name, action: '策略调入', subType: 'new-buy'
+      })))
 
   // --- 3. 获取云端数据函数 ---
   const fetchStrategyData = async () => {
@@ -847,6 +869,14 @@
                       formattedDate.value !== data.updated_at
 
                   formattedDate.value = data.updated_at
+                  strategyRebalance.value = Array.isArray(data.rebalanceOut) && Array.isArray(data.rebalanceIn)
+                      ? {
+                          date: data.tradeDate || data.date_str || data.updated_at,
+                          out: data.rebalanceOut,
+                          in: data.rebalanceIn,
+                          weightRebalanceRequired: data.weightRebalanceRequired === true
+                      }
+                      : null
 
                   rankings.value = (Array.isArray(data.ranking) ? data.ranking : []).map(
                       (item: any, index: number) => ({
@@ -1089,7 +1119,7 @@
       const drawdownAnalysis = calculateDrawdownAnalysis(selectedValues, selectedDates)
 
       backtestPeriodText.value = formatBacktestPeriod(selectedDates)
-      strategyStats.value = calculateStats(selectedValues)
+      strategyStats.value = calculateStats(selectedValues, selectedDates)
       profitLossRatio.value = calculateProfitLossRatio(selectedValues)
       monthlyReturns.value = calculateMonthlyReturns(selectedValues, selectedDates)
       monthlySummary.value = calculateMonthlySummary(monthlyReturns.value)
@@ -1610,7 +1640,7 @@
           const drawdownAnalysis = calculateDrawdownAnalysis(series.values, series.dates)
 
           backtestPeriodText.value = formatBacktestPeriod(series.dates)
-          strategyStats.value = calculateStats(series.values)
+          strategyStats.value = calculateStats(series.values, series.dates)
           profitLossRatio.value = calculateProfitLossRatio(series.values)
           monthlyReturns.value = calculateMonthlyReturns(series.values, series.dates)
           monthlySummary.value = calculateMonthlySummary(monthlyReturns.value)

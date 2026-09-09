@@ -107,7 +107,7 @@
             <li><b>多因子量化：</b> 综合考量低估值、高弹性、强基本面等多维因子进行筛选，构建具备高性价比和强向上弹性的初始投资池。</li>
             <li><b>每日轮动：</b> 模型于每个交易日下午2:40重新评估全市场可转债，卖出价值减弱的品种，换入新的价值洼地。</li>
             <li><b>纪律执行：</b> 严格遵循模型信号进行交易，完全摒除人性中的贪婪与恐惧。追求长期稳健的复利增长。</li>
-            <li><b>风险分散：</b> 始终保持持有5只不同可转债的组合，有效分散单一公司的基本面风险和流动性风险。</li>
+            <li><b>风险分散：</b> 始终保持持有10只不同可转债的组合，有效分散单一公司的基本面风险和流动性风险。</li>
           </ul>
         </div>
 
@@ -1052,7 +1052,7 @@
       const drawdownAnalysis = calculateDrawdownAnalysis(selectedValues, selectedDates)
 
       backtestPeriodText.value = formatBacktestPeriod(selectedDates)
-      backtestStats.value = calculateStats(selectedValues)
+      backtestStats.value = calculateStats(selectedValues, selectedDates)
       sortinoRatio.value = calculateSortinoRatio(selectedValues)
       monthlyReturns.value = calculateMonthlyReturns(selectedValues, selectedDates)
       monthlySummary.value = calculateMonthlySummary(monthlyReturns.value)
@@ -1177,7 +1177,7 @@
       const drawdownAnalysis = calculateDrawdownAnalysis(series.values, series.dates)
 
       backtestPeriodText.value = formatBacktestPeriod(series.dates)
-      backtestStats.value = calculateStats(series.values)
+      backtestStats.value = calculateStats(series.values, series.dates)
       sortinoRatio.value = calculateSortinoRatio(series.values)
       monthlyReturns.value = calculateMonthlyReturns(series.values, series.dates)
       monthlySummary.value = calculateMonthlySummary(monthlyReturns.value)

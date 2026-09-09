@@ -1386,7 +1386,7 @@
       const drawdownAnalysis = calculateDrawdownAnalysis(selectedValues, selectedDates)
 
       backtestPeriodText.value = formatBacktestPeriod(selectedDates)
-      strategyStats.value = calculateStats(selectedValues)
+      strategyStats.value = calculateStats(selectedValues, selectedDates)
       sortinoRatio.value = calculateSortinoRatio(selectedValues)
       monthlyReturns.value = calculateMonthlyReturns(selectedValues, selectedDates)
       monthlySummary.value = calculateMonthlySummary(monthlyReturns.value)
@@ -1518,7 +1518,7 @@
       const drawdownAnalysis = calculateDrawdownAnalysis(series.values, series.dates)
 
       backtestPeriodText.value = formatBacktestPeriod(series.dates)
-      strategyStats.value = calculateStats(series.values)
+      strategyStats.value = calculateStats(series.values, series.dates)
       sortinoRatio.value = calculateSortinoRatio(series.values)
       monthlyReturns.value = calculateMonthlyReturns(series.values, series.dates)
       monthlySummary.value = calculateMonthlySummary(monthlyReturns.value)

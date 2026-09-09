@@ -41,8 +41,21 @@ export interface MonthlySummary {
     winRate: string
 }
 
-const DEFAULT_TRADING_DAYS = 250
+export const DEFAULT_TRADING_DAYS = 250
 const DEFAULT_RISK_FREE_RATE = 0.02
+
+// Calendar time is used for CAGR; trading frequency is only used for risk metrics.
+const calendarYears = (dates: string[]) =>
+    (Date.parse(dates[dates.length - 1]) - Date.parse(dates[0])) / (86400000 * 365.25)
+
+export const includeInitialReturn = (series: StrategySeries, firstReturn?: number): StrategySeries => {
+    if (!series.values.length || typeof firstReturn !== 'number' || !Number.isFinite(firstReturn) || firstReturn <= -1 || firstReturn === 0) return series
+    // The first date has an opening capital boundary and a closing valuation.
+    return {
+        dates: [series.dates[0], ...series.dates],
+        values: [series.values[0] / (1 + firstReturn), ...series.values]
+    }
+}
 
 const emptyStats = (): StrategyStats => ({
     totalReturn: '0.00',
@@ -95,6 +108,7 @@ export const getDailyReturns = (data: number[]) => {
 
 export const calculateStats = (
     data: number[],
+    dates: string[],
     tradingDays = DEFAULT_TRADING_DAYS,
     riskFreeRate = DEFAULT_RISK_FREE_RATE
 ): StrategyStats => {
@@ -102,16 +116,16 @@ export const calculateStats = (
 
     const totalReturn = data[data.length - 1] / data[0] - 1
     const dailyReturns = getDailyReturns(data)
-    const periods = data.length - 1
     if (dailyReturns.length === 0 || !Number.isFinite(totalReturn)) return emptyStats()
 
-    const annualizedReturn = Math.pow(1 + totalReturn, tradingDays / periods) - 1
+    const years = dates.length === data.length ? calendarYears(dates) : NaN
+    const annualizedReturn = years > 0 ? Math.pow(1 + totalReturn, 1 / years) - 1 : NaN
     const mean = dailyReturns.reduce((a, b) => a + b, 0) / dailyReturns.length
     const variance =
-        dailyReturns.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / dailyReturns.length
+        dailyReturns.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / Math.max(1, dailyReturns.length - 1)
     const stdDev = Math.sqrt(variance)
     const volatility = stdDev * Math.sqrt(tradingDays)
-    const sharpe = volatility === 0 ? 0 : (annualizedReturn - riskFreeRate) / volatility
+    const sharpe = stdDev === 0 ? 0 : (mean - riskFreeRate / tradingDays) / stdDev * Math.sqrt(tradingDays)
 
     let maxDd = 0
     let peak = data[0]
@@ -125,11 +139,11 @@ export const calculateStats = (
 
     return {
         totalReturn: (totalReturn * 100).toFixed(2),
-        annualizedReturn: (annualizedReturn * 100).toFixed(2),
+        annualizedReturn: Number.isFinite(annualizedReturn) ? (annualizedReturn * 100).toFixed(2) : '--',
         volatility: (volatility * 100).toFixed(2),
         sharpe: sharpe.toFixed(3),
         maxDrawdown: (maxDd * 100).toFixed(2),
-        calmar: calmar.toFixed(3)
+        calmar: Number.isFinite(annualizedReturn) ? calmar.toFixed(3) : '--'
     }
 }
 
@@ -162,19 +176,18 @@ export const calculateSortinoRatio = (
 ) => {
     if (data.length < 2 || data[0] <= 0) return '0.000'
 
-    const totalReturn = data[data.length - 1] / data[0] - 1
-    const periods = data.length - 1
-    const annualizedReturn = Math.pow(1 + totalReturn, tradingDays / periods) - 1
     const dailyTarget = riskFreeRate / tradingDays
-    const downsideReturns = getDailyReturns(data).filter(ret => ret < dailyTarget)
+    const returns = getDailyReturns(data)
+    const downsideReturns = returns.filter(ret => ret < dailyTarget)
 
     if (downsideReturns.length === 0) return '0.000'
 
     const downsideVariance =
         downsideReturns.reduce((sum, ret) => sum + Math.pow(ret - dailyTarget, 2), 0) /
-        downsideReturns.length
+        returns.length
     const downsideDeviation = Math.sqrt(downsideVariance) * Math.sqrt(tradingDays)
-    const sortino = downsideDeviation === 0 ? 0 : (annualizedReturn - riskFreeRate) / downsideDeviation
+    const mean = returns.reduce((sum, ret) => sum + ret, 0) / returns.length
+    const sortino = downsideDeviation === 0 ? 0 : (mean - dailyTarget) * tradingDays / downsideDeviation
 
     return sortino.toFixed(3)
 }

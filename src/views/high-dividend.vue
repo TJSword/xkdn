@@ -365,7 +365,7 @@
       }
   })
 
-  const strategyStats = computed(() => calculateStats(selectedRange.value.strategy))
+  const strategyStats = computed(() => calculateStats(selectedRange.value.strategy, selectedRange.value.dates))
   const monthlyRows = computed(() => calculateMonthlyReturns(selectedRange.value.strategy, selectedRange.value.dates))
   const monthlySummary = computed(() => calculateMonthlySummary(monthlyRows.value))
   const sortinoRatio = computed(() => calculateSortinoRatio(selectedRange.value.strategy))

@@ -8,10 +8,12 @@
   >
     <div v-if="isAdminScanVisible" class="admin-access-scan" aria-hidden="true"></div>
     <div class="main-container">
-      <h1 class="main-title">何以有数</h1>
-      <p class="subtitle">
-        用数据理解市场，用纪律面对波动
-      </p>
+      <header class="home-masthead">
+        <div class="home-brand">
+          <h1 class="main-title">何以<span class="brand-signature">有数</span></h1>
+        </div>
+        <p class="subtitle">用数据理解市场，用纪律面对波动</p>
+      </header>
 
       <section class="status-overview-strip" aria-label="市场与策略状态">
         <article
@@ -113,6 +115,7 @@
         :aria-busy="homeRealtimeRefreshState === 'refreshing'"
       >
         <span class="realtime-refresh-live" aria-live="polite">{{ homeRealtimeRefreshLiveMessage }}</span>
+        <h2 class="home-section-title">策略表现</h2>
         <div class="realtime-nav-grid realtime-six-grid">
           <article
             v-for="item in displayStrategyRealtimeNavs"
@@ -257,27 +260,30 @@
         </div>
       </section>
 
-      <nav class="quick-menu-grid" aria-label="策略菜单">
-        <button
-          v-for="card in visibleFeatureCards"
-          :key="card.id"
-          type="button"
-          :class="['quick-menu-card', card.cssClass, { 'disabled-card': card.vipOnly && !userStore.isVip }]"
-          @click="handleCardClick(card)"
-        >
-          <span class="quick-menu-head">
-            <span class="quick-menu-icon">
-              <AllWeatherMenuIcon v-if="card.iconType === 'all-weather'" />
-              <StrategyMenuIcon v-else :type="card.iconType" />
+      <section class="home-tools-section" aria-labelledby="home-tools-title">
+        <h2 id="home-tools-title" class="home-section-title">策略与工具</h2>
+        <nav class="quick-menu-grid" aria-label="策略菜单">
+          <button
+            v-for="card in visibleFeatureCards"
+            :key="card.id"
+            type="button"
+            :class="['quick-menu-card', card.cssClass, { 'disabled-card': card.vipOnly && !userStore.isVip }]"
+            @click="handleCardClick(card)"
+          >
+            <span class="quick-menu-head">
+              <span class="quick-menu-icon">
+                <AllWeatherMenuIcon v-if="card.iconType === 'all-weather'" />
+                <StrategyMenuIcon v-else :type="card.iconType" />
+              </span>
+              <span class="quick-menu-title-wrap">
+                <strong>{{ card.title }}</strong>
+                <small v-if="card.vipOnly && !userStore.isVip">PRO</small>
+              </span>
             </span>
-            <span class="quick-menu-title-wrap">
-              <strong>{{ card.title }}</strong>
-              <small v-if="card.vipOnly && !userStore.isVip">PRO</small>
-            </span>
-          </span>
-          <span class="quick-menu-desc">{{ card.description }}</span>
-        </button>
-      </nav>
+            <span class="quick-menu-desc">{{ card.description }}</span>
+          </button>
+        </nav>
+      </section>
 
       <div class="user-actions-footer">
         <span class="membership-status">
@@ -1013,6 +1019,7 @@
   const router = useRouter()
   const shouldPlayHomeIntro = ref(!hasPlayedHomeIntro)
   hasPlayedHomeIntro = true
+
   // console.log(userStore.userInfo.admin)
 
   // --- 接口定义 ---
@@ -3689,9 +3696,8 @@
       min-height: 100vh;
       font-family: 'Noto Sans SC', sans-serif;
       color: #fff;
-      background: radial-gradient(circle at 15% 50%, #1a2a4a, transparent 40%),
-          radial-gradient(circle at 85% 50%, #4a1a2a, transparent 40%), #121212;
-      background-color: #121212;
+      background: radial-gradient(ellipse at 35% 0, rgb(43 92 133 / 16%), transparent 55%), #090e15;
+      background-color: #090e15;
       box-sizing: border-box;
   }
 
@@ -3708,20 +3714,49 @@
       /* 给底部留出空间 */
   }
 
-  .main-title {
-      margin-bottom: 0.55rem;
-      font-size: 1.9rem;
-      text-shadow: 0 0 15px rgb(255 255 255 / 10%);
-      font-weight: 700;
+  .home-masthead {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 1rem;
+      padding: 0.6rem 0 1rem;
+      margin-bottom: 1rem;
   }
 
-  .subtitle {
-      margin-right: auto;
-      margin-bottom: 1.45rem;
-      margin-left: auto;
-      max-width: 550px;
+  .home-brand {
+      display: flex;
+      align-items: center;
+  }
+
+  .home-brand .main-title {
+      margin: 0;
+      font-size: 1.65rem;
+      color: #e8f0f7;
+      font-weight: 650;
+      letter-spacing: 0.06em;
+  }
+
+  .brand-signature {
+      color: #41c7e8;
+  }
+
+  .home-masthead .subtitle {
+      margin: 0;
+      font-size: 0.82rem;
+      color: #8f9fb3;
+      letter-spacing: 0.06em;
+  }
+
+  .home-section-title {
+      display: flex;
+      align-items: center;
+      gap: 0.65rem;
+      margin: 1.2rem 0 0.75rem;
       font-size: 0.92rem;
-      color: #b0c4de;
+      color: #dce7f4;
+      text-align: left;
+      font-weight: 600;
+      letter-spacing: 0.04em;
   }
 
   .status-overview-strip {
@@ -3759,16 +3794,13 @@
 
       position: relative;
       overflow: hidden;
-      padding: 0.9rem 1rem 0;
+      padding: 0.8rem 1rem;
+      min-height: 0;
       min-width: 0;
-      min-height: 96px;
-      background:
-          linear-gradient(135deg, color-mix(in srgb, var(--overview-accent) 9%, transparent), transparent 58%),
-          rgb(15 23 42 / 52%);
-      border: 1px solid rgb(148 163 184 / 16%);
-      border-radius: 8px;
-      transition: transform 0.25s ease, border-color 0.25s ease, background 0.25s ease;
-      backdrop-filter: blur(10px);
+      background: linear-gradient(120deg, rgb(126 195 231 / 5%), transparent 65%), #101822;
+      border: 1px solid rgb(148 180 210 / 14%);
+      border-radius: 14px;
+      transition: transform 0.2s ease, border-color 0.2s ease, background 0.2s ease;
       cursor: default;
   }
 
@@ -3781,10 +3813,10 @@
       top: 0;
       right: 0;
       left: 0;
-      height: 2px;
-      background: linear-gradient(90deg, var(--overview-accent), transparent 72%);
+      height: 1px;
+      background: linear-gradient(90deg, transparent, var(--overview-accent), transparent);
       content: '';
-      opacity: 0.8;
+      opacity: 0.3;
   }
 
   .status-overview-card:hover {
@@ -3858,7 +3890,7 @@
       grid-template-columns: auto minmax(0, 1fr);
       align-items: center;
       gap: 1.15rem;
-      margin-top: 1.55rem;
+      margin-top: 0.95rem;
   }
 
   .market-temperature-value {
@@ -4490,7 +4522,7 @@
   .quick-menu-grid {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-      gap: 1.15rem 1rem;
+      gap: 0.8rem;
       margin: 0 auto;
   }
 
@@ -4537,21 +4569,19 @@
       display: grid;
       align-items: stretch;
       overflow: hidden;
-      padding: 1.2rem 1.35rem;
+      padding: 0.8rem 1rem;
+      min-height: 0;
       min-width: 0;
-      min-height: 148px;
       text-align: left;
       color: inherit;
-      background:
-          linear-gradient(135deg, color-mix(in srgb, var(--menu-accent, #60a5fa) 16%, transparent), transparent 55%),
-          rgb(15 23 42 / 42%);
-      border: 1px solid rgb(255 255 255 / 10%);
-      border-radius: 8px;
+      background: linear-gradient(135deg, rgb(151 184 211 / 3%), transparent), #0e151e;
+      border: 1px solid rgb(148 180 210 / 11%);
+      border-radius: 12px;
       transition: transform 0.2s ease, border-color 0.2s ease, background 0.2s ease;
-      backdrop-filter: blur(10px);
       cursor: pointer;
-      grid-template-rows: auto 1fr;
-      gap: 0.95rem;
+      grid-template-rows: auto auto;
+      align-content: start;
+      gap: 0.7rem;
   }
 
   .quick-menu-card::before,
@@ -4588,10 +4618,9 @@
   }
 
   .quick-menu-card:hover {
-      background:
-          linear-gradient(135deg, color-mix(in srgb, var(--menu-accent, #60a5fa) 22%, transparent), transparent 58%),
-          rgb(30 41 59 / 62%);
-      border-color: var(--menu-accent, rgb(96 165 250 / 55%));
+      background: #141f2b;
+      border-color: color-mix(in srgb, var(--menu-accent, #60a5fa) 40%, transparent);
+      box-shadow: 0 8px 24px rgb(0 0 0 / 16%);
       transform: translateY(-2px);
   }
 
@@ -4602,8 +4631,8 @@
 
   .quick-menu-icon {
       display: grid;
-      width: 58px;
-      height: 58px;
+      width: 42px;
+      height: 42px;
       color: var(--menu-accent, #fff);
       place-items: center;
       line-height: 1;
@@ -4729,10 +4758,10 @@
   .quick-menu-title-wrap strong {
       overflow: hidden;
       min-width: 0;
-      font-size: 1.15rem;
+      font-size: 1rem;
       text-overflow: ellipsis;
       white-space: nowrap;
-      color: #fff;
+      color: #e5edf7;
       line-height: 1.15;
   }
 
@@ -4748,13 +4777,10 @@
   }
 
   .quick-menu-desc {
-      display: box;
-      overflow: hidden;
-      font-size: 0.84rem;
-      color: #a8b6c9;
-      line-height: 1.55;
-      -webkit-box-orient: vertical;
-      -webkit-line-clamp: 2;
+      display: block;
+      font-size: 0.8rem;
+      color: #94a3b6;
+      line-height: 1.65;
   }
 
   .quick-menu-card.all-weather {
@@ -7147,110 +7173,7 @@
       line-height: 1.6;
   }
 
-  @media (min-width: 2000px) and (min-height: 1200px) {
-      .home-page-wrapper {
-          padding-top: clamp(4.875rem, calc((100vh - 69.625rem) / 2), 13rem);
-          padding-bottom: 0.75rem;
-      }
 
-      .realtime-nav-card {
-          min-height: 190px;
-      }
-
-      .quick-menu-card {
-          min-height: 175px;
-      }
-  }
-
-  @media (min-width: 1600px) and (max-height: 1000px) {
-      .home-page-wrapper {
-          padding-top: clamp(0.7rem, calc((100vh - 57rem) / 2), 2.7rem);
-          padding-bottom: 0.55rem;
-      }
-
-      .main-container {
-          padding-bottom: 0.3rem;
-      }
-
-      .main-title {
-          margin-bottom: 0.35rem;
-          font-size: 1.75rem;
-      }
-
-      .subtitle {
-          margin-bottom: 0.9rem;
-      }
-
-      .status-overview-strip {
-          margin-bottom: 0.8rem;
-      }
-
-      .status-overview-card {
-          padding: 0.65rem 0.9rem;
-      }
-
-      .realtime-nav-panel {
-          margin-bottom: 0.8rem;
-      }
-
-      .realtime-nav-grid {
-          gap: 0.8rem;
-      }
-
-      .realtime-nav-card {
-          padding: 0.82rem;
-          min-height: 152px;
-      }
-
-      .realtime-card-top {
-          margin-bottom: 0.55rem;
-      }
-
-      .realtime-card-value {
-          margin-bottom: 0.55rem;
-      }
-
-      .realtime-card-chart {
-          margin-bottom: 0.45rem;
-          height: 46px;
-      }
-
-      .quick-menu-grid {
-          gap: 0.85rem;
-      }
-
-      .quick-menu-card {
-          padding: 1rem 1.12rem;
-          min-height: 141px;
-          gap: 0.75rem;
-      }
-
-      .quick-menu-icon {
-          width: 50px;
-          height: 50px;
-          font-size: 1.55rem;
-      }
-
-      .quick-menu-title-wrap strong {
-          font-size: 1.06rem;
-      }
-
-      .quick-menu-desc {
-          font-size: 0.78rem;
-          line-height: 1.42;
-      }
-
-      .user-actions-footer {
-          margin-top: 1.25rem;
-      }
-  }
-
-  @media (min-width: 1600px) and (max-width: 1999px) and (min-height: 1001px) {
-      .home-page-wrapper {
-          padding-top: clamp(1rem, calc((100vh - 64.625rem) / 2), 2.7rem);
-          padding-bottom: 0.4rem;
-      }
-  }
 
   @media (max-width: 1024px) {
       .main-container {
@@ -7258,12 +7181,6 @@
           padding-left: 1rem;
           width: 95%;
           max-width: none;
-      }
-
-      .home-page-wrapper {
-          align-items: flex-start;
-          overflow-y: auto;
-          padding-top: 2rem;
       }
 
       .realtime-nav-grid {
@@ -7357,11 +7274,6 @@
   }
 
   @media (max-width: 768px) {
-      .home-page-wrapper {
-          background: radial-gradient(circle at 15% 50%, #1a2a4a, transparent 40%),
-              radial-gradient(circle at 85% 50%, #4a1a2a, transparent 40%), #121212;
-      }
-
       .main-container {
           width: 100%;
       }
@@ -7502,13 +7414,12 @@
       }
 
       .status-overview-card {
-          padding: 0.78rem;
-          min-height: 80px;
+          padding: 0.65rem 0.78rem;
       }
 
       .market-overview-body {
           gap: 0.75rem;
-          margin-top: 1.45rem;
+          margin-top: 0.8rem;
       }
 
       .market-temperature-value strong {
@@ -7566,7 +7477,7 @@
       }
 
       .realtime-nav-card {
-          padding: 0.75rem;
+          padding: 1.125rem 0.75rem 0.75rem;
           min-height: 0;
       }
 
@@ -7603,7 +7514,6 @@
 
       .quick-menu-card {
           padding: 0.85rem;
-          min-height: 122px;
           gap: 0.6rem;
       }
 
@@ -7635,8 +7545,7 @@
 
       .quick-menu-desc {
           font-size: 0.7rem;
-          line-height: 1.35;
-          -webkit-line-clamp: 2;
+          line-height: 1.6;
       }
 
       .realtime-chart-modal-content {
@@ -8075,20 +7984,18 @@
   }
 
   .realtime-six-card {
-      padding: 0.72rem;
-      min-height: 160px;
-      background:
-          linear-gradient(135deg, color-mix(in srgb, var(--accent-color) 16%, transparent), transparent 55%),
-          rgb(15 23 42 / 42%);
-      border: 1px solid rgb(255 255 255 / 10%);
-      backdrop-filter: blur(10px);
+      padding: 1.125rem 0.85rem 0.95rem;
+      min-height: 176px;
+      background: linear-gradient(180deg, rgb(151 184 211 / 4%), transparent), #101822;
+      border: 1px solid rgb(148 180 210 / 15%);
+      border-radius: 14px;
+      font-variant-numeric: tabular-nums;
   }
 
-  .realtime-six-card:hover {
-      background:
-          linear-gradient(135deg, color-mix(in srgb, var(--accent-color) 22%, transparent), transparent 58%),
-          rgb(30 41 59 / 62%);
-      border-color: var(--accent-color);
+  .realtime-six-card.is-interactive:hover {
+      background: linear-gradient(180deg, color-mix(in srgb, var(--accent-color) 6%, transparent), transparent), #14202c;
+      border-color: color-mix(in srgb, var(--accent-color) 55%, transparent);
+      box-shadow: 0 8px 24px rgb(0 0 0 / 20%);
   }
 
   .realtime-six-card .realtime-card-top {
@@ -8108,7 +8015,10 @@
   }
 
   .realtime-six-card .realtime-card-value strong {
-      font-size: 1.35rem;
+      margin-top: 0.4rem;
+      font-size: 1.65rem;
+      font-weight: 650;
+      letter-spacing: -0.035em;
   }
 
   .realtime-six-card .realtime-card-chart {
@@ -8121,7 +8031,11 @@
   }
 
   .realtime-six-card .realtime-return-grid span {
-      padding: 0.35rem 0.4rem;
+      padding: 0.55rem 0 0;
+      background: none;
+      border: 0;
+      border-top: 1px solid rgb(148 180 210 / 12%);
+      border-radius: 0;
   }
 
   .realtime-six-card .realtime-return-grid em {
@@ -8144,150 +8058,195 @@
       }
   }
 
-  @media (max-width: 480px) {
+  @media (max-width: 359px) {
       .realtime-six-grid {
           grid-template-columns: 1fr;
       }
   }
 
-  @media (min-width: 1600px) and (max-height: 930px) {
-      .home-page-wrapper {
-          overflow-y: auto;
-          padding-top: 0.45rem;
-          padding-bottom: 0.25rem;
-          height: 100vh;
-          min-height: 0;
+
+
+  .quick-menu-card:focus-visible {
+      outline: 2px solid #8bd5f5;
+      outline-offset: 3px;
+  }
+
+  .quick-menu-card:active {
+      transform: translateY(0);
+  }
+
+  .realtime-six-card .realtime-chart-line-glow {
+      opacity: 0.2;
+  }
+
+  .realtime-six-card .realtime-chart-area {
+      opacity: 0.1;
+  }
+
+  .user-actions-footer {
+      padding-top: 1.2rem;
+      padding-bottom: 0.5rem;
+  }
+
+  @media (max-width: 768px) {
+      .home-masthead {
+          align-items: center;
+          flex-direction: column;
+          gap: 0.75rem;
+          padding: 0 0 1.2rem;
+          margin-bottom: 1.1rem;
       }
 
-      .main-container {
-          padding-bottom: 0;
+      .home-masthead .subtitle {
+          font-size: 0.75rem;
       }
 
-      .main-title {
-          margin-bottom: 0.2rem;
-          font-size: 1.65rem;
-      }
-
-      .subtitle {
-          margin-bottom: 0.65rem;
-      }
-
-      .status-overview-strip {
-          margin-bottom: 0.55rem;
-      }
-
-      .status-overview-card {
-          padding: 0.42rem 0.75rem 0;
-          min-height: 78px;
-      }
-
-      .status-overview-title {
-          font-size: 1rem;
-      }
-
-      .status-overview-heading > span,
-      .status-update-time {
-          font-size: 0.64rem;
-      }
-
-      .market-overview-body {
-          gap: 0.8rem;
-          margin-top: 0.62rem;
-      }
-
-      .market-temperature-value strong {
-          font-size: 1.38rem;
-      }
-
-      .market-temperature-scale {
-          padding-bottom: 0;
-          margin-top: 0.25rem;
-      }
-
-      .strategy-status-list {
-          margin-top: 0.42rem;
-          min-height: 38px;
-      }
-
-      .strategy-status-item {
-          padding: 0 0.2rem;
-          gap: 0.22rem;
-      }
-
-      .strategy-status-name em {
-          font-size: 0.7rem;
-      }
-
-      .strategy-status-item strong {
-          font-size: 0.92rem;
-      }
-
-      .realtime-nav-panel {
-          margin-bottom: 0.55rem;
-      }
-
-      .realtime-six-card {
-          padding: 0.65rem;
-          min-height: 148px;
-      }
-
-      .realtime-six-card .realtime-card-top,
-      .realtime-six-card .realtime-card-value {
-          margin-bottom: 0.42rem;
-      }
-
-      .realtime-six-card .realtime-card-chart {
-          margin-bottom: 0.36rem;
-          height: 42px;
-      }
-
-      .quick-menu-grid {
-          gap: 0.65rem 0.85rem;
+      .home-section-title {
+          margin-top: 1.25rem;
       }
 
       .quick-menu-card {
-          padding: 0.86rem 1rem;
-          min-height: 136px;
-          gap: 0.62rem;
+          padding: 0.65rem 0.8rem;
+      }
+
+      .quick-menu-head {
+          gap: 0.45rem;
       }
 
       .quick-menu-icon {
-          width: 46px;
-          height: 46px;
+          width: 34px;
+          height: 34px;
       }
 
-      .quick-menu-title-wrap strong {
-          font-size: 1rem;
+      .realtime-six-card .realtime-card-top {
+          flex-wrap: wrap;
+          gap: 0.35rem;
       }
 
-      .quick-menu-desc {
-          font-size: 0.75rem;
-          line-height: 1.35;
-      }
-
-      .user-actions-footer {
-          margin-top: 0.75rem;
-          font-size: 0.82rem;
+      .realtime-six-card .realtime-card-value strong {
+          font-size: 1.4rem;
       }
   }
 
-  @media (min-width: 1600px) and (min-height: 880px) and (max-height: 950px) {
+  /* 桌面字号与间距固定，卡片在 930–1271px 高度内伸缩，超出后保持上限。 */
+  @media (min-width: 1258px) {
       .home-page-wrapper {
-          align-items: center;
-          padding-top: 1rem;
-          padding-bottom: 1rem;
+          align-items: flex-start;
+          padding: 0 2rem;
       }
 
-      .main-title {
-          margin-top: 0;
+      .home-page-wrapper .main-container {
+          --home-card-padding-y: 11.808px;
+          --home-card-height-growth: clamp(0px, calc(100dvh - 930px), 341px);
+          --home-tool-padding-y: calc(11.808px + var(--home-card-height-growth) * 12 / 341);
+
+          display: flex;
+          flex-direction: column;
+          justify-content: center;
+          gap: 20px;
+          padding: 12px 0;
+          min-height: clamp(937px, 100dvh, 1271px);
+          box-sizing: border-box;
+          width: 1194px;
+          max-width: 100%;
+          flex-shrink: 0;
       }
 
-      .subtitle {
-          margin-bottom: 1rem;
+      .home-page-wrapper .home-masthead,
+      .home-page-wrapper .status-overview-strip,
+      .home-page-wrapper .realtime-nav-panel,
+      .home-page-wrapper .home-tools-section,
+      .home-page-wrapper .user-actions-footer {
+          flex-shrink: 0;
+          width: 100%;
+          margin: 0;
       }
 
-      .user-actions-footer {
-          margin-top: 1rem;
+      .home-page-wrapper .home-masthead,
+      .home-page-wrapper .user-actions-footer {
+          padding: 0;
+      }
+
+      .home-page-wrapper .home-masthead {
+          transform: translateY(-12px);
+      }
+
+      .home-page-wrapper .user-actions-footer {
+          transform: translateY(12px);
+      }
+
+      .home-page-wrapper .home-section-title {
+          margin: 0 0 0.65rem;
+      }
+
+      .home-page-wrapper .status-overview-card {
+          padding: var(--home-card-padding-y) 1rem;
+      }
+
+      .home-page-wrapper .market-overview-body {
+          margin-top: 0.75rem;
+          transform: translateY(6px);
+      }
+
+      .home-page-wrapper .realtime-six-grid {
+          grid-template-columns: repeat(6, minmax(0, 1fr));
+          gap: 0.75rem;
+      }
+
+      .home-page-wrapper .quick-menu-grid {
+          grid-template-columns: repeat(4, minmax(0, 1fr));
+          gap: 0.75rem;
+      }
+
+      .home-page-wrapper .realtime-six-card {
+          padding: 18px 0.75rem var(--home-card-padding-y);
+          min-height: 0;
+      }
+
+      .home-page-wrapper .realtime-six-card .realtime-card-chart {
+          height: calc(50.72px + var(--home-card-height-growth) * 10 / 341);
+      }
+
+      .home-page-wrapper .quick-menu-card {
+          padding: var(--home-tool-padding-y) 1rem;
+          gap: 0.5rem;
+      }
+
+      .home-page-wrapper .quick-menu-head {
+          gap: 0.7rem;
+      }
+
+      .home-page-wrapper .quick-menu-icon {
+          width: 42px;
+          height: 42px;
+      }
+
+      .home-page-wrapper .quick-menu-title-wrap strong {
+          font-size: 0.95rem;
+      }
+
+      .home-page-wrapper .quick-menu-desc {
+          font-size: 0.78rem;
+          line-height: 1.55;
+      }
+  }
+
+  .quick-menu-icon > .strategy-menu-icon,
+  .quick-menu-icon > .all-weather-visual-icon {
+      width: 100%;
+      height: 100%;
+  }
+
+  .quick-menu-card.all-weather .quick-menu-icon > .all-weather-visual-icon {
+      width: 85%;
+      height: 85%;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+      .quick-menu-card,
+      .realtime-six-card,
+      .status-overview-card {
+          transition: none;
       }
   }
 </style>

@@ -809,7 +809,7 @@
       "name": "renewMembership",
       "runtime": "Nodejs18.15",
       "handler": "index.main",
-      "timeout": 3,
+      "timeout": 10,
       "memorySize": 256,
       "description": "用户会员续费"
     },

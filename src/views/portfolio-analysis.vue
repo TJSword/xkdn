@@ -813,6 +813,7 @@
       calculateDrawdownAnalysis as calculateStrategyDrawdownAnalysis,
       calculateMonthlyReturns as calculateStrategyMonthlyReturns,
       calculateStats as calculateStrategyStats,
+      DEFAULT_TRADING_DAYS,
       getDailyReturns as getStrategyDailyReturns
   } from '@/utils/strategyMetrics'
   const mcYears = ref(1) // 默认预测1年
@@ -2021,7 +2022,7 @@
 
       // 4. 计算各项统计指标
       const portfolioConservativeFactor = getPortfolioConservativeFactor(selectedStrats)
-      const rawPortfolioStats = calculateStrategyStats(portfolioCurve)
+      const rawPortfolioStats = calculateStrategyStats(portfolioCurve, calcDateList)
       portfolioStats.value = {
           ...rawPortfolioStats,
           conservativeAnnualizedReturn: applyConservativeAnnualizedReturn(
@@ -2036,7 +2037,7 @@
       }
 
       individualStats.value = selectedStrats.map(strat => {
-          const stats = calculateStrategyStats(normalizedDataMap[strat.id])
+          const stats = calculateStrategyStats(normalizedDataMap[strat.id], calcDateList)
           return {
               name: getStrategyDisplayName(strat),
               conservativeAnnualizedReturn: applyConservativeAnnualizedReturn(
@@ -2240,7 +2241,7 @@
       for (let index = windowSize - 1; index < portfolioReturns.length; index++) {
           const portfolioWindow = portfolioReturns.slice(index - windowSize + 1, index + 1)
           const mean = portfolioWindow.reduce((sum, value) => sum + value, 0) / windowSize
-          const variance = portfolioWindow.reduce((sum, value) => sum + Math.pow(value - mean, 2), 0) / windowSize
+          const variance = portfolioWindow.reduce((sum, value) => sum + Math.pow(value - mean, 2), 0) / (windowSize - 1)
           const correlations: number[] = []
           for (let left = 0; left < strategyReturns.length; left++) {
               for (let right = left + 1; right < strategyReturns.length; right++) {
@@ -2253,7 +2254,7 @@
               }
           }
           rollingData.dates.push(dates[index + 1])
-          rollingData.volatility.push(Math.sqrt(variance) * Math.sqrt(250) * 100)
+          rollingData.volatility.push(Math.sqrt(variance) * Math.sqrt(DEFAULT_TRADING_DAYS) * 100)
           rollingData.correlation.push(
               correlations.length > 0
                   ? correlations.reduce((sum, value) => sum + value, 0) / correlations.length
