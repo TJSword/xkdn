@@ -2279,62 +2279,12 @@
   const allFeatureCards = ref<FeatureCard[]>([
       {
           id: 1,
-          title: '全天候策略',
-          description: '多元化资产配置，穿越不同市场环境，追求稳健回报。',
-          iconType: 'all-weather',
+          title: '策略中心',
+          description: '浏览六大策略的配置、持仓与表现，多维度比较策略差异。',
+          iconType: 'strategy-observation',
           cssClass: 'all-weather',
-          link: '/all-weather'
+          link: '/strategies'
       },
-      {
-          id: 3,
-          title: '可转债策略',
-          description: '基于多因子轮动模型，每日动态捕捉交易机会。',
-          iconType: 'convertible-bond',
-          cssClass: 'convertible-bond',
-          link: '/bonds'
-      },
-      {
-          id: 17,
-          title: '高股息策略',
-          description: '聚焦稳定分红与现金流质量，构建偏防御型权益组合。',
-          iconType: 'high-dividend',
-          cssClass: 'high-dividend',
-          link: '/high-dividend'
-      },
-      {
-          id: 12,
-          title: '含权策略',
-          description: '按动态含权量轮动，捕捉正股配债价值与阶段机会。',
-          iconType: 'rights',
-          cssClass: 'rights-strategy',
-          link: '/rights-strategy'
-      },
-
-      {
-          id: 9,
-          title: '动量策略',
-          description: '依据动量模型，轮动持有最强资产，进攻性强。',
-          iconType: 'momentum',
-          cssClass: 'momentum-strategy',
-          link: '/momentum'
-      },
-      {
-          id: 4,
-          title: '微盘股策略',
-          description: '周度跟踪微盘组合，纪律化调仓获取贝塔收益。',
-          iconType: 'micro-cap',
-          cssClass: 'micro-cap',
-          link: '/micro-cap'
-      },
-      // {
-      //     id: 99, // 使用一个特殊的ID
-      //     title: '微盘股调仓',
-      //     description: '监控持仓明细、市值分布及每日资金再平衡。',
-      //     icon: '⚖️',
-      //     cssClass: 'micro-cap-admin', // 对应下面的CSS类名
-      //     link: '/micro-cap-adjustment', // 对应新页面的路由
-      //     adminOnly: true // 标记为仅管理员
-      // },
       {
           id: 10,
           title: '组合实验室',

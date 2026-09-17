@@ -1,6 +1,7 @@
 <template>
   <div class="page-wrapper">
     <main class="main-container">
+      <!-- 策略中心已统一展示标题，暂时保留原页头供恢复。
       <div class="page-header">
         <router-link to="/home" class="back-button">
           ← 返回主页
@@ -14,6 +15,7 @@
           用可转债配售价值重新衡量正股，寻找含权更高、权利更便宜的阶段性机会。
         </p>
       </div>
+      -->
 
       <StrategyLoading
         v-if="isLoading"
