@@ -1,6 +1,7 @@
 <template>
   <div class="page-wrapper">
     <main class="main-container">
+      <!-- 策略中心已统一展示标题，暂时保留原页头供恢复。
       <header class="page-header">
         <router-link to="/home" class="back-button">← 返回主页</router-link>
         <h1 class="main-title">
@@ -9,6 +10,7 @@
         </h1>
         <p class="subtitle">不只看股息率，更看公司能否持续增长分红。</p>
       </header>
+      -->
 
       <StrategyLoading
         v-if="isLoading"

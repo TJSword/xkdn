@@ -3,6 +3,7 @@
     <div class="main-container">
 
       <!-- 1. 页面标题 -->
+      <!-- 策略中心已统一展示标题，暂时保留原页头供恢复。
       <div class="page-header">
         <router-link to="/home" class="back-button">
           ← 返回主页
@@ -16,6 +17,7 @@
           无论经济风云如何变幻，都力求稳健前行。
         </p>
       </div>
+      -->
 
       <!-- 2. 内容卡片区域 -->
       <StrategyLoading

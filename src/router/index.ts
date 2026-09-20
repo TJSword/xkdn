@@ -11,6 +11,81 @@ import { applyRouteSeo } from '@/utils/seo'
 // 路由表
 export const constantRoutes = [
   {
+    path: '/strategies',
+    component: () => import('@/views/strategy-center.vue'),
+    meta: { requiresAuth: true, capability: 'app:read', title: '策略中心' },
+    children: [
+      { path: '', redirect: '/strategies/all-weather' },
+      { path: 'compare', component: () => import('@/views/strategy-compare.vue'), meta: { title: '策略对比' } },
+      {
+        path: 'all-weather',
+        alias: '/all-weather',
+        component: () => import('@/views/all-weather.vue'),
+        meta: {
+          requiresAuth: true,
+          capability: 'app:read',
+          title: '全天候策略',
+          description: '查看全天候资产配置策略收益走势、月度年度收益、回撤指标和 ETF 配置比例，观察多资产组合的长期表现。'
+        }
+      },
+      {
+        path: 'bonds',
+        alias: '/bonds',
+        component: () => import('@/views/bonds.vue'),
+        meta: {
+          requiresAuth: true,
+          capability: 'app:read',
+          title: '可转债策略',
+          description: '查看可转债策略净值走势、持仓轮动、收益统计和风险指标，跟踪可转债多因子策略表现。'
+        }
+      },
+      {
+        path: 'high-dividend',
+        alias: '/high-dividend',
+        component: () => import('@/views/high-dividend.vue'),
+        meta: {
+          requiresAuth: true,
+          capability: 'app:read',
+          title: '高股息策略',
+          description: '查看高股息策略的最新持仓、收益走势、月度年度收益和风险指标。'
+        }
+      },
+      {
+        path: 'rights-strategy',
+        alias: '/rights-strategy',
+        component: () => import('@/views/rights-strategy.vue'),
+        meta: {
+          requiresAuth: true,
+          capability: 'app:read',
+          title: '含权策略',
+          description: '查看含权策略收益走势、轮动逻辑、月度年度收益和风险指标，跟踪正股配债价值相关机会。'
+        }
+      },
+      {
+        path: 'momentum',
+        alias: '/momentum',
+        component: () => import('@/views/momentum.vue'),
+        meta: {
+          requiresAuth: true,
+          capability: 'app:read',
+          title: '动量策略',
+          description: '查看动量策略收益走势、轮动资产表现、月度年度收益和风险指标，观察强势资产轮动效果。'
+        }
+      },
+      {
+        path: 'micro-cap',
+        alias: '/micro-cap',
+        component: () => import('@/views/micro-cap.vue'),
+        meta: {
+          requiresAuth: true,
+          capability: 'app:read',
+          title: '微盘股策略',
+          description: '查看微盘股策略收益曲线、月度年度收益、回撤表现和调仓信息，跟踪小市值组合运行状态。'
+        }
+      },
+    ]
+  },
+  {
     path: '/',
     redirect: '/home'
   },
@@ -34,16 +109,7 @@ export const constantRoutes = [
       description: '何以有数首页汇总市场温度、策略实时走势、全天候策略、可转债策略、高股息策略、含权策略、动量策略和微盘股策略入口。'
     } // meta 标记所有需要登录才能访问的页面
   },
-  {
-    path: '/all-weather',
-    component: () => import('@/views/all-weather.vue'),
-    meta: {
-      requiresAuth: true,
-      capability: 'app:read',
-      title: '全天候策略',
-      description: '查看全天候资产配置策略收益走势、月度年度收益、回撤指标和 ETF 配置比例，观察多资产组合的长期表现。'
-    }
-  },
+
   {
     path: '/tools',
     component: () => import('@/views/tools.vue'),
@@ -54,16 +120,7 @@ export const constantRoutes = [
       description: '提供组合再平衡、复利计算、资产消耗和定投模拟等投资工具，辅助资产配置和长期规划。'
     }
   },
-  {
-    path: '/bonds',
-    component: () => import('@/views/bonds.vue'),
-    meta: {
-      requiresAuth: true,
-      capability: 'app:read',
-      title: '可转债策略',
-      description: '查看可转债策略净值走势、持仓轮动、收益统计和风险指标，跟踪可转债多因子策略表现。'
-    }
-  },
+
   {
     path: '/bond-market',
     component: () => import('@/views/bond-market.vue'),
@@ -74,36 +131,9 @@ export const constantRoutes = [
       description: '用价格分层、市场广度、估值位置和成交热度观察可转债市场状态。'
     }
   },
-  {
-    path: '/micro-cap',
-    component: () => import('@/views/micro-cap.vue'),
-    meta: {
-      requiresAuth: true,
-      capability: 'app:read',
-      title: '微盘股策略',
-      description: '查看微盘股策略收益曲线、月度年度收益、回撤表现和调仓信息，跟踪小市值组合运行状态。'
-    }
-  },
-  {
-    path: '/high-dividend',
-    component: () => import('@/views/high-dividend.vue'),
-    meta: {
-      requiresAuth: true,
-      capability: 'app:read',
-      title: '高股息策略',
-      description: '查看高股息策略的最新持仓、收益走势、月度年度收益和风险指标。'
-    }
-  },
-  {
-    path: '/momentum',
-    component: () => import('@/views/momentum.vue'),
-    meta: {
-      requiresAuth: true,
-      capability: 'app:read',
-      title: '动量策略',
-      description: '查看动量策略收益走势、轮动资产表现、月度年度收益和风险指标，观察强势资产轮动效果。'
-    }
-  },
+
+
+
   {
     path: '/lof',
     component: () => import('@/views/lof.vue'),
@@ -114,16 +144,7 @@ export const constantRoutes = [
       description: '实时监控 LOF 基金场内价格、估算净值、折溢价率、成交额和申购状态，发现潜在套利与风险信号。'
     }
   },
-  {
-    path: '/rights-strategy',
-    component: () => import('@/views/rights-strategy.vue'),
-    meta: {
-      requiresAuth: true,
-      capability: 'app:read',
-      title: '含权策略',
-      description: '查看含权策略收益走势、轮动逻辑、月度年度收益和风险指标，跟踪正股配债价值相关机会。'
-    }
-  },
+
   {
     path: '/wealth-map',
     component: () => import('@/views/wealth-map.vue'),

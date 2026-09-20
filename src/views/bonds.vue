@@ -3,6 +3,7 @@
     <div class="main-container">
 
       <!-- 1. 页面标题 -->
+      <!-- 策略中心已统一展示标题，暂时保留原页头供恢复。
       <div class="page-header">
         <router-link to="/home" class="back-button">
           ← 返回主页
@@ -15,6 +16,7 @@
           量化驱动，每日择优，追求复利增长的艺术。
         </p>
       </div>
+      -->
 
       <!-- 2. 内容卡片区域 -->
       <StrategyLoading
@@ -40,7 +42,7 @@
         <router-link v-if="canViewPremiumContent" to="/bond-market" class="content-card market-overview-link" aria-label="查看转债全景">
           <div class="market-overview-header">
             <h2 class="card-title">转债市场概览</h2>
-            <span class="market-overview-link-hint">查看转债全景 →</span>
+            <span class="market-overview-link-hint">查看转债全景</span>
           </div>
           <p class="card-description">
             以下为截至 <strong>{{ marketTimestamp }}</strong> 的全市场可转债核心数据，反映当前市场温度。

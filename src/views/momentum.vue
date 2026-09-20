@@ -2,6 +2,7 @@
   <div class="page-wrapper">
     <div class="main-container">
 
+      <!-- 策略中心已统一展示标题，暂时保留原页头供恢复。
       <div class="page-header">
         <router-link to="/home" class="back-button">
           ← 返回主页
@@ -15,6 +16,7 @@
           追随趋势，强者恒强。基于动量模型的轮动系统。
         </p>
       </div>
+      -->
 
       <StrategyLoading
         v-if="isLoading"
