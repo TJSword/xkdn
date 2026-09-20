@@ -584,6 +584,7 @@
 <script setup lang="ts">
   import { computed, inject, nextTick, onMounted, ref, watch } from 'vue'
   import * as echarts from 'echarts'
+  import { createStrategyLiveMarker } from '@/utils/strategyLiveMarker'
   import ChartDateRangePicker from '@/components/ChartDateRangePicker.vue'
   import { callCloudFunction, throwIfAuthExpired } from '@/services/cloudFunction'
   import {
@@ -1202,7 +1203,7 @@
       const max = Math.max(visibleMax + visibleRange * 0.14, CHART_REBASE_VALUE + visibleRange * 0.72)
 
       return {
-          min: Math.floor(min / 10) * 10,
+          min: Math.max(0, Math.floor(min / 10) * 10),
           max: Math.ceil(max / 10) * 10
       }
   }
@@ -1419,7 +1420,7 @@
           xAxis: { data: selectedDates },
           yAxis: getChartYAxisOption(strategyDisplayData, benchmarkDisplayData),
           series: [
-              { data: strategyDisplayData },
+              { data: strategyDisplayData, markLine: createStrategyLiveMarker(chartDates.value, '2024-12-05', selectedDates) },
               { data: benchmarkDisplayData }
           ]
       })
@@ -1468,6 +1469,7 @@
                   name: '全天候策略',
                   type: 'line',
                   data: initialStrategyDisplayData,
+                  markLine: createStrategyLiveMarker(chartDates.value, '2024-12-05'),
                   itemStyle: { color: '#00aaff' }, // 保持橙色主题
                   showSymbol: false,
                   lineStyle: { width: 3 },

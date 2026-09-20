@@ -495,6 +495,7 @@
   import { computed, ref, onMounted, onUnmounted, nextTick, watch } from 'vue'
   import { useRouter } from 'vue-router'
   import * as echarts from 'echarts'
+  import { createStrategyLiveMarker } from '@/utils/strategyLiveMarker'
   import { useUserStore } from '@/store/user'
   import ChartDateRangePicker from '@/components/ChartDateRangePicker.vue'
   import MonthlyReturnCalendarModal from '@/components/MonthlyReturnCalendarModal.vue'
@@ -998,7 +999,7 @@
       const max = Math.max(visibleMax + visibleRange * 0.14, CHART_REBASE_VALUE + visibleRange * 0.72)
 
       return {
-          min: Math.floor(min / 10) * 10,
+          min: Math.max(0, Math.floor(min / 10) * 10),
           max: Math.ceil(max / 10) * 10
       }
   }
@@ -1150,7 +1151,7 @@
       myChart.setOption({
           xAxis: { data: selectedDates },
           yAxis: getChartYAxisOption(strategyDisplayData, benchmarkDisplayData),
-          series: [{ data: strategyDisplayData }, { data: benchmarkDisplayData }]
+          series: [{ data: strategyDisplayData, markLine: createStrategyLiveMarker(chartDates.value, '2025-10-27', selectedDates) }, { data: benchmarkDisplayData }]
       }, { replaceMerge: ['yAxis'] })
   }
 
@@ -1207,6 +1208,7 @@
                   name: '微盘股策略',
                   type: 'line',
                   data: initialStrategyDisplayData,
+                  markLine: createStrategyLiveMarker(chartDates.value, '2025-10-27'),
                   itemStyle: { color: '#f0e68c' },
                   showSymbol: false,
                   lineStyle: { width: 2 }

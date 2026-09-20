@@ -254,10 +254,11 @@
   import { computed, inject, onMounted, ref } from 'vue'
   import { useRouter } from 'vue-router'
   import { LineChart } from 'echarts/charts'
-  import { GridComponent, LegendComponent, TooltipComponent } from 'echarts/components'
+  import { GridComponent, LegendComponent, TooltipComponent, MarkLineComponent } from 'echarts/components'
   import { use } from 'echarts/core'
   import { CanvasRenderer } from 'echarts/renderers'
   import VChart from 'vue-echarts'
+  import { createStrategyLiveMarker } from '@/utils/strategyLiveMarker'
   import ChartDateRangePicker from '@/components/ChartDateRangePicker.vue'
   import MonthlyReturnCalendarModal from '@/components/MonthlyReturnCalendarModal.vue'
   import { useMonthlyReturnCalendar } from '@/composables/useMonthlyReturnCalendar'
@@ -272,7 +273,7 @@
       prepareStrategySeries
   } from '@/utils/strategyMetrics'
 
-  use([CanvasRenderer, LineChart, GridComponent, LegendComponent, TooltipComponent])
+  use([CanvasRenderer, LineChart, GridComponent, LegendComponent, TooltipComponent, MarkLineComponent])
 
   interface HighDividendStrategyData {
       dateList: string[]
@@ -386,7 +387,7 @@
       xAxis: { type: 'category', data: selectedRange.value.dates, boundaryGap: false, axisLine: { lineStyle: { color: '#52677d' } }, axisLabel: { color: '#b0c4de', hideOverlap: true } },
       yAxis: { type: chartScaleMode.value, axisLabel: { color: '#b0c4de' }, splitLine: { lineStyle: { color: 'rgba(148, 163, 184, 0.12)' } } },
       series: [
-          { name: '高股息策略', type: 'line', data: rebase(selectedRange.value.strategy), symbol: 'none', lineStyle: { width: 3 }, areaStyle: { color: 'rgba(22, 101, 52, 0.18)' } },
+          { name: '高股息策略', type: 'line', data: rebase(selectedRange.value.strategy), markLine: createStrategyLiveMarker(series.value.dates, '2026-07-21', selectedRange.value.dates), symbol: 'none', lineStyle: { width: 3 }, areaStyle: { color: 'rgba(22, 101, 52, 0.18)' } },
           { name: '沪深300全收益', type: 'line', data: rebase(selectedRange.value.benchmark), symbol: 'none', lineStyle: { width: 1.8, type: 'dashed' } }
       ]
   }))

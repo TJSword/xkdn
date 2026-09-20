@@ -353,8 +353,9 @@
   import { use } from 'echarts/core'
   import { CanvasRenderer } from 'echarts/renderers'
   import { LineChart } from 'echarts/charts'
-  import { GridComponent, LegendComponent, TooltipComponent } from 'echarts/components'
+  import { GridComponent, LegendComponent, TooltipComponent, MarkLineComponent } from 'echarts/components'
   import VChart from 'vue-echarts'
+  import { createStrategyLiveMarker } from '@/utils/strategyLiveMarker'
   import {
       calculateDrawdownAnalysis,
       calculateMonthlyReturns,
@@ -373,7 +374,7 @@
       StrategyStats
   } from '@/utils/strategyMetrics'
 
-  use([CanvasRenderer, LineChart, GridComponent, LegendComponent, TooltipComponent])
+  use([CanvasRenderer, LineChart, GridComponent, LegendComponent, TooltipComponent, MarkLineComponent])
 
   interface RightsStrategyData {
       dateList: string[]
@@ -525,7 +526,10 @@
           },
           yAxis: getChartYAxisOption(strategyDisplayData, benchmarkDisplayData),
           series: [
-              lineSeries('含权策略', strategyData.value.strategyData || []),
+              {
+                  ...lineSeries('含权策略', strategyData.value.strategyData || []),
+                  markLine: createStrategyLiveMarker(dates, '2026-06-06', selectedDates)
+              },
               lineSeries('沪深300全收益', strategyData.value.hs300 || [])
           ]
       }
@@ -639,7 +643,7 @@
       const max = Math.max(visibleMax + visibleRange * 0.14, CHART_REBASE_VALUE + visibleRange * 0.72)
 
       return {
-          min: Math.floor(min / 10) * 10,
+          min: Math.max(0, Math.floor(min / 10) * 10),
           max: Math.ceil(max / 10) * 10
       }
   }

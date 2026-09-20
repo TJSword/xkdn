@@ -304,6 +304,7 @@
   import { computed, inject, ref, onMounted, nextTick } from 'vue'
   import { useRouter } from 'vue-router'
   import * as echarts from 'echarts'
+  import { createStrategyLiveMarker } from '@/utils/strategyLiveMarker'
   import { auth } from '@/lib/cloudbase'
   import ChartDateRangePicker from '@/components/ChartDateRangePicker.vue'
   import { callCloudFunction, throwIfAuthExpired } from '@/services/cloudFunction'
@@ -881,7 +882,7 @@
       const max = Math.max(visibleMax + visibleRange * 0.14, CHART_REBASE_VALUE + visibleRange * 0.72)
 
       return {
-          min: Math.floor(min / 10) * 10,
+          min: Math.max(0, Math.floor(min / 10) * 10),
           max: Math.ceil(max / 10) * 10
       }
   }
@@ -1032,7 +1033,7 @@
       myChart.setOption({
           xAxis: { data: selectedDates },
           yAxis: getChartYAxisOption(strategyDisplayData, benchmarkDisplayData),
-          series: [{ data: strategyDisplayData }, { data: benchmarkDisplayData }]
+          series: [{ data: strategyDisplayData, markLine: createStrategyLiveMarker(chartDates.value, '2026-01-10', selectedDates) }, { data: benchmarkDisplayData }]
       }, { replaceMerge: ['yAxis'] })
   }
 
@@ -1095,6 +1096,7 @@
                   name: '动量策略',
                   type: 'line',
                   data: initialStrategyDisplayData,
+                  markLine: createStrategyLiveMarker(chartDates.value, '2026-01-10'),
                   itemStyle: { color: '#FF5722' },
                   showSymbol: false,
                   lineStyle: { width: 2 }
