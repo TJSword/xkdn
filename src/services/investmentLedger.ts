@@ -1,4 +1,5 @@
 import { callCloudFunction } from '@/services/cloudFunction'
+import type { StrategyNameChange } from '@/utils/ledgerStrategyHistory'
 
 export interface LedgerAccountConfig {
     id?: string
@@ -16,6 +17,7 @@ export interface LedgerStrategy {
     category: string
     sortOrder: number
     archived?: boolean
+    nameHistory?: StrategyNameChange[]
 }
 
 export interface LedgerRecordInput {
@@ -98,8 +100,8 @@ export const createLedgerStrategy = (
     strategy: Omit<LedgerStrategy, 'id' | 'archived'> & { strategyId?: string }
 ) => callLedger<{ strategy: LedgerStrategy }>('createStrategy', { strategy })
 
-export const renameLedgerStrategy = (strategyId: string, name: string) =>
-    callLedger<{ strategy: LedgerStrategy }>('renameStrategy', { strategyId, name })
+export const renameLedgerStrategy = (strategyId: string, name: string, effectiveDate: string, reason = '') =>
+    callLedger<{ strategy: LedgerStrategy }>('renameStrategy', { strategyId, name, effectiveDate, reason })
 
 export const setLedgerStrategyArchived = (strategyId: string, archived: boolean) =>
     callLedger<{ strategy: LedgerStrategy }>('setStrategyArchived', { strategyId, archived })

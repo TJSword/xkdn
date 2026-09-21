@@ -186,6 +186,16 @@ export const constantRoutes = [
     }
   },
   {
+    path: '/live-account',
+    component: () => import('@/views/live-account.vue'),
+    meta: {
+      requiresAuth: true,
+      capability: 'app:read',
+      title: '老何实盘',
+      description: '查看老何实盘的账户概览、收益走势和持仓配置。'
+    }
+  },
+  {
     path: '/nav',
     component: () => import('@/views/account-observation.vue'),
     meta: {

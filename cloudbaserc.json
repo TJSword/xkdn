@@ -544,6 +544,11 @@
           "name": "refreshRightsStrategyWeekday1440",
           "type": "timer",
           "config": "0 40 14 * * MON-FRI *"
+        },
+        {
+          "name": "remindRightsRecordDate0930",
+          "type": "timer",
+          "config": "0 30 9 * * MON-FRI *"
         }
       ]
     },

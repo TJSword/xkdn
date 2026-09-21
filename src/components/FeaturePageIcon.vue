@@ -44,6 +44,10 @@
       --menu-accent: #add8e6;
   }
 
+  .feature-page-icon-live-account {
+      --menu-accent: #34d399;
+  }
+
   .feature-page-icon-strategy-observation {
       --menu-accent: #60a5fa;
   }

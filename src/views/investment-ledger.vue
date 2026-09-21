@@ -1151,7 +1151,7 @@
                 <div class="panel-heading">
                     <div>
                         <h2 class="card-title">最近记录</h2>
-                        <p class="card-description">所有计算均从原始记录重新生成。</p>
+                        <p class="card-description">策略按记录日期显示当时名称，改名前后仍属于同一策略，收益与净值保持连续。</p>
                     </div>
                 </div>
                 <div class="record-table-wrap">
@@ -1174,7 +1174,7 @@
                                 <td>
                                     <span class="strategy-cell"
                                         ><i :style="{ backgroundColor: row.color }"></i
-                                        >{{ row.strategy }}</span
+                                        >{{ getRecordStrategyName(row) }}</span
                                     >
                                 </td>
                                 <td>{{ displayMoney(row.amount) }}</td>
@@ -1212,6 +1212,23 @@
                         </button>
                     </div>
                 </div>
+            </section>
+            <section v-if="strategyNameHistory.length" class="content-card">
+                <div class="panel-heading">
+                    <div>
+                        <h2 class="card-title">策略名称沿革</h2>
+                        <p class="card-description">按生效日期衔接历史名称，操作时间为北京时间。</p>
+                    </div>
+                    <button class="button secondary" type="button" @click="downloadStrategyNameHistory">导出改名历史</button>
+                </div>
+                <details v-for="strategy in strategyNameHistory" :key="strategy.id" class="strategy-history" open>
+                    <summary>{{ strategy.name }}{{ strategy.archived ? '（已归档）' : '' }} · {{ strategy.nameHistory.length }} 次改名</summary>
+                    <div v-for="(change, index) in strategy.nameHistory" :key="index" class="strategy-history-entry">
+                        <strong>{{ change.oldName }} → {{ change.newName }}</strong>
+                        <span>生效日期：{{ change.effectiveDate }} · 操作时间：{{ formatRenameTime(change.changedAtMs) }}</span>
+                        <span v-if="change.reason">说明：{{ change.reason }}</span>
+                    </div>
+                </details>
             </section>
             </template>
         </main>
@@ -1523,6 +1540,7 @@
                         </button>
                     </div>
                     <div class="strategy-name-list">
+                        <p class="strategy-empty-copy">改名会保留旧名、生效日期和操作时间；首次留痕前的旧名无法自动恢复。生效当天采用最后一次改名后的名称。</p>
                         <div class="strategy-manager-tips">
                             <span>
                                 归档
@@ -1555,6 +1573,10 @@
                                         maxlength="24"
                                         required />
                                 </label>
+                                <div v-if="strategyNameDrafts[strategy.id]?.trim() !== strategy.name" class="strategy-rename-fields">
+                                    <label>生效日期<input v-model="strategyRenameDates[strategy.id]" type="date" :min="strategy.nameHistory?.at(-1)?.effectiveDate" :max="getShanghaiDateString()" required /></label>
+                                    <label>改名说明（选填）<input v-model="strategyRenameReasons[strategy.id]" maxlength="200" placeholder="例如：调整选股规则和持仓结构" /></label>
+                                </div>
                                 <button
                                     class="strategy-archive-button"
                                     type="button"
@@ -1590,6 +1612,10 @@
                                         maxlength="24"
                                         required />
                                 </label>
+                                <div v-if="strategyNameDrafts[strategy.id]?.trim() !== strategy.name" class="strategy-rename-fields">
+                                    <label>生效日期<input v-model="strategyRenameDates[strategy.id]" type="date" :min="strategy.nameHistory?.at(-1)?.effectiveDate" :max="getShanghaiDateString()" required /></label>
+                                    <label>改名说明（选填）<input v-model="strategyRenameReasons[strategy.id]" maxlength="200" placeholder="例如：修正策略名称" /></label>
+                                </div>
                                 <button
                                     class="strategy-archive-button"
                                     type="button"
@@ -1610,7 +1636,7 @@
                         <button class="button secondary" type="button" @click="showStrategyModal = false">
                             取消
                         </button>
-                        <button class="button secondary featured-action" type="submit">保存名称</button>
+                        <button class="button secondary featured-action" type="submit" :disabled="strategyNamesSaving">{{ strategyNamesSaving ? '保存中…' : '保存名称' }}</button>
                     </div>
                 </form>
             </div>
@@ -2050,6 +2076,8 @@ import VChart from 'vue-echarts'
 import FeaturePageIcon from '@/components/FeaturePageIcon.vue'
 import StrategyLoading from '@/components/StrategyLoading.vue'
 import { callCloudFunction } from '@/services/cloudFunction'
+import { getStrategyNameOnDate } from '@/utils/ledgerStrategyHistory'
+import type { StrategyNameChange } from '@/utils/ledgerStrategyHistory'
 import {
     createLedgerStrategy,
     deleteLedgerRecord,
@@ -2104,6 +2132,7 @@ interface StrategyDraft {
     note: string
     color: string
     archived: boolean
+    nameHistory?: StrategyNameChange[]
 }
 
 interface ImportPreviewRow {
@@ -2208,6 +2237,9 @@ const pendingArchiveMode = ref<'archive' | 'restore'>('archive')
 const strategyDeleting = ref(false)
 const strategyArchiving = ref(false)
 const strategyNameDrafts = reactive<Record<string, string>>({})
+const strategyRenameDates = reactive<Record<string, string>>({})
+const strategyRenameReasons = reactive<Record<string, string>>({})
+const strategyNamesSaving = ref(false)
 const strategyNameError = ref('')
 const rangeModalTarget = ref('performance')
 const modalPeriod = ref('近30日')
@@ -2526,6 +2558,17 @@ const cashFlowSummary = computed(() => {
 })
 
 const recentRecords = ref<LedgerRecord[]>([])
+const strategyNameHistory = computed(() => managedStrategies.value
+    .filter(strategy => strategy.nameHistory?.length)
+    .map(strategy => ({ ...strategy, nameHistory: strategy.nameHistory || [] })))
+const getRecordStrategyName = (record: LedgerRecord) => {
+    const strategy = managedStrategies.value.find(item => item.id === record.strategyId)
+    return strategy ? getStrategyNameOnDate(strategy, record.date) : record.strategy
+}
+const formatRenameTime = (timestamp: number) => new Intl.DateTimeFormat('zh-CN', {
+    timeZone: 'Asia/Shanghai', year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false
+}).format(new Date(timestamp))
 const heatmapStrategyOptions = computed(() => {
     const strategiesById = new Map(managedStrategies.value.map(strategy => [strategy.id, strategy]))
     const recordedStrategies = new Map<string, { name: string; color: string }>()
@@ -2945,7 +2988,7 @@ const allMissingRecordDetails = computed(() => {
                 .map(date => ({
                     key: `${date}__${strategy.name}`,
                     date,
-                    strategy: strategy.name
+                    strategy: getStrategyNameOnDate(strategy, date)
                 }))
         })
         .sort((a, b) => b.date.localeCompare(a.date) || a.strategy.localeCompare(b.strategy))
@@ -2957,7 +3000,7 @@ const nonTradingRecordDetails = computed(() =>
         .map(item => ({
             key: `${item.id}__${item.date}`,
             date: item.date,
-            strategy: item.strategy,
+            strategy: getRecordStrategyName(item),
             record: item
         }))
         .sort((a, b) => b.date.localeCompare(a.date) || a.strategy.localeCompare(b.strategy))
@@ -4007,7 +4050,7 @@ const syncCashFlowEventsFromRecords = () => {
             id: `flow-${record.id}`,
             recordId: record.id,
             date: record.date,
-            strategy: record.strategy,
+            strategy: getRecordStrategyName(record),
             nav: record.nav,
             amount: Number(record.cashFlow),
             type: record.cashFlow > 0 ? '转入' : '转出',
@@ -4440,7 +4483,8 @@ const applyLedgerBundle = (
         cashFlow: 0,
         note: '',
         color: strategy.color || colorPalette[index % colorPalette.length],
-        archived: Boolean(strategy.archived)
+        archived: Boolean(strategy.archived),
+        nameHistory: strategy.nameHistory || []
     })
     const orderedStrategies = [...remoteStrategies].sort(
         (a, b) => Number(a.sortOrder || 0) - Number(b.sortOrder || 0)
@@ -5290,7 +5334,7 @@ const syncRecordCashFlow = (record: LedgerRecord) => {
         id: `flow-${record.id}`,
         recordId: record.id,
         date: record.date,
-        strategy: record.strategy,
+        strategy: getRecordStrategyName(record),
         nav: record.nav,
         amount: Number(record.cashFlow),
         type: record.cashFlow > 0 ? '转入' : '转出',
@@ -5478,11 +5522,14 @@ const openStrategyManager = () => {
     strategyNameError.value = ''
     managedStrategies.value.forEach(strategy => {
         strategyNameDrafts[strategy.id] = strategy.name
+        strategyRenameDates[strategy.id] = getShanghaiDateString()
+        strategyRenameReasons[strategy.id] = ''
     })
     showStrategyModal.value = true
 }
 
 const saveStrategyNames = async () => {
+    if (strategyNamesSaving.value) return
     const managedRows = managedStrategies.value
     const nextNamesById = new Map(
         managedRows.map(strategy => [strategy.id, strategyNameDrafts[strategy.id]?.trim() || ''])
@@ -5497,10 +5544,15 @@ const saveStrategyNames = async () => {
         return
     }
 
+    strategyNamesSaving.value = true
     try {
         for (const strategy of managedRows) {
             const newName = nextNamesById.get(strategy.id) || strategy.name
-            if (strategy.name !== newName) await renameLedgerStrategy(strategy.id, newName)
+            if (strategy.name !== newName) {
+                const result = await renameLedgerStrategy(strategy.id, newName, strategyRenameDates[strategy.id], strategyRenameReasons[strategy.id])
+                strategy.name = result.strategy.name
+                strategy.nameHistory = result.strategy.nameHistory || []
+            }
         }
         strategyNameError.value = ''
         showStrategyModal.value = false
@@ -5508,6 +5560,9 @@ const saveStrategyNames = async () => {
         notify('策略名称已同步更新', 'success')
     } catch (error) {
         strategyNameError.value = error instanceof Error ? error.message : '策略名称保存失败'
+        await loadLedgerBundle()
+    } finally {
+        strategyNamesSaving.value = false
     }
 }
 
@@ -6192,7 +6247,7 @@ const downloadCurrentLedgerExcel = () => {
         return
     }
 
-    const headers = ['记录日期', '策略名称', '期末金额', '当日现金流', '备注']
+    const headers = ['记录日期', '策略名称', '期末金额', '当日现金流', '备注', '当时名称', '策略ID']
     const rows = recentRecords.value
         .slice()
         .sort((a, b) => a.date.localeCompare(b.date) || a.strategy.localeCompare(b.strategy))
@@ -6201,11 +6256,23 @@ const downloadCurrentLedgerExcel = () => {
             record.strategy,
             Number(record.amount.toFixed(2)),
             Number(record.cashFlow.toFixed(2)),
-            record.note || ''
+            record.note || '',
+            getRecordStrategyName(record),
+            record.strategyId
         ])
     const blob = createXlsxBlob([headers, ...rows])
     downloadBlob(blob, `投资账本-${latestLedgerDate.value || todayDate}.xlsx`)
     notify('当前账本已导出')
+}
+const downloadStrategyNameHistory = () => {
+    const rows = strategyNameHistory.value.flatMap(strategy => strategy.nameHistory.map(change => [
+        strategy.id, strategy.name, change.oldName, change.newName, change.effectiveDate,
+        formatRenameTime(change.changedAtMs), change.reason || ''
+    ]))
+    downloadBlob(createXlsxBlob([
+        ['策略ID', '当前名称', '旧名称', '新名称', '生效日期', '操作时间（北京时间）', '改名说明'],
+        ...rows
+    ]), `策略改名历史-${getShanghaiDateString()}.xlsx`)
 }
 const previewImport = async () => {
     const file = selectedImportFile.value
@@ -9956,6 +10023,36 @@ label small {
 
 .strategy-manager-row.archived {
     opacity: 0.82;
+}
+
+.strategy-rename-fields {
+    display: grid;
+    grid-column: 1 / -1;
+    grid-row: 2;
+    gap: 8px;
+    font-size: 12px;
+    color: #aabbd0;
+}
+
+.strategy-history {
+    padding: 12px 0;
+    border-bottom: 1px solid rgb(255 255 255 / 10%);
+    overflow-wrap: anywhere;
+}
+
+.strategy-history summary {
+    cursor: pointer;
+}
+
+.strategy-history-entry {
+    display: grid;
+    gap: 6px;
+    padding: 12px;
+    font-size: 13px;
+}
+
+.strategy-history-entry span {
+    color: #aabbd0;
 }
 
 .strategy-archive-button,

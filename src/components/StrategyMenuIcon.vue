@@ -5,6 +5,12 @@
       <circle cx="24" cy="24" r="3.2" class="icon-cutout" />
     </g>
 
+    <g v-else-if="type === 'live-account'" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+      <rect x="7" y="9" width="34" height="26" rx="5" />
+      <path d="M14 28l7-8 6 4 7-9M19 40h10M24 35v5" />
+      <circle cx="36" cy="11" r="4" fill="currentColor" stroke="#121212" />
+    </g>
+
     <g v-else-if="type === 'strategy-observation'" class="strategy-observation-glyph">
       <path
         class="strategy-observation-links"

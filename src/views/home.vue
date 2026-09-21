@@ -2294,6 +2294,14 @@
           link: '/portfolio-analysis' // 记得在 router 中注册这个路由
       },
       {
+          id: 18,
+          title: '老何实盘',
+          description: '每日跟踪老何实盘净值、收益表现与持仓比例。',
+          iconType: 'live-account',
+          cssClass: 'live-account',
+          link: '/live-account'
+      },
+      {
           id: 16,
           title: '转债全景',
           description: '跟踪价格分层、市场广度、估值位置与成交热度。',
@@ -4769,6 +4777,10 @@
 
   .quick-menu-card.high-dividend {
       --menu-accent: #2dd4bf;
+  }
+
+  .quick-menu-card.live-account {
+      --menu-accent: #34d399;
   }
 
   .quick-menu-card.portfolio-lab {
