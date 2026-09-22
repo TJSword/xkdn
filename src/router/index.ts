@@ -135,6 +135,16 @@ export const constantRoutes = [
 
 
   {
+    path: '/etf-premium',
+    component: () => import('@/views/etf-premium.vue'),
+    meta: {
+      requiresAuth: true,
+      capability: 'app:read',
+      title: '纳指溢价监控',
+      description: '查看纳斯达克100 ETF 场内价格、单位净值、IOPV 与折溢价。'
+    }
+  },
+  {
     path: '/lof',
     component: () => import('@/views/lof.vue'),
     meta: {

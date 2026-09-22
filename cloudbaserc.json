@@ -4,6 +4,23 @@
   "functionRoot": "functions",
   "functions": [
     {
+      "name": "etfRotation",
+      "runtime": "Nodejs20.19",
+      "handler": "index.main",
+      "timeout": 15,
+      "memorySize": 256,
+      "description": "纳斯达克ETF固定阈值自动轮动参考持仓",
+      "triggers": [{ "name": "nasdaqRotationMinute", "type": "timer", "config": "0 * 9-15 * * MON-FRI *" }]
+    },
+    {
+      "name": "liveAccount",
+      "runtime": "Nodejs20.19",
+      "handler": "index.main",
+      "timeout": 60,
+      "memorySize": 256,
+      "description": "老何实盘：投资账本脱敏只读展示"
+    },
+    {
       "name": "fetchEtfData",
       "runtime": "Nodejs18.15",
       "handler": "index.main",

@@ -25,6 +25,7 @@
 </script>
 
 <style scoped>
+  .feature-page-icon-nasdaq-premium { --menu-accent: #fb923c; }
   .feature-page-icon {
       display: inline-grid;
       width: var(--feature-page-icon-size);
@@ -45,7 +46,8 @@
   }
 
   .feature-page-icon-live-account {
-      --menu-accent: #34d399;
+      --menu-accent: #5397b5;
+      filter: none;
   }
 
   .feature-page-icon-strategy-observation {

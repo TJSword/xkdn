@@ -3,7 +3,7 @@ import { calculateStats, calculateMonthlyReturns } from './strategyMetrics'
 export interface ComparisonSource { dateList: string[]; strategyData: number[] }
 
 // Compare exact shared valuation dates; never fill missing observations with zero returns.
-export function alignComparison(sources: Record<string, ComparisonSource>, ids: string[]) {
+export function alignComparison(sources: Record<string, ComparisonSource>, ids: string[], range?: { start: string; end: string }) {
     const maps = ids.map(id => {
         const source = sources[id]
         const points = new Map<string, number>()
@@ -13,7 +13,7 @@ export function alignComparison(sources: Record<string, ComparisonSource>, ids: 
         })
         return points
     })
-    const dates = maps.length ? [...maps[0].keys()].filter(date => maps.every(map => map.has(date))).sort() : []
+    const dates = maps.length ? [...maps[0].keys()].filter(date => maps.every(map => map.has(date)) && (!range?.start || date >= range.start) && (!range?.end || date <= range.end)).sort() : []
     const series = ids.map((id, index) => {
         const values = dates.map(date => maps[index].get(date) as number)
         const normalized = values.map(value => value / values[0])

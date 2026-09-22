@@ -77,7 +77,7 @@
 <script setup lang="ts">
   import { computed, ref } from 'vue'
 
-  type Period = '近1个月' | '近1年' | '近3年' | '近5年' | '近10年' | '全部' | '自定义'
+  type Period = '今年' | '近1个月' | '近1年' | '近3年' | '近5年' | '近10年' | '全部' | '自定义'
 
   const props = withDefaults(defineProps<{
     start: string
@@ -85,6 +85,8 @@
     minDate: string
     maxDate: string
     accent?: string
+    showDates?: boolean
+    includeYearToDate?: boolean
   }>(), {
       accent: '#f59e0b'
   })
@@ -95,13 +97,17 @@
     (event: 'apply'): void
   }>()
 
-  const periods: Period[] = ['近1个月', '近1年', '近3年', '近5年', '近10年', '全部', '自定义']
+  const periods = computed<Period[]>(() => [
+      ...(props.includeYearToDate ? ['今年' as Period] : []),
+      '近1个月', '近1年', '近3年', '近5年', '近10年', '全部', '自定义'
+  ])
   const showModal = ref(false)
   const modalPeriod = ref<Period>('全部')
   const modalStart = ref('')
   const modalEnd = ref('')
 
   const rangeLabel = computed(() => {
+      if (props.showDates) return `${formatShortDate(props.start)} 至 ${formatShortDate(props.end)}`
       const period = getPeriod(props.start, props.end)
       if (period !== '自定义') return period
       return `${formatShortDate(props.start)} 至 ${formatShortDate(props.end)}`
@@ -130,6 +136,7 @@
   }
 
   function getPresetStart(period: Period) {
+      if (period === '今年') return clampDate(props.maxDate.slice(0, 4) + '-01-01')
       if (period === '全部') return props.minDate
       if (period === '近1个月') return clampDate(subtractPeriod(props.maxDate, 0, 1))
       const years = Number(period.match(/\d+/)?.[0] || 0)
@@ -146,9 +153,10 @@
 
   function getPeriod(start: string, end: string): Period {
       if (!props.minDate || !props.maxDate || (!start && !end)) return '全部'
+      if (props.includeYearToDate && end === props.maxDate && start === getPresetStart('今年')) return '今年'
       if (start === props.minDate && end === props.maxDate) return '全部'
       if (end === props.maxDate) {
-          const matched = periods.slice(0, 5).find(period => daysBetween(start, getPresetStart(period)) <= 7)
+          const matched = periods.value.filter(period => period.startsWith('近')).find(period => daysBetween(start, getPresetStart(period)) <= 7)
           if (matched) return matched
       }
       return '自定义'

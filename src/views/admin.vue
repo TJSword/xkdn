@@ -23,6 +23,23 @@
         </button>
       </nav>
 
+      <section v-if="activeTab === 'live-descriptions'" class="content-card admin-section">
+        <h2 class="card-title">实盘策略说明</h2>
+        <p class="card-description">编辑老何实盘页面的策略公开介绍，保存后用于策略悬停说明。</p>
+        <p v-if="liveDescriptionsLoading">正在读取策略说明…</p>
+        <p v-if="liveDescriptionsError" role="alert">{{ liveDescriptionsError }} <button type="button" @click="loadLiveDescriptions">重试</button></p>
+        <p v-if="!liveDescriptionsLoading && !liveDescriptionsError && !liveStrategies.length">暂无实盘策略。</p>
+      <form v-if="liveStrategies.length" class="description-form" @submit.prevent="saveDescription">
+        <label for="description-strategy">策略</label>
+        <div class="description-select"><select id="description-strategy" class="form-input" v-model="editingStrategyId" :disabled="savingDescription" @change="resetDescriptionDraft"><option v-for="strategy in liveStrategies" :key="strategy.strategyId" :value="strategy.strategyId">{{ strategy.name }}</option></select></div>
+        <label for="strategy-description">公开说明</label>
+        <textarea id="strategy-description" class="form-input" v-model="descriptionDraft" :disabled="savingDescription" maxlength="1000" rows="7" placeholder="填写策略的基本介绍、投资范围或执行思路" />
+        <small>{{ descriptionDraft.length }} / 1000 · 保存后向所有可访问实盘页面的用户展示，请勿填写账户金额、个人信息或私密备注。</small>
+        <p v-if="descriptionMessage" role="status">{{ descriptionMessage }}</p>
+        <div class="description-actions"><button type="submit" class="button-primary" :disabled="savingDescription">{{ savingDescription ? '保存中…' : '保存说明' }}</button></div>
+      </form>
+      </section>
+
       <section v-if="activeTab === 'users'" class="content-card admin-section">
         <div class="card-header-with-toggle">
           <div>
@@ -668,6 +685,9 @@
 </template>
 
 <script setup lang="ts">
+import { getLiveOverview, saveLiveStrategyDescription } from '@/services/liveAccount'
+import type { LiveStrategy } from '@/services/liveAccount'
+
   import { computed, inject, onMounted, ref, watch } from 'vue'
   import { callCloudFunction } from '@/services/cloudFunction'
 
@@ -693,7 +713,7 @@
       high_dividend: boolean
   }
 
-  type TabKey = 'users' | 'data-source' | 'data-view' | 'refresh'
+  type TabKey = 'users' | 'data-source' | 'data-view' | 'refresh' | 'live-descriptions'
   type RefreshTaskKey = 'lof' | 'rights' | 'micro_cap' | 'high_dividend' | 'bond_market'
   type CookieSource = 'xueqiu' | 'jisilu' | 'guoren' | 'tonghuashun'
 
@@ -730,8 +750,52 @@
       { key: 'users', label: '人员管理', description: '会员、通知、备注' },
       { key: 'data-source', label: '数据源配置', description: '统一维护访问凭据' },
       { key: 'data-view', label: '数据查看', description: '已采集数据总览' },
-      { key: 'refresh', label: '数据更新', description: '手动补跑数据' }
+      { key: 'refresh', label: '数据更新', description: '手动补跑数据' },
+      { key: 'live-descriptions', label: '实盘说明', description: '编辑策略公开介绍' }
   ]
+const liveStrategies = ref<LiveStrategy[]>([])
+const liveDescriptionsLoading = ref(false)
+const liveDescriptionsError = ref('')
+async function loadLiveDescriptions() {
+  if (liveDescriptionsLoading.value) return
+  liveDescriptionsLoading.value = true
+  liveDescriptionsError.value = ''
+  try {
+    liveStrategies.value = (await getLiveOverview()).strategies
+    editingStrategyId.value = liveStrategies.value[0]?.strategyId || ''
+    resetDescriptionDraft()
+  } catch (cause: any) {
+    liveDescriptionsError.value = cause?.message || '读取策略说明失败'
+  } finally {
+    liveDescriptionsLoading.value = false
+  }
+}
+const editingStrategyId = ref('')
+const descriptionDraft = ref('')
+const savingDescription = ref(false)
+const descriptionMessage = ref('')
+function resetDescriptionDraft() {
+  descriptionDraft.value = liveStrategies.value.find(strategy => strategy.strategyId === editingStrategyId.value)?.description || ''
+  descriptionMessage.value = ''
+}
+
+async function saveDescription() {
+  if (savingDescription.value || !editingStrategyId.value) return
+  savingDescription.value = true
+  descriptionMessage.value = ''
+  try {
+    const saved = await saveLiveStrategyDescription(editingStrategyId.value, descriptionDraft.value)
+    const strategy = liveStrategies.value.find(item => item.strategyId === saved.strategyId)
+    if (strategy) strategy.description = saved.description
+    descriptionDraft.value = saved.description
+    descriptionMessage.value = '已保存，页面中的策略说明已更新。'
+  } catch (cause: any) {
+    descriptionMessage.value = cause?.message || '保存失败，请重试。'
+  } finally {
+    savingDescription.value = false
+  }
+}
+
   const activeTab = ref<TabKey>('users')
 
   const users = ref<User[]>([])
@@ -772,9 +836,9 @@
           key: 'rights_strategy',
           label: '含权策略',
           tagLabel: '含权',
-          trigger: '交易日 14:40 刷新含权策略；只有发生调仓时通知，无调仓不通知。',
-          content: '交易日、卖出清单、买入清单，以及对应含权值。',
-          example: '交易日：2026-06-15；卖出：A公司(600000) 含权值:12.34。'
+          trigger: '交易日 9:30，若当前持仓有股票当天到达股权登记日，发送下午 14:40 调仓预提醒；14:40 刷新后，仅有调入或调出时发送调仓通知。',
+          content: '预提醒包含当天到达股权登记日的持仓及下午调仓时间；调仓通知包含交易日、卖出清单、买入清单及对应含权值。',
+          example: '今日持仓中的 A公司(600000) 到达股权登记日，请于今天下午 14:40 查看调仓建议并及时调仓，具体调出、补位名单以届时更新为准。'
       },
       {
           key: 'momentum',
@@ -1097,6 +1161,7 @@
 
   const selectTab = (tab: TabKey) => {
       activeTab.value = tab
+      if (tab === 'live-descriptions' && !liveStrategies.value.length) void loadLiveDescriptions()
       if (tab === 'data-view') {
           fetchCollectedData()
           fetchGuorenCandidates()
@@ -1644,6 +1709,17 @@
 </script>
 
 <style scoped>
+.description-form { display: grid; gap: 0.75rem; }
+.description-form select, .description-form textarea { font: inherit; }
+.description-select { position: relative; }
+.description-select select { appearance: none; padding-right: 2.75rem; color-scheme: dark; }
+.description-select option { background-color: #202020; color: #d8e4f2; }
+.description-select option:checked { background-color: #183442; color: #dff6ff; }
+.description-select::after { content: ''; position: absolute; right: 1rem; top: 50%; width: 7px; height: 7px; border-right: 1.5px solid #b0c4de; border-bottom: 1.5px solid #b0c4de; transform: translateY(-70%) rotate(45deg); pointer-events: none; }
+.description-form textarea { resize: vertical; }
+.description-form small { line-height: 1.6; color: #8fa1b8; }
+.description-actions { display: flex; justify-content: flex-end; gap: 0.75rem; }
+
   :global(html),
   :global(body),
   :global(#app) {
@@ -2229,7 +2305,7 @@
   .admin-tabs {
       display: grid;
       margin-bottom: 1.5rem;
-      grid-template-columns: repeat(4, minmax(0, 1fr));
+      grid-template-columns: repeat(5, minmax(0, 1fr));
       gap: 0.75rem;
       animation: fade-in-up 0.45s ease-out 0.06s both;
   }

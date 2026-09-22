@@ -5,10 +5,17 @@
       <circle cx="24" cy="24" r="3.2" class="icon-cutout" />
     </g>
 
+    <g v-else-if="type === 'nasdaq-premium'" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M10 17a16 16 0 0 1 27-5l3 4M40 8v8h-8M38 31a16 16 0 0 1-27 5l-3-4M8 40v-8h8" />
+      <circle cx="18" cy="20" r="3" />
+      <circle cx="30" cy="28" r="3" />
+      <path d="m17 32 14-16" />
+    </g>
+
     <g v-else-if="type === 'live-account'" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-      <rect x="7" y="9" width="34" height="26" rx="5" />
-      <path d="M14 28l7-8 6 4 7-9M19 40h10M24 35v5" />
-      <circle cx="36" cy="11" r="4" fill="currentColor" stroke="#121212" />
+      <path d="M24 7v25M20 11 9 27h11ZM28 14v13h11Z" />
+      <path d="M7 32h34l-6 7H14Z" />
+      <path d="M6 43q4-3 8 0t8 0 8 0 8 0 4 0" opacity="0.65" />
     </g>
 
     <g v-else-if="type === 'strategy-observation'" class="strategy-observation-glyph">

@@ -459,93 +459,58 @@
                                 设置各策略目标比例后，查看当前偏离和建议调入、调出金额。
                             </p>
                         </div>
-                        <button class="text-button" type="button" @click="targetMode = !targetMode">
-                            {{ targetMode ? '收起调仓方案' : '设置调仓目标' }}
+                        <button class="text-button" type="button" @click="openAllocationTargetModal">
+                            {{ hasAllocationTargets ? '编辑目标比例' : '设置目标比例' }}
                         </button>
                     </div>
                     <div class="allocation-layout">
                         <v-chart class="allocation-chart" :option="allocationOption" autoresize />
                         <div class="allocation-list">
-                            <div
-                                v-for="item in allocationRows"
-                                :key="item.name"
-                                class="allocation-row">
-                                <div class="allocation-label">
-                                    <i :style="{ backgroundColor: item.color }"></i>
-                                    <strong :title="item.name">{{ formatCompactName(item.name, 5) }}</strong>
-                                </div>
-                                <div class="weight-track">
-                                    <span
-                                        v-if="targetMode"
-                                        class="target-marker"
-                                        :style="{ left: `${item.target}%` }"></span>
-                                    <span
-                                        class="weight-fill"
-                                        :style="{
-                                            width: `${item.current}%`,
-                                            backgroundColor: item.color
-                                        }"></span>
-                                </div>
-                                <div class="allocation-numbers">
-                                    <strong>{{ item.current.toFixed(2) }}%</strong>
-                                    <small>{{ formatMoney(item.amount) }}</small>
-                                    <span
-                                        v-if="targetMode"
-                                        :class="
-                                            item.deviation > 0 ? 'negative' : 'positive'
-                                        ">
-                                        偏移 {{ item.deviation > 0 ? '+' : ''
-                                        }}{{ item.deviation.toFixed(2) }}%
-                                    </span>
-                                </div>
+                            <div class="allocation-table-scroll">
+                                <table class="allocation-table">
+                                    <thead>
+                                        <tr>
+                                            <th scope="col">策略</th>
+                                            <th scope="col">当前金额</th>
+                                            <th scope="col">目标占比</th>
+                                            <th scope="col">相对偏离</th>
+                                            <th scope="col">调整金额</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr v-for="item in allocationRows" :key="item.id">
+                                            <th scope="row">
+                                                <div class="allocation-label">
+                                                    <i :style="{ backgroundColor: item.color }"></i>
+                                                    <strong>{{ item.name }}</strong>
+                                                </div>
+                                            </th>
+                                            <td>{{ formatMoney(item.amount) }}</td>
+                                            <td>{{ item.target == null ? '未设置' : item.target.toFixed(2) + '%' }}</td>
+                                            <td>
+                                                <template v-if="isTargetValid">
+                                                    <strong class="allocation-relative">{{ item.relativeDeviation == null ? '—' : formatPercent(item.relativeDeviation) }}</strong>
+                                                    <small class="allocation-difference">
+                                                        <template v-if="Math.abs(item.deviation) < 0.005">持平</template>
+                                                        <template v-else>{{ item.deviation > 0 ? '高出' : '低于' }} {{ Math.abs(item.deviation).toFixed(2) }} 个百分点</template>
+                                                    </small>
+                                                </template>
+                                                <template v-else>—</template>
+                                            </td>
+                                            <td :class="isTargetValid && Math.abs(item.adjustAmount) >= 0.005 ? (item.adjustAmount > 0 ? 'positive' : 'negative') : ''">
+                                                <template v-if="isTargetValid">
+                                                    <template v-if="Math.abs(item.adjustAmount) < 0.005">无需调整</template>
+                                                    <template v-else>{{ item.adjustAmount > 0 ? '调入' : '调出' }} {{ formatMoney(Math.abs(item.adjustAmount)) }}</template>
+                                                </template>
+                                                <template v-else>—</template>
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
                             </div>
-                            <div v-if="targetMode" class="rebalance-summary">
-                                <div>
-                                    <span>最大偏离</span>
-                                    <strong>{{ maxDeviation.toFixed(1) }}%</strong>
-                                </div>
-                                <div>
-                                    <span>建议调整金额</span>
-                                    <strong>{{ formatMoney(rebalanceAmount) }}</strong>
-                                </div>
-                                <p>
-                                    金额为测算值：正数代表补足，负数代表降低。后续可接入交易成本和最小调整阈值。
-                                </p>
-                            </div>
-                            <div v-if="targetMode && rebalanceActions.length" class="rebalance-action-list">
-                                <div
-                                    v-for="item in rebalanceActions"
-                                    :key="`rebalance-${item.name}`"
-                                    class="rebalance-action-row">
-                                    <span :class="item.adjustAmount >= 0 ? 'positive' : 'negative'">
-                                        {{ item.adjustAmount >= 0 ? '买入' : '卖出' }}
-                                    </span>
-                                    <strong>{{ item.name }}</strong>
-                                    <em>{{ formatMoney(Math.abs(item.adjustAmount)) }}</em>
-                                </div>
-                            </div>
-                            <div v-if="targetMode" class="target-editor">
-                                <label v-for="item in allocationData" :key="`${item.name}-target`">
-                                    <span>{{ item.name }}目标</span>
-                                    <div>
-                                        <input
-                                            v-model.number="item.target"
-                                            type="number"
-                                            min="0"
-                                            max="100"
-                                            step="0.01"
-                                            @blur="item.target = roundPercentInput(item.target)" />
-                                        <b>%</b>
-                                    </div>
-                                </label>
-                                <div class="target-total" :class="{ invalid: targetTotal !== 100 }">
-                                    <span>目标合计</span>
-                                    <strong>{{ targetTotal.toFixed(0) }}%</strong>
-                                </div>
-                            </div>
-                            <div v-if="targetMode" class="legend-note">
-                                <span></span>白线为用户设定的目标仓位
-                            </div>
+                            <p class="allocation-note">
+                                {{ isTargetValid ? '按当前总资产测算，暂不考虑交易费用。相对偏离 = 当前占比 ÷ 目标占比 − 1；目标为 0% 时不计算相对偏离。' : hasAllocationTargets ? '策略列表已变化，请重新设置目标比例后查看测算结果。' : '尚未设置目标比例，保存后每次进入都会自动显示最新偏离。' }}
+                            </p>
                         </div>
                     </div>
                 </article>
@@ -2000,6 +1965,39 @@
         </Transition>
 
         <Transition name="modal-fade">
+            <div v-if="showAllocationTargetModal" class="modal-backdrop" @click.self="closeAllocationTargetModal">
+                <form class="modal-panel compact-modal" role="dialog" aria-modal="true" aria-labelledby="allocation-target-title" @submit.prevent="saveAllocationTargets" @keydown.esc="closeAllocationTargetModal">
+                    <div class="modal-header">
+                        <div>
+                            <span>策略配置</span>
+                            <h3 id="allocation-target-title">设置目标比例</h3>
+                        </div>
+                        <button class="icon-button" type="button" aria-label="关闭目标设置" :disabled="allocationTargetSaving" @click="closeAllocationTargetModal">×</button>
+                    </div>
+                    <p class="allocation-note">保存到账本后，将按最新资产金额自动计算偏离。各策略目标合计须为 100%。</p>
+                    <div class="target-editor allocation-target-editor">
+                        <label v-for="item in strategies" :key="item.id">
+                            <span>{{ item.name }}目标</span>
+                            <div>
+                                <input v-model.number="allocationTargetDrafts[item.id]" type="number" min="0" max="100" step="0.01" required placeholder="未设置" :disabled="allocationTargetSaving" />
+                                <b>%</b>
+                            </div>
+                        </label>
+                        <div class="target-total" :class="{ invalid: !isTargetDraftValid }">
+                            <span>目标合计</span>
+                            <strong>{{ targetTotal.toFixed(2) }}%</strong>
+                        </div>
+                    </div>
+                    <p v-if="allocationTargetError" class="form-error" role="alert">{{ allocationTargetError }}</p>
+                    <div class="modal-actions">
+                        <button class="button secondary" type="button" :disabled="allocationTargetSaving" @click="closeAllocationTargetModal">取消</button>
+                        <button class="button secondary featured-action" type="submit" :disabled="!isTargetDraftValid || allocationTargetSaving">{{ allocationTargetSaving ? '保存中...' : '保存目标' }}</button>
+                    </div>
+                </form>
+            </div>
+        </Transition>
+
+        <Transition name="modal-fade">
             <div v-if="showAnnualTargetModal" class="modal-backdrop">
                 <form class="modal-panel compact-modal annual-target-modal" @submit.prevent="saveAnnualTarget">
                     <div class="modal-header">
@@ -2086,6 +2084,7 @@ import {
     getLedgerRecords,
     renameLedgerStrategy,
     saveLedgerAccount,
+    saveLedgerAllocationTargets,
     saveLedgerRecord,
     saveLedgerRecords,
     saveDailyLedgerRecords,
@@ -2247,7 +2246,10 @@ const modalRange = reactive({
     start: '',
     end: ''
 })
-const targetMode = ref(false)
+const showAllocationTargetModal = ref(false)
+const allocationTargetSaving = ref(false)
+const allocationTargetError = ref('')
+const allocationTargetDrafts = reactive<Record<string, number | ''>>({})
 const annualProfitTarget = ref(0)
 const annualProfitTargetDraft = ref<number | ''>('')
 const selectedFileName = ref('')
@@ -2320,7 +2322,8 @@ const emptyDemoOption = {
 const accountConfig = reactive({
     openingPrincipal: 0,
     openingDate: '',
-    annualProfitTargets: {} as Record<string, number>
+    annualProfitTargets: {} as Record<string, number>,
+    allocationTargets: {} as Record<string, number>
 })
 const tradingCalendar = ref<LedgerTradingCalendar>({
     exchange: 'SSE',
@@ -2346,37 +2349,63 @@ const hasImportErrors = computed(
 )
 let importDragDepth = 0
 
-const allocationData = reactive<Array<{ name: string; current: number; target: number; amount: number; color: string }>>([])
+const allocationData = reactive<Array<{ id: string; name: string; current: number; amount: number; color: string }>>([])
 
 const allocationRows = computed(() =>
     allocationData.map(item => {
-        const deviation = item.current - item.target
+        const target = accountConfig.allocationTargets[item.id]
+        const deviation = item.current - (target ?? 0)
 
         return {
             ...item,
+            target,
             deviation,
-            adjustAmount: ((item.target - item.current) / 100) * totalAssets.value
+            relativeDeviation: target > 0 ? (deviation / target) * 100 : null,
+            adjustAmount: ((target ?? 0) / 100) * totalAssets.value - item.amount
         }
     })
 )
+const hasAllocationTargets = computed(() => Object.keys(accountConfig.allocationTargets).length > 0)
+const isTargetValid = computed(() =>
+    allocationRows.value.length > 0 &&
+    Object.keys(accountConfig.allocationTargets).length === allocationRows.value.length &&
+    allocationRows.value.every(item => Number.isFinite(item.target) && item.target >= 0 && item.target <= 100) &&
+    Math.abs(allocationRows.value.reduce((sum, item) => sum + item.target, 0) - 100) < 0.000001
+)
 const targetTotal = computed(() =>
-    allocationData.reduce((total, item) => total + Number(item.target || 0), 0)
+    strategies.reduce((sum, item) => sum + Number(allocationTargetDrafts[item.id] || 0), 0)
 )
-const roundPercentInput = (value: number) => Number(Number(value || 0).toFixed(2))
-const maxDeviation = computed(() =>
-    allocationRows.value.length
-        ? Math.max(...allocationRows.value.map(item => Math.abs(item.deviation)))
-        : 0
-)
-const rebalanceAmount = computed(
-    () =>
-        allocationRows.value.reduce((total, item) => total + Math.abs(item.adjustAmount), 0) / 2
-)
-const rebalanceActions = computed(() =>
-    allocationRows.value
-        .filter(item => Math.abs(item.adjustAmount) >= 1)
-        .sort((a, b) => Math.abs(b.adjustAmount) - Math.abs(a.adjustAmount))
-)
+const isTargetDraftValid = computed(() => strategies.length > 0 && strategies.every(item => {
+    const value = allocationTargetDrafts[item.id]
+    return typeof value === 'number' && Number.isFinite(value) && value >= 0 && value <= 100 &&
+        Math.abs(value * 100 - Math.round(value * 100)) < 0.000001
+}) && Math.abs(targetTotal.value - 100) < 0.000001)
+const openAllocationTargetModal = () => {
+    for (const key of Object.keys(allocationTargetDrafts)) delete allocationTargetDrafts[key]
+    strategies.forEach(item => { allocationTargetDrafts[item.id] = accountConfig.allocationTargets[item.id] ?? '' })
+    allocationTargetError.value = ''
+    showAllocationTargetModal.value = true
+}
+const closeAllocationTargetModal = () => {
+    if (!allocationTargetSaving.value) showAllocationTargetModal.value = false
+}
+const saveAllocationTargets = async () => {
+    if (!isTargetDraftValid.value || allocationTargetSaving.value) return
+    allocationTargetSaving.value = true
+    allocationTargetError.value = ''
+    try {
+        const targets = Object.fromEntries(strategies.map(item => [item.id, Number(allocationTargetDrafts[item.id])]))
+        const result = await saveLedgerAllocationTargets(targets)
+        if (!result.account.allocationTargets) throw new Error('目标保存未完成，请检查账本服务版本')
+        accountConfig.allocationTargets = { ...result.account.allocationTargets }
+        showAllocationTargetModal.value = false
+        notify('目标比例已保存', 'success')
+    } catch (error) {
+        allocationTargetError.value = error instanceof Error ? error.message : '目标比例保存失败，请重试'
+    } finally {
+        allocationTargetSaving.value = false
+    }
+}
 
 const periodReturnRows = reactive<
     Array<{
@@ -4275,12 +4304,11 @@ const syncDerivedState = () => {
         ...strategies.map(strategy => {
             const latest = recordsOnLatestDate.value.find(record => record.strategyId === strategy.id)
             const current = latestTotal ? ((latest?.amount || 0) / latestTotal) * 100 : 0
-            const roundedCurrent = roundPercentInput(current)
 
             return {
                 name: strategy.name,
-                current: roundedCurrent,
-                target: roundedCurrent,
+                id: strategy.id,
+                current,
                 amount: latest?.amount || 0,
                 color: strategy.color
             }
@@ -4464,12 +4492,14 @@ const applyLedgerBundle = (
         openingPrincipal?: number
         openingDate?: string
         annualProfitTargets?: Record<string, number>
+        allocationTargets?: Record<string, number>
     },
     remoteTradingCalendar: LedgerTradingCalendar
 ) => {
     tradingCalendar.value = remoteTradingCalendar
     accountConfig.openingPrincipal = Number(account.openingPrincipal || 0)
     accountConfig.openingDate = account.openingDate || ''
+    accountConfig.allocationTargets = { ...(account.allocationTargets || {}) }
     accountConfig.annualProfitTargets = { ...(account.annualProfitTargets || {}) }
     annualProfitTarget.value = Number(
         accountConfig.annualProfitTargets[annualTargetYearLabel.value] || 0
@@ -7832,129 +7862,73 @@ select:focus {
 
 .allocation-list {
     display: grid;
+    min-width: 0;
     gap: 16px;
 }
 
-.allocation-row {
-    display: grid;
-    grid-template-columns: 82px minmax(100px, 1fr) 86px;
-    align-items: center;
-    gap: 12px;
+.allocation-table-scroll {
+    overflow-x: auto;
+    min-width: 0;
+}
+
+.allocation-table {
+    width: 100%;
+    min-width: 0;
+    border-collapse: collapse;
+    font-size: 12px;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+.allocation-table th,
+.allocation-table td {
+    padding: 14px 10px;
+    text-align: right;
+    border-bottom: 1px solid rgb(255 255 255 / 8%);
+    background: transparent;
+}
+
+.allocation-table th:first-child {
+    padding-left: 0;
+    text-align: left;
+}
+
+.allocation-table thead th {
+    color: #9fb0c2;
+    font-weight: 400;
 }
 
 .allocation-label {
     display: flex;
     align-items: center;
-    min-width: 0;
     gap: 8px;
 }
 
-.allocation-label strong {
-    overflow: hidden;
-    max-width: 5em;
-    font-size: 12px;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+.allocation-label i {
+    flex-shrink: 0;
 }
 
-.weight-track {
-    position: relative;
-    overflow: visible;
-    height: 8px;
-    background: #202c37;
-    border-radius: 999px;
-}
-
-.weight-fill {
+.allocation-relative,
+.allocation-difference {
     display: block;
-    height: 100%;
-    border-radius: 999px;
 }
 
-.target-marker {
-    position: absolute;
-    top: -4px;
-    z-index: 2;
-    width: 2px;
-    height: 16px;
-    background: #fff;
-    transform: translateX(-1px);
-}
-
-.allocation-numbers {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-end;
-    font-size: 12px;
-    gap: 3px;
-}
-
-.allocation-numbers > span {
-    font-size: 12px;
-    color: #8394a5;
-}
-
-.allocation-numbers > small {
-    font-size: 12px;
-    color: #9fb0c2;
-}
-
-.rebalance-summary {
-    display: grid;
-    align-items: center;
-    padding: 12px;
-    background: rgb(0 0 0 / 20%);
-    border: 1px solid rgb(255 255 255 / 10%);
-    border-radius: 8px;
-    grid-template-columns: auto auto 1fr;
-    gap: 14px;
-}
-
-.rebalance-summary span,
-.rebalance-summary p {
-    font-size: 12px;
-    color: #718294;
-}
-
-.rebalance-summary strong {
-    display: block;
+.allocation-difference {
     margin-top: 4px;
-    font-size: 14px;
-    color: #f4f7fb;
+    color: #9fb0c2;
+    font-size: 11px;
 }
 
-.rebalance-summary p {
-    justify-self: end;
-    max-width: 260px;
-    line-height: 1.5;
+.allocation-target-editor {
+    margin-top: 16px;
+    grid-template-columns: 1fr 1fr;
 }
 
-.rebalance-action-list {
-    display: grid;
-    gap: 8px;
-}
-
-.rebalance-action-row {
-    display: grid;
-    align-items: center;
-    padding: 8px 10px;
-    background: rgb(0 0 0 / 16%);
-    border: 1px solid rgb(255 255 255 / 8%);
-    border-radius: 7px;
-    grid-template-columns: 44px minmax(0, 1fr) auto;
-    gap: 10px;
-}
-
-.rebalance-action-row span,
-.rebalance-action-row strong,
-.rebalance-action-row em {
-    font-size: 13px;
-}
-
-.rebalance-action-row em {
-    color: #dfe8f1;
-    font-style: normal;
-    font-weight: 700;
+.allocation-note {
+    margin: 0;
+    font-size: 12px;
+    line-height: 1.7;
+    color: #9fb0c2;
 }
 
 .target-editor {
@@ -7963,7 +7937,7 @@ select:focus {
     background: rgb(0 0 0 / 20%);
     border: 1px solid rgb(255 255 255 / 10%);
     border-radius: 8px;
-    grid-template-columns: repeat(3, minmax(0, 1fr)) auto;
+    grid-template-columns: 1fr 1fr;
     gap: 10px;
 }
 
@@ -8007,21 +7981,6 @@ select:focus {
 
 .target-total.invalid strong {
     color: #f4c95d;
-}
-
-.legend-note {
-    display: flex;
-    justify-content: flex-end;
-    align-items: center;
-    font-size: 12px;
-    color: #718294;
-    gap: 6px;
-}
-
-.legend-note span {
-    width: 2px;
-    height: 12px;
-    background: #fff;
 }
 
 .observation-detail-list {
@@ -10863,23 +10822,8 @@ label small {
         height: 230px;
     }
 
-    .allocation-row {
-        grid-template-columns: 84px minmax(76px, 1fr) 72px;
-        gap: 8px;
-    }
-
     .target-editor {
         grid-template-columns: 1fr 1fr;
-    }
-
-    .rebalance-summary {
-        grid-template-columns: 1fr 1fr;
-    }
-
-    .rebalance-summary p {
-        justify-self: start;
-        max-width: none;
-        grid-column: 1 / -1;
     }
 
     .attribution-summary {

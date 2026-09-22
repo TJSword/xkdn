@@ -531,7 +531,10 @@
             <div>
               <h3>{{ selectedRealtimeNav.name }}</h3>
             </div>
-            <button class="modal-close-button" @click="closeRealtimeChartModal">×</button>
+            <div class="realtime-header-actions">
+              <router-link class="realtime-detail-link" :to="realtimeDetailRoutes[selectedRealtimeNav.id]" @click="closeRealtimeChartModal">查看策略详情</router-link>
+              <button class="modal-close-button" @click="closeRealtimeChartModal">×</button>
+            </div>
           </div>
           <div class="realtime-chart-metrics">
             <div>
@@ -834,8 +837,18 @@
                   <em>示例：{{ option.example }}</em>
                 </span>
               </label>
+              <label class="notification-option">
+                <input type="checkbox" :checked="etfRotationSettings.enabled" @change="updateEtfRotation({ enabled: ($event.target as HTMLInputElement).checked, dismissed: false })">
+                <span class="notification-option-title">纳指溢价轮动</span>
+                <span class="notification-option-popover">
+                  <strong>统一策略参考持仓</strong>
+                  <span><b>触发：</b>参考 ETF 比最低溢价 ETF 高出超过固定的 0.5 个百分点。</span>
+                  <span><b>内容：</b>系统自动更新全站参考 ETF，不执行券商交易。</span>
+                  <em>当前仅页面内提示，开关立即保存在本机；Bark／微信推送尚未接入。</em>
+                </span>
+              </label>
             </div>
-
+            <p v-if="etfRotationError" class="notification-channel-tip">{{ etfRotationError }}</p>
             <button class="submit-btn notification-save-button" type="submit" :disabled="notificationSaving">
               {{ notificationSaving ? '保存中...' : '保存设置' }}
             </button>
@@ -1009,6 +1022,7 @@
   import { callCloudFunction, throwIfAuthExpired } from '@/services/cloudFunction'
   import * as echarts from 'echarts'
   import { useUserStore } from '@/store/user'
+  import { useEtfRotation } from '@/composables/useEtfRotation'
   import StrategyMenuIcon from '@/components/StrategyMenuIcon.vue'
   import AllWeatherMenuIcon from '@/components/AllWeatherMenuIcon.vue'
   import wechatQrCode from '@/assets/images/wechat-qrcode.jpg'
@@ -1528,6 +1542,14 @@
   const displayStrategyRealtimeNavs = computed(() => strategyRealtimeNavs.value)
 
   const selectedRealtimeNav = ref<StrategyRealtimeNav | null>(null)
+  const realtimeDetailRoutes: Record<string, string> = {
+      'all-weather': '/strategies/all-weather',
+      convertible: '/strategies/bonds',
+      'high-dividend': '/strategies/high-dividend',
+      rights: '/strategies/rights-strategy',
+      momentum: '/strategies/momentum',
+      microcap: '/strategies/micro-cap'
+  }
   const realtimeChartHover = ref<RealtimeChartHover | null>(null)
   const realtimeChartTimes = ['09:30', '10:00', '10:30', '11:00', '11:30', '13:00', '13:30', '14:00', '14:30', '14:40', '15:00']
   const realtimeChartAxis = [
@@ -2324,6 +2346,14 @@
           iconType: 'lof-monitor',
           cssClass: 'lof-monitor',
           link: '/lof'
+      },
+      {
+          id: 19,
+          title: '纳指溢价监控',
+          description: '跟踪纳指 ETF 实时价格、参考净值与折溢价。',
+          iconType: 'nasdaq-premium',
+          cssClass: 'nasdaq-premium',
+          link: '/etf-premium'
       },
       {
           id: 3,
@@ -3198,6 +3228,7 @@
 
   const isNotificationModalVisible = ref(false)
   const isNotificationIntroModalVisible = ref(false)
+  const { settings: etfRotationSettings, update: updateEtfRotation, storageError: etfRotationError } = useEtfRotation()
   const notificationLoading = ref(false)
   const notificationSaving = ref(false)
   const notificationTesting = ref(false)
@@ -3266,9 +3297,9 @@
       {
           key: 'rights_strategy',
           label: '含权策略',
-          trigger: '交易日 14:40 刷新含权策略；只有发生调仓时通知，无调仓不通知。',
-          content: '交易日、卖出清单、买入清单，以及对应含权值。',
-          example: '交易日：2026-06-15；卖出：A公司(600000) 含权值:12.34；买入：B公司(000001) 含权值:15.20。'
+          trigger: '交易日 9:30，若当前持仓有股票当天到达股权登记日，发送下午 14:40 调仓预提醒；14:40 刷新后，仅有调入或调出时发送调仓通知。',
+          content: '预提醒包含当天到达股权登记日的持仓及下午调仓时间；调仓通知包含交易日、卖出清单、买入清单及对应含权值。',
+          example: '今日持仓中的 A公司(600000) 到达股权登记日，请于今天下午 14:40 查看调仓建议并及时调仓，具体调出、补位名单以届时更新为准。'
       },
       {
           key: 'momentum',
@@ -3483,6 +3514,12 @@
 
 
 <style scoped>
+  .realtime-header-actions { display: flex; align-items: center; gap: 1rem; }
+  .realtime-detail-link { padding: .5rem .7rem; color: #8bd8ff; font-size: .85rem; text-decoration: none; border: 1px solid rgb(0 170 255 / 35%); border-radius: 6px; background: rgb(0 170 255 / 8%); white-space: nowrap; }
+  .realtime-detail-link:hover { background: rgb(0 170 255 / 16%); }
+  .quick-menu-card.nasdaq-premium {
+      --menu-accent: #fb923c;
+  }
   .admin-access-scan {
       position: fixed;
       inset: 0;
@@ -4535,7 +4572,7 @@
       background: linear-gradient(135deg, rgb(151 184 211 / 3%), transparent), #0e151e;
       border: 1px solid rgb(148 180 210 / 11%);
       border-radius: 12px;
-      transition: transform 0.2s ease, border-color 0.2s ease, background 0.2s ease;
+      transition: transform 0.2s ease, border-color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
       cursor: pointer;
       grid-template-rows: auto auto;
       align-content: start;
@@ -4576,9 +4613,9 @@
   }
 
   .quick-menu-card:hover {
-      background: #141f2b;
+      background: linear-gradient(135deg, color-mix(in srgb, var(--menu-accent, #60a5fa) 12%, transparent), color-mix(in srgb, var(--menu-accent, #60a5fa) 3%, transparent)), #101720;
       border-color: color-mix(in srgb, var(--menu-accent, #60a5fa) 40%, transparent);
-      box-shadow: 0 8px 24px rgb(0 0 0 / 16%);
+      box-shadow: 0 0 12px color-mix(in srgb, var(--menu-accent, #60a5fa) 24%, transparent), 0 0 28px color-mix(in srgb, var(--menu-accent, #60a5fa) 12%, transparent), 0 8px 24px rgb(0 0 0 / 16%);
       transform: translateY(-2px);
   }
 
@@ -4594,6 +4631,15 @@
       color: var(--menu-accent, #fff);
       place-items: center;
       line-height: 1;
+  }
+
+  .quick-menu-card .quick-menu-icon {
+      filter: drop-shadow(0 0 3px color-mix(in srgb, var(--menu-accent) 65%, transparent));
+      transition: filter 0.25s ease;
+  }
+
+  .quick-menu-card:hover .quick-menu-icon {
+      filter: drop-shadow(0 0 6px color-mix(in srgb, var(--menu-accent) 85%, transparent));
   }
 
   .quick-menu-card.all-weather:hover .all-weather-visual-icon {
@@ -4780,11 +4826,16 @@
   }
 
   .quick-menu-card.live-account {
-      --menu-accent: #34d399;
+      --menu-accent: #5397b5;
   }
+
 
   .quick-menu-card.portfolio-lab {
       --menu-accent: #6366f1;
+  }
+
+  .quick-menu-card.handy-tools {
+      --menu-accent: #8a2be2;
   }
 
   .quick-menu-card.lof-monitor {
@@ -4893,7 +4944,7 @@
       transform: translateY(-8px) scale(1.03);
   }
 
-  .wealth-map:hover {
+  .wealth-map:not(.quick-menu-card):hover {
       border-color: #2dd4bf;
       box-shadow: 0 0 15px #2dd4bf;
   }
@@ -4902,7 +4953,7 @@
       color: #2dd4bf;
   }
 
-  .about-us:hover {
+  .about-us:not(.quick-menu-card):hover {
       border-color: #ffc107;
       box-shadow: 0 0 15px #ffc107;
   }
@@ -4911,7 +4962,7 @@
       color: #ffc107;
   }
 
-  .market-compass:hover {
+  .market-compass:not(.quick-menu-card):hover {
       /* 一种青色光晕 */
       border-color: #39cccc;
       box-shadow: 0 0 15px #39cccc;
@@ -4944,7 +4995,7 @@
       line-height: 1.5;
   }
 
-  .all-weather:hover {
+  .all-weather:not(.quick-menu-card):hover {
       border-color: #0af;
       box-shadow: 0 0 15px #0af;
   }
@@ -4956,7 +5007,7 @@
   /* 选项 A 样式 */
 
   /* 选项 B 样式 */
-  .portfolio-lab:not(.disabled-card):hover {
+  .portfolio-lab:not(.quick-menu-card):not(.disabled-card):hover {
       border-color: #6366f1;
 
       /* 深邃的蓝紫光晕 */
@@ -4967,7 +5018,7 @@
       color: #6366f1;
   }
 
-  .lof-monitor:hover {
+  .lof-monitor:not(.quick-menu-card):hover {
       border-color: #0af;
       box-shadow: 0 0 15px rgb(0 170 255 / 70%);
   }
@@ -4976,7 +5027,7 @@
       filter: drop-shadow(0 0 8px rgb(0 170 255 / 55%));
   }
 
-  .handy-tools:hover {
+  .handy-tools:not(.quick-menu-card):hover {
       border-color: #8a2be2;
       box-shadow: 0 0 15px #8a2be2;
   }
@@ -4985,7 +5036,7 @@
       color: #8a2be2;
   }
 
-  .micro-cap:hover {
+  .micro-cap:not(.quick-menu-card):hover {
       border-color: #f0e68c;
       box-shadow: 0 0 15px #f0e68c;
   }
@@ -4995,7 +5046,7 @@
   }
 
   /* --- 修改：ETF动量策略的卡片样式 (熔岩橙色系) --- */
-  .momentum-strategy:not(.disabled-card):hover {
+  .momentum-strategy:not(.quick-menu-card):not(.disabled-card):hover {
       border-color: #ff5722;
 
       /* 悬停时的光晕，改为橙红色 */
@@ -5015,7 +5066,7 @@
                                                                                                                       border: 1px solid rgba(157, 78, 221, 0.2); */
   }
 
-  .micro-cap-admin:not(.disabled-card):hover {
+  .micro-cap-admin:not(.quick-menu-card):not(.disabled-card):hover {
       /* 悬停时：显示香槟金色的边框和光晕，低调奢华 */
       border-color: #d4af37;
       box-shadow: 0 0 15px rgb(212 175 55 / 30%);
@@ -5026,7 +5077,7 @@
       color: #d4af37; /* 香槟金图标 */
   }
 
-  .convertible-bond:hover {
+  .convertible-bond:not(.quick-menu-card):hover {
       border-color: #add8e6;
       box-shadow: 0 0 15px #add8e6;
   }
@@ -5035,12 +5086,12 @@
       color: #add8e6;
   }
 
-  .bond-market:hover {
+  .bond-market:not(.quick-menu-card):hover {
       border-color: #f59e0b;
       box-shadow: 0 0 15px rgb(245 158 11 / 70%);
   }
 
-  .rights-strategy:hover {
+  .rights-strategy:not(.quick-menu-card):hover {
       border-color: #ef4444;
       box-shadow: 0 0 15px #ef4444;
   }

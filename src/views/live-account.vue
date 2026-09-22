@@ -4,150 +4,302 @@
       <header class="page-header">
         <router-link to="/home" class="back-button">← 返回主页</router-link>
         <h1><FeaturePageIcon type="live-account" />老何实盘</h1>
-        <p class="subtitle">每日记录净值，分享持仓比例与实盘进展。</p>
+        <p class="subtitle">{{ latest.date ? '数据截至 ' + latest.date : loading ? '正在读取实盘数据' : '暂无记录' }}</p>
       </header>
 
-      <section class="content-card account-intro">
-        <div><span class="eyebrow">每日净值 · 收盘后更新</span><h2>实盘概览</h2><p>数据截至 {{ latest.date }} · 持仓与净值按日展示</p></div>
-        <span class="preview-badge">Mock 演示 · 非真实实盘数据</span>
-      </section>
-
-      <section class="metrics-grid" aria-label="实盘收益概览">
-        <article v-for="item in metrics" :key="item.label" class="content-card metric-card">
-          <span>{{ item.label }}</span><strong :class="item.tone">{{ item.value }}</strong><small>{{ item.note }}</small>
-        </article>
+      <StrategyLoading v-if="loading && !overview" mode="page" icon-type="live-account" title="正在加载实盘数据" description="同步账户净值、收益表现与持仓比例" />
+      <div v-if="error" class="data-status" role="alert">{{ error }} <button @click="loadData" :disabled="loading">重试</button></div>
+      <button v-if="errorCode === 'SOURCE_NOT_CONFIGURED' && userStore.userInfo?.admin" class="bind-button" :disabled="loading" @click="bindSource">将当前账户的账本绑定为老何实盘</button>
+      <p v-if="overview && !points.length" class="empty-state">投资账本暂无记录。</p>
+      <template v-if="points.length">
+      <section class="profit-overview" aria-label="账户收益率">
+        <div class="metrics-grid profit-grid">
+          <article v-for="period in profitPeriods" :key="period.key" class="content-card metric-card">
+            <span>{{ period.label }}收益率</span>
+            <strong :class="tone(accountReturns[period.key])">{{ percent(accountReturns[period.key]) }}</strong>
+            <small>{{ period.start === latest.date ? latest.date : period.start + ' 至 ' + latest.date }}</small>
+          </article>
+        </div>
       </section>
 
       <section class="content-card chart-card">
-        <div class="section-header"><h2>净值走势</h2><div class="periods" aria-label="净值时间范围"><button v-for="period in periods" :key="period" :class="{ active: selectedPeriod === period }" :aria-pressed="selectedPeriod === period" @click="selectedPeriod = period">{{ period }}</button></div></div>
-        <p class="chart-description">初始净值为 1.0000，每个点代表一个记录日。切换区间保留原始净值。</p>
-        <v-chart class="nav-chart" :option="chartOption" autoresize />
-        <div class="chart-footer"><span>{{ visiblePoints[0].date }} 至 {{ latest.date }}</span><span>按日更新 · Mock 数据</span></div>
-      </section>
-
-      <div class="allocation-grid">
-        <section class="content-card">
-          <div class="section-header"><h2>持仓比例</h2><span class="section-hint">截至 {{ latest.date }}</span></div>
-          <v-chart class="allocation-chart" :option="allocationOption" autoresize />
-          <div class="allocation-legend"><div v-for="item in holdings" :key="item.name"><span><i :style="{ background: item.color }"></i>{{ item.name }}</span><strong>{{ item.weight.toFixed(1) }}%</strong></div></div>
+        <div class="section-header"><h2>净值走势</h2><ChartDateRangePicker v-model:start="chartStart" v-model:end="chartEnd" :min-date="points[0].date" :max-date="latest.date" accent="#5397b5" include-year-to-date /></div>
+        <div class="nav-summary"><div><span>最新净值</span><strong>{{ latest.nav.toFixed(4) }}</strong><small>截至 {{ latest.date }} · 初始净值 1.0000</small></div><div class="drawdown-summary"><span>当前回撤</span><strong :class="tone(currentDrawdown)">{{ percent(currentDrawdown) }}</strong><small>截至 {{ latest.date }} · 较历史最高净值</small></div></div>
+        <section class="range-returns" aria-label="所选区间收益率">
+          <div class="range-returns-heading"><span>区间收益率</span><small>{{ chartStart }} 至 {{ chartEnd }}</small></div>
+          <div class="range-returns-grid">
+            <div v-for="(item, index) in rangeReturns" :key="item.strategyId" class="range-return-item">
+              <span v-if="index === 0" class="account-name">{{ item.name }}</span>
+              <span v-else class="strategy-info"><i :style="{ background: item.color }"></i>{{ item.name }}<span class="strategy-help"><button type="button" :aria-label="item.name + '的策略说明'" :aria-describedby="'range-intro-' + index" @keydown.esc="($event.target as HTMLButtonElement).blur()">ⓘ</button><span :id="'range-intro-' + index" role="tooltip" class="strategy-intro">{{ strategyDescriptions[item.strategyId] }}</span></span></span>
+              <strong :class="item.value === null ? '' : tone(item.value)">{{ item.value === null ? '—' : percent(item.value) }}</strong>
+            </div>
+          </div>
         </section>
-        <section class="content-card"><div class="section-header"><h2>净值记录</h2><span class="section-hint">最近 5 个记录日</span></div><div class="table-container"><table><thead><tr><th>日期</th><th>净值</th><th>日涨跌幅</th></tr></thead><tbody><tr v-for="point in recentPoints" :key="point.date"><td>{{ point.date }}</td><td>{{ point.nav.toFixed(4) }}</td><td :class="tone(point.dailyReturn)">{{ percent(point.dailyReturn) }}</td></tr></tbody></table></div><p class="account-note">展示收盘后的日度记录，不提供分钟行情。</p></section>
-      </div>
-
-      <section class="content-card holdings-card">
-        <div class="section-header"><h2>持仓明细</h2><span class="section-hint">含现金 · 合计 {{ totalWeight.toFixed(1) }}%</span></div>
-        <div class="table-container"><table class="holdings-table"><thead><tr><th>持仓方向</th><th>资产类别</th><th>占比</th></tr></thead><tbody><tr v-for="item in holdings" :key="item.name"><td><span class="holding-name"><i :style="{ background: item.color }"></i>{{ item.name }}</span></td><td>{{ item.category }}</td><td><span class="weight-cell"><span class="weight-track"><span :style="{ width: item.weight + '%', background: item.color }"></span></span><strong>{{ item.weight.toFixed(1) }}%</strong></span></td></tr></tbody></table></div>
-        <p class="account-note">占比以含现金的组合总资产为分母，仅展示比例，不公开金额、持仓数量或成本。</p>
+        <p class="chart-description">账户与各策略以各自首条记录净值 1.0000 为起点；点击图例可显示或隐藏曲线，切换区间保留原始净值。</p>
+        <v-chart v-if="visiblePoints.length" class="nav-chart" :option="chartOption" autoresize />
+        <p v-else class="empty-state">所选区间暂无净值记录，请选择其他日期。</p>
       </section>
-      <p class="page-note">本页净值、日期与持仓均为前端 Mock 数据，仅用于预览样式，不对应任何真实账户。示例日期为工作日，不代表完整交易日历。</p>
+
+      <section class="content-card allocation-card">
+        <div class="section-header"><h2>持仓比例</h2><label class="holding-date"><input v-model="holdingDate" type="date" :min="points[0].date" :max="latest.date" aria-label="持仓记录日期" @input="stopPlayback" /></label></div>
+        <div class="holding-replay">
+          <button type="button" class="play-button" :disabled="replayDates.length < 2" :aria-pressed="isPlaying" @click="togglePlayback">{{ isPlaying ? '暂停' : '播放' }}</button>
+          <div class="replay-track"><input type="range" min="0" :max="Math.max(0, replayDates.length - 1)" :value="Math.max(0, replayIndex)" :disabled="!replayDates.length" aria-label="持仓回放时间轴" :aria-valuetext="holdingDate" @input="seekHolding" /><div class="replay-dates"><span>{{ replayDates[0] }}</span><strong>{{ holdingDate }}</strong><span>{{ replayDates.at(-1) }}</span></div></div>
+        </div>
+        <div class="holding-return">截至所选日期 · 账户今年收益率 <strong :class="tone(holdingReturn)">{{ percent(holdingReturn) }}</strong></div>
+        <div v-if="holdings.length" class="allocation-content">
+          <v-chart class="allocation-chart" :option="allocationOption" autoresize />
+          <div class="allocation-legend"><div class="legend-head"><span>策略 / 图例</span><span>持仓占比 · 今年收益率</span></div><div v-for="item in holdings" :key="item.strategyId" class="holding-legend-row"><div><span class="strategy-info"><i :style="{ background: item.color }"></i>{{ item.name }}</span></div><div class="holding-values"><strong>{{ item.weight.toFixed(1) }}%</strong><span :class="tone(holdingStrategyReturns[item.strategyId])">{{ percent(holdingStrategyReturns[item.strategyId]) }}</span><small v-if="item.recordedDate !== holdingDate" class="holding-asof">记录于 {{ item.recordedDate }}</small></div></div><p class="legend-note">颜色对应环形图；占比为该日策略资产占账户总资产的比例。</p></div>
+        </div>
+        <p v-else class="empty-state">该日期暂无持仓记录，请选择有记录的日期。</p>
+        <p v-if="holdings.length" class="account-note">{{ holdingDate || '未选择日期' }} · 账本持仓快照。未更新的策略沿用此前最近记录；现金仅在账本单独记录时展示。</p>
+      </section>
+      <p class="page-note">收益率按扣除出入金的净值计算。数据通常于交易日收盘后半小时内更新，具体以页面显示的数据日期为准。</p>
+      </template>
     </main>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, onMounted, onBeforeUnmount } from 'vue'
+import { getLiveOverview, bindLiveAccount } from '@/services/liveAccount'
+import type { LiveOverview, LivePoint } from '@/services/liveAccount'
+import { useUserStore } from '@/store/user'
 import VChart from 'vue-echarts'
+import StrategyLoading from '@/components/StrategyLoading.vue'
 import { use } from 'echarts/core'
 import { CanvasRenderer } from 'echarts/renderers'
 import { LineChart, PieChart } from 'echarts/charts'
-import { GridComponent, TooltipComponent, GraphicComponent } from 'echarts/components'
+import { GridComponent, TooltipComponent, LegendComponent, GraphicComponent } from 'echarts/components'
 
-use([CanvasRenderer, LineChart, PieChart, GridComponent, TooltipComponent, GraphicComponent])
+use([CanvasRenderer, LineChart, PieChart, GridComponent, TooltipComponent, LegendComponent, GraphicComponent])
 
-const periods = ['近一月', '近三月', '今年', '全部']
-const selectedPeriod = ref('全部')
-// Deterministic visual fixture only; no account source, polling or backend request.
-const points: { date: string; nav: number; dailyReturn: number }[] = []
-let nav = 1
-for (let time = Date.UTC(2025, 11, 1); time <= Date.UTC(2026, 8, 18); time += 86400000) {
-  const date = new Date(time)
-  if (date.getUTCDay() === 0 || date.getUTCDay() === 6) continue
-  const index = points.length
-  const dailyReturn = index === 0 ? 0 : 0.00065 + Math.sin(index * 0.49) * 0.0035 + Math.cos(index * 0.17) * 0.0045 - (index > 105 && index < 120 ? 0.0038 : 0)
-  nav *= 1 + dailyReturn
-  points.push({ date: date.toISOString().slice(0, 10), nav, dailyReturn })
+const userStore = useUserStore()
+const overview = ref<LiveOverview | null>(null)
+const loading = ref(false)
+const error = ref('')
+const errorCode = ref('')
+const chartStart = ref('')
+const chartEnd = ref('')
+const holdingDate = ref('')
+const points = computed(() => overview.value?.points || [])
+const latest = computed(() => points.value[points.value.length - 1] || { date: '', nav: 1, dailyReturn: 0, drawdown: 0 })
+const strategies = computed(() => overview.value?.strategies || [])
+const strategyDescriptions = computed<Record<string, string>>(() => Object.fromEntries(strategies.value.map(strategy => [
+  strategy.strategyId,
+  strategy.description || '暂无策略说明。'
+])))
+const holdings = computed(() => overview.value?.snapshots.find(snapshot => snapshot.date === holdingDate.value)?.holdings || [])
+const replayDates = computed(() => (overview.value?.snapshots || []).map(snapshot => snapshot.date).filter(date => date >= latest.value.date.slice(0, 4) + '-01-01').sort())
+const replayIndex = computed(() => replayDates.value.indexOf(holdingDate.value))
+const isPlaying = ref(false)
+let playbackTimer: ReturnType<typeof setInterval> | undefined
+function stopPlayback() {
+  clearInterval(playbackTimer)
+  playbackTimer = undefined
+  isPlaying.value = false
 }
-const latest = points[points.length - 1]
-const holdings = [
-  { name: '股票组合 A', category: '股票', weight: 30, color: '#34d399' },
-  { name: '转债组合 B', category: '可转债', weight: 25, color: '#60a5fa' },
-  { name: '指数配置 C', category: 'ETF', weight: 20, color: '#a78bfa' },
-  { name: '黄金配置 D', category: '黄金 ETF', weight: 15, color: '#d4af37' },
-  { name: '现金', category: '现金', weight: 10, color: '#94a3b8' }
-]
-const totalWeight = holdings.reduce((sum, item) => sum + item.weight, 0)
-const percent = (value: number) => (value > 0 ? '+' : '') + (value * 100).toFixed(2) + '%'
-const tone = (value: number) => value > 0 ? 'positive' : value < 0 ? 'negative' : ''
-let peak = 1
-const maxDrawdown = points.reduce((worst, point) => {
-  peak = Math.max(peak, point.nav)
-  return Math.min(worst, point.nav / peak - 1)
-}, 0)
-const metrics = [
-  { label: '最新净值', value: latest.nav.toFixed(4), note: '初始净值 1.0000', tone: '' },
-  { label: '日涨跌幅', value: percent(latest.dailyReturn), note: latest.date, tone: tone(latest.dailyReturn) },
-  { label: '累计收益', value: percent(latest.nav - 1), note: '自 ' + points[0].date + ' 起', tone: tone(latest.nav - 1) },
-  { label: '最大回撤', value: percent(maxDrawdown), note: '完整记录区间', tone: tone(maxDrawdown) }
-]
-const visiblePoints = computed(() => {
-  const cutoff = new Date(latest.date + 'T00:00:00Z')
-  if (selectedPeriod.value === '全部') return points
-  if (selectedPeriod.value === '今年') return points.filter(point => point.date >= latest.date.slice(0, 4) + '-01-01')
-  cutoff.setUTCMonth(cutoff.getUTCMonth() - (selectedPeriod.value === '近一月' ? 1 : 3))
-  return points.filter(point => point.date >= cutoff.toISOString().slice(0, 10))
+function seekHolding(event: Event) {
+  stopPlayback()
+  holdingDate.value = replayDates.value[Number((event.target as HTMLInputElement).value)]
+}
+function togglePlayback() {
+  if (isPlaying.value) return stopPlayback()
+  if (replayDates.value.length < 2) return
+  if (replayIndex.value < 0 || replayIndex.value === replayDates.value.length - 1) holdingDate.value = replayDates.value[0]
+  const dates = [...replayDates.value]
+  const startIndex = replayIndex.value
+  const startedAt = performance.now()
+  const millisecondsPerStep = 6000 / (dates.length - 1)
+  isPlaying.value = true
+  playbackTimer = setInterval(() => {
+    const index = Math.min(dates.length - 1, startIndex + Math.floor((performance.now() - startedAt) / millisecondsPerStep))
+    holdingDate.value = dates[index]
+    if (index === dates.length - 1) stopPlayback()
+  }, 16)
+}
+const holdingReturn = computed(() => intervalReturn(points.value, holdingDate.value.slice(0, 4) + '-01-01', holdingDate.value))
+const holdingStrategyReturns = computed(() => Object.fromEntries(strategies.value.map(strategy => [strategy.strategyId, intervalReturn(strategy.points, holdingDate.value.slice(0, 4) + '-01-01', holdingDate.value)])))
+async function loadData() {
+  if (loading.value) return
+  loading.value = true
+  try {
+    const data = await getLiveOverview()
+    const previousLatest = latest.value.date
+    const nextLatest = data.points[data.points.length - 1]?.date || ''
+    if (!overview.value || !chartStart.value) chartStart.value = nextLatest ? (nextLatest.slice(0, 4) + '-01-01' > data.points[0].date ? nextLatest.slice(0, 4) + '-01-01' : data.points[0].date) : ''
+    if (!chartEnd.value || chartEnd.value === previousLatest) chartEnd.value = nextLatest
+    if (!isPlaying.value && (!holdingDate.value || holdingDate.value === previousLatest)) holdingDate.value = nextLatest
+    overview.value = data
+    error.value = ''
+    errorCode.value = ''
+  } catch (cause: any) {
+    error.value = (overview.value ? '同步失败，当前显示上次成功读取的数据。' : '') + (cause?.message || '读取失败')
+    errorCode.value = cause?.code || ''
+  } finally {
+    loading.value = false
+  }
+}
+async function bindSource() {
+  if (loading.value) return
+  loading.value = true
+  try {
+    await bindLiveAccount()
+  } catch (cause: any) {
+    error.value = cause?.message || '绑定失败'
+    return
+  } finally {
+    loading.value = false
+  }
+  await loadData()
+}
+let refreshTimer: ReturnType<typeof setInterval>
+const refreshWhenVisible = () => { if (document.visibilityState === 'visible') void loadData() }
+const handleVisibility = () => { if (document.visibilityState !== 'visible') stopPlayback(); else refreshWhenVisible() }
+onMounted(() => {
+  void loadData()
+  refreshTimer = setInterval(refreshWhenVisible, 60000)
+  window.addEventListener('focus', refreshWhenVisible)
+  document.addEventListener('visibilitychange', handleVisibility)
 })
-const recentPoints = points.slice(-5).reverse()
+onBeforeUnmount(() => {
+  clearInterval(refreshTimer)
+  stopPlayback()
+  window.removeEventListener('focus', refreshWhenVisible)
+  document.removeEventListener('visibilitychange', handleVisibility)
+})
+const allocationOption = computed(() => ({
+  animation: false,
+  tooltip: { trigger: 'item', renderMode: 'richText', confine: true, formatter: (params: { name: string; value: number; data: { strategyId: string } }) => params.name + '：' + Number(params.value).toFixed(1) + '%' },
+  graphic: [{ type: 'text', left: 'center', top: 'middle', silent: true, style: { text: '持仓配置', fill: '#a5c2d0', fontSize: 14, align: 'center', verticalAlign: 'middle' } }],
+  series: [{ type: 'pie', radius: ['48%', '64%'], center: ['50%', '50%'], label: { show: true, position: 'outside', formatter: '{b}', color: '#b4cbd6', fontSize: 12, alignTo: 'edge', edgeDistance: 6, overflow: 'truncate', width: 78 }, labelLine: { show: true, length: 12, length2: 10 }, labelLayout: { hideOverlap: true }, emphasis: { scale: false }, itemStyle: { borderRadius: 4, borderWidth: 3, borderColor: '#192b35' }, data: holdings.value.map(item => ({ strategyId: item.strategyId, name: item.name, value: item.weight, itemStyle: { color: item.color } })) }]
+}))
+const percent = (value: number | null) => value === null ? '—' : (value > 0 ? '+' : '') + (value * 100).toFixed(2) + '%'
+const tone = (value: number | null) => value === null ? '' : value > 0 ? 'positive' : value < 0 ? 'negative' : ''
+const profitPeriods = computed(() => {
+  if (!latest.value.date) return []
+  const date = latest.value.date
+  const weekStart = new Date(date + 'T00:00:00Z')
+  weekStart.setUTCDate(weekStart.getUTCDate() - (weekStart.getUTCDay() + 6) % 7)
+  return [
+    { key: 'day', label: '当日', start: date },
+    { key: 'week', label: '本周', start: weekStart.toISOString().slice(0, 10) },
+    { key: 'month', label: '本月', start: date.slice(0, 7) + '-01' },
+    { key: 'year', label: '今年', start: date.slice(0, 4) + '-01-01' }
+  ]
+})
+function intervalReturn(series: LivePoint[], start: string, end: string): number | null {
+  const rows = series.filter(point => point.date <= end)
+  const first = rows.findIndex(point => point.date >= start)
+  if (first < 0) return null
+  const baseline = first > 0 ? rows[first - 1].nav : rows[first].nav
+  return baseline > 0 ? rows[rows.length - 1].nav / baseline - 1 : null
+}
+const accountReturns = computed(() => Object.fromEntries(profitPeriods.value.map(period => [period.key, intervalReturn(points.value, period.start, latest.value.date)])))
+const currentDrawdown = computed(() => latest.value.drawdown || 0)
+const visiblePoints = computed(() => points.value.filter(point => point.date >= chartStart.value && point.date <= chartEnd.value))
+const rangeReturns = computed(() => [{ strategyId: 'account', name: '账户整体', color: '#f1f5f9', points: points.value }, ...strategies.value].map(series => ({
+  ...series,
+  value: intervalReturn(series.points, chartStart.value, chartEnd.value)
+})))
 const chartOption = computed(() => ({
   animation: false,
-  grid: { left: 52, right: 18, top: 22, bottom: 35 },
-  tooltip: { trigger: 'axis', backgroundColor: '#17242b', borderColor: '#345449', textStyle: { color: '#edf7f1' }, valueFormatter: (value: number) => Number(value).toFixed(4) },
-  xAxis: { type: 'category', boundaryGap: false, data: visiblePoints.value.map(point => point.date), axisLabel: { color: '#8fa1b8', hideOverlap: true }, axisLine: { lineStyle: { color: '#394b47' } } },
-  yAxis: { type: 'value', scale: true, axisLabel: { color: '#8fa1b8', formatter: (value: number) => value.toFixed(3) }, splitLine: { lineStyle: { color: 'rgba(255,255,255,0.07)', type: 'dashed' } } },
-  series: [{ name: '单位净值（Mock）', type: 'line', showSymbol: false, data: visiblePoints.value.map(point => point.nav), lineStyle: { color: '#34d399', width: 2.5 }, itemStyle: { color: '#34d399' }, areaStyle: { color: '#34d399', opacity: 0.07 } }]
+  legend: { type: 'scroll', top: 0, textStyle: { color: '#b4cbd6' } },
+  grid: { left: 52, right: 18, top: 45, bottom: 35 },
+  tooltip: { trigger: 'axis', backgroundColor: '#162b36', borderColor: '#365c70', textStyle: { color: '#eef0f2' }, valueFormatter: (value: number) => Number(value).toFixed(4) },
+  xAxis: { type: 'category', boundaryGap: false, data: visiblePoints.value.map(point => point.date), axisLabel: { color: '#8da9b8', hideOverlap: true }, axisLine: { lineStyle: { color: '#36505f' } } },
+  yAxis: { type: 'value', scale: true, axisLabel: { color: '#8da9b8', formatter: (value: number) => value.toFixed(3) }, splitLine: { lineStyle: { color: 'rgba(255,255,255,0.07)', type: 'dashed' } } },
+  series: [
+    { name: '账户整体', color: '#f1f5f9', points: points.value },
+    ...strategies.value
+  ].map(series => ({
+    name: series.name,
+    type: 'line',
+    showSymbol: false,
+    data: visiblePoints.value.map(point => {
+      const recorded = series.points.filter(row => row.date <= point.date).at(-1)
+      return recorded?.nav ?? null
+    }),
+    lineStyle: { color: series.color, width: series.name === '账户整体' ? 3 : 1.8 },
+    itemStyle: { color: series.color }
+  }))
 }))
-const allocationOption = {
-  animation: false,
-  tooltip: { trigger: 'item', formatter: '{b}：{c}%' },
-  graphic: [{ type: 'text', left: 'center', top: '42%', style: { text: '持仓配置', fill: '#a8bacb', fontSize: 13 } }, { type: 'text', left: 'center', top: '53%', style: { text: totalWeight.toFixed(0) + '%', fill: '#eef5f3', fontSize: 23, fontWeight: 600 } }],
-  series: [{ type: 'pie', radius: ['64%', '83%'], center: ['50%', '50%'], label: { show: false }, emphasis: { scale: false }, itemStyle: { borderRadius: 4, borderWidth: 3, borderColor: '#1b2522' }, data: holdings.map(item => ({ name: item.name, value: item.weight, itemStyle: { color: item.color } })) }]
-}
 </script>
 
 <style scoped>
-.page-wrapper { min-height: 100vh; padding: 3rem 1rem 4rem; box-sizing: border-box; font-family: 'Noto Sans SC', sans-serif; color: #fff; background: radial-gradient(circle at 14% 18%, rgb(22 101 52 / 24%), transparent 34%), radial-gradient(circle at 84% 14%, rgb(212 175 55 / 12%), transparent 30%), #121212; }
+.data-status { padding: 1rem; margin-bottom: 1rem; color: #f0c77a; border: 1px solid #665539; border-radius: 8px; }
+.data-status button, .bind-button { padding: 0.5rem 0.8rem; color: #d5d9dd; background: #162b36; border: 1px solid #365c70; border-radius: 7px; cursor: pointer; }
+.holding-asof { display: block; margin-top: 4px; color: #8da9b8; font-size: 0.7rem; font-weight: 400; }
+.page-wrapper { min-height: 100vh; padding: 3rem 1rem 4rem; box-sizing: border-box; font-family: 'Noto Sans SC', sans-serif; color: #fff; background: radial-gradient(circle at 14% 18%, rgb(83 151 181 / 22%), transparent 34%), radial-gradient(circle at 84% 14%, rgb(62 112 145 / 16%), transparent 30%), #0f1820; }
 .main-container { max-width: 960px; margin: auto; }
 .page-header { text-align: center; margin-bottom: 3rem; }
-.back-button { display: inline-block; color: #b0c4de; font-size: 0.9rem; text-decoration: none; margin-bottom: 1rem; }
+.back-button { display: inline-block; color: #b4cbd6; font-size: 0.9rem; text-decoration: none; margin-bottom: 1rem; }
 h1 { display: flex; align-items: center; justify-content: center; gap: 0.75rem; font-size: 2.5rem; margin: 0 0 0.5rem; }
-.subtitle { color: #b0c4de; font-size: 1.1rem; line-height: 1.7; margin: 0; }
-.content-card { min-width: 0; padding: 1.5rem; border: 1px solid rgb(255 255 255 / 10%); border-radius: 12px; background: rgb(255 255 255 / 5%); backdrop-filter: blur(10px); }
-.account-intro, .section-header { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
-.eyebrow { color: #6ee7b7; font-size: 0.8rem; }
+.subtitle { color: #b4cbd6; font-size: 1.1rem; line-height: 1.7; margin: 0; }
+.content-card { min-width: 0; padding: 1.5rem; border: 1px solid rgb(255 255 255 / 10%); border-radius: 12px; background: rgb(83 151 181 / 7%); backdrop-filter: blur(10px); }
+.section-header { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
 h2 { font-size: 1.15rem; margin: 0; }
-.account-intro h2 { margin-top: 0.5rem; }.account-intro p { color: #a8bacb; font-size: 0.9rem; margin-bottom: 0; }
-.preview-badge { padding: 7px 12px; border: 1px solid rgb(212 175 55 / 25%); border-radius: 20px; background: rgb(212 175 55 / 8%); color: #d6c58b; font-size: 0.75rem; white-space: nowrap; }
 .metrics-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1rem; margin: 1.5rem 0; }
-.metric-card span { display: block; color: #b0c4de; font-size: 0.85rem; }.metric-card strong { display: block; font-size: 2rem; font-weight: 500; margin: 0.75rem 0; color: #e2e8f0; }.metric-card small { color: #7e91a6; font-size: 0.75rem; }
-.section-header h2 { padding-left: 12px; border-left: 3px solid #34d399; }.section-hint { color: #8fa1b8; font-size: 0.8rem; }
-.periods { display: flex; flex-wrap: wrap; gap: 5px; }.periods button { padding: 7px 10px; color: #9fb2c8; background: transparent; border: 1px solid transparent; border-radius: 6px; cursor: pointer; }.periods button.active { color: #a7f3d0; border-color: rgb(52 211 153 / 25%); background: rgb(52 211 153 / 12%); }
-.chart-footer { display: flex; justify-content: space-between; gap: 12px; color: #7e91a6; font-size: 0.75rem; padding-top: 1rem; border-top: 1px solid rgb(255 255 255 / 7%); }
-.allocation-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin: 1.5rem 0; }
-.table-container { overflow-x: auto; margin-top: 1.5rem; }table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }th { background: rgb(255 255 255 / 4%); color: #b0c4de; padding: 15px; white-space: nowrap; font-weight: 500; }.page-note { margin-top: 1.5rem; text-align: center; font-size: 0.8rem; color: #7e91a6; line-height: 1.8; }
-@media (max-width: 640px) { .page-wrapper { padding: 2rem 0.75rem; }h1 { font-size: 2rem; }.subtitle { font-size: 0.95rem; }.page-header { margin-bottom: 2rem; }.account-intro { align-items: flex-start; flex-direction: column; }.content-card { padding: 1.25rem; }.metrics-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.75rem; }.allocation-grid { grid-template-columns: 1fr; }.chart-card .section-header { align-items: flex-start; flex-direction: column; } }
-.nav-chart { height: 330px; margin-top: 1rem; }
-.allocation-chart { height: 210px; }
-.chart-description, .account-note { color: #8fa1b8; font-size: 0.8rem; line-height: 1.8; }
+.allocation-card { margin-top: 1.5rem; }
+.allocation-content { display: grid; grid-template-columns: 1fr 1fr; align-items: center; gap: 2rem; }
+.allocation-chart { height: 250px; }
+.holding-replay { display: flex; align-items: center; gap: 1rem; margin-top: 1.5rem; }
+.play-button { min-width: 88px; padding: 0.6rem; color: #5397b5; border: 1px solid #365c70; border-radius: 7px; background: rgb(83 151 181 / 8%); cursor: pointer; }
+.play-button:disabled { opacity: 0.4; cursor: default; }
+.replay-track { flex: 1; min-width: 0; }
+.replay-track input { display: block; width: 100%; margin: 0; accent-color: #5397b5; cursor: pointer; }
+.replay-dates { display: flex; justify-content: space-between; gap: 6px; margin-top: 8px; font-size: 0.7rem; color: #8da9b8; }
+.replay-dates strong { color: #dce0e4; }
+.holding-return { margin-top: 1.25rem; color: #8da9b8; font-size: 0.8rem; }
+.holding-return strong { margin-left: 8px; font-size: 1.1rem; }
+.legend-head, .legend-note { color: #8da9b8; font-size: 0.75rem; line-height: 1.7; }
+.holding-legend-row { padding: 8px 0; border-bottom: 1px solid rgb(255 255 255 / 7%); }
+.holding-values { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.holding-values > span { display: inline-block; min-width: 75px; margin-left: 12px; }
+@media (max-width: 640px) { .replay-dates { flex-wrap: wrap; }.holding-replay { gap: 0.6rem; } }
+.range-returns { margin-top: 1.5rem; padding: 1rem 0; border-top: 1px solid rgb(255 255 255 / 7%); border-bottom: 1px solid rgb(255 255 255 / 7%); }
+.range-returns-heading { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 0.5rem; color: #b4cbd6; font-size: 0.85rem; }
+.range-returns-heading small { color: #8da9b8; }
+.range-returns-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(145px, 1fr)); gap: 1rem; margin-top: 1rem; }
+.range-return-item { text-align: center; }
+.range-return-item strong { display: block; margin-top: 0.7rem; font-size: 1.3rem; font-weight: 500; font-variant-numeric: tabular-nums; }
+.account-name, .strategy-info { color: #c1d5df; font-size: 0.8rem; }
+.strategy-info { display: inline-flex; align-items: center; gap: 6px; }
+.strategy-help { position: relative; display: inline-flex; }
+.strategy-help button { color: inherit; font-size: inherit; }
+.strategy-info button { display: inline-flex; align-items: center; gap: 6px; padding: 0; background: none; border: 0; font-family: inherit; cursor: help; text-align: left; }
+.strategy-info button:focus-visible { outline: 1px solid #5397b5; outline-offset: 4px; }
+.strategy-intro { display: none; position: absolute; left: 0; bottom: calc(100% + 8px); z-index: 5; width: 230px; max-width: 65vw; padding: 12px; background: #162b36; border: 1px solid #365c70; border-radius: 8px; box-shadow: 0 8px 24px rgb(0 0 0 / 30%); color: #dce0e4; font-size: 0.8rem; line-height: 1.7; font-weight: 400; }
+.strategy-intro::after { content: ''; position: absolute; left: 0; right: 0; top: 100%; height: 8px; }
+.strategy-help:hover .strategy-intro, .strategy-help:focus-within .strategy-intro { display: block; white-space: pre-wrap; overflow-wrap: anywhere; }
+.range-return-item:last-child .strategy-intro { left: auto; right: 0; }
+@media (max-width: 640px) { .range-returns-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }.range-return-item:nth-child(even) .strategy-intro { left: auto; right: 0; }.range-return-item:last-child .strategy-intro { left: 0; right: auto; } }
+.nav-summary { display: flex; justify-content: space-between; gap: 1.5rem; margin-top: 1.5rem; }
+.nav-summary span, .nav-summary small { display: block; color: #8da9b8; font-size: 0.8rem; }
+.nav-summary strong { display: block; font-size: 2rem; margin: 0.5rem 0; font-weight: 500; }
+.drawdown-summary { text-align: right; }
+.drawdown-summary strong { font-size: 1.3rem; }
+.holding-date { display: flex; align-items: center; }
+.holding-date input { color: #5397b5; background: rgb(0 0 0 / 24%); border: 1px solid rgb(83 151 181 / 22%); border-radius: 7px; padding: 0.4rem 0.65rem; font-family: inherit; font-size: 0.82rem; font-weight: 700; color-scheme: dark; cursor: pointer; transition: border-color 0.2s ease, background 0.2s ease; }
+.holding-date input:hover { background: rgb(83 151 181 / 10%); border-color: rgb(83 151 181 / 48%); }
+.empty-state { padding: 3rem 1rem; text-align: center; color: #8da9b8; }
+@media (max-width: 640px) { .allocation-content { grid-template-columns: 1fr; gap: 1rem; }.allocation-card .section-header { align-items: flex-start; flex-direction: column; }.nav-summary { flex-wrap: wrap; } }
 .allocation-legend { display: grid; gap: 10px; font-size: 0.85rem; }
 .allocation-legend > div { display: flex; justify-content: space-between; gap: 1rem; }
-.allocation-legend span, .holding-name { display: flex; align-items: center; gap: 9px; color: #b9c8d8; }
+.allocation-legend .strategy-info { display: flex; align-items: center; gap: 9px; color: #c1d5df; }
+.profit-overview { margin-top: 1.5rem; }
+.profit-grid { margin-bottom: 1.25rem; }
+.profit-grid .metric-card { padding: 0.85rem 1.25rem; }
+.profit-grid .metric-card strong { margin: 0.4rem 0; font-size: clamp(1.15rem, 2.2vw, 1.6rem); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.metric-card span { display: block; color: #b4cbd6; font-size: 0.85rem; }.metric-card strong { display: block; font-size: 2rem; font-weight: 500; margin: 0.75rem 0; color: #e2e8f0; }.metric-card small { color: #8da9b8; font-size: 0.75rem; }
+.section-header h2 { padding-left: 12px; border-left: 3px solid #5397b5; }.section-hint { color: #8da9b8; font-size: 0.8rem; }
+.page-note { margin-top: 1.5rem; text-align: center; font-size: 0.8rem; color: #8da9b8; line-height: 1.8; }
+@media (max-width: 640px) { .page-wrapper { padding: 2rem 0.75rem; }h1 { font-size: 2rem; }.subtitle { font-size: 0.95rem; }.page-header { margin-bottom: 2rem; }.content-card { padding: 1.25rem; }.metrics-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.75rem; }.chart-card .section-header { align-items: flex-start; flex-direction: column; } }
+.nav-chart { height: 330px; margin-top: 1rem; }
+.chart-description, .account-note { color: #8da9b8; font-size: 0.8rem; line-height: 1.8; }
 i { display: inline-block; width: 8px; height: 8px; flex-shrink: 0; border-radius: 50%; }
 td { padding: 16px 10px; border-bottom: 1px solid rgb(255 255 255 / 7%); text-align: center; color: #c9d5e2; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .positive, .metric-card strong.positive { color: #f87171; }
 .negative, .metric-card strong.negative { color: #4ade80; }
-.weight-cell { display: flex; align-items: center; justify-content: flex-end; gap: 12px; }
-.weight-track { width: 120px; height: 6px; border-radius: 6px; overflow: hidden; background: rgb(255 255 255 / 7%); }
-.weight-track > span { display: block; height: 100%; border-radius: inherit; }
-.weight-cell strong { min-width: 50px; font-weight: 500; }
-.holdings-table th:first-child { text-align: left; }
-@media (max-width: 640px) { .nav-chart { height: 260px; }.chart-footer { flex-wrap: wrap; }.weight-track { width: 65px; }.metric-card strong { font-size: 1.65rem; } }
+@media (max-width: 640px) { .nav-chart { height: 260px; }.metric-card strong { font-size: 1.65rem; } }
 </style>
