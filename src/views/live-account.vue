@@ -4,7 +4,7 @@
       <header class="page-header">
         <router-link to="/home" class="back-button">← 返回主页</router-link>
         <h1><FeaturePageIcon type="live-account" />老何实盘</h1>
-        <p class="subtitle">{{ latest.date ? '数据截至 ' + latest.date : loading ? '正在读取实盘数据' : '暂无记录' }}</p>
+        <p class="subtitle">记录每一段实盘表现，观察收益与风险变化。</p>
       </header>
 
       <StrategyLoading v-if="loading && !overview" mode="page" icon-type="live-account" title="正在加载实盘数据" description="同步账户净值、收益表现与持仓比例" />
@@ -12,19 +12,29 @@
       <button v-if="errorCode === 'SOURCE_NOT_CONFIGURED' && userStore.userInfo?.admin" class="bind-button" :disabled="loading" @click="bindSource">将当前账户的账本绑定为老何实盘</button>
       <p v-if="overview && !points.length" class="empty-state">投资账本暂无记录。</p>
       <template v-if="points.length">
-      <section class="profit-overview" aria-label="账户收益率">
+      <section class="profit-overview" :aria-label="selectedSeries.name + '收益率'">
+        <div class="strategy-switch" role="group" aria-label="选择查看账户或策略">
+          <button v-for="series in allSeries" :key="series.strategyId" type="button" :aria-pressed="selectedId === series.strategyId" :style="{ '--strategy-color': series.color }" @click="selectedId = series.strategyId"><i :style="{ background: series.color }"></i>{{ series.name }}</button>
+        </div>
+        <p class="selection-caption">{{ selectedSeries.name }} · {{ selectedLatest ? '数据截至 ' + selectedLatest.date : '暂无净值记录' }}</p>
         <div class="metrics-grid profit-grid">
           <article v-for="period in profitPeriods" :key="period.key" class="content-card metric-card">
             <span>{{ period.label }}收益率</span>
-            <strong :class="tone(accountReturns[period.key])">{{ percent(accountReturns[period.key]) }}</strong>
-            <small>{{ period.start === latest.date ? latest.date : period.start + ' 至 ' + latest.date }}</small>
+            <strong :class="tone(selectedReturns[period.key])">{{ percent(selectedReturns[period.key]) }}</strong>
+            <small>{{ selectedLatest ? (period.start === selectedLatest.date ? selectedLatest.date : period.start + ' 至 ' + selectedLatest.date) : '暂无记录' }}</small>
           </article>
         </div>
       </section>
 
       <section class="content-card chart-card">
-        <div class="section-header"><h2>净值走势</h2><ChartDateRangePicker v-model:start="chartStart" v-model:end="chartEnd" :min-date="points[0].date" :max-date="latest.date" accent="#5397b5" include-year-to-date /></div>
-        <div class="nav-summary"><div><span>最新净值</span><strong>{{ latest.nav.toFixed(4) }}</strong><small>截至 {{ latest.date }} · 初始净值 1.0000</small></div><div class="drawdown-summary"><span>当前回撤</span><strong :class="tone(currentDrawdown)">{{ percent(currentDrawdown) }}</strong><small>截至 {{ latest.date }} · 较历史最高净值</small></div></div>
+        <div class="section-header chart-header">
+          <h2>{{ selectedId === 'account' ? '净值走势' : selectedSeries.name + '走势' }}</h2>
+          <div class="nav-summary">
+            <div><span>最新净值</span><strong>{{ selectedLatest ? selectedLatest.nav.toFixed(4) : '—' }}</strong></div>
+            <div title="截至最新数据日期，较历史最高净值的回撤"><span>当前回撤</span><strong :class="tone(currentDrawdown)">{{ percent(currentDrawdown) }}</strong></div>
+          </div>
+          <ChartDateRangePicker v-model:start="chartStart" v-model:end="chartEnd" :min-date="points[0].date" :max-date="latest.date" accent="#5397b5" include-year-to-date />
+        </div>
         <section class="range-returns" aria-label="所选区间收益率">
           <div class="range-returns-heading"><span>区间收益率</span><small>{{ chartStart }} 至 {{ chartEnd }}</small></div>
           <div class="range-returns-grid">
@@ -85,6 +95,10 @@ const holdingDate = ref('')
 const points = computed(() => overview.value?.points || [])
 const latest = computed(() => points.value[points.value.length - 1] || { date: '', nav: 1, dailyReturn: 0, drawdown: 0 })
 const strategies = computed(() => overview.value?.strategies || [])
+const selectedId = ref('account')
+const allSeries = computed(() => [{ strategyId: 'account', name: '账户整体', color: '#f1f5f9', points: points.value }, ...strategies.value])
+const selectedSeries = computed(() => allSeries.value.find(series => series.strategyId === selectedId.value) || allSeries.value[0])
+const selectedLatest = computed(() => selectedSeries.value.points.at(-1))
 const strategyDescriptions = computed<Record<string, string>>(() => Object.fromEntries(strategies.value.map(strategy => [
   strategy.strategyId,
   strategy.description || '暂无策略说明。'
@@ -178,7 +192,7 @@ const percent = (value: number | null) => value === null ? '—' : (value > 0 ? 
 const tone = (value: number | null) => value === null ? '' : value > 0 ? 'positive' : value < 0 ? 'negative' : ''
 const profitPeriods = computed(() => {
   if (!latest.value.date) return []
-  const date = latest.value.date
+  const date = selectedLatest.value?.date || latest.value.date
   const weekStart = new Date(date + 'T00:00:00Z')
   weekStart.setUTCDate(weekStart.getUTCDate() - (weekStart.getUTCDay() + 6) % 7)
   return [
@@ -195,24 +209,37 @@ function intervalReturn(series: LivePoint[], start: string, end: string): number
   const baseline = first > 0 ? rows[first - 1].nav : rows[first].nav
   return baseline > 0 ? rows[rows.length - 1].nav / baseline - 1 : null
 }
-const accountReturns = computed(() => Object.fromEntries(profitPeriods.value.map(period => [period.key, intervalReturn(points.value, period.start, latest.value.date)])))
-const currentDrawdown = computed(() => latest.value.drawdown || 0)
+const selectedReturns = computed(() => Object.fromEntries(profitPeriods.value.map(period => [period.key, intervalReturn(selectedSeries.value.points, period.start, selectedLatest.value?.date || latest.value.date)])))
+const currentDrawdown = computed(() => {
+  if (!selectedLatest.value) return null
+  const peak = selectedSeries.value.points.reduce((highest, point) => Math.max(highest, point.nav), 0)
+  return peak > 0 ? selectedLatest.value.nav / peak - 1 : null
+})
 const visiblePoints = computed(() => points.value.filter(point => point.date >= chartStart.value && point.date <= chartEnd.value))
-const rangeReturns = computed(() => [{ strategyId: 'account', name: '账户整体', color: '#f1f5f9', points: points.value }, ...strategies.value].map(series => ({
+const rangeReturns = computed(() => allSeries.value.map(series => ({
   ...series,
   value: intervalReturn(series.points, chartStart.value, chartEnd.value)
 })))
+const historicalNames = computed(() => new Map((overview.value?.snapshots || []).map(snapshot => [
+  snapshot.date, new Map(snapshot.holdings.map(holding => [holding.strategyId, holding.name]))
+])))
+function formatNavTooltip(params: Array<{ axisValue: string; seriesId: string; seriesName: string; marker: string; value: number | null }>) {
+  if (!params.length) return ''
+  const date = params[0].axisValue
+  return [date, ...params.map(item => {
+    const name = historicalNames.value.get(date)?.get(item.seriesId) || item.seriesName
+    return `${item.marker}${name}：${item.value === null ? '—' : Number(item.value).toFixed(4)}`
+  })].join('\n')
+}
 const chartOption = computed(() => ({
   animation: false,
-  legend: { type: 'scroll', top: 0, textStyle: { color: '#b4cbd6' } },
+  legend: { type: 'scroll', top: 0, textStyle: { color: '#b4cbd6' }, selected: { [selectedSeries.value.name]: true } },
   grid: { left: 52, right: 18, top: 45, bottom: 35 },
-  tooltip: { trigger: 'axis', backgroundColor: '#162b36', borderColor: '#365c70', textStyle: { color: '#eef0f2' }, valueFormatter: (value: number) => Number(value).toFixed(4) },
+  tooltip: { trigger: 'axis', renderMode: 'richText', confine: true, backgroundColor: '#162b36', borderColor: '#365c70', textStyle: { color: '#eef0f2' }, formatter: formatNavTooltip },
   xAxis: { type: 'category', boundaryGap: false, data: visiblePoints.value.map(point => point.date), axisLabel: { color: '#8da9b8', hideOverlap: true }, axisLine: { lineStyle: { color: '#36505f' } } },
   yAxis: { type: 'value', scale: true, axisLabel: { color: '#8da9b8', formatter: (value: number) => value.toFixed(3) }, splitLine: { lineStyle: { color: 'rgba(255,255,255,0.07)', type: 'dashed' } } },
-  series: [
-    { name: '账户整体', color: '#f1f5f9', points: points.value },
-    ...strategies.value
-  ].map(series => ({
+  series: allSeries.value.map(series => ({
+    id: series.strategyId,
     name: series.name,
     type: 'line',
     showSymbol: false,
@@ -220,8 +247,9 @@ const chartOption = computed(() => ({
       const recorded = series.points.filter(row => row.date <= point.date).at(-1)
       return recorded?.nav ?? null
     }),
-    lineStyle: { color: series.color, width: series.name === '账户整体' ? 3 : 1.8 },
-    itemStyle: { color: series.color }
+    lineStyle: { color: series.color, width: series.strategyId === selectedId.value ? 3 : 1.8, opacity: selectedId.value === 'account' || series.strategyId === selectedId.value ? 1 : 0.25 },
+    itemStyle: { color: series.color, opacity: selectedId.value === 'account' || series.strategyId === selectedId.value ? 1 : 0.25 },
+    z: series.strategyId === selectedId.value ? 3 : 2
   }))
 }))
 </script>
@@ -257,7 +285,7 @@ h2 { font-size: 1.15rem; margin: 0; }
 .holding-values { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .holding-values > span { display: inline-block; min-width: 75px; margin-left: 12px; }
 @media (max-width: 640px) { .replay-dates { flex-wrap: wrap; }.holding-replay { gap: 0.6rem; } }
-.range-returns { margin-top: 1.5rem; padding: 1rem 0; border-top: 1px solid rgb(255 255 255 / 7%); border-bottom: 1px solid rgb(255 255 255 / 7%); }
+.range-returns { margin-top: 1.5rem; padding: 1rem 0; border-bottom: 1px solid rgb(255 255 255 / 7%); }
 .range-returns-heading { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 0.5rem; color: #b4cbd6; font-size: 0.85rem; }
 .range-returns-heading small { color: #8da9b8; }
 .range-returns-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(145px, 1fr)); gap: 1rem; margin-top: 1rem; }
@@ -274,20 +302,28 @@ h2 { font-size: 1.15rem; margin: 0; }
 .strategy-help:hover .strategy-intro, .strategy-help:focus-within .strategy-intro { display: block; white-space: pre-wrap; overflow-wrap: anywhere; }
 .range-return-item:last-child .strategy-intro { left: auto; right: 0; }
 @media (max-width: 640px) { .range-returns-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }.range-return-item:nth-child(even) .strategy-intro { left: auto; right: 0; }.range-return-item:last-child .strategy-intro { left: 0; right: auto; } }
-.nav-summary { display: flex; justify-content: space-between; gap: 1.5rem; margin-top: 1.5rem; }
-.nav-summary span, .nav-summary small { display: block; color: #8da9b8; font-size: 0.8rem; }
-.nav-summary strong { display: block; font-size: 2rem; margin: 0.5rem 0; font-weight: 500; }
-.drawdown-summary { text-align: right; }
-.drawdown-summary strong { font-size: 1.3rem; }
+.chart-card .chart-header { display: grid; grid-template-columns: auto 1fr auto; gap: 1.5rem; align-items: center; }
+.nav-summary { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 1.5rem; }
+.nav-summary > div { display: flex; align-items: baseline; gap: 0.5rem; white-space: nowrap; }
+.nav-summary span { color: #8da9b8; font-size: 0.8rem; }
+.nav-summary strong { font-size: 1.15rem; font-weight: 500; font-variant-numeric: tabular-nums; }
+@media (max-width: 800px) { .chart-card .chart-header { grid-template-columns: 1fr auto; gap: 1rem; }.nav-summary { grid-column: 1 / -1; grid-row: 2; } }
 .holding-date { display: flex; align-items: center; }
 .holding-date input { color: #5397b5; background: rgb(0 0 0 / 24%); border: 1px solid rgb(83 151 181 / 22%); border-radius: 7px; padding: 0.4rem 0.65rem; font-family: inherit; font-size: 0.82rem; font-weight: 700; color-scheme: dark; cursor: pointer; transition: border-color 0.2s ease, background 0.2s ease; }
 .holding-date input:hover { background: rgb(83 151 181 / 10%); border-color: rgb(83 151 181 / 48%); }
 .empty-state { padding: 3rem 1rem; text-align: center; color: #8da9b8; }
-@media (max-width: 640px) { .allocation-content { grid-template-columns: 1fr; gap: 1rem; }.allocation-card .section-header { align-items: flex-start; flex-direction: column; }.nav-summary { flex-wrap: wrap; } }
+@media (max-width: 640px) { .allocation-content { grid-template-columns: 1fr; gap: 1rem; }.allocation-card .section-header { align-items: flex-start; flex-direction: column; } }
 .allocation-legend { display: grid; gap: 10px; font-size: 0.85rem; }
 .allocation-legend > div { display: flex; justify-content: space-between; gap: 1rem; }
 .allocation-legend .strategy-info { display: flex; align-items: center; gap: 9px; color: #c1d5df; }
 .profit-overview { margin-top: 1.5rem; }
+.strategy-switch { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+.strategy-switch button { display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem; padding: 0.6rem 1rem; border: 1px solid transparent; border-radius: 8px; background: transparent; color: #8da9b8; font: inherit; font-size: 0.85rem; cursor: pointer; }
+.strategy-switch button:hover { color: #fff; background: rgb(83 151 181 / 10%); }
+.strategy-switch button[aria-pressed="true"] { color: #eef0f2; border-color: var(--strategy-color); background: rgb(83 151 181 / 15%); }
+.strategy-switch button:focus-visible { outline: 2px solid #5397b5; outline-offset: 3px; }
+.selection-caption { color: #8da9b8; font-size: 0.8rem; margin: 0.85rem 0; }
+@media (max-width: 640px) { .strategy-switch { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }.strategy-switch button { padding: 0.6rem 0.4rem; } }
 .profit-grid { margin-bottom: 1.25rem; }
 .profit-grid .metric-card { padding: 0.85rem 1.25rem; }
 .profit-grid .metric-card strong { margin: 0.4rem 0; font-size: clamp(1.15rem, 2.2vw, 1.6rem); white-space: nowrap; font-variant-numeric: tabular-nums; }

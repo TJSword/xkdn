@@ -49,6 +49,9 @@
                 <span :class="['status-dot', realtimeStale && realtimeRows.length ? 'stale' : '']"></span>
                 <span class="status-text">数据更新: {{ latestPortfolioTimeText }}</span>
               </div>
+              <button v-if="canForceRefresh" class="icon-refresh-button" title="查看实时含权排名前10名" aria-label="查看实时含权排名前10名" @click="openRanking">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M4 20V10h4v10M10 20V4h4v16M16 20v-7h4v7M3 20h18" /></svg>
+              </button>
               <button
                 v-if="canForceRefresh"
                 class="icon-refresh-button"
@@ -73,13 +76,15 @@
                   <th>名称</th>
                   <th>价格</th>
                   <th>每股配售额</th>
-                  <th>动态含权量</th>
+                  <th :aria-sort="rightsSortDirection === 'desc' ? 'descending' : 'ascending'">
+                    <button class="rights-sort-button" type="button" :aria-label="rightsSortDirection === 'desc' ? '动态含权量当前降序，点击升序排列' : '动态含权量当前升序，点击降序排列'" @click="rightsSortDirection = rightsSortDirection === 'desc' ? 'asc' : 'desc'">动态含权量 <span aria-hidden="true">{{ rightsSortDirection === 'desc' ? '↓' : '↑' }}</span></button>
+                  </th>
                   <th>权重</th>
                   <th>股权登记日</th>
                 </tr>
               </thead>
               <tbody>
-                <tr v-for="row in latestPortfolioRows" :key="`${row.code}-${row.bondName}`">
+                <tr v-for="row in sortedPortfolioRows" :key="`${row.code}-${row.bondName}`">
                   <td>{{ row.code }}</td>
                   <td>{{ row.name }}</td>
                   <td>{{ formatNumber(row.price, 2) }}</td>
@@ -332,6 +337,18 @@
           </div>
         </div>
       </div>
+      <el-dialog v-if="canForceRefresh" v-model="rankingVisible" class="rights-ranking-dialog" title="实时含权排名 · 前10名" width="min(960px, 94vw)" append-to-body>
+        <div class="ranking-toolbar"><span>{{ rankingUpdatedAt ? '查询时间：' + new Date(rankingUpdatedAt).toLocaleString('zh-CN', { hour12: false }) : '尚未获取排名' }} · 持仓截至 {{ rankingHoldingsDate || '暂无正式快照' }}</span><el-button :loading="rankingLoading" @click="loadRanking">刷新排名</el-button></div>
+        <p v-if="rankingError" role="alert" class="text-red">{{ rankingError }}{{ rankingRows.length ? '，当前保留上次查询结果。' : '' }}</p>
+        <div v-loading="rankingLoading" class="table-wrapper">
+          <table class="portfolio-table ranking-table">
+            <thead><tr><th>排名</th><th>代码</th><th>名称</th><th>最新价</th><th>动态含权量</th><th>当前状态</th></tr></thead>
+            <tbody><tr v-for="row in rankingRows" :key="row.stockCode + row.bondName" :class="{ 'ranking-held': row.isHolding }"><td>{{ row.currentRank }}</td><td>{{ row.stockCode }}</td><td>{{ row.stockName }}</td><td>{{ formatNumber(row.latestPrice, 2) }}<small v-if="row.source === 'jisilu'" title="未取得完整实时行情，使用集思录可用字段"> *</small></td><td>{{ formatNumber(row.dynamicRights, 2) }}</td><td><span v-if="row.isHolding" class="ranking-holding-badge">持仓中</span><span v-else>候选</span></td></tr></tbody>
+          </table>
+          <p v-if="!rankingLoading && !rankingRows.length">暂无可用排名。</p>
+        </div>
+        <p v-if="rankingOutsideHoldings.length">未进入当前前10名的持仓：{{ rankingOutsideHoldings.map(row => row.stockName + ' ' + row.stockCode).join('、') }}。正式持仓保持不变。</p>
+      </el-dialog>
       <MonthlyReturnCalendarModal
         :calendar="selectedMonthlyCalendar"
         :has-previous="!!previousCalendarMonth"
@@ -462,6 +479,36 @@
   const realtimeRebalanced = ref(false)
   const realtimeAdjustments = ref<RealtimeAdjustments>({ buys: [], sells: [], unchanged: [] })
   const isRealtimeRefreshing = ref(false)
+  const rankingVisible = ref(false)
+  const rankingLoading = ref(false)
+  const rankingError = ref('')
+  const rankingRows = ref<Array<RealtimeRow & { isHolding: boolean; source: string }>>([])
+  const rankingUpdatedAt = ref('')
+  const rankingHoldingsDate = ref('')
+  const rankingOutsideHoldings = ref<Array<{ stockCode: string; stockName: string }>>([])
+  function openRanking() {
+      rankingVisible.value = true
+      void loadRanking()
+  }
+  async function loadRanking() {
+      if (!canForceRefresh.value || rankingLoading.value) return
+      rankingLoading.value = true
+      rankingError.value = ''
+      try {
+          const res: any = await callCloudFunction({ name: 'strategyTaskGateway', data: { action: 'previewRightsRanking' }, parse: true })
+          if (!res.result?.success) throw new Error(res.result?.message || '排名查询失败')
+          const data = res.result.data
+          rankingRows.value = data.rows
+          rankingUpdatedAt.value = data.refreshedAt
+          rankingHoldingsDate.value = data.holdingsDate
+          rankingOutsideHoldings.value = data.holdingsOutsideTop10
+      } catch (error: any) {
+          throwIfAuthExpired(error)
+          rankingError.value = error.message || '排名查询失败'
+      } finally {
+          rankingLoading.value = false
+      }
+  }
   const openFaqIndex = ref<number | null>(0)
 
   const canViewPremiumContent = computed(() => userStore.isVip || userStore.userInfo?.admin === true)
@@ -596,6 +643,15 @@
 
       return staticLatestHoldings
   })
+
+  const rightsSortDirection = ref<'asc' | 'desc'>('desc')
+  const sortedPortfolioRows = computed(() => [...latestPortfolioRows.value].sort((a, b) => {
+      const left = a.dynamicRights === null || a.dynamicRights === '' ? NaN : Number(a.dynamicRights)
+      const right = b.dynamicRights === null || b.dynamicRights === '' ? NaN : Number(b.dynamicRights)
+      if (!Number.isFinite(left)) return Number.isFinite(right) ? 1 : 0
+      if (!Number.isFinite(right)) return -1
+      return rightsSortDirection.value === 'desc' ? right - left : left - right
+  }))
 
   function lineSeries(name: string, data: Array<number | null>) {
       const startIndex = selectedStartIndex.value
@@ -1342,6 +1398,35 @@
 
   .portfolio-table td {
       color: #b0c4de;
+  }
+  .ranking-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin: 0 0 1.25rem; flex-wrap: wrap; color: #b0c4de; font-size: 0.85rem; }
+  :global(.rights-ranking-dialog) { --el-dialog-bg-color: #1b2233; --el-text-color-primary: #eef2f8; --el-text-color-regular: #b0c4de; --el-border-color: rgb(255 255 255 / 10%); --el-fill-color-blank: #1b2233; --el-mask-color: rgb(27 34 51 / 85%); background: linear-gradient(125deg, #20252c, #20233c); border: 1px solid rgb(255 255 255 / 10%); border-radius: 12px; }
+  :global(.rights-ranking-dialog .el-dialog__header) { padding: 1.5rem 2rem 0; }
+  :global(.rights-ranking-dialog .el-dialog__title) { display: block; padding-left: 1rem; border-left: 4px solid #f87171; font-size: 1.2rem; font-weight: 700; }
+  :global(.rights-ranking-dialog .el-dialog__body) { padding: 1.5rem 2rem; }
+  .ranking-table { width: 100%; min-width: 580px; font-variant-numeric: tabular-nums; }
+  .ranking-table th { color: #fff; }
+  .ranking-table td { color: #b0c4de; }
+  .ranking-held { background: rgb(248 113 113 / 5%); }
+  .ranking-holding-badge { display: inline-block; padding: 2px 8px; border: 1px solid rgb(248 113 113 / 25%); border-radius: 12px; color: #fca5a5; background: rgb(248 113 113 / 10%); font-size: 0.75rem; }
+  @media (max-width: 640px) { :global(.rights-ranking-dialog .el-dialog__header) { padding: 1.25rem 1rem 0; } :global(.rights-ranking-dialog .el-dialog__body) { padding: 1.25rem 1rem; } }
+
+  .rights-sort-button {
+      padding: 0;
+      border: 0;
+      background: transparent;
+      color: inherit;
+      font: inherit;
+      cursor: pointer;
+  }
+
+  .rights-sort-button span {
+      color: #38bdf8;
+  }
+
+  .rights-sort-button:focus-visible {
+      outline: 2px solid #38bdf8;
+      outline-offset: 4px;
   }
 
   .record-date-cell {
