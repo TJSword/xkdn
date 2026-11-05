@@ -38,7 +38,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import VChart from 'vue-echarts'
 import ChartDateRangePicker from '@/components/ChartDateRangePicker.vue'
 import { use } from 'echarts/core'
@@ -63,11 +63,14 @@ const loading = ref(true)
 const error = ref('')
 const visibleStrategies = computed(() => comparisonStrategies.filter(item => selected.value.includes(item.id)))
 const missingNames = computed(() => visibleStrategies.value.filter(item => alignComparison(sources.value, [item.id]).dates.length < 2).map(item => item.name))
-const comparisonIds = comparisonStrategies.map(item => item.id)
-const fullAlignment = computed(() => alignComparison(sources.value, comparisonIds))
+const fullAlignment = computed(() => alignComparison(sources.value, selected.value))
 const chartMinDate = computed(() => fullAlignment.value.dates[0] || '')
 const chartMaxDate = computed(() => fullAlignment.value.dates[fullAlignment.value.dates.length - 1] || '')
-const aligned = computed(() => alignComparison(sources.value, comparisonIds, { start: dateRangeStart.value, end: dateRangeEnd.value }))
+watch(fullAlignment, () => {
+  dateRangeStart.value = chartMinDate.value
+  dateRangeEnd.value = chartMaxDate.value
+})
+const aligned = computed(() => alignComparison(sources.value, selected.value, { start: dateRangeStart.value, end: dateRangeEnd.value }))
 const visibleSeries = computed(() => aligned.value.series.filter(item => selected.value.includes(item.id)))
 const years = computed(() => visibleSeries.value[0]?.years.map(item => item.year) || [])
 const metricRows: Record<string, { key: keyof StrategyStats; label: string; unit: string }[]> = {
@@ -144,8 +147,6 @@ async function loadData() {
     const data = response.result?.data?.strategies
     if (!data || !Object.keys(data).length) throw new Error('missing data')
     sources.value = data
-    if (!dateRangeStart.value) dateRangeStart.value = chartMinDate.value
-    if (!dateRangeEnd.value) dateRangeEnd.value = chartMaxDate.value
   } catch (err) {
     throwIfAuthExpired(err)
     error.value = '历史数据暂时无法加载，请稍后重试。'

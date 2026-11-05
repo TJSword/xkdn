@@ -36,7 +36,6 @@
           <ChartDateRangePicker v-model:start="chartStart" v-model:end="chartEnd" :min-date="points[0].date" :max-date="latest.date" accent="#5397b5" include-year-to-date />
         </div>
         <section class="range-returns" aria-label="所选区间收益率">
-          <div class="range-returns-heading"><span>区间收益率</span><small>{{ chartStart }} 至 {{ chartEnd }}</small></div>
           <div class="range-returns-grid">
             <div v-for="(item, index) in rangeReturns" :key="item.strategyId" class="range-return-item">
               <span v-if="index === 0" class="account-name">{{ item.name }}</span>
@@ -49,6 +48,30 @@
         <v-chart v-if="visiblePoints.length" class="nav-chart" :option="chartOption" autoresize />
         <p v-else class="empty-state">所选区间暂无净值记录，请选择其他日期。</p>
       </section>
+
+      <section class="content-card monthly-card">
+        <div class="section-header"><h2>月度收益日历</h2><span class="section-hint">{{ selectedSeries.name }}</span></div>
+        <p class="chart-description">点击月份查看每日收益；随上方账户 / 策略切换，展示全部实盘记录，不受净值图时间范围影响。</p>
+        <div v-if="monthlyRows.length" class="monthly-table-container">
+          <table class="monthly-table" :aria-label="selectedSeries.name + '月度收益表'">
+            <thead><tr><th scope="col">年份</th><th v-for="month in 12" :key="month" scope="col">{{ month }}月</th><th scope="col">年度</th></tr></thead>
+            <tbody>
+              <tr v-for="row in monthlyRows" :key="row.year">
+                <th scope="row">{{ row.year }}</th>
+                <td v-for="(value, index) in row.months" :key="index" :data-label="`${index + 1}月`" :style="getDailyCalendarCellStyle(value === null ? null : Number(value))">
+                  <button v-if="value !== null" type="button" :class="getCalendarTone(Number(value))" :aria-label="`${selectedSeries.name} ${row.year}年${index + 1}月收益 ${formatCalendarPercent(Number(value))}，查看每日收益`" @click="openMonthlyCalendar(row.year, index + 1, value)">{{ formatCalendarPercent(Number(value)) }}</button>
+                  <span v-else class="section-hint">—</span>
+                </td>
+                <td class="monthly-total" data-label="年度" :class="getCalendarTone(Number(row.total))">{{ formatCalendarPercent(Number(row.total)) }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p v-else class="empty-state">至少需要两条净值记录才能计算月度收益。</p>
+        <p class="account-note">收益已扣除出入金影响，截至最新记录；缺失日期不补零。</p>
+      </section>
+
+      <MonthlyReturnCalendarModal :calendar="liveMonthlyCalendar" :has-previous="!!previousCalendarMonth" :has-next="!!nextCalendarMonth" accent="#5397b5" @close="closeMonthlyCalendar" @navigate="goToAdjacentCalendarMonth" />
 
       <section class="content-card allocation-card">
         <div class="section-header"><h2>持仓比例</h2><label class="holding-date"><input v-model="holdingDate" type="date" :min="points[0].date" :max="latest.date" aria-label="持仓记录日期" @input="stopPlayback" /></label></div>
@@ -71,12 +94,15 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, onMounted, onBeforeUnmount } from 'vue'
+import { computed, ref, watch, onMounted, onBeforeUnmount } from 'vue'
 import { getLiveOverview, bindLiveAccount } from '@/services/liveAccount'
 import type { LiveOverview, LivePoint } from '@/services/liveAccount'
 import { useUserStore } from '@/store/user'
 import VChart from 'vue-echarts'
 import StrategyLoading from '@/components/StrategyLoading.vue'
+import MonthlyReturnCalendarModal from '@/components/MonthlyReturnCalendarModal.vue'
+import { useMonthlyReturnCalendar, formatCalendarPercent, getCalendarTone, getDailyCalendarCellStyle } from '@/composables/useMonthlyReturnCalendar'
+import { calculateMonthlyReturns } from '@/utils/strategyMetrics'
 import { use } from 'echarts/core'
 import { CanvasRenderer } from 'echarts/renderers'
 import { LineChart, PieChart } from 'echarts/charts'
@@ -215,6 +241,21 @@ const currentDrawdown = computed(() => {
   const peak = selectedSeries.value.points.reduce((highest, point) => Math.max(highest, point.nav), 0)
   return peak > 0 ? selectedLatest.value.nav / peak - 1 : null
 })
+const calendarDates = computed(() => selectedSeries.value.points.map(point => point.date))
+const calendarValues = computed(() => selectedSeries.value.points.map(point => point.nav))
+const monthlyRows = computed(() => calculateMonthlyReturns(calendarValues.value, calendarDates.value))
+const calendarStart = computed(() => calendarDates.value[0] || '')
+const calendarEnd = computed(() => calendarDates.value.at(-1) || '')
+const { selectedMonthlyCalendar, previousCalendarMonth, nextCalendarMonth, openMonthlyCalendar, closeMonthlyCalendar, goToAdjacentCalendarMonth } = useMonthlyReturnCalendar({
+  monthlyRows,
+  chartDates: calendarDates,
+  chartStrategyValues: calendarValues,
+  dateRangeStart: calendarStart,
+  dateRangeEnd: calendarEnd,
+  getDateIndex: (date, mode) => mode === 'start' ? calendarDates.value.indexOf(date) : calendarDates.value.lastIndexOf(date)
+})
+watch(selectedId, closeMonthlyCalendar)
+const liveMonthlyCalendar = computed(() => selectedMonthlyCalendar.value && ({ ...selectedMonthlyCalendar.value, title: selectedSeries.value.name + ' · ' + selectedMonthlyCalendar.value.title }))
 const visiblePoints = computed(() => points.value.filter(point => point.date >= chartStart.value && point.date <= chartEnd.value))
 const rangeReturns = computed(() => allSeries.value.map(series => ({
   ...series,
@@ -234,9 +275,9 @@ function formatNavTooltip(params: Array<{ axisValue: string; seriesId: string; s
 const chartOption = computed(() => ({
   animation: false,
   legend: { type: 'scroll', top: 0, textStyle: { color: '#b4cbd6' }, selected: { [selectedSeries.value.name]: true } },
-  grid: { left: 52, right: 18, top: 45, bottom: 35 },
+  grid: { left: 52, right: 18, top: 45, bottom: 43 },
   tooltip: { trigger: 'axis', renderMode: 'richText', confine: true, backgroundColor: '#162b36', borderColor: '#365c70', textStyle: { color: '#eef0f2' }, formatter: formatNavTooltip },
-  xAxis: { type: 'category', boundaryGap: false, data: visiblePoints.value.map(point => point.date), axisLabel: { color: '#8da9b8', hideOverlap: true }, axisLine: { lineStyle: { color: '#36505f' } } },
+  xAxis: { type: 'category', boundaryGap: false, data: visiblePoints.value.map(point => point.date), axisLabel: { color: '#8da9b8', hideOverlap: true, margin: 16 }, axisLine: { lineStyle: { color: '#36505f' } } },
   yAxis: { type: 'value', scale: true, axisLabel: { color: '#8da9b8', formatter: (value: number) => value.toFixed(3) }, splitLine: { lineStyle: { color: 'rgba(255,255,255,0.07)', type: 'dashed' } } },
   series: allSeries.value.map(series => ({
     id: series.strategyId,
@@ -269,6 +310,23 @@ h1 { display: flex; align-items: center; justify-content: center; gap: 0.75rem; 
 h2 { font-size: 1.15rem; margin: 0; }
 .metrics-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1rem; margin: 1.5rem 0; }
 .allocation-card { margin-top: 1.5rem; }
+.monthly-card { margin-top: 1.5rem; }
+.monthly-table { width: 100%; table-layout: fixed; border-collapse: separate; border-spacing: 2px; font-size: 0.8rem; }
+.monthly-table th { padding: 12px 2px; color: #b4cbd6; font-weight: 500; white-space: nowrap; }
+.monthly-table td { padding: 0; border: 1px solid rgb(255 255 255 / 7%); border-radius: 6px; }
+.monthly-table td > span, .monthly-table .monthly-total { padding: 12px 2px; }
+.monthly-table button { display: block; width: 100%; padding: 12px 2px; border: 0; border-radius: 6px; background: transparent; color: #f3f8ff; font: inherit; font-variant-numeric: tabular-nums; cursor: pointer; }
+.monthly-table button:hover { background: rgb(255 255 255 / 8%); }
+.monthly-table button:focus-visible { outline: 2px solid #5397b5; outline-offset: 2px; }
+@media (max-width: 800px) {
+  .monthly-table, .monthly-table tbody { display: block; }
+  .monthly-table thead { display: none; }
+  .monthly-table tr { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; margin-bottom: 12px; }
+  .monthly-table th { grid-column: 1 / -1; text-align: left; }
+  .monthly-table td::before { content: attr(data-label); display: block; padding-top: 8px; color: #b4cbd6; font-size: 0.7rem; }
+  .monthly-table .monthly-total { grid-column: 1 / -1; padding: 8px 2px; }
+  .monthly-table .monthly-total::before { display: inline; padding: 0; margin-right: 8px; }
+}
 .allocation-content { display: grid; grid-template-columns: 1fr 1fr; align-items: center; gap: 2rem; }
 .allocation-chart { height: 250px; }
 .holding-replay { display: flex; align-items: center; gap: 1rem; margin-top: 1.5rem; }
@@ -285,10 +343,8 @@ h2 { font-size: 1.15rem; margin: 0; }
 .holding-values { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .holding-values > span { display: inline-block; min-width: 75px; margin-left: 12px; }
 @media (max-width: 640px) { .replay-dates { flex-wrap: wrap; }.holding-replay { gap: 0.6rem; } }
-.range-returns { margin-top: 1.5rem; padding: 1rem 0; border-bottom: 1px solid rgb(255 255 255 / 7%); }
-.range-returns-heading { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 0.5rem; color: #b4cbd6; font-size: 0.85rem; }
-.range-returns-heading small { color: #8da9b8; }
-.range-returns-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(145px, 1fr)); gap: 1rem; margin-top: 1rem; }
+.range-returns { margin-top: 1rem; padding: 0.5rem 0 1rem; border-bottom: 1px solid rgb(255 255 255 / 7%); }
+.range-returns-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(145px, 1fr)); gap: 1rem; }
 .range-return-item { text-align: center; }
 .range-return-item strong { display: block; margin-top: 0.7rem; font-size: 1.3rem; font-weight: 500; font-variant-numeric: tabular-nums; }
 .account-name, .strategy-info { color: #c1d5df; font-size: 0.8rem; }

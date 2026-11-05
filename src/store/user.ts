@@ -3,10 +3,12 @@
 import { defineStore } from 'pinia'
 import { auth } from '@/lib/cloudbase'
 import { callCloudFunction } from '@/services/cloudFunction'
+import { withAuthTimeout } from '@/services/authTimeout'
 import {
   getAuthSession,
   getAuthSessionUid,
-  verifyAuthSession
+  verifyAuthSession,
+  completeAuthSignIn
 } from '@/services/authSession'
 
 const USER_INFO_CACHE_KEY = 'xkdn:user-info:v1'
@@ -14,7 +16,11 @@ const USER_INFO_CACHE_TTL = 30 * 60 * 1000
 let userInfoSyncPromise: Promise<any> | null = null
 
 function canUseLocalStorage() {
-  return typeof window !== 'undefined' && !!window.localStorage
+  try {
+    return typeof window !== 'undefined' && !!window.localStorage
+  } catch {
+    return false
+  }
 }
 
 function readUserInfoCache() {
@@ -29,7 +35,7 @@ function readUserInfoCache() {
 
     return cache
   } catch (error) {
-    window.localStorage.removeItem(USER_INFO_CACHE_KEY)
+    clearUserInfoCache()
     return null
   }
 }
@@ -38,21 +44,27 @@ function writeUserInfoCache(userInfo: any) {
   if (!canUseLocalStorage()) return 0
 
   const syncedAt = Date.now()
-  window.localStorage.setItem(
+  try {
+    window.localStorage.setItem(
     USER_INFO_CACHE_KEY,
     JSON.stringify({
       userInfo,
       uid: String(userInfo?.uid || ''),
       syncedAt
     })
-  )
+    )
+  } catch {
+    // 缓存不可用不应阻止本次会话登录。
+  }
 
   return syncedAt
 }
 
 function clearUserInfoCache() {
   if (!canUseLocalStorage()) return
-  window.localStorage.removeItem(USER_INFO_CACHE_KEY)
+  try {
+    window.localStorage.removeItem(USER_INFO_CACHE_KEY)
+  } catch { /* 存储受限时仍然清除内存中的用户状态。 */ }
 }
 
 function isCacheFresh(syncedAt: number) {
@@ -116,13 +128,13 @@ export const useUserStore = defineStore('user', {
       if (userInfoSyncPromise) return userInfoSyncPromise
 
       userInfoSyncPromise = (async () => {
-        const res: any = await callCloudFunction({
+        const res: any = await withAuthTimeout(callCloudFunction({
           name: 'loginOrRegister',
           data: {
             action: options.trackLogin ? 'signIn' : 'get',
             phone: phoneNumber
           }
-        })
+        }), '用户资料同步超时，请重试')
         const userInfo = res?.result
         if (!userInfo || userInfo.success === false || !userInfo.uid) {
           throw new Error(userInfo?.message || '用户资料读取失败')
@@ -154,6 +166,7 @@ export const useUserStore = defineStore('user', {
         username: '+86 ' + phoneNumber, // tcb auth 需要国家码前缀
         password: password
       })
+      await completeAuthSignIn()
 
       // 2. tcb 登录成功后，同步我们自己数据库的用户信息
       return this._syncUserInfo(phoneNumber, { trackLogin: true })
@@ -188,6 +201,7 @@ export const useUserStore = defineStore('user', {
         verification_code: verificationCode,
         verification_token: verificationTokenRes.verification_token
       })
+      await completeAuthSignIn()
 
       // 4. tcb 注册并自动登录后，同步我们自己数据库的用户信息
       // 此时 loginOrRegister 云函数会发现是新用户，并为其创建记录

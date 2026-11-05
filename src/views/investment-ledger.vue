@@ -100,7 +100,32 @@
                         <strong :class="returnClass(accountSummary.profit)">
                             {{ displayMoneyChange(accountSummary.profit) }}
                         </strong>
-                        <small>总资产减累计投入本金</small>
+                        <div v-if="hasLedgerData" class="profit-recovery-line metric-label-with-help">
+                            <span>盈利前高 {{ formatCompactMoney(profitRecovery.peakProfit) }}</span>
+                            <button
+                                class="metric-help"
+                                type="button"
+                                aria-label="查看累计盈利前高详情"
+                                aria-describedby="profit-recovery-tooltip"
+                                @click="showProfitRecoveryHelp = !showProfitRecoveryHelp"
+                                @blur="showProfitRecoveryHelp = false">
+                                i
+                            </button>
+                            <span
+                                id="profit-recovery-tooltip"
+                                class="metric-help-tooltip"
+                                :class="{ 'is-visible': showProfitRecoveryHelp }"
+                                role="tooltip">
+                                累计盈利前高 {{ displayMoney(profitRecovery.peakProfit) }}<br />
+                                <template v-if="profitRecovery.gap > 0">
+                                    距前高还差 {{ displayMoney(profitRecovery.gap) }}
+                                    <template v-if="profitRecovery.requiredReturn !== null">
+                                        <br />按当前总资产测算，需涨 {{ profitRecovery.requiredReturn.toFixed(2) }}%
+                                    </template>
+                                </template>
+                                <template v-else>累计盈利已到前高</template>
+                            </span>
+                        </div>
                     </article>
                     <article>
                         <span>累计收益率</span>
@@ -402,7 +427,11 @@
                         v-for="item in dataQualityAlerts"
                         :key="item.label"
                         :class="['audit-alert', item.tone, { clickable: item.clickable }]"
-                        @click="openAuditAlertDetail(item.label)">
+                        :role="item.clickable ? 'button' : undefined"
+                        :tabindex="item.clickable ? 0 : undefined"
+                        @click="openAuditAlertDetail(item.label)"
+                        @keydown.enter="openAuditAlertDetail(item.label)"
+                        @keydown.space.prevent="openAuditAlertDetail(item.label)">
                         <div>
                             <span>{{ item.label }}</span>
                             <strong>{{ item.value }}</strong>
@@ -1694,6 +1723,105 @@
         </Transition>
 
         <Transition name="modal-fade">
+            <div
+                v-if="showAnomalyDetailModal"
+                class="modal-backdrop"
+                @click.self="showAnomalyDetailModal = false"
+                @keydown.esc="showAnomalyDetailModal = false">
+                <div
+                    class="modal-panel anomaly-detail-modal"
+                    role="dialog"
+                    aria-modal="true"
+                    aria-labelledby="anomaly-detail-title">
+                    <div class="modal-header">
+                        <div>
+                            <span>数据审计 · 待核对 {{ anomalyRecordDetails.length }} 条</span>
+                            <h3 id="anomaly-detail-title">金额异常详情</h3>
+                        </div>
+                        <button
+                            class="icon-button"
+                            type="button"
+                            aria-label="关闭"
+                            @click="showAnomalyDetailModal = false">
+                            ×
+                        </button>
+                    </div>
+                    <p class="modal-muted-copy">逐条核对前后记录。忽略只保存在当前浏览器，不会修改账本；金额或现金流修改后会重新判定。</p>
+                    <div class="anomaly-view-tabs">
+                        <button type="button" :class="{ active: !showIgnoredAnomalies }" @click="showIgnoredAnomalies = false">
+                            待核对 {{ anomalyRecordDetails.length }}
+                        </button>
+                        <button type="button" :class="{ active: showIgnoredAnomalies }" @click="showIgnoredAnomalies = true">
+                            已忽略 {{ ignoredAnomalyDetails.length }}
+                        </button>
+                    </div>
+                    <div class="anomaly-detail-list">
+                        <article
+                            v-for="item in displayedAnomalyDetails"
+                            :key="item.key"
+                            class="anomaly-detail-item">
+                            <div class="anomaly-item-heading">
+                                <strong><i :style="{ backgroundColor: item.current.color }"></i>{{ getRecordStrategyName(item.current) }}</strong>
+                                <span>变化幅度 ≥ 12%</span>
+                            </div>
+                            <div class="anomaly-record-pair">
+                                <div
+                                    v-for="(record, index) in [item.previous, item.current]"
+                                    :key="record.id"
+                                    :class="['anomaly-record-summary', { current: index === 1 }]">
+                                    <div class="anomaly-record-heading">
+                                        <span>{{ index === 0 ? '前一条记录' : '后一条记录' }}</span>
+                                        <strong>{{ record.date }}</strong>
+                                    </div>
+                                    <div class="anomaly-record-amount">
+                                        <span>期末金额</span>
+                                        <strong>{{ displayMoney(record.amount) }}</strong>
+                                    </div>
+                                    <dl class="anomaly-record-meta">
+                                        <div><dt>策略</dt><dd>{{ getRecordStrategyName(record) }}</dd></div>
+                                        <div><dt>当日现金流</dt><dd>{{ displayMoneyChange(record.cashFlow) }}</dd></div>
+                                        <div><dt>备注</dt><dd>{{ record.note || '—' }}</dd></div>
+                                    </dl>
+                                </div>
+                            </div>
+                            <div class="anomaly-change-summary">
+                                <div>
+                                    <span>扣除现金流后变化</span>
+                                    <strong :class="item.adjustedChange >= 0 ? 'positive' : 'negative'">{{ displayMoneyChange(item.changeAmount) }}</strong>
+                                </div>
+                                <div>
+                                    <span>变化比例</span>
+                                    <strong :class="item.adjustedChange >= 0 ? 'positive' : 'negative'">{{ formatPercent(item.adjustedChange * 100) }}</strong>
+                                </div>
+                            </div>
+                            <div class="anomaly-item-actions">
+                                <button class="text-button" type="button" @click="setAnomalyIgnored(item.key, !showIgnoredAnomalies)">
+                                    {{ showIgnoredAnomalies ? '恢复提醒' : '忽略此条' }}
+                                </button>
+                            </div>
+                        </article>
+                        <p v-if="!displayedAnomalyDetails.length" class="anomaly-empty">
+                            {{ showIgnoredAnomalies ? '暂无已忽略的异常。' : '当前没有待核对的金额异常。' }}
+                        </p>
+                    </div>
+                    <div class="anomaly-calculation-note">
+                        <strong>判定口径</strong>
+                        <p>同一策略的相邻两条记录，不一定是相邻交易日。变化比例绝对值达到 12% 时提醒。</p>
+                        <p>变化比例 = (后条期末金额 − 前条期末金额 − 后条现金流) ÷ 前条期末金额</p>
+                    </div>
+                    <div class="modal-actions">
+                        <button
+                            class="button secondary"
+                            type="button"
+                            @click="showAnomalyDetailModal = false">
+                            关闭
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </Transition>
+
+        <Transition name="modal-fade">
             <div v-if="showMissingDetailModal" class="modal-backdrop">
                 <div class="modal-panel missing-detail-modal">
                     <div class="modal-header">
@@ -2186,6 +2314,15 @@ function loadIgnoredMissingKeys() {
     }
 }
 
+function loadIgnoredAnomalyKeys() {
+    try {
+        const value = JSON.parse(localStorage.getItem('investment-ledger-ignored-anomalies') || '[]')
+        return Array.isArray(value) ? value.map(String) : []
+    } catch {
+        return []
+    }
+}
+
 const periods = ['近30日', '近90日', '本月', '今年', '全部']
 const selectedPeriod = ref('近30日')
 const performanceChartMode = ref<PerformanceChartMode>('nav')
@@ -2224,6 +2361,9 @@ const showDeleteModal = ref(false)
 const showStrategyModal = ref(false)
 const showDeleteStrategyModal = ref(false)
 const showArchiveStrategyModal = ref(false)
+const showAnomalyDetailModal = ref(false)
+const showIgnoredAnomalies = ref(false)
+const ignoredAnomalyKeys = ref<string[]>(loadIgnoredAnomalyKeys())
 const showMissingDetailModal = ref(false)
 const showNonTradingDetailModal = ref(false)
 const showAnnualTargetModal = ref(false)
@@ -2533,6 +2673,7 @@ const cashFlowRange = reactive({
 const attributionPeriod = ref('本月')
 const showAttributionReturnHelp = ref(false)
 const showAttributionProfitHelp = ref(false)
+const showProfitRecoveryHelp = ref(false)
 const attributionRange = reactive({
     start: '',
     end: ''
@@ -2975,8 +3116,14 @@ const duplicateRecordGroups = computed(() => {
     return [...counts.entries()].filter(([, count]) => count > 1)
 })
 
-const anomalyRecords = computed(() => {
-    const anomalies: LedgerRecord[] = []
+const allAnomalyRecordDetails = computed(() => {
+    const anomalies: Array<{
+        key: string
+        previous: LedgerRecord
+        current: LedgerRecord
+        changeAmount: number
+        adjustedChange: number
+    }> = []
     strategies.forEach(strategy => {
         const rows = recentRecords.value
             .filter(item => item.strategyId === strategy.id)
@@ -2984,12 +3131,35 @@ const anomalyRecords = computed(() => {
         rows.forEach((row, index) => {
             const previous = rows[index - 1]
             if (!previous?.amount) return
-            const adjustedChange = Math.abs((row.amount - previous.amount - row.cashFlow) / previous.amount)
-            if (adjustedChange >= 0.12) anomalies.push(row)
+            const changeAmount = row.amount - previous.amount - row.cashFlow
+            const adjustedChange = changeAmount / previous.amount
+            if (Math.abs(adjustedChange) >= 0.12) {
+                const key = JSON.stringify([
+                    previous.id, previous.date, previous.amount, previous.cashFlow,
+                    row.id, row.date, row.amount, row.cashFlow
+                ])
+                anomalies.push({ key, previous, current: row, changeAmount, adjustedChange })
+            }
         })
     })
-    return anomalies
+    return anomalies.sort((a, b) => b.current.date.localeCompare(a.current.date))
 })
+
+const anomalyRecordDetails = computed(() =>
+    allAnomalyRecordDetails.value.filter(item => !ignoredAnomalyKeys.value.includes(item.key))
+)
+const ignoredAnomalyDetails = computed(() =>
+    allAnomalyRecordDetails.value.filter(item => ignoredAnomalyKeys.value.includes(item.key))
+)
+const displayedAnomalyDetails = computed(() =>
+    showIgnoredAnomalies.value ? ignoredAnomalyDetails.value : anomalyRecordDetails.value
+)
+const setAnomalyIgnored = (key: string, ignored: boolean) => {
+    ignoredAnomalyKeys.value = ignored
+        ? [...new Set([...ignoredAnomalyKeys.value, key])]
+        : ignoredAnomalyKeys.value.filter(item => item !== key)
+    localStorage.setItem('investment-ledger-ignored-anomalies', JSON.stringify(ignoredAnomalyKeys.value))
+}
 
 const allMissingRecordDetails = computed(() => {
     const tradingDates = tradingCalendar.value.dates
@@ -3062,10 +3232,16 @@ const dataQualityAlerts = computed(() => {
         },
         {
             label: '金额异常提醒',
-            value: anomalyRecords.value.length ? `${anomalyRecords.value.length} 条` : '无异常',
-            detail: anomalyRecords.value.length ? '扣除现金流后，金额单次变化超过 12%。' : '近期金额变化处于正常范围。',
-            tone: anomalyRecords.value.length ? 'danger' : 'ok',
-            clickable: false
+            value: anomalyRecordDetails.value.length
+                ? `${anomalyRecordDetails.value.length} 条`
+                : ignoredAnomalyDetails.value.length ? '无待核对' : '无异常',
+            detail: anomalyRecordDetails.value.length
+                ? '扣除现金流后，金额变化幅度达到 12%，点击核对。'
+                : ignoredAnomalyDetails.value.length
+                  ? `已忽略 ${ignoredAnomalyDetails.value.length} 条，点击查看或恢复提醒。`
+                  : '近期金额变化处于正常范围。',
+            tone: anomalyRecordDetails.value.length ? 'danger' : 'ok',
+            clickable: allAnomalyRecordDetails.value.length > 0
         },
         {
             label: '缺失交易日提醒',
@@ -3114,6 +3290,10 @@ const ignoreAllMissingRecords = () => {
     showMissingDetailModal.value = false
 }
 const openAuditAlertDetail = (label: string) => {
+    if (label === '金额异常提醒' && allAnomalyRecordDetails.value.length) {
+        showIgnoredAnomalies.value = !anomalyRecordDetails.value.length
+        showAnomalyDetailModal.value = true
+    }
     if (label === '缺失交易日提醒' && missingRecordDetails.value.length) {
         showMissingDetailModal.value = true
     }
@@ -3177,6 +3357,22 @@ const aggregateRecordsByDate = computed(() => {
                 )
             }
         })
+})
+const profitRecovery = computed(() => {
+    const currentProfit = accountSummary.value.profit
+    let investedPrincipal = accountConfig.openingPrincipal
+    let peakProfit = currentProfit
+    for (const record of aggregateRecordsByDate.value) {
+        investedPrincipal += record.cashFlow
+        peakProfit = Math.max(peakProfit, record.amount - investedPrincipal)
+    }
+
+    const gap = Number((peakProfit - currentProfit).toFixed(2))
+    return {
+        peakProfit,
+        gap,
+        requiredReturn: totalAssets.value > 0 ? (gap / totalAssets.value) * 100 : null
+    }
 })
 const heatmapRecordsByDate = computed(() => {
     if (heatmapStrategyId.value === ACCOUNT_HEATMAP_SCOPE) return aggregateRecordsByDate.value
@@ -6970,6 +7166,27 @@ p {
     color: #8192a3;
 }
 
+.asset-summary-grid .profit-recovery-line {
+    position: relative;
+    gap: 4px;
+    white-space: nowrap;
+}
+
+.asset-summary-grid .profit-recovery-line .metric-help {
+    padding: 0;
+    font-size: 11px;
+    font-family: Georgia, serif;
+    background: transparent;
+    flex: 0 0 auto;
+}
+
+.asset-summary-grid .profit-recovery-line .metric-help-tooltip {
+    right: 0;
+    width: 220px;
+    max-width: calc(100vw - 48px);
+    white-space: normal;
+}
+
 .asset-summary-grid .metric-label-with-help {
     display: flex;
     align-items: center;
@@ -7015,10 +7232,20 @@ p {
 }
 
 .asset-summary-grid .metric-help:hover .metric-help-tooltip,
-.asset-summary-grid .metric-help:focus .metric-help-tooltip {
+.asset-summary-grid .metric-help:focus .metric-help-tooltip,
+.asset-summary-grid .profit-recovery-line .metric-help:focus-visible + .metric-help-tooltip,
+.asset-summary-grid .profit-recovery-line .metric-help-tooltip.is-visible {
     opacity: 1;
     visibility: visible;
     transform: translateY(0);
+}
+
+@media (hover: hover) {
+    .asset-summary-grid .profit-recovery-line .metric-help:hover + .metric-help-tooltip {
+        opacity: 1;
+        visibility: visible;
+        transform: translateY(0);
+    }
 }
 
 .asset-summary-grid strong {
@@ -10097,6 +10324,208 @@ label small {
     font-size: 13px;
     color: #9aabba;
     line-height: 1.7;
+}
+
+.anomaly-detail-modal {
+    overflow-y: auto;
+    padding: 26px;
+    width: min(720px, 100%);
+    max-height: calc(100vh - 40px);
+    border-radius: 14px;
+}
+
+.anomaly-detail-modal .modal-header {
+    margin-bottom: 12px;
+}
+
+.anomaly-detail-modal .modal-header h3 {
+    font-size: 24px;
+}
+
+.anomaly-detail-modal .modal-actions {
+    margin-top: 18px;
+}
+
+.anomaly-detail-list {
+    display: grid;
+    gap: 14px;
+}
+
+.anomaly-view-tabs {
+    display: flex;
+    margin-bottom: 16px;
+    gap: 8px;
+}
+
+.anomaly-view-tabs button {
+    padding: 8px 12px;
+    font-size: 13px;
+    color: #8394a5;
+    background: transparent;
+    border: 1px solid #26333f;
+    border-radius: 6px;
+    cursor: pointer;
+}
+
+.anomaly-view-tabs button.active {
+    color: #4ecdc4;
+    background: rgb(78 205 196 / 8%);
+    border-color: rgb(78 205 196 / 30%);
+}
+
+.anomaly-item-actions {
+    display: flex;
+    justify-content: flex-end;
+}
+
+.anomaly-empty {
+    padding: 24px 12px;
+    text-align: center;
+    font-size: 13px;
+    color: #8394a5;
+}
+
+.anomaly-detail-item {
+    display: grid;
+    padding: 18px;
+    border: 1px solid #26333f;
+    border-radius: 12px;
+    gap: 16px;
+}
+
+.anomaly-item-heading,
+.anomaly-item-heading strong {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.anomaly-item-heading {
+    justify-content: space-between;
+    flex-wrap: wrap;
+}
+
+.anomaly-item-heading i {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+}
+
+.anomaly-item-heading > span {
+    padding: 4px 8px;
+    font-size: 11px;
+    color: #f4c95d;
+    background: rgb(244 201 93 / 8%);
+    border: 1px solid rgb(244 201 93 / 18%);
+    border-radius: 5px;
+}
+
+.anomaly-record-pair {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 250px), 1fr));
+    gap: 12px;
+}
+
+.anomaly-record-summary {
+    padding: 16px;
+    background: rgb(255 255 255 / 3%);
+    border: 1px solid rgb(255 255 255 / 6%);
+    border-radius: 8px;
+    overflow-wrap: anywhere;
+}
+
+.anomaly-record-summary.current {
+    background: rgb(78 205 196 / 4%);
+    border-color: rgb(78 205 196 / 20%);
+}
+
+.anomaly-record-heading,
+.anomaly-record-amount {
+    display: grid;
+    gap: 6px;
+}
+
+.anomaly-record-heading span,
+.anomaly-record-amount span,
+.anomaly-record-meta dt,
+.anomaly-change-summary span {
+    font-size: 12px;
+    color: #8394a5;
+}
+
+.anomaly-record-heading strong {
+    font-size: 16px;
+    color: #dfe8f1;
+    font-variant-numeric: tabular-nums;
+}
+
+.anomaly-record-amount {
+    margin: 20px 0 16px;
+}
+
+.anomaly-record-amount strong {
+    font-size: 22px;
+    font-variant-numeric: tabular-nums;
+    color: #eef4fa;
+}
+
+.anomaly-record-meta {
+    display: grid;
+    padding-top: 12px;
+    margin: 0;
+    border-top: 1px solid rgb(255 255 255 / 7%);
+    gap: 10px;
+}
+
+.anomaly-record-meta > div {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 12px;
+}
+
+.anomaly-record-meta dd {
+    margin: 0;
+    font-size: 13px;
+    text-align: right;
+    color: #bbc9d6;
+    font-variant-numeric: tabular-nums;
+}
+
+.anomaly-change-summary {
+    display: flex;
+    justify-content: space-between;
+    padding: 14px 16px;
+    background: rgb(244 201 93 / 4%);
+    border: 1px solid rgb(244 201 93 / 12%);
+    border-radius: 8px;
+    flex-wrap: wrap;
+    gap: 16px;
+}
+
+.anomaly-change-summary > div {
+    display: grid;
+    gap: 6px;
+}
+
+.anomaly-change-summary strong {
+    font-size: 20px;
+    font-variant-numeric: tabular-nums;
+}
+
+.anomaly-calculation-note {
+    margin-top: 18px;
+    font-size: 12px;
+    color: #8394a5;
+    line-height: 1.7;
+}
+
+.anomaly-calculation-note strong {
+    font-weight: 500;
+    color: #a8b8c7;
+}
+
+.anomaly-calculation-note p {
+    margin: 4px 0 0;
 }
 
 .missing-detail-modal {

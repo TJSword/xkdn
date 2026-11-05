@@ -1,7 +1,9 @@
 
 <template>
   <el-config-provider :locale="locale">
-    <router-view />
+    <router-view v-slot="{ Component }">
+      <component :is="Component" v-if="Component" />
+    </router-view>
   </el-config-provider>
   <MessageComponent :messages="messages" />
 </template>

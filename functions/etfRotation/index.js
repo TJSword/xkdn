@@ -47,13 +47,15 @@ async function evaluate() {
         if (!raw || raw[2] !== symbol.slice(2) || !/^\d{14}$/.test(raw[30])) throw new Error('行情格式异常')
         const price = Number(raw[3]), iopv = Number(raw[78]), t = raw[30]
         if (!(price > 0 && iopv > 0 && Number.isFinite(price / iopv))) throw new Error('行情缺失')
-        return { code: raw[2], premium: (price / iopv - 1) * 100, time: Date.parse(`${t.slice(0,4)}-${t.slice(4,6)}-${t.slice(6,8)}T${t.slice(8,10)}:${t.slice(10,12)}:${t.slice(12,14)}+08:00`) }
+        return { code: raw[2], name: raw[1], premium: (price / iopv - 1) * 100, time: Date.parse(`${t.slice(0,4)}-${t.slice(4,6)}-${t.slice(6,8)}T${t.slice(8,10)}:${t.slice(10,12)}:${t.slice(12,14)}+08:00`) }
     }))
     const lowest = quotes.reduce((a,b) => a.premium <= b.premium ? a : b)
     const times = quotes.map(q => q.time)
     const fresh = times.every(t => Number.isFinite(t) && now - t <= 300000 && t - now <= 60000) && Math.max(...times) - Math.min(...times) <= 90000
     let saved
+    let rotationEvent
     await db.runTransaction(async tx => {
+        rotationEvent = null
         const target = tx.collection(collection).doc(id)
         const state = first(await target.get()) || { holding: '', version: 0 }
         if (state.checkedAt && now - state.checkedAt < 60000) { saved = state; return }
@@ -64,10 +66,30 @@ async function evaluate() {
         delete saved._id
         if (initialize || rotate) {
             saved = { ...saved, holding: initialize ? INITIAL_HOLDING : lowest.code, previousHolding: state.holding, switchedAt: now, version: state.version + 1 }
-            await tx.collection(collection).doc(`nasdaq-etf-rotation-event-${saved.version}`).set({ from: state.holding, to: saved.holding, at: now, difference: held ? held.premium - lowest.premium : null, initialization: initialize })
+            const event = { from: state.holding, to: saved.holding, at: now, difference: held ? held.premium - lowest.premium : null, initialization: initialize }
+            await tx.collection(collection).doc(`nasdaq-etf-rotation-event-${saved.version}`).set(event)
+            if (!initialize) rotationEvent = { ...event, fromName: held.name, toName: lowest.name, version: saved.version }
         }
         await target.set(saved)
     })
+    if (rotationEvent) {
+        // 仅提交本次切换的事务负责通知，重复检查不会重新发送。
+        let status = 'failed'
+        try {
+            const response = await app.callFunction({ name: 'notification', data: { type: 'nasdaq_rotation', data: rotationEvent } })
+            const result = response.result
+            const failed = result?.success !== true || !Array.isArray(result.results) || result.results.some(item => item.status !== 'success')
+            status = failed ? 'failed' : 'completed'
+            console.log('nasdaq_rotation notification', { version: rotationEvent.version, status, recipientCount: result?.recipientCount })
+        } catch {
+            console.error('nasdaq_rotation notification failed', { version: rotationEvent.version })
+        }
+        try {
+            await db.collection(collection).doc(`nasdaq-etf-rotation-event-${rotationEvent.version}`).update({ notificationStatus: status, notifiedAt: Date.now() })
+        } catch {
+            console.error('nasdaq_rotation notification status save failed', { version: rotationEvent.version })
+        }
+    }
     return publicState(saved)
 }
 
@@ -81,7 +103,8 @@ exports.main = async (event = {}) => {
             if (event.action && event.action !== 'get') return { success: false, code: 400, message: '策略参考由固定规则自动更新，不支持手动修改' }
         }
         return { success: true, data: await evaluate() }
-    } catch {
+    } catch (error) {
+        console.error('ETF_ROTATION_ERROR', { name: error?.name, message: error?.message })
         return { success: false, code: 'ETF_ROTATION_ERROR', message: '策略状态暂不可用，未进行参考调仓' }
     }
 }

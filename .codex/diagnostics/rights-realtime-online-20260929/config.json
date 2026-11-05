@@ -1,0 +1,44 @@
+{
+  "triggers": [
+    {
+      "name": "refreshRightsRealtimeWeekday0900",
+      "type": "timer",
+      "config": "0 0,5,10,15,20,25,30,35,40,45,50,55 9 * * MON-FRI *"
+    },
+    {
+      "name": "refreshRightsRealtimeWeekday1000",
+      "type": "timer",
+      "config": "0 0,5,10,15,20,25,30,35,40,45,50,55 10 * * MON-FRI *"
+    },
+    {
+      "name": "refreshRightsRealtimeWeekday1130",
+      "type": "timer",
+      "config": "0 0,5,10,15,20,25,30 11 * * MON-FRI *"
+    },
+    {
+      "name": "refreshRightsRealtimeWeekday1300",
+      "type": "timer",
+      "config": "0 0,5,10,15,20,25,30,35,40,45,50,55 13 * * MON-FRI *"
+    },
+    {
+      "name": "refreshRightsRealtimeWeekdayBeforeRebalance",
+      "type": "timer",
+      "config": "0 0,5,10,15,20,25,30,35 14 * * MON-FRI *"
+    },
+    {
+      "name": "refreshRightsRealtimeWeekdayAfterRebalance",
+      "type": "timer",
+      "config": "0 45,50,55 14 * * MON-FRI *"
+    },
+    {
+      "name": "refreshRightsRealtimeWeekdayClose1500",
+      "type": "timer",
+      "config": "0 0 15 * * MON-FRI *"
+    },
+    {
+      "name": "refreshRightsRealtimeWeekdayClose1502",
+      "type": "timer",
+      "config": "0 2 15 * * MON-FRI *"
+    }
+  ]
+}

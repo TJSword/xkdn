@@ -16,6 +16,7 @@
 import { ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useUserStore } from '@/store/user'
+import { retryAuthSession } from '@/services/authSession'
 
 const route = useRoute()
 const router = useRouter()
@@ -28,7 +29,8 @@ async function retry() {
   errorMessage.value = ''
 
   try {
-    await userStore.refreshUserInfo()
+    const loginState = await retryAuthSession()
+    if (loginState) await userStore.refreshUserInfo()
     const redirect = String(route.query.redirect || '/home')
     await router.replace(
       redirect.startsWith('/') && redirect !== '/permission-unavailable' ? redirect : '/home'

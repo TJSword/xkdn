@@ -252,11 +252,13 @@ const router = createRouter({
 })
 
 router.beforeEach(async (to, from, next) => {
+  if (to.name === 'PermissionUnavailable') return next();
   const userStore = useUserStore();
   try {
     await initializeAuthSession();
   } catch (error) {
     console.error('读取 CloudBase 登录态失败:', error);
+    return next({ name: 'PermissionUnavailable', query: { redirect: to.fullPath } });
   }
   const loginState = getAuthSession();
   const isLoggedIn = !!loginState;

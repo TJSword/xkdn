@@ -4,10 +4,18 @@
   "functionRoot": "functions",
   "functions": [
     {
+      "name": "getRecentPayments",
+      "runtime": "Nodejs20.19",
+      "handler": "index.main",
+      "timeout": 30,
+      "memorySize": 256,
+      "description": "管理员只读查询最近支付宝成功订单"
+    },
+    {
       "name": "etfRotation",
       "runtime": "Nodejs20.19",
       "handler": "index.main",
-      "timeout": 15,
+      "timeout": 30,
       "memorySize": 256,
       "description": "纳斯达克ETF固定阈值自动轮动参考持仓",
       "triggers": [{ "name": "nasdaqRotationMinute", "type": "timer", "config": "0 * 9-15 * * MON-FRI *" }]
@@ -71,6 +79,11 @@
       "memorySize": 256,
       "description": "动量策略收盘数据定时抓取与调仓通知触发",
       "triggers": [
+        {
+          "name": "momentumPreview1430",
+          "type": "timer",
+          "config": "0 30 14 * * * *"
+        },
         {
           "name": "myTrigger",
           "type": "timer",
@@ -641,14 +654,8 @@
       "handler": "index.main",
       "timeout": 15,
       "memorySize": 256,
-      "description": "雪球访问凭据每日定时预检与异常通知",
-      "triggers": [
-        {
-          "name": "myTrigger",
-          "type": "timer",
-          "config": "0 0 16 * * * *"
-        }
-      ]
+      "description": "雪球访问凭据手动检查与重置（已停用每日定时预检）",
+      "triggers": []
     },
     {
       "name": "getBondStrategyData",

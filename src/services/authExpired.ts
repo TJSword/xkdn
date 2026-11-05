@@ -1,3 +1,5 @@
+import { invalidateAuthSession } from '@/services/authSession'
+
 let authExpiryPromise: Promise<void> | null = null
 
 export class AuthExpiredError extends Error {
@@ -11,6 +13,8 @@ export class AuthExpiredError extends Error {
 
 export async function handleAuthExpired(message = '登录已失效，请重新登录') {
     if (!authExpiryPromise) {
+        // 先清除路由读取的登录态，避免 /login 再次跳回等待中的用户资料请求。
+        invalidateAuthSession()
         authExpiryPromise = (async () => {
             const [{ useUserStore }, { default: router }] = await Promise.all([
                 import('@/store/user'),

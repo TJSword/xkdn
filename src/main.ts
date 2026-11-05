@@ -17,7 +17,6 @@ import 'element-plus/theme-chalk/el-message.css'
 import { createPinia } from 'pinia'
 import { useUserStore } from '@/store/user'
 import {
-  initializeAuthSession,
   subscribeAuthSession
 } from '@/services/authSession'
 const bootstrap = async (app: App) => {
@@ -49,12 +48,6 @@ const bootstrap = async (app: App) => {
     }
 
   })
-
-  try {
-    await initializeAuthSession()
-  } catch (error) {
-    console.error('初始化 CloudBase 登录态失败:', error)
-  }
 
   app.use(router)
   app.mount('#app')

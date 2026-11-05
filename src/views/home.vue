@@ -301,30 +301,59 @@
           <button type="button" class="action-link action-button" @click="openContactModal">
             关注与交流
           </button>
+          <span class="separator">|</span>
+          <button type="button" class="action-link action-button" :disabled="isLoggingOut" @click="isLogoutModalVisible = true">
+            {{ isLoggingOut ? '正在退出…' : '退出登录' }}
+          </button>
         </div>
       </div>
     </div>
 
     <Transition name="modal-fade">
+      <div v-if="isLogoutModalVisible" class="modal-backdrop account-modal-backdrop" @click="closeLogoutModal" @keydown.esc="closeLogoutModal">
+        <section
+          class="modal-content account-modal-content logout-modal-content"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="logout-modal-title"
+          @click.stop
+        >
+          <div class="modal-header account-modal-header">
+            <h3 id="logout-modal-title">退出登录</h3>
+            <button type="button" class="modal-close-button" aria-label="关闭退出登录弹窗" :disabled="isLoggingOut" @click="closeLogoutModal">×</button>
+          </div>
+          <div class="modal-body notification-intro-body">
+            <p>确定退出当前账号？退出后可使用其他账号登录。</p>
+            <div class="notification-intro-actions">
+              <button type="button" class="notification-intro-secondary" :disabled="isLoggingOut" @click="closeLogoutModal">
+                取消
+              </button>
+              <button type="button" class="notification-intro-primary" :disabled="isLoggingOut" @click="handleLogout">
+                {{ isLoggingOut ? '正在退出…' : '确认退出' }}
+              </button>
+            </div>
+          </div>
+        </section>
+      </div>
+    </Transition>
+
+    <Transition name="modal-fade">
       <div
         v-if="isContactModalVisible"
-        class="modal-backdrop contact-channel-backdrop"
+        class="modal-backdrop account-modal-backdrop contact-channel-backdrop"
         @click="closeContactModal"
         @wheel.self.prevent
         @touchmove.self.prevent
       >
         <section
-          class="modal-content contact-channel-modal-content"
+          class="modal-content account-modal-content contact-channel-modal-content"
           role="dialog"
           aria-modal="true"
           aria-labelledby="contact-channel-title"
           @click.stop
         >
-          <div class="modal-header contact-channel-header">
-            <div>
-              <span class="contact-channel-kicker">微信上的「何以有数」</span>
-              <h3 id="contact-channel-title">关注与交流</h3>
-            </div>
+          <div class="modal-header account-modal-header">
+            <h3 id="contact-channel-title">关注与交流</h3>
             <button class="modal-close-button" aria-label="关闭关注与交流弹窗" @click="closeContactModal">×</button>
           </div>
           <p class="contact-channel-intro">
@@ -563,7 +592,8 @@
           <div v-if="selectedRealtimeNav.hasHoldingsAccess === false" class="realtime-allocation-locked">
             会员可查看持仓配置
           </div>
-          <div v-else-if="selectedRealtimeNav.allocation?.length" class="realtime-allocation-strip">
+          <div v-else-if="selectedRealtimeNav.allocation?.length" class="realtime-allocation-section">
+            <div class="realtime-allocation-strip">
             <div
               v-for="asset in selectedRealtimeNav.allocation"
               :key="asset.id"
@@ -575,7 +605,8 @@
               ]"
             >
               <div class="realtime-allocation-heading">
-                <span>{{ asset.name }}</span>
+                <span :title="asset.name">{{ asset.name }}</span>
+                <small v-if="asset.code" class="realtime-allocation-code">{{ asset.code }}</small>
                 <small
                   v-if="asset.takeProfitTriggered === true"
                   class="realtime-take-profit-badge"
@@ -597,6 +628,7 @@
                   }}
                 </em>
               </div>
+            </div>
             </div>
           </div>
           <div
@@ -711,28 +743,29 @@
     </Transition>
 
     <Transition name="modal-fade">
-      <div v-if="isPasswordModalVisible" class="modal-backdrop" @click="closePasswordModal">
-        <div class="modal-content password-modal-content" @click.stop>
-          <div class="modal-header">
-            <h3>修改您的登录密码</h3>
+      <div v-if="isPasswordModalVisible" class="modal-backdrop account-modal-backdrop" @click="closePasswordModal">
+        <div class="modal-content account-modal-content password-modal-content" @click.stop>
+          <div class="modal-header account-modal-header">
+            <h3>修改密码</h3>
             <button class="modal-close-button" @click="closePasswordModal">×</button>
           </div>
           <div class="modal-body">
+            <p class="account-modal-intro">设置新的登录密码，长度不少于 6 位。</p>
             <form @submit.prevent="handlePasswordChange">
               <div class="form-group">
+                <label for="currentPassword" class="input-label">当前密码</label>
                 <input type="password" id="currentPassword" class="input-field" v-model="passwordData.currentPassword" placeholder=" "
                   autocomplete="current-password" required>
-                <label for="currentPassword" class="input-label">当前密码</label>
               </div>
               <div class="form-group">
+                <label for="newPassword" class="input-label">新密码</label>
                 <input type="password" id="newPassword" class="input-field" v-model="passwordData.newPassword" placeholder=" "
                   autocomplete="new-password" required>
-                <label for="newPassword" class="input-label">新密码</label>
               </div>
               <div class="form-group">
+                <label for="confirmNewPassword" class="input-label">确认新密码</label>
                 <input type="password" id="confirmNewPassword" class="input-field" v-model="passwordData.confirmNewPassword" placeholder=" "
                   autocomplete="new-password" required>
-                <label for="confirmNewPassword" class="input-label">确认新密码</label>
               </div>
               <button type="submit" class="submit-btn">确认修改</button>
             </form>
@@ -742,9 +775,9 @@
     </Transition>
 
     <Transition name="modal-fade">
-      <div v-if="isNotificationIntroModalVisible" class="modal-backdrop" @click="closeNotificationIntroModal">
-        <div class="modal-content notification-intro-modal-content" @click.stop>
-          <div class="modal-header">
+      <div v-if="isNotificationIntroModalVisible" class="modal-backdrop account-modal-backdrop" @click="closeNotificationIntroModal">
+        <div class="modal-content account-modal-content notification-intro-modal-content" @click.stop>
+          <div class="modal-header account-modal-header">
             <h3>通知设置</h3>
             <button class="modal-close-button" @click="closeNotificationIntroModal">×</button>
           </div>
@@ -772,9 +805,9 @@
     </Transition>
 
     <Transition name="modal-fade">
-      <div v-if="isNotificationModalVisible" class="modal-backdrop">
-        <div class="modal-content notification-modal-content" @click.stop>
-          <div class="modal-header">
+      <div v-if="isNotificationModalVisible" class="modal-backdrop account-modal-backdrop">
+        <div class="modal-content account-modal-content notification-modal-content" @click.stop>
+          <div class="modal-header account-modal-header">
             <h3>通知设置</h3>
             <button class="modal-close-button" @click="closeNotificationModal">×</button>
           </div>
@@ -793,6 +826,7 @@
             icon-type="notification"
           />
           <form v-else @submit.prevent="saveNotificationSettings">
+            <p class="account-modal-intro">选择提醒渠道，订阅你关注的策略。</p>
             <label class="notification-field">
               <span>Bark ID（iOS）</span>
               <input
@@ -837,18 +871,7 @@
                   <em>示例：{{ option.example }}</em>
                 </span>
               </label>
-              <label class="notification-option">
-                <input type="checkbox" :checked="etfRotationSettings.enabled" @change="updateEtfRotation({ enabled: ($event.target as HTMLInputElement).checked, dismissed: false })">
-                <span class="notification-option-title">纳指溢价轮动</span>
-                <span class="notification-option-popover">
-                  <strong>统一策略参考持仓</strong>
-                  <span><b>触发：</b>参考 ETF 比最低溢价 ETF 高出超过固定的 0.5 个百分点。</span>
-                  <span><b>内容：</b>系统自动更新全站参考 ETF，不执行券商交易。</span>
-                  <em>当前仅页面内提示，开关立即保存在本机；Bark／微信推送尚未接入。</em>
-                </span>
-              </label>
             </div>
-            <p v-if="etfRotationError" class="notification-channel-tip">{{ etfRotationError }}</p>
             <button class="submit-btn notification-save-button" type="submit" :disabled="notificationSaving">
               {{ notificationSaving ? '保存中...' : '保存设置' }}
             </button>
@@ -858,9 +881,9 @@
     </Transition>
 
     <Transition name="modal-fade">
-      <div v-if="isNotificationGuideVisible" class="modal-backdrop notification-guide-backdrop" @click="closeNotificationGuideModal">
-        <div class="modal-content notification-guide-modal-content" @click.stop>
-          <div class="modal-header">
+      <div v-if="isNotificationGuideVisible" class="modal-backdrop account-modal-backdrop notification-guide-backdrop" @click="closeNotificationGuideModal">
+        <div class="modal-content account-modal-content notification-guide-modal-content" @click.stop>
+          <div class="modal-header account-modal-header">
             <h3>通知 ID 获取教程</h3>
             <button class="modal-close-button" @click="closeNotificationGuideModal">×</button>
           </div>
@@ -965,10 +988,10 @@
     </Transition>
 
     <Transition name="modal-fade">
-      <div v-if="isRechargeModalVisible" class="modal-backdrop" @click="closeRechargeModal">
-        <div class="modal-content recharge-modal-content" @click.stop>
-          <div class="modal-header">
-            <h3>💎 会员充值</h3>
+      <div v-if="isRechargeModalVisible" class="modal-backdrop account-modal-backdrop" @click="closeRechargeModal">
+        <div class="modal-content account-modal-content recharge-modal-content" @click.stop>
+          <div class="modal-header account-modal-header">
+            <h3>会员充值</h3>
             <button class="modal-close-button" @click="closeRechargeModal">×</button>
           </div>
           <div class="modal-body">
@@ -1019,10 +1042,10 @@
   import { ref, reactive, computed, watch, nextTick, onMounted, onUnmounted, inject } from 'vue'
   import { useRouter } from 'vue-router'
   import { auth } from '@/lib/cloudbase'
+  import { invalidateAuthSession } from '@/services/authSession'
   import { callCloudFunction, throwIfAuthExpired } from '@/services/cloudFunction'
   import * as echarts from 'echarts'
   import { useUserStore } from '@/store/user'
-  import { useEtfRotation } from '@/composables/useEtfRotation'
   import StrategyMenuIcon from '@/components/StrategyMenuIcon.vue'
   import AllWeatherMenuIcon from '@/components/AllWeatherMenuIcon.vue'
   import wechatQrCode from '@/assets/images/wechat-qrcode.jpg'
@@ -1031,6 +1054,22 @@
   const showMessage: any = inject('showMessage')
   const userStore: any = useUserStore()
   const router = useRouter()
+  const isLoggingOut = ref(false)
+  const isLogoutModalVisible = ref(false)
+  const closeLogoutModal = () => {
+      if (!isLoggingOut.value) isLogoutModalVisible.value = false
+  }
+  const handleLogout = async () => {
+      if (isLoggingOut.value) return
+      isLoggingOut.value = true
+      try {
+          await userStore.logout()
+          invalidateAuthSession()
+          await router.replace('/login')
+      } finally {
+          isLoggingOut.value = false
+      }
+  }
   const shouldPlayHomeIntro = ref(!hasPlayedHomeIntro)
   hasPlayedHomeIntro = true
 
@@ -1059,6 +1098,7 @@
   interface StrategyAllocation {
       id: string
       name: string
+      code?: string
       weight: number
       targetWeight?: number
       return?: number | null
@@ -1635,12 +1675,36 @@
       )
   }
 
+  const getMomentumChartSeries = (item: StrategyRealtimeNav) => {
+      if (item.id !== 'momentum' || !item.isLoaded) return null
+      const baseAmount = Number(item.baseAmount) > 0
+          ? Number(item.baseAmount)
+          : item.amount / (1 + item.dailyReturn / 100)
+      if (!Number.isFinite(baseAmount) || baseAmount <= 0) return null
+      const times = item.intradayTimes || []
+      const firstMinute = parseTradingTime(times[0])
+      if (item.intraday.length && (times.length !== item.intraday.length || firstMinute === null || firstMinute <= MORNING_START_MINUTE)) return null
+      // 仅补展示用的零轴，不写入真实分钟数据；首个行情点前保持横线。
+      const endMinute = item.intraday.length
+          ? Math.max(MORNING_START_MINUTE, firstMinute! - 1)
+          : clampNumber(parseTradingTime(item.updatedMinute || item.updatedAt) ?? MORNING_START_MINUTE, MORNING_START_MINUTE, AFTERNOON_END_MINUTE)
+      const endTime = `${String(Math.floor(endMinute / 60)).padStart(2, '0')}:${String(endMinute % 60).padStart(2, '0')}`
+      return {
+          values: [baseAmount, baseAmount, ...item.intraday],
+          times: ['09:30', endTime, ...times]
+      }
+  }
+
   const getRealtimeChartValues = (item: StrategyRealtimeNav) => {
+      const momentumSeries = getMomentumChartSeries(item)
+      if (momentumSeries) return momentumSeries.values
       if (item.isLoaded) return item.intraday.length >= 2 ? item.intraday : []
       return item.trend
   }
 
   const getRealtimeChartTimes = (item: StrategyRealtimeNav) => {
+      const momentumSeries = getMomentumChartSeries(item)
+      if (momentumSeries) return momentumSeries.times
       if (item.intraday.length >= 2 && item.intradayTimes?.length === item.intraday.length) return item.intradayTimes
       return undefined
   }
@@ -1657,6 +1721,9 @@
   const getLargeChartScaleValues = (item: StrategyRealtimeNav) => {
       const values = getRealtimeChartValues(item)
       const baseAmount = getRealtimeBaseAmount(item)
+      if (item.id === 'momentum' && baseAmount > 0 && values.every(value => value === baseAmount)) {
+          return [baseAmount * 0.999, baseAmount * 1.001]
+      }
       return baseAmount > 0 ? [...values, baseAmount] : values
   }
 
@@ -1676,6 +1743,8 @@
           }
       })
 
+      if (item.id === 'momentum' && nearestIndex < values.length - item.intraday.length) return null
+
       return {
           index: nearestIndex,
           value: values[nearestIndex],
@@ -1684,8 +1753,7 @@
   }
 
   const handleRealtimeChartHover = (event: MouseEvent, item: StrategyRealtimeNav) => {
-      const point = findNearestRealtimePoint(item, 0)
-      if (!point) return
+      if (getRealtimeChartValues(item).length === 0) return
 
       const chart = event.currentTarget as HTMLElement
       const svg = chart.querySelector('svg')
@@ -1693,7 +1761,10 @@
       const rect = svgRect || chart.getBoundingClientRect()
       const ratio = clampNumber((event.clientX - rect.left) / rect.width, 0, 1)
       const nearestPoint = findNearestRealtimePoint(item, ratio)
-      if (!nearestPoint) return
+      if (!nearestPoint) {
+          realtimeChartHover.value = null
+          return
+      }
 
       const values = getRealtimeChartValues(item)
       const amount = nearestPoint.value
@@ -1779,12 +1850,12 @@
   }
 
   const sparklinePoints = (item: StrategyRealtimeNav) => {
-      return buildChartPoints(getRealtimeChartValues(item), 120, 44, 4, getRealtimeChartTimes(item))
+      return buildChartPoints(getRealtimeChartValues(item), 120, 44, 4, getRealtimeChartTimes(item), item.id === 'momentum' ? getLargeChartScaleValues(item) : undefined)
   }
 
   const sparklineAreaPoints = (item: StrategyRealtimeNav) => {
       const values = getRealtimeChartValues(item)
-      const chartPoints = buildChartPointList(values, 120, 44, 4, getRealtimeChartTimes(item))
+      const chartPoints = buildChartPointList(values, 120, 44, 4, getRealtimeChartTimes(item), item.id === 'momentum' ? getLargeChartScaleValues(item) : undefined)
       return buildChartAreaPoints(chartPoints, 44, 1.6)
   }
 
@@ -1958,6 +2029,7 @@
           const assetReturnMap = buildAssetReturnMap(payload)
           const allocation = Object.entries(weights).map(([id, weight]) => ({
               id,
+              code: Array.isArray(payload.assets) ? payload.assets.find((asset: any) => asset.id === id)?.code : undefined,
               name: allWeatherAssetNameMap[id] || id,
               weight: normalizeWeight(weight),
               targetWeight: normalizeWeight(payload.targetWeights?.[id]),
@@ -2021,6 +2093,7 @@
           const allocation = [
               ...takeProfitEvents.map((event: any, index: number) => ({
                   id: `take-profit-${event.code || index}`,
+                  code: event.code,
                   name: event.name || event.code || `Bond ${index + 1}`,
                   weight: Number.isFinite(Number(event.weight)) ? Number(event.weight) : 0,
                   return: Number(event.return) * 100,
@@ -2029,6 +2102,7 @@
               })),
               ...holdings.map((holding: any, index: number) => ({
                   id: holding.code || `bond-${index}`,
+                  code: holding.code,
                   name: holding.name || holding.code || `Bond ${index + 1}`,
                   weight: Number.isFinite(Number(holding.weight)) ? Number(holding.weight) : holdings.length ? 1 / holdings.length : 0,
                   return: getHoldingReturnPercent(holding, assetReturnMap)
@@ -2087,6 +2161,7 @@
           const assetReturnMap = buildAssetReturnMap(payload)
           const allocation = holdings.map((holding: any, index: number) => ({
               id: holding.code || `rights-${index}`,
+              code: holding.code,
               name: holding.name || holding.code || `Stock ${index + 1}`,
               weight: Number.isFinite(Number(holding.weight)) ? Number(holding.weight) : holdings.length ? 1 / holdings.length : 0,
               return: getHoldingReturnPercent(holding, assetReturnMap)
@@ -2142,6 +2217,7 @@
           const assetReturnMap = buildAssetReturnMap(payload)
           const allocation = holdings.map((holding: any, index: number) => ({
               id: holding.code || `momentum-${index}`,
+              code: holding.code,
               name: holding.name || holding.code || `ETF ${index + 1}`,
               weight: Number.isFinite(Number(holding.weight)) ? Number(holding.weight) : holdings.length ? 1 / holdings.length : 0,
               return: getHoldingReturnPercent(holding, assetReturnMap)
@@ -2161,9 +2237,9 @@
               updatedAt: normalizeRealtimeDisplayMinute(payload.updatedAt || payload.updatedMinute) || momentumItem.updatedAt,
               updatedDate: getRealtimePayloadDate(payload) || momentumItem.updatedDate,
               updatedMinute: normalizeRealtimeDisplayMinute(payload.updatedAt || payload.updatedMinute) || momentumItem.updatedMinute,
-              trend: intradayAmounts.length >= 2 ? intradayAmounts : momentumItem.trend,
-              intraday: intradayAmounts.length >= 2 ? intradayAmounts : momentumItem.intraday,
-              intradayTimes: intradayTimes.length === intradayAmounts.length ? intradayTimes : momentumItem.intradayTimes,
+              trend: intradayAmounts,
+              intraday: intradayAmounts,
+              intradayTimes: intradayTimes.length === intradayAmounts.length ? intradayTimes : [],
               allocation: canViewHoldings ? allocation.length ? allocation : momentumItem.allocation : [],
               hasHoldingsAccess: canViewHoldings,
               isLoaded: true
@@ -2204,6 +2280,7 @@
               ? [{ id: 'cash', name: '纪律空仓', weight: 1, return: 0 }]
               : holdings.slice(0, 10).map((holding: any, index: number) => ({
                   id: holding.code || `microcap-${index}`,
+                  code: holding.code,
                   name: holding.name || holding.code || `Stock ${index + 1}`,
                   weight: Number.isFinite(Number(holding.weight)) ? Number(holding.weight) : holdings.length ? 1 / holdings.length : 0,
                   return: getHoldingReturnPercent(holding, assetReturnMap)
@@ -2265,6 +2342,7 @@
           const allocation = canViewHoldings
               ? holdings.slice(0, 5).map((holding: any, index: number) => ({
                   id: holding.code || `high-dividend-${index}`,
+                  code: holding.code,
                   name: holding.name || holding.code || `Stock ${index + 1}`,
                   weight: Number.isFinite(Number(holding.weight)) ? Number(holding.weight) : 0.2,
                   return: getHoldingReturnPercent(holding, assetReturnMap)
@@ -2553,6 +2631,7 @@
           }
 
            applyMarketData(payload.market)
+           applyHomeTradingDay(payload.tradingDay)
            marketDataLoadFailed.value = !payload.market?.today?.result
            applyStrategyObservation(payload.strategyObservation)
 
@@ -2587,7 +2666,29 @@
   let homeRealtimeRefreshTimer: number | null = null
   let homeRealtimeRefreshFeedbackTimer: number | null = null
   let homeRealtimeRefreshPromise: Promise<void> | null = null
+  let homeRealtimeCalendarController: AbortController | null = null
+  let homeTradingDay: { date: string; isOpen: boolean } | null = null
+
+  const applyHomeTradingDay = (value: any) => {
+      if (typeof value?.date === 'string' && typeof value?.isOpen === 'boolean') {
+          homeTradingDay = { date: value.date, isOpen: value.isOpen }
+      }
+  }
+
+  const isHomeTradingDay = async (dateKey: string) => {
+      if (homeTradingDay?.date === dateKey) return homeTradingDay.isOpen
+      const response: any = await callCloudFunction({
+          name: 'getHomeDashboardData',
+          data: { scope: 'trading-calendar' }
+      })
+      if (!response.result?.success) throw new Error('交易日状态暂时无法确认')
+      applyHomeTradingDay(response.result.data?.tradingDay)
+      if (homeTradingDay?.date !== dateKey) throw new Error('交易日状态暂时无法确认')
+      return homeTradingDay.isOpen
+  }
   let lastHomeRealtimeRefreshAt = 0
+  let lastHomeRealtimeCloseCatchUpDate = ''
+  const HOME_REALTIME_CLOSE_CATCH_UP_KEY = 'home-realtime-close-catch-up-date'
 
   const homeRealtimeRefreshLabel = computed(() => {
       if (homeRealtimeRefreshState.value === 'refreshing') return '更新中'
@@ -2642,8 +2743,8 @@
       if (!['Mon', 'Tue', 'Wed', 'Thu', 'Fri'].includes(weekday)) return false
 
       return (
-          (minuteOfDay >= 9 * 60 && minuteOfDay <= 11 * 60 + 30) ||
-          (minuteOfDay >= 13 * 60 && minuteOfDay <= 15 * 60 + 5)
+          (minuteOfDay >= 9 * 60 + 30 && minuteOfDay <= 11 * 60 + 30) ||
+          (minuteOfDay >= 13 * 60 && minuteOfDay < 15 * 60)
       )
   }
 
@@ -2654,7 +2755,7 @@
       if (minuteOfDay > 11 * 60 + 30 && minuteOfDay < 13 * 60) {
           return { dateKey, minuteOfDay: 11 * 60 + 30 }
       }
-      if (minuteOfDay > 15 * 60 + 5) {
+      if (minuteOfDay >= 15 * 60) {
           return { dateKey, minuteOfDay: 15 * 60 }
       }
       return null
@@ -2694,10 +2795,24 @@
   const refreshHomeRealtimeOnReturn = () => {
       const now = Date.now()
       const requestDate = new Date(now)
+      const { dateKey, minuteOfDay } = getShanghaiTimeParts(requestDate)
+      const isAfterClose = minuteOfDay >= 15 * 60
       const shouldRefresh = isHomeRealtimeRefreshWindow(requestDate) || needsHomeRealtimeCatchUp(requestDate)
       if (document.visibilityState !== 'visible' || !shouldRefresh) return
       if (homeRealtimeRefreshPromise) return
       if (now - lastHomeRealtimeRefreshAt < HOME_REALTIME_REFRESH_MIN_INTERVAL_MS) return
+
+      if (isAfterClose) {
+          try {
+              lastHomeRealtimeCloseCatchUpDate = sessionStorage.getItem(HOME_REALTIME_CLOSE_CATCH_UP_KEY) || lastHomeRealtimeCloseCatchUpDate
+          } catch { /* Storage may be unavailable; keep the in-page limit. */ }
+          if (lastHomeRealtimeCloseCatchUpDate === dateKey) return
+          // Count the attempt even if it fails or the backend still returns old data.
+          lastHomeRealtimeCloseCatchUpDate = dateKey
+          try {
+              sessionStorage.setItem(HOME_REALTIME_CLOSE_CATCH_UP_KEY, dateKey)
+          } catch { /* The in-page limit still applies. */ }
+      }
 
       lastHomeRealtimeRefreshAt = now
       setHomeRealtimeRefreshState('refreshing')
@@ -2719,6 +2834,31 @@
           })
   }
 
+  const refreshHomeRealtimeAutomatically = async () => {
+      if (document.visibilityState !== 'visible' || !isHomeRealtimeRefreshWindow()) return
+      if (homeRealtimeCalendarController || homeRealtimeRefreshPromise) return
+      if (Date.now() - lastHomeRealtimeRefreshAt < HOME_REALTIME_REFRESH_MIN_INTERVAL_MS) return
+
+      const { dateKey } = getShanghaiTimeParts()
+      const controller = new AbortController()
+      homeRealtimeCalendarController = controller
+      const timeout = window.setTimeout(() => controller.abort(), 8000)
+      try {
+          if (!await isHomeTradingDay(dateKey)) return
+          // 查询期间可能切走页面、跨日或收盘，发起行情请求前重新检查。
+          if (controller.signal.aborted || document.visibilityState !== 'visible') return
+          if (getShanghaiTimeParts().dateKey !== dateKey || !isHomeRealtimeRefreshWindow()) return
+          refreshHomeRealtimeOnReturn()
+      } catch (error) {
+          // 无法确认交易日时保留已有数据，不自动请求行情。
+          throwIfAuthExpired(error)
+          console.warn('Home trading calendar lookup failed:', error)
+      } finally {
+          window.clearTimeout(timeout)
+          homeRealtimeCalendarController = null
+      }
+  }
+
   const handleHomeVisibilityChange = () => {
       if (homeRealtimeRefreshTimer) {
           window.clearTimeout(homeRealtimeRefreshTimer)
@@ -2728,7 +2868,7 @@
 
       homeRealtimeRefreshTimer = window.setTimeout(() => {
           homeRealtimeRefreshTimer = null
-          refreshHomeRealtimeOnReturn()
+          void refreshHomeRealtimeAutomatically()
       }, HOME_REALTIME_REFRESH_DEBOUNCE_MS)
   }
 
@@ -3006,6 +3146,7 @@
       window.removeEventListener('scroll', hideStrategyObservationTooltip, true)
       document.removeEventListener('click', hideStrategyObservationTooltip)
       document.removeEventListener('visibilitychange', handleHomeVisibilityChange)
+      homeRealtimeCalendarController?.abort()
       if (adminScanTimer !== null) {
           window.clearTimeout(adminScanTimer)
           adminScanTimer = null
@@ -3228,7 +3369,6 @@
 
   const isNotificationModalVisible = ref(false)
   const isNotificationIntroModalVisible = ref(false)
-  const { settings: etfRotationSettings, update: updateEtfRotation, storageError: etfRotationError } = useEtfRotation()
   const notificationLoading = ref(false)
   const notificationSaving = ref(false)
   const notificationTesting = ref(false)
@@ -3321,6 +3461,13 @@
           trigger: '交易日 14:30，从实时 LOF 刷新结果里筛选符合条件的基金。',
           content: '名称、代码、限购金额、T-2/T-1/实时溢价率；条件为可申购、限购金额小于 1 万元、实时溢价率大于 0。',
           example: '华宝油气LOF(162411) 限购金额：5,000元；T-2:1.20% T-1:0.85% 实时:1.56%。'
+      },
+      {
+          key: 'nasdaq_rotation',
+          label: '纳指溢价轮动',
+          trigger: '交易时段检查，参考 ETF 溢价率比最低溢价 ETF 高出超过 0.5 个百分点且实际切换时推送；初始化不通知。',
+          content: '调出、调入 ETF 代码、溢价率差及参考更新时间；属于策略参考，非实际成交。',
+          example: '参考持仓：513870 → 159941；溢价率差：0.60 个百分点。'
       }
   ] as const
   const notificationForm = reactive({
@@ -3332,7 +3479,8 @@
           micro_cap: false,
           rights_strategy: false,
           lof_premium: false,
-          high_dividend: false
+          high_dividend: false,
+          nasdaq_rotation: false
       }
   })
   const notificationTestDisabled = computed(
@@ -3509,6 +3657,7 @@
       notificationForm.subscriptions.rights_strategy = settings.subscriptions?.rights_strategy === true
       notificationForm.subscriptions.lof_premium = settings.subscriptions?.lof_premium === true
       notificationForm.subscriptions.high_dividend = settings.subscriptions?.high_dividend === true
+      notificationForm.subscriptions.nasdaq_rotation = settings.subscriptions?.nasdaq_rotation === true
   }
 </script>
 
@@ -5219,21 +5368,7 @@
   }
 
   .contact-channel-modal-content {
-      overflow-y: auto;
-      padding: 1.6rem;
-      width: min(760px, calc(100vw - 2rem));
-      max-width: 760px;
-      max-height: min(calc(100dvh - 2rem), 760px);
-      background:
-          radial-gradient(circle at 12% 8%, rgb(7 193 96 / 16%), transparent 32%),
-          radial-gradient(circle at 88% 18%, rgb(0 170 255 / 15%), transparent 32%),
-          #171a20;
-      border-color: rgb(255 255 255 / 14%);
-      box-sizing: border-box;
-      overscroll-behavior: contain;
-      scrollbar-width: thin;
-      scrollbar-color: rgb(148 163 184 / 42%) transparent;
-      -webkit-overflow-scrolling: touch;
+      --account-modal-width: 760px;
   }
 
   .contact-channel-modal-content::-webkit-scrollbar {
@@ -5251,30 +5386,6 @@
 
   .contact-channel-modal-content::-webkit-scrollbar-thumb:hover {
       background: rgb(148 163 184 / 62%);
-  }
-
-  .contact-channel-header {
-      position: sticky;
-      top: -1.6rem;
-      z-index: 5;
-      align-items: flex-start;
-      padding: 1.6rem 1.6rem 1rem;
-      margin: -1.6rem -1.6rem 1.25rem;
-      background: linear-gradient(180deg, rgb(19 33 45 / 99%), rgb(18 31 43 / 97%));
-      backdrop-filter: blur(14px);
-  }
-
-  .contact-channel-kicker {
-      display: block;
-      margin-bottom: 0.35rem;
-      color: #8fa1b8;
-      font-size: 0.78rem;
-      letter-spacing: 0.08em;
-  }
-
-  .contact-channel-header h3 {
-      margin: 0;
-      font-size: 1.55rem;
   }
 
   .contact-channel-intro {
@@ -5381,12 +5492,6 @@
           max-height: calc(100vh - 1.5rem);
       }
 
-      .contact-channel-header {
-          top: -1.2rem;
-          padding: 1.2rem 1.2rem 0.9rem;
-          margin: -1.2rem -1.2rem 1rem;
-      }
-
       .contact-channel-grid {
           grid-template-columns: 1fr;
       }
@@ -5488,11 +5593,14 @@
       line-height: 1.2;
   }
 
+  .realtime-allocation-section {
+      margin: -0.15rem 0 1rem;
+  }
+
   .realtime-allocation-strip {
       display: grid;
       grid-template-columns: repeat(4, minmax(0, 1fr));
       gap: 0.65rem;
-      margin: -0.15rem 0 1rem;
   }
 
   .realtime-allocation-locked {
@@ -5549,7 +5657,15 @@
       font-size: 0.72rem;
       text-overflow: ellipsis;
       white-space: nowrap;
+      color: #cbd5e1;
+      line-height: 1.2;
+  }
+
+  .realtime-allocation-code {
+      flex: 0 0 auto;
+      font-size: 0.65rem;
       color: #94a3b8;
+      font-variant-numeric: tabular-nums;
       line-height: 1.2;
   }
 
@@ -6184,103 +6300,6 @@
       transform: scale(0.95);
   }
 
-  .password-modal-content {
-      position: relative;
-      overflow: hidden;
-      padding: 2rem;
-      width: min(420px, calc(100vw - 2rem));
-      max-width: 420px !important;
-      background:
-          linear-gradient(135deg, rgb(56 189 248 / 8%), transparent 58%),
-          rgb(15 23 42 / 96%);
-      border: 1px solid rgb(148 163 184 / 18%);
-      border-radius: 10px;
-      box-shadow: 0 18px 48px rgb(0 0 0 / 38%);
-      -webkit-backdrop-filter: blur(14px);
-      backdrop-filter: blur(14px);
-      box-sizing: border-box;
-  }
-
-  .password-modal-content::before {
-      position: absolute;
-      top: 0;
-      right: 0;
-      left: 0;
-      height: 2px;
-      background: linear-gradient(90deg, #38bdf8, #2dd4bf 58%, transparent);
-      content: '';
-      opacity: 0.9;
-  }
-
-  /* --- 弹窗头部样式 --- */
-  .password-modal-content .modal-header {
-      padding-bottom: 1rem;
-      margin-bottom: 1.75rem;
-      text-align: left;
-      border-bottom: 1px solid rgb(148 163 184 / 16%);
-  }
-
-  .password-modal-content .modal-header h3 {
-      font-size: 1.25rem;
-      color: #f8fafc;
-      font-weight: 700;
-  }
-
-  .password-modal-content .modal-close-button {
-      display: inline-flex;
-      justify-content: center;
-      align-items: center;
-      width: 32px;
-      height: 32px;
-      font-size: 1.5rem;
-      color: #94a3b8;
-      background: rgb(255 255 255 / 4%);
-      border: 1px solid rgb(148 163 184 / 14%);
-      border-radius: 6px;
-      transition: color 0.2s ease, border-color 0.2s ease, background 0.2s ease;
-  }
-
-  .password-modal-content .modal-close-button:hover {
-      color: #e8fffd;
-      background: rgb(56 189 248 / 8%);
-      border-color: rgb(56 189 248 / 45%);
-  }
-
-  /* --- 弹窗内表单的样式 --- */
-  .password-modal-content .form-group {
-      position: relative;
-      margin-bottom: 1.8rem;
-  }
-
-  .password-modal-content .input-field {
-      padding: 10px 0;
-      width: 100%;
-      font-size: 0.875rem;
-      line-height: 1.4;
-      color: #fff;
-      background: transparent;
-      border: none;
-      outline: none;
-      transition: border-color 0.2s ease;
-      border-bottom: 1px solid rgb(148 163 184 / 38%);
-      caret-color: #38bdf8;
-      box-sizing: border-box;
-  }
-
-  .password-modal-content .input-field:focus {
-      border-bottom-color: #38bdf8;
-  }
-
-  .password-modal-content .input-label {
-      position: absolute;
-      top: 10px;
-      left: 0;
-      font-size: 1rem;
-      color: #94a3b8;
-      pointer-events: none;
-      transition: top 0.2s ease, font-size 0.2s ease, color 0.2s ease;
-  }
-
   .notification-modal-content {
       overflow: visible;
       padding: 2rem;
@@ -6803,37 +6822,6 @@
       }
   }
 
-  .password-modal-content .input-field:focus + .input-label,
-  .password-modal-content .input-field:not(:placeholder-shown) + .input-label,
-  .password-modal-content .input-field:-webkit-autofill + .input-label {
-      top: -15px;
-      font-size: 0.78rem;
-      color: #38bdf8;
-  }
-
-  .password-modal-content .submit-btn {
-      padding: 0 16px;
-      margin-top: 0.65rem;
-      width: 100%;
-      min-height: 44px;
-      font-size: 0.95rem;
-      color: #e8fffd;
-      background: linear-gradient(90deg, rgb(56 189 248 / 9%), transparent);
-      border: 1px solid rgb(56 189 248 / 72%);
-      border-radius: 7px;
-      box-shadow: 0 0 0 1px rgb(56 189 248 / 12%), 0 0 16px rgb(56 189 248 / 10%);
-      transition: border-color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
-      font-weight: 700;
-      cursor: pointer;
-  }
-
-  .password-modal-content .submit-btn:hover {
-      background: linear-gradient(90deg, rgb(56 189 248 / 14%), transparent);
-      border-color: #38bdf8;
-      box-shadow: 0 0 0 1px rgb(56 189 248 / 20%), 0 0 22px rgb(56 189 248 / 18%);
-      transform: translateY(-1px);
-  }
-
   .vip-modal-content {
       max-width: 450px;
 
@@ -6927,19 +6915,7 @@
   /* ======== 新增：会员充值弹窗样式 ======== */
 
   /* ------------------------------------------- */
-  .recharge-modal-content {
-      padding: 2rem;
-      max-width: 450px !important;
-      text-align: center;
 
-      /* 玻璃拟态效果 */
-      background: rgb(255 255 255 / 8%);
-      border: 1px solid rgb(255 255 255 / 15%);
-      border-radius: 20px;
-      box-shadow: 0 8px 32px 0 rgb(0 0 0 / 37%);
-      -webkit-backdrop-filter: blur(15px);
-      backdrop-filter: blur(15px);
-  }
 
   .recharge-desc {
       margin-bottom: 1.5rem;
@@ -7835,7 +7811,7 @@
 
   /* 调整原来的样式 */
   .recharge-modal-content {
-      max-width: 500px !important; /* 稍微宽一点放套餐 */
+      --account-modal-width: 480px;
   }
 
   /* 头部简明信息 */
@@ -8260,6 +8236,325 @@
       .realtime-six-card,
       .status-overview-card {
           transition: none;
+      }
+  }
+  /* 首页账号弹窗沿用「关注与交流」的视觉样式。 */
+  .account-modal-backdrop {
+      inset: 0;
+      padding: 1rem;
+      height: auto;
+      box-sizing: border-box;
+      overscroll-behavior: none;
+  }
+
+  .modal-content.account-modal-content {
+      position: relative;
+      overflow-y: auto;
+      padding: 1.25rem;
+      width: min(var(--account-modal-width, 440px), 100%);
+      max-width: var(--account-modal-width, 440px);
+      max-height: min(calc(100dvh - 2rem), 880px);
+      text-align: left;
+      font-size: 0.82rem;
+      color: #dce8f5;
+      background:
+          radial-gradient(circle at 12% 8%, rgb(7 193 96 / 16%), transparent 32%),
+          radial-gradient(circle at 88% 18%, rgb(0 170 255 / 15%), transparent 32%),
+          #171a20;
+      border: 1px solid rgb(255 255 255 / 14%);
+      border-radius: 15px;
+      box-shadow: 0 20px 60px rgb(0 0 0 / 45%);
+      box-sizing: border-box;
+      overscroll-behavior: contain;
+      scrollbar-width: thin;
+      scrollbar-color: rgb(148 163 184 / 42%) transparent;
+      -webkit-overflow-scrolling: touch;
+  }
+
+  .account-modal-content.notification-modal-content {
+      --account-modal-width: 520px;
+  }
+
+  .account-modal-content.notification-guide-modal-content {
+      --account-modal-width: 880px;
+  }
+
+  .account-modal-content .account-modal-header {
+      position: sticky;
+      top: -1.25rem;
+      z-index: 5;
+      align-items: center;
+      padding: 0.85rem 1.25rem;
+      margin: -1.25rem -1.25rem 1rem;
+      text-align: left;
+      background: linear-gradient(180deg, rgb(19 33 45 / 99%), rgb(18 31 43 / 97%));
+      border-bottom: 1px solid rgb(148 163 184 / 12%);
+      backdrop-filter: blur(14px);
+  }
+
+  .account-modal-content .account-modal-header h3 {
+      margin: 0;
+      font-size: 1.05rem;
+      color: #f1f5f9;
+      line-height: 1.35;
+  }
+
+  .account-modal-content .modal-close-button {
+      display: grid;
+      padding: 0;
+      width: 28px;
+      height: 28px;
+      flex: 0 0 auto;
+      place-items: center;
+      font-size: 1.35rem;
+      line-height: 1;
+      color: #aab8c9;
+      background: transparent;
+      border: 1px solid transparent;
+      border-radius: 8px;
+      cursor: pointer;
+  }
+
+  .account-modal-content .modal-close-button:hover:not(:disabled) {
+      color: #fff;
+      background: rgb(255 255 255 / 7%);
+      border-color: rgb(148 163 184 / 16%);
+  }
+
+  .account-modal-intro,
+  .account-modal-content .contact-channel-intro,
+  .account-modal-content .notification-intro-body p {
+      margin: 0 0 1rem;
+      font-size: 0.82rem;
+      color: #aab8c9;
+      line-height: 1.65;
+  }
+
+  .account-modal-content .form-group {
+      margin-bottom: 0.9rem;
+  }
+
+  .account-modal-content .input-label {
+      display: block;
+      margin-bottom: 0.4rem;
+      font-size: 0.8rem;
+      color: #b6c5d6;
+  }
+
+  .account-modal-content .input-field,
+  .account-modal-content .notification-field input {
+      padding: 0.6rem 0.75rem;
+      width: 100%;
+      min-height: 40px;
+      font: inherit;
+      font-size: 0.82rem;
+      color: #f1f5f9;
+      background: rgb(7 12 20 / 56%);
+      border: 1px solid rgb(148 163 184 / 22%);
+      border-radius: 10px;
+      outline: none;
+      box-sizing: border-box;
+  }
+
+  .account-modal-content .input-field:focus,
+  .account-modal-content .notification-field input:focus {
+      border-color: rgb(56 189 248 / 65%);
+      box-shadow: 0 0 0 3px rgb(56 189 248 / 9%);
+  }
+
+  .account-modal-content .notification-option,
+  .account-modal-content .recharge-header,
+  .account-modal-content .payment-area {
+      padding: 1rem;
+      background: rgb(7 12 20 / 56%);
+      border: 1px solid rgb(148 163 184 / 16%);
+      border-radius: 14px;
+  }
+
+  .account-modal-content .notification-option {
+      padding: 0.6rem 0.65rem;
+      min-height: 38px;
+      font-size: 0.8rem;
+      border-radius: 10px;
+  }
+
+  .account-modal-content .notification-option:has(input:checked) {
+      background: rgb(0 170 255 / 9%);
+      border-color: rgb(0 170 255 / 32%);
+  }
+
+  .account-modal-content .notification-option input {
+      accent-color: #38bdf8;
+  }
+
+  .account-modal-content .submit-btn,
+  .account-modal-content .notification-intro-primary,
+  .account-modal-content .notification-intro-secondary {
+      padding: 0.6rem 0.85rem;
+      min-height: 40px;
+      font: inherit;
+      font-size: 0.82rem;
+      color: #cceeff;
+      background: rgb(0 170 255 / 10%);
+      border: 1px solid rgb(0 170 255 / 32%);
+      border-radius: 10px;
+      box-shadow: none;
+      font-weight: 600;
+      cursor: pointer;
+  }
+
+  .account-modal-content .submit-btn {
+      margin-top: 0.5rem;
+      width: 100%;
+  }
+
+  .account-modal-content .notification-intro-secondary {
+      color: #b6c5d6;
+      background: rgb(255 255 255 / 4%);
+      border-color: rgb(148 163 184 / 20%);
+  }
+
+  .account-modal-content .submit-btn:hover:not(:disabled),
+  .account-modal-content .notification-intro-primary:hover:not(:disabled) {
+      color: #fff;
+      background: rgb(0 170 255 / 18%);
+      border-color: rgb(0 170 255 / 48%);
+      box-shadow: none;
+      transform: none;
+  }
+
+  .account-modal-content button:disabled {
+      cursor: wait;
+      opacity: 0.55;
+  }
+
+  .account-modal-content button:focus-visible {
+      outline: 2px solid #38bdf8;
+      outline-offset: 3px;
+  }
+
+  .account-modal-content .recharge-header {
+      margin-bottom: 1rem;
+      text-align: left;
+      border-color: rgb(7 193 96 / 28%);
+  }
+
+  .account-modal-content .recharge-title {
+      margin: 0 0 0.5rem;
+      font-size: 0.82rem;
+      color: #aab8c9;
+  }
+
+  .account-modal-content .plan-name-highlight {
+      font-size: 0.9rem;
+      color: #e8f0f7;
+  }
+
+  .account-modal-content .recharge-price {
+      margin: 0;
+      font-size: 0.82rem;
+      color: #aab8c9;
+  }
+
+  .account-modal-content .price-highlight {
+      font-size: 1.4rem;
+      color: #79dcc6;
+  }
+
+  .account-modal-content .payment-area {
+      text-align: center;
+      border-color: rgb(0 170 255 / 28%);
+  }
+
+  .account-modal-content .qr-img-wrapper {
+      margin: 0.8rem 0;
+      width: min(190px, 100%);
+      height: auto;
+      aspect-ratio: 1;
+      border-radius: 14px;
+      box-sizing: border-box;
+      box-shadow: 0 12px 28px rgb(0 0 0 / 28%);
+  }
+
+  .account-modal-content.contact-channel-modal-content {
+      --account-modal-width: 700px;
+  }
+
+  .account-modal-content .contact-channel-card {
+      padding: 1rem;
+  }
+
+  .account-modal-content .contact-channel-card h4 {
+      margin-top: 0.65rem;
+      font-size: 0.95rem;
+  }
+
+  .account-modal-content .contact-channel-card p {
+      font-size: 0.78rem;
+  }
+
+  .account-modal-content .contact-channel-qr-frame {
+      width: min(100%, 190px);
+  }
+
+  .account-modal-content .notification-field {
+      margin-bottom: 0.9rem;
+      gap: 0.4rem;
+  }
+
+  .account-modal-content .notification-options {
+      margin: 1rem 0;
+  }
+
+  .account-modal-content .notification-guide-trigger {
+      padding: 0.6rem 0.75rem;
+      margin-bottom: 0.75rem;
+      font-size: 0.8rem;
+  }
+
+  @media (min-width: 577px) {
+      .account-modal-content .notification-option-popover {
+          left: 0;
+          display: none;
+          transform: translateY(6px);
+      }
+
+      .account-modal-content .notification-option:nth-child(even) .notification-option-popover {
+          right: 0;
+          left: auto;
+      }
+
+      .account-modal-content .notification-option-popover::after {
+          left: 20px;
+      }
+
+      .account-modal-content .notification-option:nth-child(even) .notification-option-popover::after {
+          right: 20px;
+          left: auto;
+      }
+
+      .account-modal-content .notification-option:hover .notification-option-popover,
+      .account-modal-content .notification-option:focus-within .notification-option-popover {
+          display: grid;
+          transform: translateY(0);
+      }
+  }
+
+  @media (max-width: 700px) {
+      .account-modal-backdrop {
+          padding: 0.75rem;
+      }
+
+      .modal-content.account-modal-content {
+          padding: 1rem;
+          margin: auto;
+          max-height: calc(100dvh - 1.5rem);
+      }
+
+      .account-modal-content .account-modal-header {
+          top: -1rem;
+          padding: 0.75rem 1rem;
+          margin: -1rem -1rem 0.9rem;
       }
   }
 </style>

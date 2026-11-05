@@ -16,6 +16,8 @@ declare module '@vue/runtime-core' {
     Main: typeof import('./../src/components/loading/main.vue')['default']
     Message: typeof import('./../src/components/Message.vue')['default']
     MonthlyReturnCalendarModal: typeof import('./../src/components/MonthlyReturnCalendarModal.vue')['default']
+    RecentPayments: typeof import('./../src/components/RecentPayments.vue')['default']
+    RightsIntradayComparison: typeof import('./../src/components/RightsIntradayComparison.vue')['default']
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']
     StrategyLoading: typeof import('./../src/components/StrategyLoading.vue')['default']

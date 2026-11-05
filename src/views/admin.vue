@@ -119,22 +119,22 @@
           </table>
         </div>
 
-        <div v-if="totalPages > 0" class="pagination-controls">
-          <span class="total-count">共 {{ totalUsers }} 条</span>
-          <div class="pagination-buttons">
-            <button class="pagination-button" :disabled="currentPage === 1" @click="prevPage">&lt;</button>
-            <button
-              v-for="page in totalPages"
-              :key="page"
-              :class="['pagination-button', { active: currentPage === page }]"
-              @click="goToPage(page)"
-            >
-              {{ page }}
-            </button>
-            <button class="pagination-button" :disabled="currentPage === totalPages" @click="nextPage">&gt;</button>
-          </div>
+        <div class="user-pagination">
+          <el-pagination
+            v-model:current-page="currentPage"
+            v-model:page-size="itemsPerPage"
+            :page-sizes="[10, 20, 50, 100]"
+            :pager-count="5"
+            :total="totalUsers"
+            :disabled="isLoading"
+            layout="total, sizes, prev, pager, next, jumper"
+            popper-class="admin-users-page-size-menu"
+            background
+          />
         </div>
       </section>
+
+      <RecentPayments v-if="activeTab === 'users'" />
 
       <section
         v-if="activeTab === 'data-source'"
@@ -711,6 +711,7 @@ import type { LiveStrategy } from '@/services/liveAccount'
       rights_strategy: boolean
       lof_premium: boolean
       high_dividend: boolean
+      nasdaq_rotation: boolean
   }
 
   type TabKey = 'users' | 'data-source' | 'data-view' | 'refresh' | 'live-descriptions'
@@ -804,11 +805,11 @@ async function saveDescription() {
   const onlyActive = ref(true)
   const sortOrder = ref<'asc' | 'desc' | ''>('asc')
   const currentPage = ref(1)
-  const itemsPerPage = ref(8)
+  const itemsPerPage = ref(10)
   const totalUsers = ref(0)
   let debounceTimer: any = null
+  let usersRequestId = 0
 
-  const totalPages = computed(() => Math.ceil(totalUsers.value / itemsPerPage.value))
   const sortIndicator = computed(() => {
       if (sortOrder.value === 'asc') return '↑'
       if (sortOrder.value === 'desc') return '↓'
@@ -863,6 +864,14 @@ async function saveDescription() {
           trigger: '交易日 14:30，从实时 LOF 刷新结果里筛选符合条件的基金。',
           content: '名称、代码、限购金额、T-2/T-1/实时溢价率。',
           example: '华宝油气LOF(162411) 限购金额：5,000元；实时:1.56%。'
+      },
+      {
+          key: 'nasdaq_rotation',
+          label: '纳指溢价轮动',
+          tagLabel: '纳指轮动',
+          trigger: '交易时段检查，参考 ETF 溢价率比最低溢价 ETF 高出超过 0.5 个百分点且实际切换时推送；初始化不通知。',
+          content: '调出、调入 ETF 代码、溢价率差及参考更新时间；属于策略参考，非实际成交。',
+          example: '参考持仓：513870 → 159941；溢价率差：0.60 个百分点。'
       }
   ] as const
 
@@ -960,7 +969,8 @@ async function saveDescription() {
           micro_cap: false,
           rights_strategy: false,
           lof_premium: false,
-          high_dividend: false
+          high_dividend: false,
+          nasdaq_rotation: false
       }
   }
 
@@ -976,6 +986,7 @@ async function saveDescription() {
   const notificationChannelValue = (user: User) => user.barkKey || user.wechatWebhookKey || ''
 
   const fetchUsers = () => {
+      const requestId = ++usersRequestId
       isLoading.value = true
       callCloudFunction({
           name: 'getUsers',
@@ -989,6 +1000,7 @@ async function saveDescription() {
           }
       })
           .then((res: any) => {
+              if (requestId !== usersRequestId) return
               if (res.result?.success) {
                   users.value = res.result.data.users
                   totalUsers.value = res.result.data.total
@@ -999,12 +1011,13 @@ async function saveDescription() {
               }
           })
           .catch(() => {
+              if (requestId !== usersRequestId) return
               showMessage('网络错误，无法加载用户数据', 'error')
               users.value = []
               totalUsers.value = 0
           })
           .finally(() => {
-              isLoading.value = false
+              if (requestId === usersRequestId) isLoading.value = false
           })
   }
 
@@ -1180,13 +1193,13 @@ async function saveDescription() {
       } else {
           sortOrder.value = 'asc'
       }
-      currentPage.value = 1
-      fetchUsers()
+      if (currentPage.value !== 1) currentPage.value = 1
+      else fetchUsers()
   }
 
-  watch(onlyActive, () => {
-      currentPage.value = 1
-      fetchUsers()
+  watch([onlyActive, itemsPerPage], () => {
+      if (currentPage.value !== 1) currentPage.value = 1
+      else fetchUsers()
   })
 
   watch(searchPhone, () => {
@@ -1203,12 +1216,6 @@ async function saveDescription() {
   watch(currentPage, () => {
       fetchUsers()
   })
-
-  const goToPage = (page: number) => {
-      if (page >= 1 && page <= totalPages.value) currentPage.value = page
-  }
-  const prevPage = () => goToPage(currentPage.value - 1)
-  const nextPage = () => goToPage(currentPage.value + 1)
 
   const isModalVisible = ref(false)
   const selectedUser = ref<User | null>(null)
@@ -1292,7 +1299,8 @@ async function saveDescription() {
               micro_cap: user.subscriptions?.micro_cap === true,
               rights_strategy: user.subscriptions?.rights_strategy === true,
               lof_premium: user.subscriptions?.lof_premium === true,
-              high_dividend: user.subscriptions?.high_dividend === true
+              high_dividend: user.subscriptions?.high_dividend === true,
+              nasdaq_rotation: user.subscriptions?.nasdaq_rotation === true
           },
           remark: user.remark || ''
       }
@@ -1709,6 +1717,26 @@ async function saveDescription() {
 </script>
 
 <style scoped>
+.user-pagination { margin-top: 1rem; }
+.user-pagination :deep(.el-pagination) { justify-content: flex-end; flex-wrap: wrap; gap: 0.5rem; --el-color-primary: #0af; --el-text-color-primary: #d8e4f2; --el-text-color-regular: #b0c4de; --el-text-color-placeholder: #8fa1b8; --el-fill-color: #262626; --el-fill-color-blank: #181818; --el-bg-color: #181818; --el-border-color: #424242; --el-disabled-bg-color: #262626; }
+.user-pagination :deep(.el-select__wrapper),
+.user-pagination :deep(.el-input__wrapper) { min-height: 36px; border-radius: 6px; background: rgb(0 0 0 / 25%); box-shadow: 0 0 0 1px rgb(255 255 255 / 12%) inset; }
+.user-pagination :deep(.el-select__wrapper:hover),
+.user-pagination :deep(.el-input__wrapper:hover) { box-shadow: 0 0 0 1px rgb(0 170 255 / 45%) inset; }
+.user-pagination :deep(.el-select__wrapper.is-focused),
+.user-pagination :deep(.el-input__wrapper.is-focus) { box-shadow: 0 0 0 1px #0af inset; }
+.user-pagination :deep(.el-select__caret) { margin-right: 4px; color: #b0c4de; }
+.user-pagination :deep(.el-pager li),
+.user-pagination :deep(.btn-prev),
+.user-pagination :deep(.btn-next) { min-width: 36px; height: 36px; margin: 0; border: 1px solid rgb(255 255 255 / 12%); border-radius: 6px; background: rgb(255 255 255 / 4%); color: #c9d8e8; }
+.user-pagination :deep(.el-pager li:not(.is-disabled):hover),
+.user-pagination :deep(.btn-prev:not(:disabled):hover),
+.user-pagination :deep(.btn-next:not(:disabled):hover) { border-color: rgb(0 170 255 / 45%); color: #9bdcff; background: rgb(0 170 255 / 10%); }
+.user-pagination :deep(.el-pager li.is-active) { border-color: rgb(0 170 255 / 55%); color: #dff6ff; background: rgb(0 170 255 / 18%); }
+.user-pagination :deep(.btn-prev:disabled),
+.user-pagination :deep(.btn-next:disabled) { color: #64748b; opacity: 0.5; }
+:global(.admin-users-page-size-menu.el-popper) { --el-bg-color-overlay: #242424; --el-bg-color: #242424; --el-border-color-light: #424242; --el-text-color-regular: #b0c4de; --el-text-color-placeholder: #8fa1b8; --el-fill-color-light: #183442; --el-color-primary: #9bdcff; border: 1px solid #424242; border-radius: 8px; box-shadow: 0 10px 28px rgb(0 0 0 / 35%); }
+:global(.admin-users-page-size-menu .el-select-dropdown__item.is-selected) { background: rgb(0 170 255 / 15%); color: #9bdcff; }
 .description-form { display: grid; gap: 0.75rem; }
 .description-form select, .description-form textarea { font: inherit; }
 .description-select { position: relative; }

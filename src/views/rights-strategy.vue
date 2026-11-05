@@ -337,17 +337,21 @@
           </div>
         </div>
       </div>
-      <el-dialog v-if="canForceRefresh" v-model="rankingVisible" class="rights-ranking-dialog" title="实时含权排名 · 前10名" width="min(960px, 94vw)" append-to-body>
-        <div class="ranking-toolbar"><span>{{ rankingUpdatedAt ? '查询时间：' + new Date(rankingUpdatedAt).toLocaleString('zh-CN', { hour12: false }) : '尚未获取排名' }} · 持仓截至 {{ rankingHoldingsDate || '暂无正式快照' }}</span><el-button :loading="rankingLoading" @click="loadRanking">刷新排名</el-button></div>
+      <el-dialog v-if="canForceRefresh" v-model="rankingVisible" class="rights-ranking-dialog" title="实时含权排名 · 前10名" width="min(960px, 94vw)" align-center append-to-body>
+        <div class="ranking-toolbar"><span>{{ rankingUpdatedAt ? '查询时间：' + new Date(rankingUpdatedAt).toLocaleString('zh-CN', { hour12: false }) : '尚未获取排名' }} · 持仓截至 {{ rankingHoldingsDate || '暂无正式快照' }}</span><div><el-button :disabled="comparisonStocks.length < 2 || rankingLoading" @click="openComparison">分时对比</el-button><el-button :loading="rankingLoading" @click="loadRanking">刷新排名</el-button></div></div>
         <p v-if="rankingError" role="alert" class="text-red">{{ rankingError }}{{ rankingRows.length ? '，当前保留上次查询结果。' : '' }}</p>
-        <div v-loading="rankingLoading" class="table-wrapper">
+        <div v-if="rankingRows.length" v-loading="rankingLoading" class="table-wrapper ranking-table-wrapper">
           <table class="portfolio-table ranking-table">
-            <thead><tr><th>排名</th><th>代码</th><th>名称</th><th>最新价</th><th>动态含权量</th><th>当前状态</th></tr></thead>
-            <tbody><tr v-for="row in rankingRows" :key="row.stockCode + row.bondName" :class="{ 'ranking-held': row.isHolding }"><td>{{ row.currentRank }}</td><td>{{ row.stockCode }}</td><td>{{ row.stockName }}</td><td>{{ formatNumber(row.latestPrice, 2) }}<small v-if="row.source === 'jisilu'" title="未取得完整实时行情，使用集思录可用字段"> *</small></td><td>{{ formatNumber(row.dynamicRights, 2) }}</td><td><span v-if="row.isHolding" class="ranking-holding-badge">持仓中</span><span v-else>候选</span></td></tr></tbody>
+            <thead><tr><th>排名</th><th>代码</th><th>名称</th><th>最新价</th><th>当日涨跌幅</th><th>动态含权量</th><th>当前状态</th></tr></thead>
+            <tbody><tr v-for="row in rankingRows" :key="row.stockCode + row.bondName" :class="{ 'ranking-held': row.isHolding }"><td>{{ row.currentRank }}</td><td>{{ row.stockCode }}</td><td>{{ row.stockName }}</td><td>{{ formatNumber(row.latestPrice, 2) }}<small v-if="row.source === 'jisilu'" title="未取得完整实时行情，使用集思录可用字段"> *</small></td><td><span :class="{ 'text-red': (row.changePct ?? 0) > 0, 'text-green': (row.changePct ?? 0) < 0 }">{{ formatChangePct(row.changePct) }}</span></td><td>{{ formatNumber(row.dynamicRights, 2) }}</td><td><span v-if="row.isHolding" class="ranking-holding-badge">持仓中</span><span v-else>候选</span></td></tr></tbody>
           </table>
-          <p v-if="!rankingLoading && !rankingRows.length">暂无可用排名。</p>
         </div>
+        <p v-else-if="rankingLoading" role="status">正在加载排名…</p>
+        <p v-else-if="!rankingError">暂无可用排名。</p>
         <p v-if="rankingOutsideHoldings.length">未进入当前前10名的持仓：{{ rankingOutsideHoldings.map(row => row.stockName + ' ' + row.stockCode).join('、') }}。正式持仓保持不变。</p>
+      </el-dialog>
+      <el-dialog v-if="canForceRefresh" v-model="comparisonVisible" class="rights-ranking-dialog" title="换仓分时对比" width="min(1100px, 94vw)" align-center append-to-body destroy-on-close>
+        <RightsIntradayComparison v-if="comparisonVisible" :stocks="comparisonStocks" :initial-pairs="initialComparisonPairs" />
       </el-dialog>
       <MonthlyReturnCalendarModal
         :calendar="selectedMonthlyCalendar"
@@ -367,6 +371,9 @@
   import ChartDateRangePicker from '@/components/ChartDateRangePicker.vue'
   import { callCloudFunction, throwIfAuthExpired } from '@/services/cloudFunction'
   import MonthlyReturnCalendarModal from '@/components/MonthlyReturnCalendarModal.vue'
+  import RightsIntradayComparison from '@/components/RightsIntradayComparison.vue'
+  import { suggestComparisonPairs } from '@/services/rightsIntraday'
+  import type { ComparisonContext } from '@/services/rightsIntraday'
   import { useMonthlyReturnCalendar } from '@/composables/useMonthlyReturnCalendar'
   import { useUserStore } from '@/store/user'
   import { use } from 'echarts/core'
@@ -411,6 +418,7 @@
       progressDate: string
       recordDate: string
       latestPrice: number | null
+      changePct?: number | null
       totalShares: number | null
       ration: number | null
       dynamicRights: number | null
@@ -480,11 +488,21 @@
   const realtimeAdjustments = ref<RealtimeAdjustments>({ buys: [], sells: [], unchanged: [] })
   const isRealtimeRefreshing = ref(false)
   const rankingVisible = ref(false)
+  const comparisonVisible = ref(false)
+  const initialComparisonPairs = ref<Array<{ sell: string; buy: string }>>([])
+  async function openComparison() {
+      await loadRanking()
+      if (rankingError.value) return
+      initialComparisonPairs.value = suggestComparisonPairs(rankingRows.value, rankingComparisonContext.value)
+      comparisonVisible.value = true
+  }
+  const comparisonStocks = computed(() => [...new Map([...realtimeRows.value, ...rankingRows.value, ...rankingOutsideHoldings.value].map(row => [row.stockCode, { stockCode: row.stockCode, stockName: row.stockName }])).values()])
   const rankingLoading = ref(false)
   const rankingError = ref('')
   const rankingRows = ref<Array<RealtimeRow & { isHolding: boolean; source: string }>>([])
   const rankingUpdatedAt = ref('')
   const rankingHoldingsDate = ref('')
+  const rankingComparisonContext = ref<ComparisonContext | null>(null)
   const rankingOutsideHoldings = ref<Array<{ stockCode: string; stockName: string }>>([])
   function openRanking() {
       rankingVisible.value = true
@@ -498,6 +516,7 @@
           const res: any = await callCloudFunction({ name: 'strategyTaskGateway', data: { action: 'previewRightsRanking' }, parse: true })
           if (!res.result?.success) throw new Error(res.result?.message || '排名查询失败')
           const data = res.result.data
+          rankingComparisonContext.value = data.comparisonContext || null
           rankingRows.value = data.rows
           rankingUpdatedAt.value = data.refreshedAt
           rankingHoldingsDate.value = data.holdingsDate
@@ -926,6 +945,11 @@
   function formatNumber(value: unknown, digits = 2) {
       const number = toNumber(value)
       return number === null ? '--' : number.toFixed(digits)
+  }
+
+  function formatChangePct(value: unknown) {
+      const number = toNumber(value)
+      return number === null ? '--' : `${number > 0 ? '+' : ''}${number.toFixed(2)}%`
   }
 
   function formatRecordDate(value: string) {
@@ -1400,11 +1424,14 @@
       color: #b0c4de;
   }
   .ranking-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin: 0 0 1.25rem; flex-wrap: wrap; color: #b0c4de; font-size: 0.85rem; }
-  :global(.rights-ranking-dialog) { --el-dialog-bg-color: #1b2233; --el-text-color-primary: #eef2f8; --el-text-color-regular: #b0c4de; --el-border-color: rgb(255 255 255 / 10%); --el-fill-color-blank: #1b2233; --el-mask-color: rgb(27 34 51 / 85%); background: linear-gradient(125deg, #20252c, #20233c); border: 1px solid rgb(255 255 255 / 10%); border-radius: 12px; }
+  :global(.rights-ranking-dialog) { --el-dialog-bg-color: #1b2233; --el-text-color-primary: #eef2f8; --el-text-color-regular: #b0c4de; --el-border-color: rgb(255 255 255 / 10%); --el-fill-color-blank: #1b2233; --el-mask-color: rgb(27 34 51 / 85%); max-height: calc(100dvh - 32px); overflow-y: auto; padding: 0; background: linear-gradient(125deg, #20252c, #20233c); border: 1px solid rgb(176 196 222 / 30%); border-radius: 12px; box-shadow: 0 24px 64px rgb(0 0 0 / 45%); }
   :global(.rights-ranking-dialog .el-dialog__header) { padding: 1.5rem 2rem 0; }
   :global(.rights-ranking-dialog .el-dialog__title) { display: block; padding-left: 1rem; border-left: 4px solid #f87171; font-size: 1.2rem; font-weight: 700; }
   :global(.rights-ranking-dialog .el-dialog__body) { padding: 1.5rem 2rem; }
-  .ranking-table { width: 100%; min-width: 580px; font-variant-numeric: tabular-nums; }
+  .ranking-table-wrapper { border: 1px solid rgb(176 196 222 / 18%); border-radius: 8px; }
+  .ranking-table { width: 100%; min-width: 720px; margin-top: 0; font-variant-numeric: tabular-nums; }
+  .ranking-table thead { background: rgb(255 255 255 / 4%); }
+  .ranking-table tbody tr:last-child td { border-bottom: 0; }
   .ranking-table th { color: #fff; }
   .ranking-table td { color: #b0c4de; }
   .ranking-held { background: rgb(248 113 113 / 5%); }

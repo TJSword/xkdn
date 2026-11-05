@@ -4,7 +4,7 @@
       <header class="page-header">
         <router-link to="/home" class="back-button">← 返回主页</router-link>
         <h1 class="main-title">策略净值</h1>
-        <p class="subtitle">惊鸿策略与小狮子策略的当日走势和当前持仓。</p>
+        <p class="subtitle">惊鸿策略、小狮子策略与海狸策略的当日走势和当前持仓。</p>
       </header>
 
       <StrategyLoading
@@ -22,85 +22,88 @@
         <button type="button" @click="loadObservation">重新加载</button>
       </section>
 
-      <div v-else-if="observation && activeAccount" class="content-grid">
+      <div v-else-if="observation" class="content-grid">
         <section class="strategy-tabs" role="tablist" aria-label="选择策略">
           <button
             v-for="(account, index) in observation.accounts"
-            :id="`strategy-tab-${account.id}`"
             :key="account.id"
-            :class="['strategy-tab', `strategy-tab-${index + 1}`, { 'is-active': account.id === activeAccount.id }]"
-            type="button"
             role="tab"
-            :aria-selected="account.id === activeAccount.id"
+            :id="`strategy-tab-${account.id}`"
+            :class="['strategy-tab', `strategy-tab-${index + 1}`, { 'is-active': account.id === activeAccountId }]"
+            type="button"
+            :aria-selected="account.id === activeAccountId"
             :aria-controls="`strategy-panel-${account.id}`"
-            :tabindex="account.id === activeAccount.id ? 0 : -1"
             @click="activeAccountId = account.id"
           >
-            <span class="strategy-dot"></span>
-            {{ account.label }}
+            <span class="summary-name"><span class="strategy-dot"></span>{{ account.label }}</span>
+            <strong :class="['summary-return', returnClass(account.todayReturn)]">{{ formatReturn(account.todayReturn) }}</strong>
           </button>
         </section>
-
-        <section
+        <div
+          v-if="activeAccount"
           :id="`strategy-panel-${activeAccount.id}`"
-          :class="['content-card', 'chart-card', `strategy-card-${activeAccountIndex + 1}`]"
+          class="strategy-details"
           role="tabpanel"
           :aria-labelledby="`strategy-tab-${activeAccount.id}`"
-          :aria-busy="isLoading"
         >
-          <div class="card-header-row chart-header">
-            <div class="chart-title-block">
-              <span class="chart-strategy-name">{{ activeAccount.label }}</span>
-              <h2 class="card-title">当日收益走势</h2>
-            </div>
-            <div class="chart-actions">
-              <div class="today-return">
-                <span>当日收益</span>
-                <strong :class="returnClass(activeAccount.todayReturn)">{{ formatReturn(activeAccount.todayReturn) }}</strong>
+          <section
+            :class="['content-card', 'chart-card', `strategy-card-${activeAccountIndex + 1}`]"
+            :aria-busy="isLoading"
+          >
+            <div class="card-header-row chart-header">
+              <div class="chart-title-block">
+                <span class="chart-strategy-name">{{ activeAccount.label }}</span>
+                <h2 class="card-title">当日收益走势</h2>
               </div>
-              <span class="system-status"><i></i>更新于 {{ formattedUpdatedAt }}</span>
-              <button class="refresh-button" type="button" :disabled="isLoading" @click="loadObservation">
-                <span :class="{ 'is-loading': isLoading }" aria-hidden="true">↻</span>
-                {{ isLoading ? '更新中' : '刷新' }}
-              </button>
+              <div class="chart-actions">
+                <div class="today-return">
+                  <span>当日收益</span>
+                  <strong :class="returnClass(activeAccount.todayReturn)">{{ formatReturn(activeAccount.todayReturn) }}</strong>
+                </div>
+                <span class="system-status"><i></i>更新于 {{ formattedUpdatedAt }}</span>
+                <button class="refresh-button" type="button" :disabled="isLoading" @click="loadObservation">
+                  <span :class="{ 'is-loading': isLoading }" aria-hidden="true">↻</span>
+                  {{ isLoading ? '更新中' : '刷新' }}
+                </button>
+              </div>
             </div>
-          </div>
-          <v-chart class="return-chart" :option="chartOption" autoresize />
-          <p v-if="errorMessage" class="refresh-warning">{{ errorMessage }}，当前保留上一次数据。</p>
-        </section>
+            <v-chart class="return-chart" :option="chartOption" autoresize />
+          </section>
 
-        <section :class="['content-card', `strategy-card-${activeAccountIndex + 1}`]">
-          <div class="card-header-row holdings-header">
-            <h2 class="card-title">{{ activeAccount.label }}持仓</h2>
-            <span class="holding-count">{{ activeAccount.holdings.length }} 只</span>
-          </div>
-          <div v-if="activeAccount.holdings.length" class="table-container">
-            <table>
-              <thead>
-                <tr>
-                  <th>股票代码</th>
-                  <th>股票名称</th>
-                  <th>持仓数量</th>
-                  <th>成本价</th>
-                  <th>现价</th>
-                  <th>持仓市值</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="holding in activeAccount.holdings" :key="holding.stockCode">
-                  <td class="code-cell">{{ holding.stockCode }}</td>
-                  <td class="name-cell">{{ holding.stockName }}</td>
-                  <td>{{ formatQuantity(holding.quantity) }}</td>
-                  <td>{{ formatPrice(holding.costPrice) }}</td>
-                  <td>{{ formatPrice(holding.currentPrice) }}</td>
-                  <td>{{ formatMoney(holding.marketValue) }}</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-          <p v-else class="no-data">当前没有可展示的持仓。</p>
-        </section>
+          <section :class="['content-card', `strategy-card-${activeAccountIndex + 1}`]">
+            <div class="card-header-row holdings-header">
+              <h2 class="card-title">{{ activeAccount.label }}持仓</h2>
+              <span class="holding-count">{{ activeAccount.holdings.length }} 只</span>
+            </div>
+            <div v-if="activeAccount.holdings.length" class="table-container">
+              <table>
+                <thead>
+                  <tr>
+                    <th>股票代码</th>
+                    <th>股票名称</th>
+                    <th>持仓数量</th>
+                    <th>成本价</th>
+                    <th>现价</th>
+                    <th>持仓市值</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="holding in activeAccount.holdings" :key="holding.stockCode">
+                    <td class="code-cell">{{ holding.stockCode }}</td>
+                    <td class="name-cell">{{ holding.stockName }}</td>
+                    <td>{{ formatQuantity(holding.quantity) }}</td>
+                    <td>{{ formatPrice(holding.costPrice) }}</td>
+                    <td>{{ formatPrice(holding.currentPrice) }}</td>
+                    <td>{{ formatMoney(holding.marketValue) }}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <p v-else class="no-data">当前没有可展示的持仓。</p>
+          </section>
 
+        </div>
+        <p v-if="errorMessage" class="refresh-warning" role="alert">{{ errorMessage }}，当前保留上一次数据。</p>
         <p class="data-note">收益和持仓来自账户实时数据；持仓数据可能因调仓出现短暂更新滞后。</p>
       </div>
     </main>
@@ -108,7 +111,7 @@
 </template>
 
 <script setup lang="ts">
-  import { computed, onMounted, ref } from 'vue'
+  import { computed, onMounted, onUnmounted, ref } from 'vue'
   import { LineChart } from 'echarts/charts'
   import { GridComponent, TooltipComponent } from 'echarts/components'
   import { use } from 'echarts/core'
@@ -149,7 +152,7 @@
   const activeAccountId = ref('')
   const isLoading = ref(false)
   const errorMessage = ref('')
-  const seriesColors = ['#22c55e', '#d4af37']
+  const seriesColors = ['#22c55e', '#d4af37', '#60a5fa']
   const tradingTimeline = buildTradingTimeline()
 
   const activeAccount = computed(() => {
@@ -316,13 +319,23 @@
       }
   }
 
-  onMounted(loadObservation)
+  let refreshTimer: ReturnType<typeof window.setInterval> | undefined
+
+  onMounted(() => {
+      loadObservation()
+      refreshTimer = window.setInterval(loadObservation, 60_000)
+  })
+
+  onUnmounted(() => {
+      window.clearInterval(refreshTimer)
+  })
 </script>
 
 <style scoped lang="scss">
   .page-wrapper {
       --theme-one: #22c55e;
       --theme-two: #d4af37;
+      --theme-three: #60a5fa;
       --theme-border: rgb(74 222 128 / 28%);
 
       padding: 3rem 1rem 4rem;
@@ -405,34 +418,41 @@
   }
 
   .strategy-tabs {
-      display: inline-flex;
+      display: grid;
+      grid-template-columns: repeat(3, max-content);
+      justify-self: center;
+      max-width: 100%;
+      overflow-x: auto;
+      box-sizing: border-box;
       padding: 4px;
-      width: fit-content;
       background: rgb(255 255 255 / 4%);
       border: 1px solid rgb(255 255 255 / 10%);
-      border-radius: 10px;
-      justify-self: center;
-      animation: fade-in-up 0.45s ease-out both;
+      border-radius: 12px;
+      gap: 4px;
   }
 
   .strategy-tab {
       display: flex;
       justify-content: center;
       align-items: center;
+      gap: 0.65rem;
       padding: 0.62rem 1.2rem;
-      min-width: 150px;
-      font-size: 0.9rem;
+      min-width: 0;
       color: #8fa1b8;
+      font: inherit;
+      font-size: 0.9rem;
+      white-space: nowrap;
+      text-align: left;
       background: transparent;
       border: 0;
-      border-radius: 7px;
+      border-radius: 8px;
       cursor: pointer;
       transition: color 0.2s ease, background-color 0.2s ease;
-      gap: 0.55rem;
   }
 
   .strategy-tab:hover {
       color: #e2e8f0;
+      background: rgb(255 255 255 / 4%);
   }
 
   .strategy-tab.is-active {
@@ -442,6 +462,33 @@
 
   .strategy-tab-2.is-active {
       background: rgb(212 175 55 / 14%);
+  }
+
+  .strategy-tab-3.is-active {
+      background: rgb(96 165 250 / 14%);
+  }
+
+  .strategy-tab:focus-visible {
+      outline: 2px solid #b0c4de;
+      outline-offset: -2px;
+  }
+
+  .summary-name {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+  }
+
+  .summary-return {
+      font-size: 0.9rem;
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+  }
+
+  .strategy-details {
+      display: grid;
+      gap: 1.5rem;
   }
 
   .content-card,
@@ -468,6 +515,11 @@
       box-shadow: 0 0 8px var(--theme-two);
   }
 
+  .strategy-tab-3 .strategy-dot {
+      background: var(--theme-three);
+      box-shadow: 0 0 8px var(--theme-three);
+  }
+
   .strategy-card-1 {
       --active-color: var(--theme-one);
       --active-border: rgb(34 197 94 / 28%);
@@ -476,6 +528,11 @@
   .strategy-card-2 {
       --active-color: var(--theme-two);
       --active-border: rgb(212 175 55 / 30%);
+  }
+
+  .strategy-card-3 {
+      --active-color: var(--theme-three);
+      --active-border: rgb(96 165 250 / 30%);
   }
 
   .content-card {
@@ -514,6 +571,10 @@
       margin-bottom: 0;
   }
 
+  .chart-header {
+      flex-wrap: wrap;
+  }
+
   .chart-title-block {
       min-width: 180px;
   }
@@ -530,6 +591,9 @@
   .chart-actions {
       display: flex;
       align-items: center;
+      justify-content: flex-end;
+      margin-left: auto;
+      flex-wrap: wrap;
       gap: 0.75rem;
   }
 
@@ -770,15 +834,27 @@
       }
 
       .strategy-tabs {
+          grid-template-columns: repeat(3, minmax(0, 1fr));
           width: 100%;
-          box-sizing: border-box;
+          overflow-x: visible;
       }
 
       .strategy-tab {
-          padding-right: 0.75rem;
-          padding-left: 0.75rem;
-          min-width: 0;
-          flex: 1;
+          flex-wrap: wrap;
+          gap: 0.3rem 0.4rem;
+          padding: 0.62rem 0.55rem;
+          font-size: 0.75rem;
+      }
+
+      .summary-name {
+          justify-content: center;
+          gap: 0.3rem;
+          white-space: nowrap;
+      }
+
+      .summary-return {
+          font-size: 0.75rem;
+          text-align: center;
       }
 
       .card-header-row {
@@ -787,31 +863,45 @@
       }
 
       .chart-header {
+          flex-direction: row;
+      }
+
+      .return-chart {
+          height: 380px;
+      }
+  }
+  @media (max-width: 600px) {
+      .chart-header {
           position: relative;
           width: 100%;
+          flex-direction: column;
       }
 
       .chart-title-block {
-          width: calc(100% - 84px);
+          padding-right: 84px;
+          width: 100%;
+          min-width: 0;
+          box-sizing: border-box;
       }
 
-      .chart-actions {
-          width: 100%;
-          flex-wrap: wrap;
+      .chart-header .card-title {
+          font-size: clamp(1rem, 4.5vw, 1.4rem);
       }
 
       .chart-actions .refresh-button {
           position: absolute;
-          top: 0;
+          top: 1.5rem;
           right: 0;
+      }
+
+      .chart-actions {
+          width: 100%;
+          margin-left: 0;
       }
 
       .today-return {
           margin-right: auto;
       }
 
-      .return-chart {
-          height: 380px;
-      }
   }
 </style>

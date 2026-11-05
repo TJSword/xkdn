@@ -1,0 +1,26 @@
+{
+  "latestDate": "2026-09-29",
+  "updatedMinute": "15:00",
+  "dailyReturnPercent": 0.8174000000000001,
+  "latestIndex": 969017.6286,
+  "homepage": {
+    "id": "rights",
+    "name": "含权策略",
+    "dataState": "ready",
+    "errorMessage": null,
+    "status": "修复中",
+    "statusClass": "repairing",
+    "isNewHigh": false,
+    "drawdownPercent": -3.42,
+    "currentMaxDrawdownPercent": -4.21,
+    "daysSinceLastHigh": 19,
+    "currentDrawdownDays": 18,
+    "currentRecoveryDays": 1,
+    "recoveryProgressPercent": 18.6,
+    "consecutiveHighDays": 0,
+    "latestDate": "2026-09-29"
+  },
+  "detailMaxDrawdown": "-34.48",
+  "historyPreserved": true,
+  "todayUnique": true
+}
