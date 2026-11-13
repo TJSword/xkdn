@@ -36,18 +36,6 @@
           </p>
         </div>
 
-        <div v-if="disciplineCash" class="content-card discipline-cash-card">
-          <div class="discipline-cash-kicker">纪律空仓</div>
-          <h2 class="card-title no-border">当前处于 1月/4月空仓窗口</h2>
-          <p class="card-description">
-            系统会在空仓月首个交易日 9:30 之后切换为空仓状态，空仓期间策略净值不再跟随微盘股持仓波动。
-          </p>
-          <div class="discipline-cash-meta">
-            <span>状态：{{ disciplineCashReason || '纪律空仓' }}</span>
-            <span>更新时间：{{ realtimeUpdatedAt || '--' }}</span>
-          </div>
-        </div>
-
         <div class="content-card">
           <h2 class="card-title">组合思想：量化追踪，纪律执行</h2>
           <p class="card-description">
@@ -541,8 +529,6 @@
   const dateRangeEnd = ref('')
   const chartMinDate = ref('')
   const chartMaxDate = ref('')
-  const disciplineCash = ref(false)
-  const disciplineCashReason = ref('')
   const realtimeUpdatedAt = ref('')
 
   // --- 新增：资金分配计算器逻辑 ---
@@ -1602,7 +1588,7 @@
   const faqList = ref([
       {
           question: '我如何参与该策略？',
-          answer: '本策略通过量化模型筛选符合要求的股票，并在每个交易日9:30检查排名：现有持仓仍在前20名便继续持有，出现调入调出信号时再按页面建议执行。'
+          answer: '本策略通过量化模型筛选符合要求的股票，并在每个交易日14:20检查排名：现有持仓仍在前20名便继续持有，出现调入调出信号时再按页面建议执行。'
       },
       {
           question: '为什么前10名买入、前20名持有？',
@@ -1610,7 +1596,7 @@
       },
       {
           question: '策略何时更新，什么情况下需要调仓？',
-          answer: '策略在每个交易日9:30检查最新排名。只有组合出现股票调入或调出时，才需要根据页面提示换股；若组合成分没有变化，则按“今日无需调仓”处理。单只股票权重超过12%属于个人持仓管理，不作为换股通知的触发条件，需要用户自行检查和减仓。'
+          answer: '策略在每个交易日14:20检查最新排名。只有组合出现股票调入或调出时，才需要根据页面提示换股；若组合成分没有变化，则按“今日无需调仓”处理。单只股票权重超过12%属于个人持仓管理，不作为换股通知的触发条件，需要用户自行检查和减仓。'
       },
       {
           question: '10支股票我应该如何分配资金？',
@@ -1662,8 +1648,6 @@
           const payload = response.result?.data
           if (!response.result?.success || !payload) return
 
-          disciplineCash.value = payload.disciplineCash === true
-          disciplineCashReason.value = payload.disciplineCashReason || ''
           realtimeUpdatedAt.value = payload.updatedAt || payload.updatedMinute || ''
       } catch (error) {
           throwIfAuthExpired(error)
@@ -1877,32 +1861,6 @@
 
   .content-card:hover {
       border-color: rgb(240 230 140 / 50%); /* Theme color hover */
-  }
-
-  .discipline-cash-card {
-      background: linear-gradient(135deg, rgb(240 230 140 / 14%), rgb(255 255 255 / 4%));
-      border-color: rgb(240 230 140 / 45%);
-  }
-
-  .discipline-cash-kicker {
-      display: inline-flex;
-      align-items: center;
-      padding: 0.25rem 0.65rem;
-      margin-bottom: 0.65rem;
-      font-size: 0.78rem;
-      color: #f0e68c;
-      border: 1px solid rgb(240 230 140 / 45%);
-      border-radius: 999px;
-      font-weight: 700;
-      letter-spacing: 0;
-  }
-
-  .discipline-cash-meta {
-      display: flex;
-      font-size: 0.86rem;
-      color: #d6d097;
-      flex-wrap: wrap;
-      gap: 0.75rem;
   }
 
   .card-title {

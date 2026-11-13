@@ -11,7 +11,11 @@ declare module '@vue/runtime-core' {
   export interface GlobalComponents {
     AllWeatherMenuIcon: typeof import('./../src/components/AllWeatherMenuIcon.vue')['default']
     ChartDateRangePicker: typeof import('./../src/components/ChartDateRangePicker.vue')['default']
+    ElButton: typeof import('element-plus/es')['ElButton']
     ElConfigProvider: typeof import('element-plus/es')['ElConfigProvider']
+    ElDialog: typeof import('element-plus/es')['ElDialog']
+    ElPagination: typeof import('element-plus/es')['ElPagination']
+    ElTooltip: typeof import('element-plus/es')['ElTooltip']
     FeaturePageIcon: typeof import('./../src/components/FeaturePageIcon.vue')['default']
     Main: typeof import('./../src/components/loading/main.vue')['default']
     Message: typeof import('./../src/components/Message.vue')['default']
@@ -22,5 +26,8 @@ declare module '@vue/runtime-core' {
     RouterView: typeof import('vue-router')['RouterView']
     StrategyLoading: typeof import('./../src/components/StrategyLoading.vue')['default']
     StrategyMenuIcon: typeof import('./../src/components/StrategyMenuIcon.vue')['default']
+  }
+  export interface ComponentCustomProperties {
+    vLoading: typeof import('element-plus/es')['ElLoadingDirective']
   }
 }

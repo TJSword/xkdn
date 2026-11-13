@@ -1188,16 +1188,33 @@
                         </tbody>
                     </table>
                 </div>
-                <div v-if="recordPageCount > 1" class="record-pagination">
+                <div v-if="recentRecords.length" class="record-pagination record-pagination-controls">
                     <span>共 {{ recentRecords.length }} 条</span>
                     <div>
+                        <select
+                            v-model.number="recordPageSize"
+                            aria-label="每页记录条数"
+                            @change="recordPage = 1">
+                            <option v-for="size in [10, 20, 50]" :key="size" :value="size">
+                                每页 {{ size }} 条
+                            </option>
+                        </select>
                         <button
                             type="button"
                             :disabled="recordPage === 1"
                             @click="recordPage -= 1">
                             上一页
                         </button>
-                        <strong>{{ recordPage }} / {{ recordPageCount }}</strong>
+                        <span class="record-page-position">
+                            <input
+                                :value="recordPage"
+                                type="text"
+                                inputmode="numeric"
+                                aria-label="输入记录页码"
+                                @blur="commitRecordPage"
+                                @keydown.enter="commitRecordPage" />
+                            <span>/ {{ recordPageCount }}</span>
+                        </span>
                         <button
                             type="button"
                             :disabled="recordPage === recordPageCount"
@@ -1965,6 +1982,14 @@
                         </p>
                         <small class="upload-limit">单个文件最多支持 2,000 条记录</small>
                     </label>
+                    <div class="import-duplicate-rules">
+                        <strong>重复记录说明</strong>
+                        <ul>
+                            <li>按“同一策略 + 同一日期”判断重复，同一天的不同策略可正常导入。</li>
+                            <li>账本中已有的记录会跳过，保留原金额、现金流和备注，不会覆盖；导入结束后会提示跳过条数。</li>
+                            <li>文件内若存在同一策略、同一日期的多行记录，需先修正重复行，才能导入整份文件。</li>
+                        </ul>
+                    </div>
                     <div class="import-steps" aria-label="导入进度">
                         <div
                             v-for="(step, index) in importSteps"
@@ -2779,14 +2804,22 @@ const heatmapStrategySelectWidth = computed(() => {
     return Math.min(Math.max(labelLength * 16 + 66, 132), 260)
 })
 const recordPage = ref(1)
-const recordPageSize = 10
+const recordPageSize = ref(10)
 const recordPageCount = computed(() =>
-    Math.max(Math.ceil(recentRecords.value.length / recordPageSize), 1)
+    Math.max(Math.ceil(recentRecords.value.length / recordPageSize.value), 1)
 )
+const commitRecordPage = (event: Event) => {
+    const input = event.target as HTMLInputElement
+    const page = Number(input.value)
+    recordPage.value = Number.isFinite(page)
+        ? Math.min(Math.max(Math.trunc(page), 1), recordPageCount.value)
+        : recordPage.value
+    input.value = String(recordPage.value)
+}
 const paginatedRecords = computed(() => {
     const safePage = Math.min(recordPage.value, recordPageCount.value)
-    const start = (safePage - 1) * recordPageSize
-    return recentRecords.value.slice(start, start + recordPageSize)
+    const start = (safePage - 1) * recordPageSize.value
+    return recentRecords.value.slice(start, start + recordPageSize.value)
 })
 const pendingStrategyRecordCount = computed(() =>
     pendingDeleteStrategy.value
@@ -9674,6 +9707,58 @@ select:focus {
     opacity: 0.4;
 }
 
+.record-pagination-controls,
+.record-pagination-controls > div {
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.record-pagination-controls select,
+.record-pagination-controls input,
+.record-pagination-controls button {
+    box-sizing: border-box;
+    width: auto;
+    min-width: 0;
+    flex: 0 0 auto;
+    height: 30px;
+    min-height: 30px;
+    padding: 0 10px;
+    font: inherit;
+    line-height: 28px;
+    color: #b9c8d5;
+    background: #111a22;
+    border: 1px solid #30404f;
+    border-radius: 5px;
+}
+
+.record-pagination-controls select {
+    padding-right: 30px;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath d='M2.5 4.5 6 8l3.5-3.5' fill='none' stroke='%23b9c8d5' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 10px center;
+    appearance: none;
+    cursor: pointer;
+}
+
+.record-page-position {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+    white-space: nowrap;
+}
+
+.record-page-position input {
+    width: 46px;
+    text-align: center;
+}
+
+.record-pagination-controls select:hover,
+.record-pagination-controls select:focus-visible,
+.record-pagination-controls input:focus-visible {
+    border-color: var(--ledger-accent);
+}
+
 table {
     width: 100%;
     border-collapse: collapse;
@@ -10632,6 +10717,26 @@ label small {
     background: rgb(var(--ledger-accent-rgb) / 8%);
     border: 1px solid rgb(var(--ledger-accent-rgb) / 24%);
     border-radius: 999px;
+}
+
+.import-duplicate-rules {
+    padding: 12px 14px;
+    margin-top: 14px;
+    font-size: 12px;
+    color: #8fa1b2;
+    background: #111a22;
+    border: 1px solid #30404f;
+    border-radius: 5px;
+    line-height: 1.7;
+}
+
+.import-duplicate-rules strong {
+    color: #b9c8d5;
+}
+
+.import-duplicate-rules ul {
+    padding-left: 18px;
+    margin: 6px 0 0;
 }
 
 .import-steps {

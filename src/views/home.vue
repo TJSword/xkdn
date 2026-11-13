@@ -631,7 +631,24 @@
             </div>
             </div>
           </div>
+          <div class="realtime-chart-toolbar">
+            <div class="realtime-chart-period-title">
+              <strong>{{ realtimeChartPeriods[realtimeChartPeriod] }}走势</strong>
+              <small v-if="realtimeChartPeriod === 'day'">09:30 – 15:00</small>
+              <small v-else-if="realtimeHistoryChart">{{ realtimeHistoryChart.range }}</small>
+            </div>
+            <div class="realtime-chart-periods" :data-period="realtimeChartPeriod" role="group" aria-label="走势周期">
+              <button
+                v-for="(label, period) in realtimeChartPeriods"
+                :key="period"
+                type="button"
+                :aria-pressed="realtimeChartPeriod === period"
+                @click="selectRealtimeChartPeriod(period)"
+              >{{ label }}</button>
+            </div>
+          </div>
           <div
+            v-if="realtimeChartPeriod === 'day'"
             class="realtime-large-chart"
             @mousemove="handleRealtimeChartHover($event, selectedRealtimeNav)"
             @mouseleave="clearRealtimeChartHover"
@@ -704,6 +721,22 @@
               <em :class="getRealtimeTone(realtimeChartHover.change)">
                 {{ formatRealtimePercent(realtimeChartHover.change) }}
               </em>
+            </div>
+          </div>
+          <div v-else class="realtime-large-chart">
+            <VChart
+              v-if="realtimeHistoryChart"
+              class="realtime-history-chart"
+              :option="realtimeHistoryChart.option"
+              autoresize
+            />
+            <div v-else class="realtime-history-chart realtime-history-status" role="status">
+              <span v-if="realtimeHistory.loading">正在加载走势…</span>
+              <template v-else-if="realtimeHistory.failed">
+                <span>走势加载失败</span>
+                <button type="button" @click="selectRealtimeChartPeriod(realtimeChartPeriod)">重试</button>
+              </template>
+              <span v-else>暂无该周期的走势数据</span>
             </div>
           </div>
         </div>
@@ -1045,6 +1078,8 @@
   import { invalidateAuthSession } from '@/services/authSession'
   import { callCloudFunction, throwIfAuthExpired } from '@/services/cloudFunction'
   import * as echarts from 'echarts'
+  import VChart from 'vue-echarts'
+  import { prepareStrategySeries, type StrategySeries } from '@/utils/strategyMetrics'
   import { useUserStore } from '@/store/user'
   import StrategyMenuIcon from '@/components/StrategyMenuIcon.vue'
   import AllWeatherMenuIcon from '@/components/AllWeatherMenuIcon.vue'
@@ -1112,6 +1147,7 @@
       nav: number
       amount: number
       baseAmount?: number
+      realtimeIndexValue?: number
       dailyReturn: number
       monthReturn: number
       yearReturn: number
@@ -1582,6 +1618,22 @@
   const displayStrategyRealtimeNavs = computed(() => strategyRealtimeNavs.value)
 
   const selectedRealtimeNav = ref<StrategyRealtimeNav | null>(null)
+  const realtimeChartPeriods = { day: '当日', month: '本月', year: '今年' } as const
+  type RealtimeChartPeriod = keyof typeof realtimeChartPeriods
+  const realtimeChartPeriod = ref<RealtimeChartPeriod>('day')
+  const realtimeHistory = ref<{ series: StrategySeries | null; loading: boolean; failed: boolean }>({
+      series: null,
+      loading: false,
+      failed: false
+  })
+  const realtimeHistoryFunctions = {
+      'all-weather': { name: 'getAllWeatherData', data: { action: 'get' } },
+      convertible: { name: 'getBondStrategyData', parse: true },
+      'high-dividend': { name: 'getHighDividendStrategyData', data: { action: 'get' } },
+      rights: { name: 'getRightsStrategySeries', data: { action: 'get' } },
+      momentum: { name: 'getMomentumStrategyData', data: { action: 'get' } },
+      microcap: { name: 'getMicroCapStrategyData', data: { action: 'get' } }
+  }
   const realtimeDetailRoutes: Record<string, string> = {
       'all-weather': '/strategies/all-weather',
       convertible: '/strategies/bonds',
@@ -1631,8 +1683,88 @@
       return 'neutral'
   }
 
+  const selectRealtimeChartPeriod = async (period: RealtimeChartPeriod) => {
+      realtimeChartPeriod.value = period
+      realtimeChartHover.value = null
+      const item = selectedRealtimeNav.value
+      const history = realtimeHistory.value
+      if (period === 'day' || !item || history.series || history.loading) return
+
+      history.loading = true
+      history.failed = false
+      try {
+          const request = realtimeHistoryFunctions[item.id as keyof typeof realtimeHistoryFunctions]
+          const { result } = await callCloudFunction(request)
+          if (!result?.success) throw new Error(result?.message || '策略历史走势读取失败')
+          const { dateList, strategyData } = result.data || {}
+          history.series = prepareStrategySeries(
+              Array.isArray(dateList) ? dateList : [],
+              Array.isArray(strategyData) ? strategyData : []
+          )
+      } catch (error) {
+          history.failed = true
+          console.warn('策略历史走势读取失败:', error)
+      } finally {
+          history.loading = false
+      }
+  }
+
+  const realtimeHistoryChart = computed(() => {
+      const item = selectedRealtimeNav.value
+      const series = realtimeHistory.value.series
+      if (!item || !series || realtimeChartPeriod.value === 'day') return null
+
+      const { dateKey } = getShanghaiTimeParts()
+      const prefix = dateKey.slice(0, realtimeChartPeriod.value === 'month' ? 7 : 4)
+      const dates = [...series.dates]
+      const values = [...series.values]
+      const realtimeValue = item.realtimeIndexValue ?? NaN
+      if (item.updatedDate && item.updatedDate <= dateKey && item.updatedDate > (dates[dates.length - 1] || '') &&
+          Number.isFinite(realtimeValue) && realtimeValue > 0) {
+          dates.push(item.updatedDate)
+          values.push(realtimeValue)
+      }
+
+      const first = dates.findIndex(date => date.startsWith(prefix) && date <= dateKey)
+      if (first < 0) return null
+      const afterLast = dates.findIndex(date => date > dateKey)
+      const end = afterLast < 0 ? dates.length : afterLast
+      const start = Math.max(0, first - 1)
+      const base = values[start]
+      const chartDates = dates.slice(start, end)
+      const option: echarts.EChartsOption = {
+          color: [item.accent],
+          grid: { top: 14, right: 14, bottom: 10, left: 8, containLabel: true },
+          tooltip: {
+              trigger: 'axis',
+              valueFormatter: value => formatRealtimePercent(Number(value))
+          },
+          xAxis: {
+              type: 'category',
+              data: chartDates,
+              axisLabel: { color: '#94a3b8', hideOverlap: true, formatter: (date: string) => date.slice(5) }
+          },
+          yAxis: {
+              type: 'value',
+              axisLabel: { color: '#94a3b8', formatter: '{value}%' },
+              splitLine: { lineStyle: { color: 'rgba(255, 255, 255, 0.10)' } }
+          },
+          series: [{
+              name: '累计涨幅',
+              type: 'line',
+              data: values.slice(start, end).map(value => Number(((value / base - 1) * 100).toFixed(4))),
+              showSymbol: chartDates.length <= 2,
+              areaStyle: { opacity: 0.14 }
+          }]
+      }
+      const range = first === end - 1 ? dates[first] : `${dates[first]} – ${dates[end - 1]}`
+      return { option, range }
+  })
+
   const openRealtimeChartModal = (item: StrategyRealtimeNav) => {
       if (!item.isLoaded) return
+      realtimeChartPeriod.value = 'day'
+      realtimeHistory.value = { series: null, loading: false, failed: false }
       selectedRealtimeNav.value = item
       realtimeChartHover.value = null
   }
@@ -2049,6 +2181,7 @@
               yearReturn: Number.isFinite(yearReturn) ? yearReturn : allWeatherItem.yearReturn,
               updatedAt: payloadUpdatedMinute || allWeatherItem.updatedAt,
               updatedDate: getRealtimePayloadDate(payload) || allWeatherItem.updatedDate,
+              realtimeIndexValue: Number(payload.strategyIndexValue ?? payload.strategyValue),
               updatedMinute: payloadUpdatedMinute || allWeatherItem.updatedMinute,
               trend: hasIntradayPayload ? intradayAmounts : allWeatherItem.trend,
               intraday: hasIntradayPayload ? intradayAmounts : allWeatherItem.intraday,
@@ -2122,6 +2255,7 @@
               yearReturn: Number.isFinite(yearReturn) ? yearReturn : bondItem.yearReturn,
               updatedAt: normalizeRealtimeDisplayMinute(payload.updatedAt || payload.updatedMinute) || bondItem.updatedAt,
               updatedDate: getRealtimePayloadDate(payload) || bondItem.updatedDate,
+              realtimeIndexValue: Number(payload.strategyIndexValue ?? payload.strategyValue),
               updatedMinute: normalizeRealtimeDisplayMinute(payload.updatedAt || payload.updatedMinute) || bondItem.updatedMinute,
               trend: intradayAmounts.length >= 2 ? intradayAmounts : bondItem.trend,
               intraday: intradayAmounts.length >= 2 ? intradayAmounts : bondItem.intraday,
@@ -2180,6 +2314,7 @@
               yearReturn: Number.isFinite(yearReturn) ? yearReturn : rightsItem.yearReturn,
               updatedAt: normalizeRealtimeDisplayMinute(payload.updatedAt || payload.updatedMinute) || rightsItem.updatedAt,
               updatedDate: getRealtimePayloadDate(payload) || rightsItem.updatedDate,
+              realtimeIndexValue: Number(payload.strategyIndexValue ?? payload.strategyValue),
               updatedMinute: normalizeRealtimeDisplayMinute(payload.updatedAt || payload.updatedMinute) || rightsItem.updatedMinute,
               trend: intradayAmounts.length >= 2 ? intradayAmounts : rightsItem.trend,
               intraday: intradayAmounts.length >= 2 ? intradayAmounts : rightsItem.intraday,
@@ -2236,6 +2371,7 @@
               yearReturn: Number.isFinite(yearReturn) ? yearReturn : momentumItem.yearReturn,
               updatedAt: normalizeRealtimeDisplayMinute(payload.updatedAt || payload.updatedMinute) || momentumItem.updatedAt,
               updatedDate: getRealtimePayloadDate(payload) || momentumItem.updatedDate,
+              realtimeIndexValue: Number(payload.strategyIndexValue ?? payload.strategyValue),
               updatedMinute: normalizeRealtimeDisplayMinute(payload.updatedAt || payload.updatedMinute) || momentumItem.updatedMinute,
               trend: intradayAmounts,
               intraday: intradayAmounts,
@@ -2301,6 +2437,7 @@
                   ? '纪律空仓'
                   : normalizeRealtimeDisplayMinute(payload.updatedAt || payload.updatedMinute) || microCapItem.updatedAt,
               updatedDate: getRealtimePayloadDate(payload) || microCapItem.updatedDate,
+              realtimeIndexValue: Number(payload.strategyIndexValue ?? payload.strategyValue),
               updatedMinute: normalizeRealtimeDisplayMinute(payload.updatedAt || payload.updatedMinute) || microCapItem.updatedMinute,
               trend: showDisciplineCash ? [] : intradayAmounts.length >= 2 ? intradayAmounts : microCapItem.trend,
               intraday: showDisciplineCash ? [] : intradayAmounts.length >= 2 ? intradayAmounts : microCapItem.intraday,
@@ -2362,6 +2499,7 @@
               yearReturn: Number.isFinite(yearReturn) ? yearReturn : highDividendItem.yearReturn,
               updatedAt: normalizeRealtimeDisplayMinute(payload.updatedMinute || payload.updatedAt) || highDividendItem.updatedAt,
               updatedDate: getRealtimePayloadDate(payload) || highDividendItem.updatedDate,
+              realtimeIndexValue: Number(payload.strategyIndexValue ?? payload.strategyValue),
               updatedMinute: normalizeRealtimeDisplayMinute(payload.updatedMinute || payload.updatedAt) || highDividendItem.updatedMinute,
               trend: intradayAmounts.length >= 2 ? intradayAmounts : highDividendItem.trend,
               intraday: intradayAmounts.length >= 2 ? intradayAmounts : highDividendItem.intraday,
@@ -3451,9 +3589,9 @@
       {
           key: 'micro_cap',
           label: '微盘股策略',
-          trigger: '微盘股数据更新完成后通知。',
+          trigger: '交易日 14:20 检查排名，数据更新完成后通知。',
           content: '提醒数据已更新，并附带更新时间。',
-          example: '微盘股数据已更新，请及时查看最新持仓。更新时间：2026-06-15 09:30:08。'
+          example: '微盘股数据已更新，请及时查看最新持仓。更新时间：2026-06-15 14:20:08。'
         },
       {
           key: 'lof_premium',
@@ -3465,7 +3603,7 @@
       {
           key: 'nasdaq_rotation',
           label: '纳指溢价轮动',
-          trigger: '交易时段检查，参考 ETF 溢价率比最低溢价 ETF 高出超过 0.5 个百分点且实际切换时推送；初始化不通知。',
+          trigger: '交易时段检查，当前参考持仓与最低溢价 ETF 的溢价率差超过 1 个百分点并发生参考切换时推送。初始化不推送。',
           content: '调出、调入 ETF 代码、溢价率差及参考更新时间；属于策略参考，非实际成交。',
           example: '参考持仓：513870 → 159941；溢价率差：0.60 个百分点。'
       }
@@ -5712,6 +5850,111 @@
       text-shadow: 0 0 10px rgb(251 191 36 / 28%);
   }
 
+  .realtime-chart-toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.5rem;
+      margin-bottom: 0.55rem;
+  }
+
+  .realtime-chart-period-title {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: baseline;
+      gap: 0.45rem;
+      color: #f8fafc;
+  }
+
+  .realtime-chart-period-title small {
+      color: #94a3b8;
+  }
+
+  .realtime-chart-periods {
+      position: relative;
+      isolation: isolate;
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      padding: 3px;
+      border: 1px solid rgb(255 255 255 / 9%);
+      border-radius: 8px;
+      background: rgb(0 0 0 / 18%);
+  }
+
+  .realtime-chart-periods::before {
+      position: absolute;
+      z-index: -1;
+      inset: 3px auto 3px 3px;
+      box-sizing: border-box;
+      width: calc((100% - 6px) / 3);
+      border: 1px solid color-mix(in srgb, var(--accent-color) 42%, transparent);
+      border-radius: 6px;
+      background: color-mix(in srgb, var(--accent-color) 12%, transparent);
+      box-shadow: inset 0 0 14px color-mix(in srgb, var(--accent-color) 8%, transparent);
+      pointer-events: none;
+      content: '';
+      transition: transform 200ms ease-out;
+  }
+
+  .realtime-chart-periods[data-period='month']::before {
+      transform: translateX(100%);
+  }
+
+  .realtime-chart-periods[data-period='year']::before {
+      transform: translateX(200%);
+  }
+
+  .realtime-chart-periods button,
+  .realtime-history-status button {
+      padding: 0.4rem 0.65rem;
+      color: #cbd5e1;
+      font: inherit;
+      white-space: nowrap;
+      border: 0;
+      border-radius: 5px;
+      background: transparent;
+      cursor: pointer;
+  }
+
+  .realtime-chart-periods button {
+      min-width: 3.25rem;
+      color: #9fb0c2;
+      font-size: 0.8125rem;
+      font-weight: 600;
+      transition: color 180ms ease, background-color 180ms ease;
+  }
+
+  .realtime-chart-periods button:hover:not([aria-pressed='true']),
+  .realtime-history-status button:hover {
+      background: rgb(255 255 255 / 8%);
+  }
+
+  .realtime-chart-periods button[aria-pressed='true'] {
+      color: color-mix(in srgb, var(--accent-color) 26%, white);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+      .realtime-chart-periods::before,
+      .realtime-chart-periods button {
+          transition: none;
+      }
+  }
+
+  .realtime-history-status {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      color: #94a3b8;
+      cursor: default;
+  }
+
+  .realtime-history-status button {
+      color: #f8fafc;
+      background: rgb(255 255 255 / 6%);
+  }
+
   .realtime-large-chart {
       position: relative;
       padding: 1rem 1rem 0.75rem;
@@ -5721,6 +5964,11 @@
       border: 1px solid rgb(255 255 255 / 10%);
       border-radius: 8px;
       cursor: crosshair;
+  }
+
+  .realtime-history-chart {
+      width: 100%;
+      height: 320px;
   }
 
   .realtime-large-chart svg {
@@ -7567,7 +7815,8 @@
           padding: 0.75rem 0.75rem 0.6rem;
       }
 
-      .realtime-large-chart svg {
+      .realtime-large-chart svg,
+      .realtime-history-chart {
           height: 230px;
       }
 

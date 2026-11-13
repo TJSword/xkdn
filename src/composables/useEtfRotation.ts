@@ -4,7 +4,7 @@ import { callCloudFunction } from '@/services/cloudFunction'
 
 export function useEtfRotation() {
     const userStore = useUserStore()
-    const settings = ref({ holding: '', threshold: 0.5, version: 0, previousHolding: '', switchedAt: 0, enabled: true, dismissed: false })
+    const settings = ref({ holding: '', threshold: 1, version: 0, previousHolding: '', switchedAt: 0, enabled: true, dismissed: false })
     const storageError = ref('')
     const ready = ref(false)
     let key = ''
@@ -31,7 +31,7 @@ export function useEtfRotation() {
     watch(() => userStore.userInfo?.uid, uid => {
         generation++
         key = uid ? `etf-rotation-alert:v2:${uid}` : ''
-        settings.value = { holding: '', threshold: 0.5, version: 0, previousHolding: '', switchedAt: 0, enabled: true, dismissed: false }
+        settings.value = { holding: '', threshold: 1, version: 0, previousHolding: '', switchedAt: 0, enabled: true, dismissed: false }
         ready.value = false
         if (key) { readPreference(); reload() }
     }, { immediate: true })

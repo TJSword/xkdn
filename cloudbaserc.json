@@ -281,12 +281,12 @@
       "handler": "index.main",
       "timeout": 60,
       "memorySize": 512,
-      "description": "微盘股日频 Top10 策略工作日 09:30 按腾讯总市值排序果仁候选、检查持有缓冲和权重阈值",
+      "description": "微盘股日频 Top10 策略工作日 14:20 按腾讯总市值排序果仁候选、检查持有缓冲和权重阈值",
       "triggers": [
         {
-          "name": "refreshMicroCapStrategyWeekday0930",
+          "name": "refreshMicroCapStrategyWeekday1420",
           "type": "timer",
-          "config": "0 30 9 * * MON-FRI *"
+          "config": "0 20 14 * * MON-FRI *"
         }
       ]
     },
@@ -848,7 +848,7 @@
       "handler": "index.main",
       "timeout": 30,
       "memorySize": 256,
-      "description": "果仁微盘指令数据抓取、解密与入库；交易日 08:00 定时更新，成功后推送企业微信持仓通知，失败时 Bark 告警",
+      "description": "果仁微盘10每日选股抓取、解密与入库；交易日 08:00 更新上一实际交易日筛选结果，仅保留总市值升序前100名，成功后推送企业微信前10名候选，失败时推送企微告警并保留定时任务 Bark 告警",
       "triggers": [
         {
           "name": "refreshGuorenMicrocapWeekday0800",

@@ -500,7 +500,7 @@
             <span class="data-drawer-chevron" aria-hidden="true"></span>
             <span class="data-drawer-heading">
               <span class="card-title">果仁微盘10策略信号</span>
-              <span class="card-description">每个交易日 8:00 获取前一交易日的果仁微盘10策略信号；也可点击右侧按钮手动更新。</span>
+              <span class="card-description">每个交易日 8:00 获取上一个实际交易日的果仁筛选结果，仅保留总市值升序前100名。</span>
             </span>
           </button>
           <button
@@ -515,23 +515,33 @@
         <div v-show="isSignalDrawerOpen" id="guoren-signal-drawer" class="data-drawer-body">
           <div v-if="isLoadingCollectedData" class="no-data">正在加载已采集数据...</div>
           <template v-else-if="collectedData">
-            <p class="form-help collected-data-time">更新时间：{{ formatDateTime(collectedData.updatedAt) }}</p>
-            <div class="table-wrapper">
-              <table class="portfolio-table collected-data-table">
+            <p class="form-help collected-data-time">
+              候选数量：{{ collectedData.data.length }} · 数据日期：{{ collectedData.tradeDate || '--' }} · 更新时间：{{ formatDateTime(collectedData.updatedAt) }}
+            </p>
+            <div class="table-wrapper candidate-table-wrapper">
+              <table class="portfolio-table collected-data-table candidate-data-table">
                 <thead>
                   <tr>
+                    <th>排名</th>
                     <th>股票名称</th>
                     <th>股票代码</th>
                     <th class="industry-cell">行业</th>
-                    <th>信号</th>
+                    <th>收盘价</th>
+                    <th>当日成交量（万）</th>
+                    <th>20日换手率</th>
+                    <th>总市值（亿元）</th>
                   </tr>
                 </thead>
                 <tbody>
-                  <tr v-for="(row, index) in collectedData.data" :key="`${row.stockCode}-${index}`">
+                  <tr v-for="row in collectedData.data" :key="`${row.stockCode}-${row.rank}`">
+                    <td>{{ row.rank }}</td>
                     <td>{{ row.stockName }}</td>
                     <td>{{ row.stockCode }}</td>
-                    <td class="industry-cell">{{ row.industry }}</td>
-                    <td>{{ row.signal }}</td>
+                    <td class="industry-cell">{{ row.industry || '--' }}</td>
+                    <td>{{ formatCandidateClosePrice(row.closePrice) }}</td>
+                    <td>{{ row.volume == null ? '--' : formatCandidateVolume(row.volume) }}</td>
+                    <td>{{ formatCandidateTurnover(row.turnover20) }}</td>
+                    <td>{{ formatCandidateMarketCap(row.marketCap) }}</td>
                   </tr>
                 </tbody>
               </table>
@@ -718,18 +728,6 @@ import type { LiveStrategy } from '@/services/liveAccount'
   type RefreshTaskKey = 'lof' | 'rights' | 'micro_cap' | 'high_dividend' | 'bond_market'
   type CookieSource = 'xueqiu' | 'jisilu' | 'guoren' | 'tonghuashun'
 
-  interface CollectedDataRow {
-      stockName: string
-      stockCode: string
-      industry: string
-      signal: string | null
-  }
-
-  interface CollectedData {
-      data: CollectedDataRow[]
-      updatedAt: string
-  }
-
   interface GuorenCandidateRow {
       rank: number
       stockName: string
@@ -853,7 +851,7 @@ async function saveDescription() {
           key: 'micro_cap',
           label: '微盘股策略',
           tagLabel: '微盘股',
-          trigger: '微盘股数据更新完成后通知。',
+          trigger: '交易日 14:20 检查排名，数据更新完成后通知。',
           content: '提醒数据已更新，并附带更新时间。',
           example: '微盘股数据已更新，请及时查看最新持仓。'
       },
@@ -869,7 +867,7 @@ async function saveDescription() {
           key: 'nasdaq_rotation',
           label: '纳指溢价轮动',
           tagLabel: '纳指轮动',
-          trigger: '交易时段检查，参考 ETF 溢价率比最低溢价 ETF 高出超过 0.5 个百分点且实际切换时推送；初始化不通知。',
+          trigger: '交易时段检查，当前参考持仓与最低溢价 ETF 的溢价率差超过 1 个百分点并发生参考切换时推送。初始化不推送。',
           content: '调出、调入 ETF 代码、溢价率差及参考更新时间；属于策略参考，非实际成交。',
           example: '参考持仓：513870 → 159941；溢价率差：0.60 个百分点。'
       }
@@ -953,7 +951,7 @@ async function saveDescription() {
   const isCheckingTonghuashunCookie = ref(false)
   const lastTonghuashunCookieCheck = ref('')
   const expandedCookieSource = ref<CookieSource | null>(null)
-  const collectedData = ref<CollectedData | null>(null)
+  const collectedData = ref<GuorenCandidateData | null>(null)
   const isLoadingCollectedData = ref(false)
   const isRefreshingGuorenMicrocap = ref(false)
   const isSignalDrawerOpen = ref(false)
@@ -1122,12 +1120,12 @@ async function saveDescription() {
               data: { action: 'refreshGuorenMicrocap' }
           })
           const result = response.result || {}
-          if (result.ok !== true) throw new Error(result.message || '获取最新果仁微盘持仓失败')
+          if (result.ok !== true) throw new Error(result.message || '获取最新果仁微盘10选股失败')
 
           await fetchCollectedData()
-          showMessage(`已获取最新果仁微盘持仓，共 ${result.rowCount} 条`, 'success')
+          showMessage(`已获取最新果仁微盘10选股，共 ${result.rowCount} 条`, 'success')
       } catch (error: any) {
-          showMessage(error.message || '获取最新果仁微盘持仓失败', 'error')
+          showMessage(error.message || '获取最新果仁微盘10选股失败', 'error')
       } finally {
           isRefreshingGuorenMicrocap.value = false
       }
